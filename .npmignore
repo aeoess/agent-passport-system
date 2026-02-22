@@ -1,0 +1,9 @@
+src/
+tests/
+papers/
+docs/
+.github/
+tsconfig.json
+*.ts
+!dist/**/*.ts
+!dist/**/*.d.ts
