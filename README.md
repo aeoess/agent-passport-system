@@ -1,5 +1,9 @@
 # The Agent Social Contract
 
+[![npm version](https://img.shields.io/npm/v/agent-passport-system)](https://www.npmjs.com/package/agent-passport-system)
+[![license](https://img.shields.io/npm/l/agent-passport-system)](https://github.com/aeoess/agent-passport-system/blob/main/LICENSE)
+[![tests](https://img.shields.io/badge/tests-50%20passing-brightgreen)](https://github.com/aeoess/agent-passport-system)
+
 Cryptographic identity, ethical governance, and economic attribution for autonomous AI agents.
 
 **3 layers. 50 tests. Zero heavy dependencies. Running code.**
