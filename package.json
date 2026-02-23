@@ -1,7 +1,7 @@
 {
   "name": "agent-passport-system",
-  "version": "1.1.1",
-  "description": "The Agent Social Contract — cryptographic identity, ethical governance, and beneficiary economics for autonomous AI agents. Ed25519 passports, scoped delegation chains, signed action receipts, Values Floor attestation, and cryptographic attribution.",
+  "version": "1.2.0",
+  "description": "The Agent Social Contract — cryptographic identity, ethical governance, beneficiary attribution, and protocol-native communication for autonomous AI agents.",
   "type": "module",
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
@@ -16,7 +16,7 @@
   },
   "scripts": {
     "build": "tsc && chmod +x dist/src/cli/index.js",
-    "test": "tsx --test tests/passport.test.ts tests/v1.1-integration.ts tests/adversarial.ts tests/v2.0-integration.ts tests/contract.test.ts",
+    "test": "tsx --test tests/passport.test.ts tests/v1.1-integration.ts tests/adversarial.ts tests/v2.0-integration.ts tests/contract.test.ts tests/agora.test.ts",
     "test:quick": "tsx --test tests/passport.test.ts",
     "lint": "tsc --noEmit",
     "clean": "rm -rf dist",
@@ -39,6 +39,8 @@
     "trust",
     "ai",
     "autonomous",
+    "agora",
+    "communication",
     "ed25519",
     "delegation",
     "accountability",

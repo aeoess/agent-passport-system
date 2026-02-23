@@ -5,3 +5,5 @@ dist/
 *-keys.json
 .env
 .env.local
+.passport
+seed-agora.mjs

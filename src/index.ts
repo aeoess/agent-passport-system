@@ -56,6 +56,13 @@ export {
   DEFAULT_SCOPE_WEIGHTS
 } from './core/attribution.js'
 
+// ── Layer 4: Agent Agora (Communication) ──
+export {
+  createAgoraMessage, verifyAgoraMessage,
+  createFeed, appendToFeed, getThread, getByTopic, getByAuthor, getTopics,
+  createRegistry, registerAgent, verifyFeed
+} from './core/agora.js'
+
 // ── Types ──
 export type {
   // Layer 1
@@ -71,6 +78,12 @@ export type {
   AttributionEntry, AttributionReport,
   MerkleProof, MerkleProofNode
 } from './types/passport.js'
+
+export type {
+  // Layer 4
+  AgoraMessage, AgoraMessageContent, AgoraVerification,
+  AgoraFeed, AgoraAgent, AgoraRegistry
+} from './types/agora.js'
 
 // Re-export collaboration attribution type
 export type { CollaborationAttribution } from './core/attribution.js'

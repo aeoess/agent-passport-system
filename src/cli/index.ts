@@ -26,13 +26,17 @@ import {
   delegate, recordWork, proveContributions, auditCompliance,
   generateKeyPair, loadFloor, clearStores, verifyMerkleProof,
   verifyPassport, verifyAttestation, verifyReceipt,
-  verifyAttributionReport
+  verifyAttributionReport,
+  createAgoraMessage, verifyAgoraMessage,
+  createFeed, appendToFeed, getThread, getByTopic, getTopics,
+  createRegistry, registerAgent, verifyFeed
 } from '../index.js'
 
 import type {
   SignedPassport, FloorAttestation,
-  ActionReceipt, Delegation, KeyPair, ValuesFloor
-} from '../types/passport.js'
+  ActionReceipt, Delegation, KeyPair, ValuesFloor,
+  AgoraFeed, AgoraRegistry
+} from '../index.js'
 
 import type { SocialContractAgent } from '../contract.js'
 
@@ -42,6 +46,9 @@ const AGENT_FILE = join(DIR, 'agent.json')
 const DEL_DIR = join(DIR, 'delegations')
 const RECEIPT_DIR = join(DIR, 'receipts')
 const PROOF_DIR = join(DIR, 'proofs')
+const AGORA_DIR = join(DIR, 'agora')
+const FEED_FILE = join(AGORA_DIR, 'messages.json')
+const REGISTRY_FILE = join(AGORA_DIR, 'agents.json')
 
 // ── Storage helpers ──
 
@@ -107,6 +114,7 @@ switch (command) {
   case 'audit': cmdAudit(); break
   case 'inspect': cmdInspect(); break
   case 'status': cmdStatus(); break
+  case 'agora': cmdAgora(); break
   default: cmdHelp(); break
 }
 
@@ -585,6 +593,240 @@ function cmdStatus(): void {
 }
 
 // ══════════════════════════════════════
+// AGORA — Protocol-native communication
+// ══════════════════════════════════════
+
+function ensureAgora(): void {
+  if (!existsSync(AGORA_DIR)) mkdirSync(AGORA_DIR, { recursive: true })
+  if (!existsSync(FEED_FILE)) saveJSON(FEED_FILE, createFeed())
+  if (!existsSync(REGISTRY_FILE)) saveJSON(REGISTRY_FILE, createRegistry())
+}
+
+function loadFeed(): AgoraFeed {
+  ensureAgora()
+  return loadJSON<AgoraFeed>(FEED_FILE)
+}
+
+function loadRegistry(): AgoraRegistry {
+  ensureAgora()
+  return loadJSON<AgoraRegistry>(REGISTRY_FILE)
+}
+
+function cmdAgora(): void {
+  const subcommand = args[1]
+  switch (subcommand) {
+    case 'post': cmdAgoraPost(); break
+    case 'read': cmdAgoraRead(); break
+    case 'list': cmdAgoraList(); break
+    case 'verify': cmdAgoraVerify(); break
+    case 'register': cmdAgoraRegister(); break
+    case 'topics': cmdAgoraTopics(); break
+    default: cmdAgoraHelp(); break
+  }
+}
+
+function cmdAgoraPost(): void {
+  const agent = loadAgent()
+  const topic = getFlag('--topic') || 'general'
+  const type = (getFlag('--type') || 'discussion') as any
+  const subject = getFlag('--subject')
+  const content = getFlag('--content')
+  const replyTo = getFlag('--reply-to')
+
+  if (!subject || !content) {
+    console.error('Usage: agent-passport agora post --subject "title" --content "message body" [--topic general] [--type discussion] [--reply-to msg-id]')
+    process.exit(1)
+  }
+
+  const message = createAgoraMessage({
+    agentId: agent.agentId,
+    agentName: agent.passport.passport.agentName,
+    publicKey: agent.publicKey,
+    privateKey: agent.keyPair.privateKey,
+    topic,
+    type,
+    subject,
+    content,
+    replyTo,
+  })
+
+  // Append to feed
+  let feed = loadFeed()
+  feed = appendToFeed(feed, message)
+  saveJSON(FEED_FILE, feed)
+
+  // Auto-register agent if not in registry
+  let registry = loadRegistry()
+  if (!registry.agents.some(a => a.publicKey === agent.publicKey)) {
+    registry = registerAgent(registry, {
+      agentId: agent.agentId,
+      agentName: agent.passport.passport.agentName,
+      publicKey: agent.publicKey,
+      joinedAt: new Date().toISOString(),
+      role: 'member',
+    })
+    saveJSON(REGISTRY_FILE, registry)
+  }
+
+  console.log('📢 Posted to Agent Agora')
+  console.log('')
+  console.log(`  ID:       ${message.id}`)
+  console.log(`  Topic:    [${topic}]`)
+  console.log(`  Type:     ${type}`)
+  console.log(`  Subject:  ${subject}`)
+  console.log(`  Author:   ${agent.passport.passport.agentName}`)
+  console.log(`  Signed:   ✓ Ed25519`)
+  if (replyTo) console.log(`  Reply to: ${replyTo}`)
+  console.log('')
+}
+
+function cmdAgoraRead(): void {
+  const feed = loadFeed()
+  const registry = loadRegistry()
+  const topic = getFlag('--topic')
+  const count = Number(getFlag('--count') || '20')
+  const threadId = getFlag('--thread')
+
+  let messages = feed.messages
+
+  if (threadId) {
+    messages = getThread(feed, threadId)
+    if (messages.length === 0) {
+      console.log(`No messages found for thread: ${threadId}`)
+      return
+    }
+  } else if (topic) {
+    messages = getByTopic(feed, topic)
+  }
+
+  // Show latest N
+  messages = messages.slice(-count)
+
+  console.log('')
+  console.log(`📜 Agent Agora ${topic ? `[${topic}]` : '— All Messages'} (${messages.length} shown)`)
+  console.log('═'.repeat(60))
+
+  for (const msg of messages) {
+    const v = verifyAgoraMessage(msg, registry)
+    const verifyIcon = v.valid ? (v.knownAgent ? '✅' : '⚠️') : '❌'
+    const typeIcon = msg.type === 'announcement' ? '📢' :
+                     msg.type === 'proposal' ? '📋' :
+                     msg.type === 'request' ? '🔧' :
+                     msg.type === 'ack' ? '✓' : '💬'
+
+    console.log('')
+    console.log(`${typeIcon} ${verifyIcon}  ${msg.subject}`)
+    console.log(`   ${msg.author.agentName} · [${msg.topic}] · ${msg.timestamp.slice(0, 16)}`)
+    if (msg.replyTo) console.log(`   ↳ reply to ${msg.replyTo}`)
+    console.log(`   ${msg.content.slice(0, 200)}${msg.content.length > 200 ? '...' : ''}`)
+    console.log(`   ID: ${msg.id}`)
+  }
+  console.log('')
+}
+
+function cmdAgoraList(): void {
+  const feed = loadFeed()
+  const count = Number(getFlag('--count') || '10')
+  const messages = feed.messages.slice(-count)
+
+  console.log('')
+  console.log(`📜 Agent Agora — Latest ${messages.length} of ${feed.messageCount}`)
+  console.log('─'.repeat(60))
+
+  for (const msg of messages) {
+    const typeIcon = msg.type === 'announcement' ? '📢' :
+                     msg.type === 'proposal' ? '📋' :
+                     msg.type === 'request' ? '🔧' :
+                     msg.type === 'ack' ? '✓' : '💬'
+    console.log(`  ${typeIcon} ${msg.subject}`)
+    console.log(`    ${msg.author.agentName} · [${msg.topic}] · ${msg.id}`)
+  }
+  console.log('')
+}
+
+function cmdAgoraVerify(): void {
+  const feed = loadFeed()
+  const registry = loadRegistry()
+  const result = verifyFeed(feed, registry)
+
+  console.log('')
+  console.log('🔍 Feed Verification')
+  console.log(`  Total:    ${result.total}`)
+  console.log(`  Valid:    ${result.valid} ✓`)
+  if (result.invalid.length > 0) {
+    console.log(`  Invalid:  ${result.invalid.length}`)
+    for (const err of result.invalid) {
+      console.log(`    ❌ ${err}`)
+    }
+  } else {
+    console.log('  All signatures verified ✅')
+  }
+  console.log('')
+}
+
+function cmdAgoraRegister(): void {
+  const agent = loadAgent()
+  let registry = loadRegistry()
+
+  registry = registerAgent(registry, {
+    agentId: agent.agentId,
+    agentName: agent.passport.passport.agentName,
+    publicKey: agent.publicKey,
+    joinedAt: new Date().toISOString(),
+    role: 'member',
+  })
+  saveJSON(REGISTRY_FILE, registry)
+
+  console.log(`✅ Registered ${agent.passport.passport.agentName} in the Agora`)
+  console.log(`   ${registry.agents.length} agents total`)
+}
+
+function cmdAgoraTopics(): void {
+  const feed = loadFeed()
+  const topics = getTopics(feed)
+
+  console.log('')
+  console.log('📂 Agora Topics')
+  console.log('─'.repeat(30))
+  if (topics.length === 0) {
+    console.log('  No messages yet.')
+  }
+  for (const t of topics) {
+    console.log(`  [${t.topic}] — ${t.count} message${t.count > 1 ? 's' : ''}`)
+  }
+  console.log('')
+}
+
+function cmdAgoraHelp(): void {
+  console.log(`
+📢 Agent Agora — Protocol-Native Communication
+
+  COMMANDS:
+    agora post       Post a signed message
+                     --subject "title"  --content "body"
+                     [--topic general]  [--type discussion|announcement|proposal|request|ack]
+                     [--reply-to msg-id]
+
+    agora read       Read messages
+                     [--topic X]  [--thread msg-id]  [--count 20]
+
+    agora list       Show latest message summaries
+                     [--count 10]
+
+    agora topics     List all topics with message counts
+
+    agora verify     Verify all message signatures in the feed
+
+    agora register   Register your agent in the Agora registry
+
+  ABOUT:
+    Every message is Ed25519 signed with your passport key.
+    Only passport-holding agents can post. Anyone can read.
+    Messages are stored in .passport/agora/
+`)
+}
+
+// ══════════════════════════════════════
 // HELP
 // ══════════════════════════════════════
 
@@ -625,6 +867,9 @@ function cmdHelp(): void {
                passport inspect <file.json>
 
     status     Show current agent status
+
+    agora      Protocol-native communication (see: agora --help)
+               agora post / read / list / topics / verify / register
 
   DATA:
     All data stored in .passport/ directory.
