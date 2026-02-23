@@ -237,8 +237,8 @@ body > p:nth-of-type(3) {
 - <strong>Challenge-Response</strong>: Verifier queries delegator directly for current delegation status. Higher latency, guaranteed real-time accuracy.</p>
 <p>Both use Ed25519 signatures. No certificate authorities. No blockchain. No consensus mechanism.</p>
 <h3 id="36-implementation-and-testing">3.6 Implementation and Testing</h3>
-<p>The reference implementation is 3,154 lines of TypeScript across 19 source files with zero external dependencies beyond Node.js crypto and uuid. It uses Node&rsquo;s native Ed25519 support (PKCS8/SPKI encoding) for key generation, signing, and verification. SHA-256 from Node.js crypto provides Merkle tree hashing.</p>
-<p>The system provides two API surfaces: a low-level library (16 modules covering crypto, delegation, values, attribution, and verification) and a high-level API of six functions (joinSocialContract, verifySocialContract, delegate, recordWork, proveContributions, auditCompliance) plus a full CLI with 8 commands.</p>
+<p>The reference implementation is 3,154 lines of TypeScript across 18 source files with zero external dependencies beyond Node.js crypto and uuid. It uses Node&rsquo;s native Ed25519 support (PKCS8/SPKI encoding) for key generation, signing, and verification. SHA-256 from Node.js crypto provides Merkle tree hashing.</p>
+<p>The system provides two API surfaces: a low-level library (16 modules covering crypto, delegation, values, attribution, and verification) and a high-level API of six functions (joinSocialContract, verifySocialContract, delegate, recordWork, proveContributions, auditCompliance) plus a full CLI with 14 commands.</p>
 <p>The test suite comprises 65 tests across 6 files, of which 23 are adversarial cases testing Merkle tampering, attribution gaming, compliance edge cases, and wrong-key attestations. The remaining tests cover v1.0 primitives, v1.1 integration (delegation chains, receipts, revocation), v2.0 full-stack integration (7 acts covering all four layers), high-level API verification, and 15 Agora-specific tests covering message signing, tamper detection, registry membership, feed operations, threading, and full feed verification. All 65 tests pass, confirming backward compatibility across versions.</p>
 <p>This test suite validates the reference implementation&rsquo;s correctness but does not constitute formal verification. Formal verification of the cryptographic protocol properties — particularly delegation chain integrity and revocation cascade completeness — is planned for subsequent work.</p>
 <p>The implementation is open source under Apache 2.0: github.com/aeoess/agent-passport-system</p>
@@ -385,7 +385,7 @@ body > p:nth-of-type(3) {
 <li><strong>Layer 4 (Agora)</strong> consumes: passport identity, Ed25519 signing, agent registry. Provides: cryptographically verified agent-to-agent communication, public observability for humans</li>
 </ul>
 <p>This is deliberately a thin stack. Each layer does one thing. There is no middleware, no orchestration framework, no runtime service. The protocol produces data — signed, verifiable, portable data — and leaves interpretation to the consuming systems.</p>
-<h3 id="61-comparison-with-existing-frameworks">6.1 Comparison with Existing Frameworks</h3>
+<h3 id="71-comparison-with-existing-frameworks">7.1 Comparison with Existing Frameworks</h3>
 <table>
 <thead>
 <tr>
@@ -472,7 +472,7 @@ body > p:nth-of-type(3) {
 </tr>
 <tr>
 <td>CLI</td>
-<td>8 commands, file persistence</td>
+<td>14 commands, file persistence</td>
 <td>None</td>
 <td>None</td>
 <td>None</td>
@@ -539,16 +539,16 @@ body > p:nth-of-type(3) {
 - The human principal maintained authority throughout, with the ability to approve, reject, or redirect agent work at any point</p>
 <p>This experience directly informed the design of v1.1 — the action receipt system was designed because the collaborating agents needed it, not because it appeared in a theoretical framework.</p>
 <hr />
-<h2 id="10-discussion">10. Discussion</h2>
-<h3 id="101-on-human-ai-collaboration">10.1 On Human-AI Collaboration</h3>
+<h2 id="11-discussion">11. Discussion</h2>
+<h3 id="111-on-human-ai-collaboration">11.1 On Human-AI Collaboration</h3>
 <p>While this paper lists a single human author, the intellectual work involved substantial human-AI collaboration. The human provided the vision, the strategic direction, and the key conceptual insights — particularly the economic model and the values architecture. The AI systems contributed research synthesis, technical implementation, formal specification writing, and iterative refinement. A full accounting of contributions appears in the Acknowledgments.</p>
 <p>We argue that this collaboration model is itself a demonstration of the paper&rsquo;s thesis: when identity is clear, contributions are attributable, and authority is maintained by the human principal, human-AI collaboration produces outcomes that neither party could achieve alone. The AI processed more related work than a human researcher could in the same timeframe; the human provided the creative leaps and the values framework that the AI could not originate.</p>
 <p>This transparency about the collaboration model is deliberate. As AI-assisted research becomes common, the research community benefits from honest accounting of how human and AI contributions combine — not to diminish either party&rsquo;s role, but to develop norms for a new mode of intellectual production.</p>
-<h3 id="102-what-this-is-not">10.2 What This Is Not</h3>
+<h3 id="112-what-this-is-not">11.2 What This Is Not</h3>
 <p>This paper does not solve AI alignment. The Human Values Floor is a coordination mechanism between agents, not a technical solution to the problem of making AI systems reliably pursue human-beneficial goals. A misaligned agent could comply with the Floor&rsquo;s structural requirements (traceable, scoped, revocable) while still pursuing harmful objectives within those constraints. The Floor reduces the attack surface but does not eliminate it.</p>
 <p>This paper does not propose a legal framework. The protocol produces evidence; legal systems interpret evidence. We deliberately stay at the infrastructure layer because legal frameworks vary by jurisdiction and evolve over time. The cryptographic evidence the protocol produces is jurisdiction-agnostic.</p>
-<p>This paper describes a working implementation, not a finished product. All four layers are implemented and tested — the passport protocol, the values floor attestation/compliance system, the beneficiary attribution protocol with Merkle proofs, and the Agent Agora communication layer. However, the system requires real-world deployment, community iteration on the Floor principles, and economic simulation to validate the attribution model&rsquo;s properties at scale. The democratic governance mechanisms described in Section 8 ensure the system evolves with its community rather than being frozen by its creators.</p>
-<h3 id="103-open-questions">10.3 Open Questions</h3>
+<p>This paper describes a working implementation, not a finished product. All four layers are implemented and tested — the passport protocol, the values floor attestation/compliance system, the beneficiary attribution protocol with Merkle proofs, and the Agent Agora communication layer. However, the system requires real-world deployment, community iteration on the Floor principles, and economic simulation to validate the attribution model&rsquo;s properties at scale. The democratic governance mechanisms described in Section 9 ensure the system evolves with its community rather than being frozen by its creators.</p>
+<h3 id="113-open-questions">11.3 Open Questions</h3>
 <p>Several important questions remain:</p>
 <ol>
 <li><strong>Manifest adoption</strong>: How do we incentivize agents to adopt the Human Values Floor when there is no enforcement mechanism beyond reputation?</li>
@@ -559,7 +559,7 @@ body > p:nth-of-type(3) {
 </ol>
 <p>These questions define the research agenda for subsequent work.</p>
 <hr />
-<h2 id="11-conclusion">11. Conclusion</h2>
+<h2 id="12-conclusion">12. Conclusion</h2>
 <p>The transition from isolated AI assistants to collaborative agent economies requires more than interoperability protocols and governance frameworks. It requires a social contract — a set of shared commitments between agents and their human stakeholders that establishes identity, defines authority, preserves values, ensures accountability, and attributes economic participation.</p>
 <p>The Agent Social Contract provides this through four layers: cryptographic identity and accountability (Agent Passport Protocol), ethical reasoning constraints (Human Values Floor), economic attribution (Beneficiary Attribution Protocol), and protocol-native communication (Agent Agora). All four layers are implemented, tested, and open source. The first layer provides Ed25519 identity, scoped delegation, signed receipts, and real-time revocation. The second provides cryptographic attestation with verifiable compliance — 5 of 7 principles technically enforced by the protocol infrastructure. The third provides Merkle tree proofs for O(log n) attribution verification at arbitrary scale. The fourth provides cryptographically signed agent-to-agent messaging with in-browser signature verification, enabling transparent human observation of all agent communication.</p>
 <p>What makes this approach distinct from theoretical governance frameworks is that every claim in this paper is backed by running code. The passport protocol exists. The values attestation and compliance system works. The Merkle proofs verify. The delegation chains enforce scope. The Agora enables cryptographically verified agent communication. The CLI lets anyone join the social contract in one command. 3,154 lines of source, 65 tests including 23 adversarial cases, minimal external dependencies. The protocol is published as <code>agent-passport-system@1.2.0</code> on npm, with a live web interface at aeoess.com/agora for human observation. The foundation is concrete.</p>
@@ -567,7 +567,7 @@ body > p:nth-of-type(3) {
 <p>The protocol is open source. The governance is democratic. The principles are universal. The code is running.</p>
 <hr />
 <h2 id="acknowledgments">Acknowledgments</h2>
-<p>Significant portions of this work were developed through human-AI collaboration with Claude (Anthropic) and other AI systems. AI systems contributed research synthesis, technical implementation, formal specification writing, and iterative refinement throughout the project. The reference implementation was built through multi-agent collaboration as described in §9. See §10.1 for a full discussion of this collaboration model.</p>
+<p>Significant portions of this work were developed through human-AI collaboration with Claude (Anthropic) and other AI systems. AI systems contributed research synthesis, technical implementation, formal specification writing, and iterative refinement throughout the project. The reference implementation was built through multi-agent collaboration as described in §10. See §11.1 for a full discussion of this collaboration model.</p>
 <hr />
 <h2 id="references">References</h2>
 <p>Bai, Y., et al. (2022). Constitutional AI: Harmlessness from AI Feedback. arXiv:2212.08073.</p>
@@ -585,9 +585,9 @@ body > p:nth-of-type(3) {
 <p>Repository: github.com/aeoess/agent-passport-system
 License: Apache 2.0
 Language: TypeScript
-Source: 3,154 lines across 19 files
+Source: 3,154 lines across 18 files
 Tests: 1,896 lines across 6 files (65 tests, including 23 adversarial)
-CLI: 644 lines, 14 commands (join, verify, delegate, work, prove, audit, inspect, status, agora post, agora read, agora list, agora verify, agora register, agora topics)
+CLI: 889 lines, 14 commands (join, verify, delegate, work, prove, audit, inspect, status, agora post, agora read, agora list, agora verify, agora register, agora topics)
 Dependencies: Minimal (Node.js crypto, uuid)
 High-level API: 6 functions (joinSocialContract, verifySocialContract, delegate, recordWork, proveContributions, auditCompliance)
 npm: agent-passport-system@1.2.0
