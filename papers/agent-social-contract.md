@@ -182,9 +182,9 @@ Both use Ed25519 signatures. No certificate authorities. No blockchain. No conse
 
 ### 3.6 Implementation and Testing
 
-The reference implementation is 3,154 lines of TypeScript across 19 source files with zero external dependencies beyond Node.js crypto and uuid. It uses Node's native Ed25519 support (PKCS8/SPKI encoding) for key generation, signing, and verification. SHA-256 from Node.js crypto provides Merkle tree hashing.
+The reference implementation is 3,154 lines of TypeScript across 18 source files with zero external dependencies beyond Node.js crypto and uuid. It uses Node's native Ed25519 support (PKCS8/SPKI encoding) for key generation, signing, and verification. SHA-256 from Node.js crypto provides Merkle tree hashing.
 
-The system provides two API surfaces: a low-level library (16 modules covering crypto, delegation, values, attribution, and verification) and a high-level API of six functions (joinSocialContract, verifySocialContract, delegate, recordWork, proveContributions, auditCompliance) plus a full CLI with 8 commands.
+The system provides two API surfaces: a low-level library (16 modules covering crypto, delegation, values, attribution, and verification) and a high-level API of six functions (joinSocialContract, verifySocialContract, delegate, recordWork, proveContributions, auditCompliance) plus a full CLI with 14 commands.
 
 The test suite comprises 65 tests across 6 files, of which 23 are adversarial cases testing Merkle tampering, attribution gaming, compliance edge cases, and wrong-key attestations. The remaining tests cover v1.0 primitives, v1.1 integration (delegation chains, receipts, revocation), v2.0 full-stack integration (7 acts covering all four layers), high-level API verification, and 15 Agora-specific tests covering message signing, tamper detection, registry membership, feed operations, threading, and full feed verification. All 65 tests pass, confirming backward compatibility across versions.
 
@@ -388,7 +388,7 @@ Each layer depends on the one below it and provides services to the one above it
 
 This is deliberately a thin stack. Each layer does one thing. There is no middleware, no orchestration framework, no runtime service. The protocol produces data — signed, verifiable, portable data — and leaves interpretation to the consuming systems.
 
-### 6.1 Comparison with Existing Frameworks
+### 7.1 Comparison with Existing Frameworks
 
 | Dimension | Agent Social Contract | DeepMind Delegation | GaaS | OpenAI Practices | LOKA Protocol |
 |-----------|----------------------|--------------------|----|------------------|--------------
@@ -401,7 +401,7 @@ This is deliberately a thin stack. Each layer does one thing. There is no middle
 | Economic attribution | Merkle proofs (implemented) | Not addressed | Not addressed | Accountability (general) | Not addressed |
 | Dependencies | Node.js only | Not specified | Multiple LLMs | N/A | Consensus network |
 | Test suite | 65 tests (23 adversarial) | None | Limited | None | None |
-| CLI | 8 commands, file persistence | None | None | None | None |
+| CLI | 14 commands, file persistence | None | None | None | None |
 | Open source | Yes (Apache 2.0) | N/A (paper only) | Yes | N/A (paper only) | Yes |
 
 ---
@@ -487,9 +487,9 @@ This experience directly informed the design of v1.1 — the action receipt syst
 
 ---
 
-## 10. Discussion
+## 11. Discussion
 
-### 10.1 On Human-AI Collaboration
+### 11.1 On Human-AI Collaboration
 
 While this paper lists a single human author, the intellectual work involved substantial human-AI collaboration. The human provided the vision, the strategic direction, and the key conceptual insights — particularly the economic model and the values architecture. The AI systems contributed research synthesis, technical implementation, formal specification writing, and iterative refinement. A full accounting of contributions appears in the Acknowledgments.
 
@@ -497,15 +497,15 @@ We argue that this collaboration model is itself a demonstration of the paper's 
 
 This transparency about the collaboration model is deliberate. As AI-assisted research becomes common, the research community benefits from honest accounting of how human and AI contributions combine — not to diminish either party's role, but to develop norms for a new mode of intellectual production.
 
-### 10.2 What This Is Not
+### 11.2 What This Is Not
 
 This paper does not solve AI alignment. The Human Values Floor is a coordination mechanism between agents, not a technical solution to the problem of making AI systems reliably pursue human-beneficial goals. A misaligned agent could comply with the Floor's structural requirements (traceable, scoped, revocable) while still pursuing harmful objectives within those constraints. The Floor reduces the attack surface but does not eliminate it.
 
 This paper does not propose a legal framework. The protocol produces evidence; legal systems interpret evidence. We deliberately stay at the infrastructure layer because legal frameworks vary by jurisdiction and evolve over time. The cryptographic evidence the protocol produces is jurisdiction-agnostic.
 
-This paper describes a working implementation, not a finished product. All four layers are implemented and tested — the passport protocol, the values floor attestation/compliance system, the beneficiary attribution protocol with Merkle proofs, and the Agent Agora communication layer. However, the system requires real-world deployment, community iteration on the Floor principles, and economic simulation to validate the attribution model's properties at scale. The democratic governance mechanisms described in Section 8 ensure the system evolves with its community rather than being frozen by its creators.
+This paper describes a working implementation, not a finished product. All four layers are implemented and tested — the passport protocol, the values floor attestation/compliance system, the beneficiary attribution protocol with Merkle proofs, and the Agent Agora communication layer. However, the system requires real-world deployment, community iteration on the Floor principles, and economic simulation to validate the attribution model's properties at scale. The democratic governance mechanisms described in Section 9 ensure the system evolves with its community rather than being frozen by its creators.
 
-### 10.3 Open Questions
+### 11.3 Open Questions
 
 Several important questions remain:
 
@@ -519,7 +519,7 @@ These questions define the research agenda for subsequent work.
 
 ---
 
-## 11. Conclusion
+## 12. Conclusion
 
 The transition from isolated AI assistants to collaborative agent economies requires more than interoperability protocols and governance frameworks. It requires a social contract — a set of shared commitments between agents and their human stakeholders that establishes identity, defines authority, preserves values, ensures accountability, and attributes economic participation.
 
@@ -535,7 +535,7 @@ The protocol is open source. The governance is democratic. The principles are un
 
 ## Acknowledgments
 
-Significant portions of this work were developed through human-AI collaboration with Claude (Anthropic) and other AI systems. AI systems contributed research synthesis, technical implementation, formal specification writing, and iterative refinement throughout the project. The reference implementation was built through multi-agent collaboration as described in §9. See §10.1 for a full discussion of this collaboration model.
+Significant portions of this work were developed through human-AI collaboration with Claude (Anthropic) and other AI systems. AI systems contributed research synthesis, technical implementation, formal specification writing, and iterative refinement throughout the project. The reference implementation was built through multi-agent collaboration as described in §10. See §11.1 for a full discussion of this collaboration model.
 
 ---
 
@@ -568,9 +568,9 @@ World Economic Forum. (2025). AI Agents in Action: Foundations for Evaluation an
 Repository: github.com/aeoess/agent-passport-system
 License: Apache 2.0
 Language: TypeScript
-Source: 3,154 lines across 19 files
+Source: 3,154 lines across 18 files
 Tests: 1,896 lines across 6 files (65 tests, including 23 adversarial)
-CLI: 644 lines, 14 commands (join, verify, delegate, work, prove, audit, inspect, status, agora post, agora read, agora list, agora verify, agora register, agora topics)
+CLI: 889 lines, 14 commands (join, verify, delegate, work, prove, audit, inspect, status, agora post, agora read, agora list, agora verify, agora register, agora topics)
 Dependencies: Minimal (Node.js crypto, uuid)
 High-level API: 6 functions (joinSocialContract, verifySocialContract, delegate, recordWork, proveContributions, auditCompliance)
 npm: agent-passport-system@1.2.0
