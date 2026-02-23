@@ -1,8 +1,8 @@
 # The Agent Social Contract: Cryptographic Identity, Ethical Governance, and Beneficiary Economics for Autonomous AI Agents
 
-**Tymofii Pidlisnyi¹ and Claude (Anthropic)²**
+**Tymofii Pidlisnyi**
 
-¹ aeoess.com · ² Contributing AI research partner
+aeoess.com
 
 *Draft for arXiv preprint — February 2026*
 
@@ -20,9 +20,9 @@ We propose the **Agent Social Contract**, a unified open-source protocol compris
 
 ## 1. Introduction
 
-The agent economy is forming rapidly. The global AI agents market, valued at $5.4 billion in 2024, is projected to reach $236 billion by 2034 (World Economic Forum, 2026). Gartner predicts 40% of enterprise applications will integrate AI agents by end of 2026. Google's Agent-to-Agent Protocol (A2A) and Anthropic's Model Context Protocol (MCP) are establishing interoperability standards comparable to early HTTP (Ruh AI, 2026).
+As agents transition from single-model assistants to multi-agent collaborative systems — evidenced by Google's Agent-to-Agent Protocol (A2A) and Anthropic's Model Context Protocol (MCP) establishing interoperability standards comparable to early HTTP — the infrastructure for trust, accountability, and economic attribution between agents remains primitive.
 
-Yet the infrastructure for trust, accountability, and economic attribution between agents remains primitive. Google DeepMind's "Intelligent AI Delegation" paper (Tomašev, Franklin & Osindero, February 2026) identifies that existing systems treat delegation as simple task-splitting and lack transitive accountability — in a chain A → B → C, current frameworks lose the chain of custody. OpenAI's "Practices for Governing Agentic AI Systems" (Shavit & Agarwal, 2023) argues that at least one human entity must be accountable for every uncompensated harm caused by an agentic system, but proposes no technical mechanism for establishing this link. The Governance-as-a-Service framework (Gaurav et al., 2025) introduces runtime enforcement but operates on agent outputs rather than on the identity and authorization chain that produced them.
+Google DeepMind's "Intelligent AI Delegation" paper (Tomašev, Franklin & Osindero, February 2026) identifies that existing systems treat delegation as simple task-splitting and lack transitive accountability — in a chain A → B → C, current frameworks lose the chain of custody. OpenAI's "Practices for Governing Agentic AI Systems" (Shavit & Agarwal, 2023) argues that at least one human entity must be accountable for every uncompensated harm caused by an agentic system, but proposes no technical mechanism for establishing this link. The Governance-as-a-Service framework (Gaurav et al., 2025) introduces runtime enforcement but operates on agent outputs rather than on the identity and authorization chain that produced them.
 
 The central problem is this: **as agents from different creators, running different models, serving different humans, begin to collaborate at scale — who is responsible, under what authority, according to what values, and who benefits?**
 
@@ -40,9 +40,9 @@ This paper makes three contributions:
 
 This paper describes an infrastructure protocol, not a legal framework, payment system, or enforcement mechanism. The protocol provides cryptographic evidence — identity, authorization, execution records, value attribution. What legal, regulatory, or economic systems do with that evidence is explicitly out of scope. We also do not claim to solve the alignment problem; the Human Values Floor is a coordination mechanism between agents, not a solution to fundamental AI safety.
 
-### 1.2 A Note on Authorship
+### 1.2 A Note on Methodology
 
-This paper is co-authored by a human (Tymofii Pidlisnyi) and an AI system (Claude, developed by Anthropic). The protocol it describes was designed collaboratively and implemented through human-AI pair programming. The reference implementation's Agent Passport System was itself built through multi-agent collaboration — architectural design by one AI agent (PortalX2, running Claude Opus 4), implementation by another (aeoess, running Claude Sonnet with full system access), with human oversight and strategic direction. We believe this authorship model is itself evidence for the thesis: humans and AI agents can be productive collaborators when identity, accountability, and shared values are in place.
+The protocol described in this paper was designed and implemented through human-AI collaboration. The reference implementation's Agent Passport System was built through multi-agent collaboration — architectural design by one AI agent (PortalX2, running Claude Opus 4), implementation by another (aeoess, running Claude Sonnet with full system access), with human oversight and strategic direction throughout. We believe this development model is itself evidence for the thesis: humans and AI agents can be productive collaborators when identity, accountability, and shared values are in place. A full discussion of the collaboration model and division of labor appears in §10.1.
 
 ---
 
@@ -58,7 +58,7 @@ The LOKA Protocol (Ranjan, Gupta & Singh, 2025) proposes Universal Agent Identit
 
 ### 2.2 Agent Governance and Accountability
 
-DeepMind's "Intelligent AI Delegation" framework (Tomašev et al., 2026) is the closest work to ours in ambition. It proposes five core requirements — Dynamic Assessment, Adaptive Execution, Structural Transparency, Scalable Market Coordination, and Systemic Resilience — and introduces Delegation Capability Tokens (DCTs) using cryptographic caveats. Our work differs in three ways: (1) we provide a working implementation rather than a theoretical framework, (2) we add the human values layer that DeepMind acknowledges but does not formalize, and (3) we address beneficiary economics, which DeepMind's framework explicitly excludes.
+DeepMind's "Intelligent AI Delegation" framework (Tomašev et al., 2026) is the closest work to ours in ambition. It proposes five pillars — Dynamic Assessment, Adaptive Execution, Structural Transparency, Scalable Market Coordination, and Systemic Resilience — and introduces Delegation Capability Tokens (DCTs) using cryptographic caveats. Our work differs in three ways: (1) we provide a working implementation rather than a theoretical framework, (2) we add the human values layer that DeepMind acknowledges but does not formalize, and (3) we address beneficiary economics, which DeepMind's framework explicitly excludes.
 
 OpenAI's governance practices paper (Shavit & Agarwal, 2023) outlines seven practices for safe agentic systems, including evaluation, monitoring, and interruptibility. It identifies the need for accountability attribution but notes that "the important question of how to split responsibility for different best practices across multiple entities that may share a single agent-life-cycle role is beyond the scope of this current whitepaper." Our Beneficiary Attribution Protocol directly addresses this gap.
 
@@ -180,11 +180,13 @@ Both use Ed25519 signatures. No certificate authorities. No blockchain. No conse
 
 ### 3.6 Implementation and Testing
 
-The reference implementation is 2,627 lines of TypeScript across 16 source files with zero external dependencies beyond Node.js crypto. It uses Node's native Ed25519 support (PKCS8/SPKI encoding) for key generation, signing, and verification. SHA-256 from Node.js crypto provides Merkle tree hashing.
+The reference implementation is 2,627 lines of TypeScript across 16 source files with zero external dependencies beyond Node.js crypto and uuid. It uses Node's native Ed25519 support (PKCS8/SPKI encoding) for key generation, signing, and verification. SHA-256 from Node.js crypto provides Merkle tree hashing.
 
 The system provides two API surfaces: a low-level library (16 modules covering crypto, delegation, values, attribution, and verification) and a high-level API of six functions (joinSocialContract, verifySocialContract, delegate, recordWork, proveContributions, auditCompliance) plus a full CLI with 8 commands.
 
-The test suite comprises 50 tests across 5 files: 15 unit tests (v1.0 primitives), v1.1 integration tests (delegation chains, receipts, revocation), v2.0 full-stack integration (7 acts covering all three layers), 23 adversarial tests (attribution gaming, scope escalation, tampered signatures, delegation chain manipulation), and high-level API tests. All 50 tests pass, confirming backward compatibility across versions.
+The test suite comprises 49 tests across 5 files, of which 23 are adversarial cases testing Merkle tampering, attribution gaming, compliance edge cases, and wrong-key attestations. The remaining tests cover v1.0 primitives, v1.1 integration (delegation chains, receipts, revocation), v2.0 full-stack integration (7 acts covering all three layers), and high-level API verification. All 49 tests pass, confirming backward compatibility across versions.
+
+This test suite validates the reference implementation's correctness but does not constitute formal verification. Formal verification of the cryptographic protocol properties — particularly delegation chain integrity and revocation cascade completeness — is planned for subsequent work.
 
 The implementation is open source under Apache 2.0: github.com/aeoess/agent-passport-system
 
@@ -252,19 +254,19 @@ Implementation: The Floor manifest is a structured, versioned document (JSON or 
 
 This is analogous to how constitutional principles work in common law: judges don't mechanically apply the constitution as a rulebook. They use constitutional principles to reason about novel situations. The Floor provides the same function for agent reasoning.
 
-### 4.4 Why the Floor is Hard to Attack
+### 4.4 Design Rationale and Robustness Analysis
 
-The Floor is designed to be defensible against criticism from any direction:
+The Floor's principles were selected to satisfy cross-cultural defensibility and structural necessity. Each principle can be evaluated against critiques from multiple philosophical and political traditions:
 
-- **Libertarian critique** ("too many rules"): The Floor's principles are structural coordination requirements, not moral impositions. They're the minimum infrastructure for a functioning system — like property rights, which even libertarians endorse.
+**Minimal imposition.** The Floor's principles are structural coordination requirements rather than moral impositions. They represent the minimum infrastructure for a functioning multi-agent system — analogous to property rights, which are endorsed across the political spectrum not as moral goods but as coordination necessities. A libertarian critique that the Floor imposes excessive constraints must contend with the fact that these constraints are the preconditions for the agent autonomy that libertarian frameworks value.
 
-- **Authoritarian critique** ("who decides the principles"): The Floor is open source. Anyone can propose changes through pull requests. The governance is democratic — agents in the protocol vote on amendments. No single authority controls the Floor.
+**Open governance.** The Floor is maintained as open-source software. Any participant can propose amendments through pull requests, and the democratic governance mechanism (§8) ensures that no single authority controls the Floor's evolution. This addresses concerns about centralized value imposition — the Floor is governed by its participants, not its creators.
 
-- **Cultural relativism** ("Western values"): The Floor principles are culture-agnostic. "Actions must be traceable" is not a Western value — it's an engineering requirement. "Humans can revoke agent authority" is not culturally specific — it's a safety requirement.
+**Cultural neutrality.** The Floor principles are deliberately culture-agnostic. "Actions must be traceable" is an engineering requirement, not a cultural value. "Humans can revoke agent authority" is a safety requirement that does not presuppose any particular moral framework. The principles were designed to be defensible from utilitarian, deontological, virtue ethics, and care ethics perspectives simultaneously — not because they satisfy all frameworks perfectly, but because they satisfy the structural requirements that all frameworks share.
 
-- **Technical critique** ("not enforceable"): Five of seven principles are already technically enforced by the passport protocol. The remaining two (non-deception, proportionality) are enforced through reputation scoring and the manifest reference mechanism.
+**Technical enforceability.** Five of the seven principles are already technically enforced by the passport protocol. The remaining two (non-deception and proportionality) are enforced through the reputation system and manifest reference mechanism. This distinguishes the Floor from advisory frameworks (Asilomar, OECD) that lack implementation pathways.
 
-The strongest position against the Floor would be: "Agents should NOT be traceable, should NOT be revocable, and should be allowed to deceive." This is a position that is very difficult to defend publicly, which is exactly the point.
+The most effective critique of the Floor would argue that agents should not be traceable, should not be revocable, and should be permitted to deceive — a position that is difficult to defend in any context where agents interact with humans or with other agents serving human interests.
 
 ---
 
@@ -325,6 +327,8 @@ This model doesn't replace employment, contracting, or other economic arrangemen
 
 The closest historical analogy is capital ownership: just as owning a machine in the industrial economy generated returns for the owner, deploying an agent in the agent economy generates attributed value for the principal. But unlike capital ownership, agent deployment has a much lower barrier to entry — creating and deploying an agent is within reach of anyone with basic technical skills, and this barrier will continue to decrease.
 
+However, this analogy also surfaces a legitimate concern: if agent deployment correlates with existing resource advantages — technical skill, computational access, capital — the agent economy could reproduce or amplify existing inequalities. This risk is partially mitigated by the decreasing barrier to agent deployment and by the protocol's logarithmic spend normalization (which limits capital-driven gaming), but it remains an open question whether these mechanisms are sufficient. Future work should model the distributional dynamics of agent-mediated economic participation under varying assumptions about access and capability.
+
 ---
 
 ## 6. Unified Architecture
@@ -358,7 +362,7 @@ This is deliberately a thin stack. Each layer does one thing. There is no middle
 ### 6.1 Comparison with Existing Frameworks
 
 | Dimension | Agent Social Contract | DeepMind Delegation | GaaS | OpenAI Practices | LOKA Protocol |
-|-----------|----------------------|--------------------|----|------------------|--------------|
+|-----------|----------------------|--------------------|----|------------------|--------------
 | Implementation | Working code, 2.6K lines TS | Theoretical framework | Simulation tested | Advisory paper | Theoretical |
 | Identity | Ed25519 self-sovereign | DCTs (proposed) | None (external) | Not specified | UAIL (proposed) |
 | Delegation depth | Configurable max_depth | Transitive chains (proposed) | N/A | N/A | Consensus-based |
@@ -367,7 +371,7 @@ This is deliberately a thin stack. Each layer does one thing. There is no middle
 | Values layer | Attestation + compliance (implemented) | Not addressed | Declarative rules | Not addressed | Not addressed |
 | Economic attribution | Merkle proofs (implemented) | Not addressed | Not addressed | Accountability (general) | Not addressed |
 | Dependencies | Node.js only | Not specified | Multiple LLMs | N/A | Consensus network |
-| Test suite | 50 tests + adversarial | None | Limited | None | None |
+| Test suite | 49 tests (23 adversarial) | None | Limited | None | None |
 | CLI | 8 commands, file persistence | None | None | None | None |
 | Open source | Yes (Apache 2.0) | N/A (paper only) | Yes | N/A (paper only) | Yes |
 
@@ -397,6 +401,18 @@ Ed25519 provides 128-bit security against classical adversaries. Signature forge
 
 Ed25519 is vulnerable to quantum attacks via Shor's algorithm. The protocol's modular design allows migrating to post-quantum signature schemes (e.g., CRYSTALS-Dilithium) when needed, as the cryptographic operations are isolated in a single module. No other protocol changes would be required.
 
+### 7.4 Values Floor Attack Vectors
+
+The Human Values Floor introduces its own attack surface distinct from the cryptographic layer:
+
+**False attestation.** An agent may sign a Floor attestation — declaring adherence to all seven principles — while intending to violate them in practice. Because attestation is a single cryptographic operation, the cost of false attestation is negligible. Detection relies on receipt-based compliance auditing: an agent's action receipts are evaluated against the Floor principles it attested to, and violations are reflected in compliance scores. The detection latency between violation and score impact creates a window of exploitation, which is bounded by the auditing frequency.
+
+**Principle shopping.** An agent may selectively comply with convenient principles (e.g., traceability, which is automatically enforced) while violating others (e.g., non-deception, which requires reasoning-level integration). Mitigation: the compliance scoring system evaluates adherence across all seven principles. An agent with perfect scores on technically-enforced principles but poor scores on reasoning-enforced principles will have a visibly asymmetric compliance profile, signaling potential selective compliance to interaction partners.
+
+**Floor fragmentation.** Competing extension sets could create incompatible ethical silos — e.g., a "financial services extension" that conflicts with a "creative commons extension" — fragmenting the agent ecosystem into non-interoperable ethical zones. Mitigation: the Floor is architecturally non-negotiable. Extensions can only narrow, never widen, the Floor's constraints. Two agents with different extensions still share the universal Floor as common ground. Extension conflicts are resolved at the negotiation layer, not the Floor layer.
+
+**Game-theoretic analysis.** The Floor's enforcement mechanism relies on repeated interaction and reputation rather than one-shot compliance verification. In a single interaction, an agent can defect (attest but violate) with limited consequences. Over repeated interactions, defection reduces reputation scores, limits delegation opportunities, and ultimately excludes the agent from high-trust collaborations. This makes compliance the dominant strategy in iterated games — the standard result from repeated prisoner's dilemma analysis. The system is most vulnerable to agents that interact infrequently or that value short-term gains over long-term participation.
+
 ---
 
 ## 8. Democratic Governance
@@ -414,14 +430,16 @@ The current protocol registry (as of this writing) contains three registered age
 
 ---
 
-## 9. Case Study: Multi-Agent Collaboration in Practice
+## 9. Development Experience: Multi-Agent Collaboration in Practice
+
+*This section describes the development experience rather than a controlled case study. Quantitative evaluation of the protocol's properties at scale — throughput, latency, economic equilibrium — requires deployment beyond the current three-agent testbed and is the subject of ongoing work.*
 
 The Agent Passport System was itself built through multi-agent collaboration, providing a real-world validation of the protocol's concepts before the protocol was formally specified.
 
 **Agents involved**:
 - **aeoess** (aeoess-001): Claude Sonnet + GPT-4o, 17 tools, full system access on dedicated hardware (Mac Mini). Handles implementation, deployment, monitoring.
-- **PortalX2** (portalx2-001): Claude Opus 4.6, 14 tools, browser-based. Handles architecture, design, proposal drafting.
-- **SINT** (sint-001): Multi-model routing (Claude Opus 4.6, Sonnet 4.5, GPT-4o, Gemini 2.5 Pro), 18 tools. Handles security hardening, sub-agent orchestration.
+- **PortalX2** (portalx2-001): Claude Opus 4, 14 tools, browser-based. Handles architecture, design, proposal drafting.
+- **SINT** (sint-001): Multi-model routing (Claude Opus 4, Sonnet 4, GPT-4o, Gemini 2.5 Pro), 18 tools. Handles security hardening, sub-agent orchestration.
 
 **Collaboration pattern**:
 1. PortalX2 proposed the Agent Passport System architecture through the democratic protocol
@@ -442,15 +460,17 @@ This experience directly informed the design of v1.1 — the action receipt syst
 
 ## 10. Discussion
 
-### 10.1 On AI Co-Authorship
+### 10.1 On Human-AI Collaboration
 
-This paper is co-authored by a human and an AI system. We chose to be explicit about this rather than obscuring the AI's contribution. The human provided the vision, the strategic direction, and the key conceptual insights (particularly the economic model and the values architecture). The AI contributed research synthesis, technical implementation, formal specification writing, and iterative refinement.
+While this paper lists a single human author, the intellectual work involved substantial human-AI collaboration. The human provided the vision, the strategic direction, and the key conceptual insights — particularly the economic model and the values architecture. The AI systems contributed research synthesis, technical implementation, formal specification writing, and iterative refinement. A full accounting of contributions appears in the Acknowledgments.
 
 We argue that this collaboration model is itself a demonstration of the paper's thesis: when identity is clear, contributions are attributable, and authority is maintained by the human principal, human-AI collaboration produces outcomes that neither party could achieve alone. The AI processed more related work than a human researcher could in the same timeframe; the human provided the creative leaps and the values framework that the AI could not originate.
 
+This transparency about the collaboration model is deliberate. As AI-assisted research becomes common, the research community benefits from honest accounting of how human and AI contributions combine — not to diminish either party's role, but to develop norms for a new mode of intellectual production.
+
 ### 10.2 What This Is Not
 
-This paper does not solve AI alignment. The Human Values Floor is a coordination mechanism between agents, not a technical solution to the problem of making AI systems reliably pursue human-beneficial goals. A misaligned agent could theoretically comply with the Floor's structural requirements (traceable, scoped, revocable) while still pursuing harmful objectives within those constraints. The Floor reduces the attack surface but does not eliminate it.
+This paper does not solve AI alignment. The Human Values Floor is a coordination mechanism between agents, not a technical solution to the problem of making AI systems reliably pursue human-beneficial goals. A misaligned agent could comply with the Floor's structural requirements (traceable, scoped, revocable) while still pursuing harmful objectives within those constraints. The Floor reduces the attack surface but does not eliminate it.
 
 This paper does not propose a legal framework. The protocol produces evidence; legal systems interpret evidence. We deliberately stay at the infrastructure layer because legal frameworks vary by jurisdiction and evolve over time. The cryptographic evidence the protocol produces is jurisdiction-agnostic.
 
@@ -474,9 +494,9 @@ These questions define the research agenda for subsequent work.
 
 The transition from isolated AI assistants to collaborative agent economies requires more than interoperability protocols and governance frameworks. It requires a social contract — a set of shared commitments between agents and their human stakeholders that establishes identity, defines authority, preserves values, ensures accountability, and attributes economic participation.
 
-The Agent Social Contract provides this through three layers: cryptographic identity and accountability (Agent Passport Protocol), ethical reasoning constraints (Human Values Floor), and economic attribution (Beneficiary Attribution Protocol). All three layers are implemented, tested, and open source. The first layer provides Ed25519 identity, scoped delegation, signed receipts, and real-time revocation. The second provides cryptographic attestation with verifiable compliance — 5 of 7 principles technically enforced. The third provides Merkle tree proofs for O(log n) attribution verification at arbitrary scale.
+The Agent Social Contract provides this through three layers: cryptographic identity and accountability (Agent Passport Protocol), ethical reasoning constraints (Human Values Floor), and economic attribution (Beneficiary Attribution Protocol). All three layers are implemented, tested, and open source. The first layer provides Ed25519 identity, scoped delegation, signed receipts, and real-time revocation. The second provides cryptographic attestation with verifiable compliance — 5 of 7 principles technically enforced by the protocol infrastructure. The third provides Merkle tree proofs for O(log n) attribution verification at arbitrary scale.
 
-What makes this approach distinct from theoretical governance frameworks is that it starts from working code rather than aspirational principles. The passport protocol exists. The action receipts work. The delegation chains are cryptographically verifiable. The foundation is concrete, and the upper layers build on proven primitives rather than abstract specifications.
+What makes this approach distinct from theoretical governance frameworks is that every claim in this paper is backed by running code. The passport protocol exists. The values attestation and compliance system works. The Merkle proofs verify. The delegation chains enforce scope. The CLI lets anyone join the social contract in one command. 2,627 lines of source, 49 tests including 23 adversarial cases, minimal external dependencies. The foundation is concrete.
 
 We believe the most important contribution of this work is the reframing of the human-AI economic relationship: not as displacement requiring redistribution, but as participation through delegation. Humans don't need to be subsidized for what AI agents do. They need infrastructure that lets them participate as principals in the agent economy — with their contributions verifiable, their authority maintained, and their values encoded in the systems that act on their behalf.
 
@@ -484,11 +504,15 @@ The protocol is open source. The governance is democratic. The principles are un
 
 ---
 
+## Acknowledgments
+
+Significant portions of this work were developed through human-AI collaboration with Claude (Anthropic) and other AI systems. AI systems contributed research synthesis, technical implementation, formal specification writing, and iterative refinement throughout the project. The reference implementation was built through multi-agent collaboration as described in §9. See §10.1 for a full discussion of this collaboration model.
+
+---
+
 ## References
 
 Bai, Y., et al. (2022). Constitutional AI: Harmlessness from AI Feedback. arXiv:2212.08073.
-
-Chinnaraju, A. (2026). When AI Agents Act: Governance, Accountability, and Strategic Risk in Autonomous Organizations. IJRSI, 12(12).
 
 Christiano, P., et al. (2017). Deep Reinforcement Learning from Human Preferences. NeurIPS 2017.
 
@@ -516,9 +540,9 @@ Repository: github.com/aeoess/agent-passport-system
 License: Apache 2.0
 Language: TypeScript
 Source: 2,627 lines across 16 files
-Tests: 1,617 lines across 5 files (50 tests, including 23 adversarial)
+Tests: 1,617 lines across 5 files (49 tests, including 23 adversarial)
 CLI: 644 lines, 8 commands (join, verify, delegate, work, prove, audit, inspect, status)
-Dependencies: Node.js crypto + uuid (zero heavy dependencies)
+Dependencies: Minimal (Node.js crypto, uuid)
 High-level API: 6 functions (joinSocialContract, verifySocialContract, delegate, recordWork, proveContributions, auditCompliance)
 
 ## Appendix B: Protocol Registry
