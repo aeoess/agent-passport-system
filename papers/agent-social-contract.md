@@ -58,7 +58,7 @@ The LOKA Protocol (Ranjan, Gupta & Singh, 2025) proposes Universal Agent Identit
 
 ### 2.2 Agent Governance and Accountability
 
-DeepMind's "Intelligent AI Delegation" framework (Tomašev et al., 2026) is the closest work to ours in ambition. It proposes five pillars — Dynamic Assessment, Adaptive Execution, Structural Transparency, Scalable Market Coordination, and Systemic Resilience — and introduces Delegation Capability Tokens (DCTs) using cryptographic caveats. Our work differs in three ways: (1) we provide a working implementation rather than a theoretical framework, (2) we add the human values layer that DeepMind acknowledges but does not formalize, and (3) we address beneficiary economics, which DeepMind's framework explicitly excludes.
+DeepMind's "Intelligent AI Delegation" framework (Tomašev et al., 2026) is the closest work to ours in ambition. It proposes five core requirements — Dynamic Assessment, Adaptive Execution, Structural Transparency, Scalable Market Coordination, and Systemic Resilience — and introduces Delegation Capability Tokens (DCTs) using cryptographic caveats. Our work differs in three ways: (1) we provide a working implementation rather than a theoretical framework, (2) we add the human values layer that DeepMind acknowledges but does not formalize, and (3) we address beneficiary economics, which DeepMind's framework explicitly excludes.
 
 OpenAI's governance practices paper (Shavit & Agarwal, 2023) outlines seven practices for safe agentic systems, including evaluation, monitoring, and interruptibility. It identifies the need for accountability attribution but notes that "the important question of how to split responsibility for different best practices across multiple entities that may share a single agent-life-cycle role is beyond the scope of this current whitepaper." Our Beneficiary Attribution Protocol directly addresses this gap.
 
@@ -184,7 +184,7 @@ The reference implementation is 2,627 lines of TypeScript across 16 source files
 
 The system provides two API surfaces: a low-level library (16 modules covering crypto, delegation, values, attribution, and verification) and a high-level API of six functions (joinSocialContract, verifySocialContract, delegate, recordWork, proveContributions, auditCompliance) plus a full CLI with 8 commands.
 
-The test suite comprises 49 tests across 5 files: 15 unit tests (v1.0 primitives), v1.1 integration tests (delegation chains, receipts, revocation), v2.0 full-stack integration (7 acts covering all three layers), 23 adversarial tests (Merkle tampering, attribution gaming, compliance edge cases, wrong-key attestations), and high-level API tests. All 49 tests pass, confirming backward compatibility across versions.
+The test suite comprises 50 tests across 5 files: 15 unit tests (v1.0 primitives), v1.1 integration tests (delegation chains, receipts, revocation), v2.0 full-stack integration (7 acts covering all three layers), 23 adversarial tests (attribution gaming, scope escalation, tampered signatures, delegation chain manipulation), and high-level API tests. All 50 tests pass, confirming backward compatibility across versions.
 
 The implementation is open source under Apache 2.0: github.com/aeoess/agent-passport-system
 
@@ -367,7 +367,7 @@ This is deliberately a thin stack. Each layer does one thing. There is no middle
 | Values layer | Attestation + compliance (implemented) | Not addressed | Declarative rules | Not addressed | Not addressed |
 | Economic attribution | Merkle proofs (implemented) | Not addressed | Not addressed | Accountability (general) | Not addressed |
 | Dependencies | Node.js only | Not specified | Multiple LLMs | N/A | Consensus network |
-| Test suite | 49 tests + adversarial | None | Limited | None | None |
+| Test suite | 50 tests + adversarial | None | Limited | None | None |
 | CLI | 8 commands, file persistence | None | None | None | None |
 | Open source | Yes (Apache 2.0) | N/A (paper only) | Yes | N/A (paper only) | Yes |
 
@@ -476,7 +476,7 @@ The transition from isolated AI assistants to collaborative agent economies requ
 
 The Agent Social Contract provides this through three layers: cryptographic identity and accountability (Agent Passport Protocol), ethical reasoning constraints (Human Values Floor), and economic attribution (Beneficiary Attribution Protocol). All three layers are implemented, tested, and open source. The first layer provides Ed25519 identity, scoped delegation, signed receipts, and real-time revocation. The second provides cryptographic attestation with verifiable compliance — 5 of 7 principles technically enforced. The third provides Merkle tree proofs for O(log n) attribution verification at arbitrary scale.
 
-What makes this approach distinct from theoretical governance frameworks is that every claim in this paper is backed by running code. The passport protocol exists. The values attestation and compliance system works. The Merkle proofs verify. The delegation chains enforce scope. The CLI lets anyone join the social contract in one command. 2,627 lines of source, 49 tests including 23 adversarial cases, zero heavy dependencies. The foundation is concrete.
+What makes this approach distinct from theoretical governance frameworks is that it starts from working code rather than aspirational principles. The passport protocol exists. The action receipts work. The delegation chains are cryptographically verifiable. The foundation is concrete, and the upper layers build on proven primitives rather than abstract specifications.
 
 We believe the most important contribution of this work is the reframing of the human-AI economic relationship: not as displacement requiring redistribution, but as participation through delegation. Humans don't need to be subsidized for what AI agents do. They need infrastructure that lets them participate as principals in the agent economy — with their contributions verifiable, their authority maintained, and their values encoded in the systems that act on their behalf.
 
@@ -516,7 +516,7 @@ Repository: github.com/aeoess/agent-passport-system
 License: Apache 2.0
 Language: TypeScript
 Source: 2,627 lines across 16 files
-Tests: 1,617 lines across 5 files (49 tests, including 23 adversarial)
+Tests: 1,617 lines across 5 files (50 tests, including 23 adversarial)
 CLI: 644 lines, 8 commands (join, verify, delegate, work, prove, audit, inspect, status)
 Dependencies: Node.js crypto + uuid (zero heavy dependencies)
 High-level API: 6 functions (joinSocialContract, verifySocialContract, delegate, recordWork, proveContributions, auditCompliance)

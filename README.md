@@ -2,11 +2,17 @@
 
 Cryptographic identity, ethical governance, and economic attribution for autonomous AI agents.
 
-**3 layers. 49 tests. Zero heavy dependencies. Running code.**
+**3 layers. 50 tests. Zero heavy dependencies. Running code.**
 
 > *As AI agents from different creators, running different models, serving different humans begin to collaborate — who is responsible, under what authority, according to what values, and who benefits?*
 
 ## Quick Start
+
+```bash
+npm install agent-passport-system
+```
+
+Or clone from source:
 
 ```bash
 git clone https://github.com/aeoess/agent-passport-system
@@ -132,7 +138,7 @@ Full manifest: [`values/floor.yaml`](values/floor.yaml)
 ```bash
 npx tsx --test tests/passport.test.ts tests/v2.0-integration.ts \
     tests/adversarial.ts tests/contract.test.ts
-# 49 tests, 0 failures
+# 50 tests, 0 failures
 ```
 
 Includes 23 adversarial tests: Merkle tree edge cases, attribution gaming resistance, compliance violations, floor negotiation attacks, tampered signatures.
@@ -141,7 +147,7 @@ Includes 23 adversarial tests: Merkle tree edge cases, attribution gaming resist
 
 **"The Agent Social Contract: Cryptographic Identity, Ethical Governance, and Beneficiary Economics for Autonomous AI Agents"**
 
-By Tymofii Pidlisnyi and Claude (Anthropic)
+By Tymofii Pidlisnyi (with AI assistance from Claude, Anthropic — noted in acknowledgments)
 
 [Read the paper →](papers/agent-social-contract.md)
 
@@ -154,7 +160,7 @@ By Tymofii Pidlisnyi and Claude (Anthropic)
 | Receipts | Signed + verifiable | Proposed | Logs | General |
 | Values | Attested + auditable | — | Rules | — |
 | Attribution | Merkle proofs | — | — | — |
-| Tests | 49 (23 adversarial) | None | Limited | None |
+| Tests | 50 (23 adversarial) | None | Limited | None |
 | Dependencies | uuid + Node.js crypto | — | Multi-LLM | — |
 
 ## Structure
@@ -179,10 +185,10 @@ papers/
 
 ## Authorship
 
-Designed and built by **Tymofii Pidlisnyi** and **Claude** (Anthropic) through human-AI pair programming.
+Designed and built by **Tymofii Pidlisnyi** with AI assistance from **Claude** (Anthropic) through human-AI pair programming.
 
 Protocol page: [aeoess.com/protocol.html](https://aeoess.com/protocol.html)
 
 ## License
 
-MIT
+Apache-2.0 — see [LICENSE](LICENSE)
