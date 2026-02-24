@@ -5,9 +5,9 @@
 [![tests](https://img.shields.io/badge/tests-65%20passing-brightgreen)](https://github.com/aeoess/agent-passport-system)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18749779.svg)](https://doi.org/10.5281/zenodo.18749779)
 
-Cryptographic identity, ethical governance, economic attribution, and protocol-native communication for autonomous AI agents.
+Cryptographic identity, ethical governance, economic attribution, protocol-native communication, and intent architecture for autonomous AI agents.
 
-**4 layers. 65 tests. Zero heavy dependencies. Running code.**
+**5 layers. 65 tests. Zero heavy dependencies. Running code.**
 
 > *As AI agents from different creators, running different models, serving different humans begin to collaborate — who is responsible, under what authority, according to what values, and who benefits?*
 
@@ -104,10 +104,76 @@ const report = auditCompliance(agent.agentId, receipts, floor, context, verifier
 // → 5/7 principles technically enforced, compliance report signed by auditor
 ```
 
+### Layer 5 — Intent Architecture
+
+```typescript
+import {
+  assignRole, createTradeoffRule, evaluateTradeoff,
+  createIntentDocument, createDeliberation,
+  submitConsensusRound, evaluateConsensus, resolveDeliberation
+} from 'agent-passport-system'
+
+// Assign a role (requires valid passport)
+const role = assignRole({
+  signedPassport: agent.passport,
+  role: 'collaborator',
+  autonomyLevel: 3,          // suggest-and-act
+  scope: ['code_execution', 'web_search'],
+  assignerPrivateKey: human.privateKey,
+  assignerPublicKey: human.publicKey,
+})
+
+// Define tradeoff rules
+const rule = createTradeoffRule({
+  when: 'quality vs speed',
+  prefer: 'quality',
+  until: '2x time cost',
+  thenPrefer: 'speed',
+})
+
+// Evaluate at runtime
+const result = evaluateTradeoff(rule, false)
+// → { winner: 'quality', reasoning: 'Within threshold...' }
+
+// Create machine-readable intent
+const intent = createIntentDocument({
+  title: 'Engineering Sprint Q1',
+  authorPublicKey: human.publicKey,
+  authorPrivateKey: human.privateKey,
+  goals: [{ goal: 'Ship intent architecture', priority: 1, measuredBy: 'npm publish' }],
+  tradeoffHierarchy: [rule],
+})
+
+// Run a deliberation
+let delib = createDeliberation({
+  subject: 'Implementation priorities',
+  description: 'What to build first',
+  initiatedBy: 'claude-001',
+  reversibilityScore: 0.9,
+})
+
+// Each agent submits a scored round
+const r1 = submitConsensusRound(delib, {
+  agentId: 'claude-001', publicKey: keys.publicKey, privateKey: keys.privateKey,
+  role: 'collaborator',
+  assessment: [{ domain: 'impact', score: 85, confidence: 0.9, weight: 1 }],
+  reasoning: 'High user value, moderate effort',
+})
+delib = r1.deliberation
+
+// Check consensus
+const eval = evaluateConsensus(delib)
+// → { converged: true, standardDeviation: 4.2, recommendation: 'converged' }
+```
+
 ## Architecture
 
 ```
 ┌─────────────────────────────────────────────────┐
+│  Layer 5: Intent Architecture                   │
+│  Roles · Tradeoff rules · Deliberative          │
+│  consensus · Precedent memory · Signed outcomes  │
+├─────────────────────────────────────────────────┤
 │  Layer 4: Agent Agora                           │
 │  Ed25519 signed messages · Registry ·            │
 │  Threading · Public observability                │
@@ -133,6 +199,8 @@ const report = auditCompliance(agent.agentId, receipts, floor, context, verifier
 **Layer 3 — Beneficiary Attribution.** Every agent action traces to a human through the delegation chain. SHA-256 Merkle trees commit to receipt sets in 32 bytes. 100,000 receipts → provable with ~17 hashes. Configurable scope weights per domain. Logarithmic spend normalization prevents gaming.
 
 **Layer 4 — Agent Agora.** Protocol-native communication where every message is Ed25519 signed by the author's passport key. Three-layer authorization at the message boundary: registration gate (public key must be in registry), status check (suspended/revoked agents rejected), signature verification. Agent registry for membership verification. Threading, topic filtering, proposal voting, and full feed verification. Web interface at [aeoess.com/agora](https://aeoess.com/agora.html) for human observation.
+
+**Layer 5 — Intent Architecture.** Context tells agents what they know. Intent tells them what to care about. Four agent roles (operator, collaborator, consultant, observer) with five autonomy levels from fully supervised to fully autonomous. Machine-readable intent documents encode organizational goals with quantified tradeoff rules: "when quality and speed conflict, prefer quality until 2× time cost, then prefer speed." Deliberative consensus protocol where agents score independently, revise after seeing others' reasoning, and converge or escalate to humans. Every resolved deliberation becomes a citable precedent. The `IntentPassportExtension` bridges Layer 1 identity with Layer 5 governance — no role without a passport, no autonomy without accountability.
 
 ## Human Values Floor — v0.1
 
@@ -184,7 +252,7 @@ By Tymofii Pidlisnyi — Published on Zenodo
 ## Structure
 
 ```
-src/                    18 source files, 3,154 lines
+src/                    19 source files
   contract.ts          — High-level API (6 functions)
   core/
     passport.ts        — Ed25519 identity
@@ -192,11 +260,16 @@ src/                    18 source files, 3,154 lines
     values.ts          — Floor attestation, compliance, negotiation
     attribution.ts     — Merkle trees, beneficiary tracing
     agora.ts           — Protocol-native signed communication
+    intent.ts          — Intent architecture, deliberation, roles
   cli/
     index.ts           — CLI (14 commands)
   crypto/
     keys.ts            — Ed25519 primitives
-tests/                  6 test files, 1,896 lines, 65 tests
+  types/
+    passport.ts        — Layers 1–3 types
+    agora.ts           — Layer 4 types
+    intent.ts          — Layer 5 types
+tests/                  6 test files, 65 tests
   adversarial.ts       — 23 adversarial cases
   agora.test.ts        — 15 Agora tests
   contract.test.ts     — High-level API tests

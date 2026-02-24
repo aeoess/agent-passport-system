@@ -7,3 +7,4 @@ dist/
 .env.local
 .passport
 seed-agora.mjs
+.DS_Store

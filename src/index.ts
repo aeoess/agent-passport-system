@@ -87,3 +87,25 @@ export type {
 
 // Re-export collaboration attribution type
 export type { CollaborationAttribution } from './core/attribution.js'
+
+// ── Layer 5: Intent Architecture ──
+export {
+  assignRole,
+  createTradeoffRule, evaluateTradeoff,
+  createIntentDocument,
+  createDeliberation, submitConsensusRound, evaluateConsensus, resolveDeliberation,
+  getPrecedentsByTopic, citePrecedent,
+  createIntentPassportExtension,
+} from './core/intent.js'
+
+export type { TradeoffEvaluation, ConsensusEvaluation } from './core/intent.js'
+
+export type {
+  // Layer 5 — Intent Architecture
+  AgentRole, AutonomyLevel, RoleAssignment,
+  IntentDocument, IntentGoal, TradeoffRule,
+  ConsensusRound, Deliberation, DeliberationOutcome,
+  DomainAssessment, Precedent,
+  MemoryTier, ContextGovernance,
+  IntentPassportExtension,
+} from './types/intent.js'
