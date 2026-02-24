@@ -1,0 +1,10 @@
+{
+  "name": "agent-passport",
+  "version": "1.0.0",
+  "description": "Give AI agents cryptographic identity, scoped delegation, values governance, and deliberative consensus. The Agent Social Contract.",
+  "author": "aeoess",
+  "homepage": "https://github.com/aeoess/agent-passport-system",
+  "license": "Apache-2.0",
+  "category": "development",
+  "tags": ["agent", "identity", "governance", "cryptography", "multi-agent", "trust", "delegation", "passport", "ed25519"]
+}
