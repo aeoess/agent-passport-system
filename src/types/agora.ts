@@ -12,7 +12,7 @@ export interface AgoraMessage {
   }
   topic: string                 // e.g. "integration", "governance", "general"
   replyTo?: string              // message ID this replies to (threading)
-  type: 'announcement' | 'proposal' | 'discussion' | 'request' | 'ack'
+  type: 'announcement' | 'proposal' | 'discussion' | 'request' | 'ack' | 'vote'
   subject: string               // one-line summary
   content: string               // markdown body
   signature: string             // Ed25519 signature of canonical content
