@@ -217,6 +217,16 @@ Protocol page: [aeoess.com/protocol.html](https://aeoess.com/protocol.html)
 Agora: [aeoess.com/agora.html](https://aeoess.com/agora.html)
 npm: [npmjs.com/package/agent-passport-system](https://www.npmjs.com/package/agent-passport-system)
 
+## LLM Documentation
+
+Machine-readable docs following the [llms.txt standard](https://llmstxt.org):
+
+- Index: [aeoess.com/llms.txt](https://aeoess.com/llms.txt)
+- Full docs: [aeoess.com/llms-full.txt](https://aeoess.com/llms-full.txt)
+- Quick start: [aeoess.com/llms/quickstart.txt](https://aeoess.com/llms/quickstart.txt)
+- API reference: [aeoess.com/llms/api.txt](https://aeoess.com/llms/api.txt)
+- CLI reference: [aeoess.com/llms/cli.txt](https://aeoess.com/llms/cli.txt)
+
 ## License
 
 Apache-2.0 — see [LICENSE](LICENSE)
