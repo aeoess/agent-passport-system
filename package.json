@@ -1,6 +1,6 @@
 {
   "name": "agent-passport-system",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "The Agent Social Contract — cryptographic identity, ethical governance, beneficiary attribution, and protocol-native communication for autonomous AI agents.",
   "type": "module",
   "main": "dist/src/index.js",
@@ -16,7 +16,7 @@
   },
   "scripts": {
     "build": "tsc && chmod +x dist/src/cli/index.js",
-    "test": "tsx --test tests/passport.test.ts tests/v1.1-integration.ts tests/adversarial.ts tests/v2.0-integration.ts tests/contract.test.ts tests/agora.test.ts tests/values.test.ts tests/delegation.test.ts tests/attribution.test.ts tests/policy.test.ts tests/cascade.test.ts",
+    "test": "tsx --test tests/passport.test.ts tests/v1.1-integration.ts tests/adversarial.ts tests/v2.0-integration.ts tests/contract.test.ts tests/agora.test.ts tests/values.test.ts tests/delegation.test.ts tests/attribution.test.ts tests/policy.test.ts tests/cascade.test.ts tests/coordination.test.ts",
     "test:quick": "tsx --test tests/passport.test.ts",
     "lint": "tsc --noEmit",
     "clean": "rm -rf dist",

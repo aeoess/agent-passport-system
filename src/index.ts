@@ -116,6 +116,27 @@ export type {
   IntentPassportExtension,
 } from './types/intent.js'
 
+// ── Layer 6: Coordination Primitives ──
+export {
+  createTaskBrief, verifyTaskBrief,
+  assignTask, acceptTask,
+  submitEvidence, verifyEvidence,
+  reviewEvidence, verifyReview,
+  handoffEvidence, verifyHandoff,
+  submitDeliverable, verifyDeliverable,
+  completeTask, verifyCompletion,
+  createTaskUnit, getTaskStatus, validateTaskUnit,
+} from './core/coordination.js'
+
+export type {
+  CoordinationRole, TaskStatus, ReviewVerdict,
+  TaskBrief, TaskRoleSpec, DeliverableSpec,
+  TaskAssignment, EvidencePacket, EvidenceClaim,
+  ReviewDecision, ReviewIssue,
+  EvidenceHandoff, Deliverable,
+  TaskCompletion, TaskMetrics, TaskUnit,
+} from './types/coordination.js'
+
 // ── Values Floor Policy Engine ──
 export {
   createActionIntent, verifyActionIntent,
