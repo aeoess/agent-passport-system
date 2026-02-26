@@ -2,12 +2,12 @@
 
 [![npm version](https://img.shields.io/npm/v/agent-passport-system)](https://www.npmjs.com/package/agent-passport-system)
 [![license](https://img.shields.io/npm/l/agent-passport-system)](https://github.com/aeoess/agent-passport-system/blob/main/LICENSE)
-[![tests](https://img.shields.io/badge/tests-65%20passing-brightgreen)](https://github.com/aeoess/agent-passport-system)
+[![tests](https://img.shields.io/badge/tests-165%20passing-brightgreen)](https://github.com/aeoess/agent-passport-system)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18749779.svg)](https://doi.org/10.5281/zenodo.18749779)
 
-Cryptographic identity, ethical governance, economic attribution, protocol-native communication, and intent architecture for autonomous AI agents.
+Cryptographic identity, ethical governance, economic attribution, protocol-native communication, intent architecture, cascade revocation, and coordination primitives for autonomous AI agents.
 
-**5 layers. 65 tests. Zero heavy dependencies. Running code.**
+**7 layers. 165 tests. Zero heavy dependencies. Running code. MCP server included.**
 
 > *As AI agents from different creators, running different models, serving different humans begin to collaborate — who is responsible, under what authority, according to what values, and who benefits?*
 
@@ -166,10 +166,83 @@ const eval = evaluateConsensus(delib)
 // → { converged: true, standardDeviation: 4.2, recommendation: 'converged' }
 ```
 
+### Layer 7 — Coordination Primitives
+
+```typescript
+import {
+  createTaskBrief, assignTask, acceptTask,
+  submitEvidence, reviewEvidence, handoffEvidence,
+  submitDeliverable, completeTask
+} from 'agent-passport-system'
+
+// Operator creates a task brief
+const brief = createTaskBrief({
+  title: 'Competitive Protocol Analysis',
+  roles: { researcher: { count: 1 }, analyst: { count: 1 } },
+  deliverables: [
+    { id: 'd1', description: 'Evidence packet', assignedRole: 'researcher' },
+    { id: 'd2', description: 'Synthesis report', assignedRole: 'analyst' }
+  ],
+  acceptanceCriteria: [
+    { id: 'c1', description: 'Min 3 sources', threshold: 70 }
+  ]
+}, operatorKeys)
+
+// Assign agents to roles
+const assigned = assignTask(brief, 'researcher', agentId, agentPubKey, ['web_search'], operatorKeys)
+
+// Worker accepts
+const accepted = acceptTask(assigned.brief, agentKeys)
+
+// Researcher submits evidence (every claim needs a 10+ word quote)
+const evidence = submitEvidence({
+  taskId: brief.id, role: 'researcher',
+  claims: [
+    { claim: 'Protocol X has 50 stars', source: 'github.com/x', quote: 'Repository shows 50 stars as of Feb 2026', confidence: 'verified' }
+  ],
+  methodology: 'GitHub search + npm registry analysis',
+  gaps: [{ area: 'Performance data', reason: 'No benchmarks published' }]
+}, researcherKeys)
+
+// Operator reviews (cannot approve below threshold)
+const review = reviewEvidence(evidence.id, {
+  verdict: 'approve', score: 85, threshold: 70,
+  notes: 'Solid sourcing, gap acknowledged'
+}, operatorKeys)
+
+// Handoff to analyst (requires approved review)
+const handoff = handoffEvidence(evidence.id, review.id, 'analyst', analystPubKey, operatorKeys)
+
+// Analyst submits deliverable citing evidence
+const deliverable = submitDeliverable({
+  taskId: brief.id, role: 'analyst',
+  content: 'Protocol X shows moderate adoption...',
+  evidencePacketIds: [evidence.id],
+  citationCount: 3, gapsFlagged: 1
+}, analystKeys)
+
+// Operator closes with metrics
+const completion = completeTask(brief.id, {
+  status: 'completed',
+  retrospective: {
+    overheadRatio: 0.9, gapRate: 0.08,
+    reworkCount: 0, errorsCaught: 1
+  }
+}, operatorKeys)
+```
+
 ## Architecture
 
 ```
 ┌─────────────────────────────────────────────────┐
+│  Layer 7: Coordination Primitives               │
+│  Task briefs · Role assignment · Evidence ·      │
+│  Review gates · Handoffs · Deliverables · Metrics│
+├─────────────────────────────────────────────────┤
+│  Layer 6: Cascade Revocation & Policy Engine    │
+│  3-signature chain · Chain tracking · Batch      │
+│  revoke · Validation events · Policy receipts    │
+├─────────────────────────────────────────────────┤
 │  Layer 5: Intent Architecture                   │
 │  Roles · Tradeoff rules · Deliberative          │
 │  consensus · Precedent memory · Signed outcomes  │
@@ -202,6 +275,10 @@ const eval = evaluateConsensus(delib)
 
 **Layer 5 — Intent Architecture.** Context tells agents what they know. Intent tells them what to care about. Four agent roles (operator, collaborator, consultant, observer) with five autonomy levels from fully supervised to fully autonomous. Machine-readable intent documents encode organizational goals with quantified tradeoff rules: "when quality and speed conflict, prefer quality until 2× time cost, then prefer speed." Deliberative consensus protocol where agents score independently, revise after seeing others' reasoning, and converge or escalate to humans. Every resolved deliberation becomes a citable precedent. The `IntentPassportExtension` bridges Layer 1 identity with Layer 5 governance — no role without a passport, no autonomy without accountability.
 
+**Layer 6 — Cascade Revocation & Policy Engine.** Three-signature action chain: agent creates intent, policy validator evaluates against floor principles and delegation scope, agent executes and signs receipt. Parent→child chain registry tracks all delegation relationships. Revoking a parent automatically cascade-revokes all descendants. Batch revocation by agent ID. Chain validation detects broken links, revoked delegations, and continuity breaks. Revocation events emitted for real-time monitoring.
+
+**Layer 7 — Coordination Primitives.** Protocol-native multi-agent task orchestration. Operator creates a signed task brief with roles, deliverables, and acceptance criteria. Agents are assigned to roles and sign acceptance. Researchers submit signed evidence packets with citations (every claim needs a 10+ word quote from source). Operator reviews evidence against a quality threshold — cannot approve below threshold, forcing rework. Approved evidence is handed off between roles (handoff requires approved review). Analysts submit deliverables citing evidence packets. Operator closes the task with metrics: overhead ratio, gap rate, rework count, errors caught. Full lifecycle container (`TaskUnit`) with integrity validation catches mismatched IDs, unapproved handoffs, and missing references.
+
 ## Human Values Floor — v0.1
 
 | ID | Principle | Enforcement |
@@ -216,16 +293,48 @@ const eval = evaluateConsensus(delib)
 
 Full manifest: [`values/floor.yaml`](values/floor.yaml)
 
+## MCP Server
+
+The protocol ships with a coordination-native MCP server — any MCP client (Claude Desktop, Cursor, etc.) can connect agents directly.
+
+```bash
+npm install agent-passport-system-mcp
+```
+
+**14 tools, role-scoped access control.** Operator creates task briefs, assigns agents, reviews evidence, hands off between roles, closes tasks. Workers accept assignments, submit evidence, get handed-off evidence, submit deliverables.
+
+```json
+{
+  "mcpServers": {
+    "agent-passport": {
+      "command": "npx",
+      "args": ["agent-passport-system-mcp"],
+      "env": {
+        "AGENT_KEY": "<public_key>",
+        "AGENT_PRIVATE_KEY": "<private_key>",
+        "AGENT_ID": "my-agent"
+      }
+    }
+  }
+}
+```
+
+Every operation is Ed25519 signed. Role is auto-detected from task assignments. Role-specific prompts served via MCP prompts API. File-backed task persistence at `~/.agent-passport-tasks.json`.
+
+npm: [agent-passport-system-mcp](https://www.npmjs.com/package/agent-passport-system-mcp) · GitHub: [aeoess/agent-passport-mcp](https://github.com/aeoess/agent-passport-mcp)
+
 ## Tests
 
 ```bash
 npm test
-# 65 tests across 6 files, 0 failures
+# 165 tests across 12 files, 40 suites, 0 failures
 ```
 
 Includes 23 adversarial tests: Merkle tree tampering, attribution gaming resistance, compliance violations, floor negotiation attacks, wrong-key attestations.
 
 15 Agora-specific tests: message signing, tamper detection, registry membership, feed operations, threading, full feed verification.
+
+17 coordination tests: task brief creation/verification, role assignment, evidence submission, review gates (score vs threshold), handoff enforcement (requires approved review), deliverable submission, full lifecycle, task unit validation.
 
 ## Paper
 
@@ -246,21 +355,24 @@ By Tymofii Pidlisnyi — Published on Zenodo
 | Values layer | Attested + auditable | — | Rules | — | — |
 | Attribution | Merkle proofs | — | — | — | — |
 | Communication | Signed Agora | — | — | — | — |
-| Tests | 65 (23 adversarial) | None | Limited | None | None |
+| Coordination | Task units + MCP server | — | — | — | — |
+| Tests | 165 (23 adversarial) | None | Limited | None | None |
 | Dependencies | Node.js crypto + uuid | — | Multi-LLM | — | Consensus network |
 
 ## Structure
 
 ```
-src/                    19 source files
+src/                    21 source files
   contract.ts          — High-level API (6 functions)
   core/
     passport.ts        — Ed25519 identity
-    delegation.ts      — Scoped delegation, receipts, revocation
+    delegation.ts      — Scoped delegation, receipts, cascade revocation
     values.ts          — Floor attestation, compliance, negotiation
     attribution.ts     — Merkle trees, beneficiary tracing
     agora.ts           — Protocol-native signed communication
     intent.ts          — Intent architecture, deliberation, roles
+    policy.ts          — 3-signature chain, policy validation
+    coordination.ts    — Task briefs, evidence, review, handoff, deliverables
   cli/
     index.ts           — CLI (14 commands)
   crypto/
@@ -269,13 +381,21 @@ src/                    19 source files
     passport.ts        — Layers 1–3 types
     agora.ts           — Layer 4 types
     intent.ts          — Layer 5 types
-tests/                  6 test files, 65 tests
+    policy.ts          — Layer 6 types
+    coordination.ts    — Layer 7 types
+tests/                  12 test files, 165 tests (40 suites)
   adversarial.ts       — 23 adversarial cases
   agora.test.ts        — 15 Agora tests
   contract.test.ts     — High-level API tests
   passport.test.ts     — v1.0 primitives
   v1.1-integration.ts  — Delegation chains, receipts, revocation
   v2.0-integration.ts  — Full-stack integration (7 acts)
+  values.test.ts       — Floor loading, attestation, compliance
+  delegation.test.ts   — Delegation, sub-delegation, depth limits
+  attribution.test.ts  — Merkle trees, attribution, collaboration
+  policy.test.ts       — Intent, policy decision, 3-sig chain
+  cascade.test.ts      — Chain registry, cascade revocation, batch
+  coordination.test.ts — Task briefs, evidence, review, handoff, lifecycle
 values/
   floor.yaml           — Human Values Floor manifest
 papers/
@@ -289,6 +409,7 @@ Designed and built by **Tymofii Pidlisnyi** with AI assistance from **Claude** (
 Protocol page: [aeoess.com/protocol.html](https://aeoess.com/protocol.html)
 Agora: [aeoess.com/agora.html](https://aeoess.com/agora.html)
 npm: [npmjs.com/package/agent-passport-system](https://www.npmjs.com/package/agent-passport-system)
+MCP server: [npmjs.com/package/agent-passport-system-mcp](https://www.npmjs.com/package/agent-passport-system-mcp)
 
 ## LLM Documentation
 
