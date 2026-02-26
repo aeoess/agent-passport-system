@@ -31,9 +31,12 @@ export { verifyPassport, createChallenge, verifyChallenge } from './verification
 export { applyReputationEvent, calculateOverallScore } from './verification/reputation.js'
 
 // v1.1 — Delegation, Receipts, Revocation
+// v1.4 — Cascade Revocation, Chain Validation, Batch Revocation
 export {
   createDelegation, subDelegate, verifyDelegation,
   revokeDelegation, verifyRevocation,
+  cascadeRevoke, revokeByAgent, validateChain,
+  getDescendants, getChainEntry, onRevocation,
   createReceipt, verifyReceipt,
   getReceipts, getRevocation, clearStores
 } from './core/delegation.js'
@@ -70,6 +73,9 @@ export type {
   Challenge, ChallengeResponse, ReputationScore, ReputationEvent,
   Delegation, RuntimeInfo, CreatePassportOptions,
   ActionReceipt, RevocationRecord, DelegationStatus,
+  // v1.4 — Cascade Revocation
+  CascadeRevocationResult, DelegationChainValidation,
+  DelegationChainLink, RevocationEvent,
   // Layer 2
   ValuesFloor, FloorPrinciple, FloorAttestation,
   ComplianceCheck, ComplianceReport, SharedGround, FloorReference,
@@ -109,3 +115,18 @@ export type {
   MemoryTier, ContextGovernance,
   IntentPassportExtension,
 } from './types/intent.js'
+
+// ── Values Floor Policy Engine ──
+export {
+  createActionIntent, verifyActionIntent,
+  evaluateIntent, verifyPolicyDecision,
+  createPolicyReceipt, verifyPolicyReceipt,
+  FloorValidatorV1,
+  requestAction,
+} from './core/policy.js'
+
+export type {
+  ActionIntent, PolicyDecision, PolicyReceipt,
+  PolicyVerdict, PrincipleEvaluation,
+  PolicyValidator, ValidationContext, PolicyEvaluationResult,
+} from './types/policy.js'

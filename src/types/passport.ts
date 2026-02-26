@@ -92,6 +92,41 @@ export interface DelegationStatus {
   errors: string[]
 }
 
+// ── v1.4: Cascade Revocation ──
+
+export interface CascadeRevocationResult {
+  rootRevocation: RevocationRecord
+  cascadedRevocations: RevocationRecord[]
+  totalRevoked: number
+  chainDepth: number
+}
+
+export interface DelegationChainValidation {
+  valid: boolean
+  chainLength: number
+  links: DelegationChainLink[]
+  firstFailure?: {
+    index: number
+    delegationId: string
+    reason: string
+  }
+}
+
+export interface DelegationChainLink {
+  delegationId: string
+  delegatedBy: string
+  delegatedTo: string
+  depth: number
+  status: DelegationStatus
+}
+
+export interface RevocationEvent {
+  type: 'direct' | 'cascade' | 'agent_batch'
+  revocation: RevocationRecord
+  parentDelegationId?: string  // which parent triggered cascade
+  batchAgentId?: string        // which agent triggered batch
+}
+
 export interface SignedPassport {
   passport: AgentPassport
   signature: string

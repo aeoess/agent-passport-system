@@ -1,11 +1,14 @@
 // Delegation System — create, verify, revoke, and enforce depth limits
 // v1.1: Action Receipts + Revocation + Depth Limits
+// v1.4: Cascade Revocation + Chain Validation + Batch Revocation
 
 import { v4 as uuidv4 } from 'uuid'
 import { sign, verify } from '../crypto/keys.js'
 import { canonicalize } from '../core/canonical.js'
 import type {
-  Delegation, ActionReceipt, RevocationRecord, DelegationStatus
+  Delegation, ActionReceipt, RevocationRecord, DelegationStatus,
+  CascadeRevocationResult, DelegationChainValidation, DelegationChainLink,
+  RevocationEvent
 } from '../types/passport.js'
 
 // In-memory revocation registry (in production, this would be persistent)
@@ -13,6 +16,30 @@ const revocationRegistry = new Map<string, RevocationRecord>()
 
 // In-memory receipt store
 const receiptStore: ActionReceipt[] = []
+
+// v1.4: Delegation chain registry — tracks parent→child relationships
+const chainRegistry = new Map<string, {
+  delegation: Delegation
+  parentId: string | null          // null for root delegations
+  childIds: Set<string>
+}>()
+
+// v1.4: Revocation event listeners
+const revocationListeners: ((event: RevocationEvent) => void)[] = []
+
+export function onRevocation(listener: (event: RevocationEvent) => void): () => void {
+  revocationListeners.push(listener)
+  return () => {
+    const idx = revocationListeners.indexOf(listener)
+    if (idx >= 0) revocationListeners.splice(idx, 1)
+  }
+}
+
+function emitRevocation(event: RevocationEvent): void {
+  for (const listener of revocationListeners) {
+    try { listener(event) } catch { /* listener errors don't break revocation */ }
+  }
+}
 
 // ══════════════════════════════════════
 // DELEGATION CREATION
@@ -50,7 +77,16 @@ export function createDelegation(opts: CreateDelegationOptions): Delegation {
   const canonical = canonicalize(delegation)
   const signature = sign(canonical, opts.privateKey)
 
-  return { ...delegation, signature }
+  const signed = { ...delegation, signature }
+
+  // v1.4: Register in chain registry (root delegation — no parent)
+  chainRegistry.set(signed.delegationId, {
+    delegation: signed,
+    parentId: null,
+    childIds: new Set()
+  })
+
+  return signed
 }
 
 // ══════════════════════════════════════
@@ -92,7 +128,7 @@ export function subDelegate(opts: SubDelegateOptions): Delegation {
     )
   }
 
-  return createDelegation({
+  const child = createDelegation({
     delegatedTo: opts.delegatedTo,
     delegatedBy: parent.delegatedTo, // the current delegate becomes delegator
     scope: opts.scope,
@@ -102,6 +138,18 @@ export function subDelegate(opts: SubDelegateOptions): Delegation {
     expiresInHours: 24,
     privateKey: opts.privateKey
   })
+
+  // v1.4: Register parent→child relationship
+  const childEntry = chainRegistry.get(child.delegationId)
+  if (childEntry) {
+    childEntry.parentId = parent.delegationId
+  }
+  const parentEntry = chainRegistry.get(parent.delegationId)
+  if (parentEntry) {
+    parentEntry.childIds.add(child.delegationId)
+  }
+
+  return child
 }
 
 // ══════════════════════════════════════
@@ -172,6 +220,210 @@ export function verifyRevocation(revocation: RevocationRecord): boolean {
   const { signature, ...unsigned } = revocation
   const canonical = canonicalize(unsigned)
   return verify(canonical, signature, revocation.revokedBy)
+}
+
+// ══════════════════════════════════════
+// v1.4: CASCADE REVOCATION
+// ══════════════════════════════════════
+
+/**
+ * Revoke a delegation and ALL its descendants.
+ * When A→B is revoked, B→C and C→D are also revoked.
+ */
+export function cascadeRevoke(
+  delegationId: string,
+  revokedBy: string,
+  reason: string,
+  privateKey: string
+): CascadeRevocationResult {
+  // Revoke the root
+  const rootRevocation = revokeDelegation(delegationId, revokedBy, reason, privateKey)
+  emitRevocation({ type: 'direct', revocation: rootRevocation })
+
+  // Collect all descendants
+  const cascaded: RevocationRecord[] = []
+  const visited = new Set<string>()
+
+  function revokeDescendants(parentId: string, depth: number): void {
+    const entry = chainRegistry.get(parentId)
+    if (!entry) return
+
+    for (const childId of entry.childIds) {
+      if (visited.has(childId)) continue
+      visited.add(childId)
+
+      // Only revoke if not already revoked
+      if (!revocationRegistry.has(childId)) {
+        const childRev = revokeDelegation(
+          childId, revokedBy,
+          `Cascade: parent ${parentId} revoked — ${reason}`,
+          privateKey
+        )
+        cascaded.push(childRev)
+        emitRevocation({
+          type: 'cascade',
+          revocation: childRev,
+          parentDelegationId: parentId
+        })
+      }
+
+      // Continue down the tree
+      revokeDescendants(childId, depth + 1)
+    }
+  }
+
+  revokeDescendants(delegationId, 0)
+
+  return {
+    rootRevocation,
+    cascadedRevocations: cascaded,
+    totalRevoked: 1 + cascaded.length,
+    chainDepth: getMaxDepth(delegationId)
+  }
+}
+
+function getMaxDepth(delegationId: string): number {
+  const entry = chainRegistry.get(delegationId)
+  if (!entry || entry.childIds.size === 0) return 0
+  let max = 0
+  for (const childId of entry.childIds) {
+    max = Math.max(max, 1 + getMaxDepth(childId))
+  }
+  return max
+}
+
+// ══════════════════════════════════════
+// v1.4: BATCH REVOCATION BY AGENT
+// ══════════════════════════════════════
+
+/**
+ * Revoke ALL delegations granted TO a specific agent.
+ * Use when an agent is compromised or decommissioned.
+ */
+export function revokeByAgent(
+  agentPublicKey: string,
+  revokedBy: string,
+  reason: string,
+  privateKey: string
+): RevocationRecord[] {
+  const revocations: RevocationRecord[] = []
+
+  for (const [id, entry] of chainRegistry) {
+    if (entry.delegation.delegatedTo === agentPublicKey) {
+      if (!revocationRegistry.has(id)) {
+        const result = cascadeRevoke(id, revokedBy, reason, privateKey)
+        revocations.push(result.rootRevocation, ...result.cascadedRevocations)
+      }
+    }
+  }
+
+  for (const rev of revocations) {
+    emitRevocation({ type: 'agent_batch', revocation: rev, batchAgentId: agentPublicKey })
+  }
+
+  return revocations
+}
+
+// ══════════════════════════════════════
+// v1.4: DELEGATION CHAIN VALIDATION
+// ══════════════════════════════════════
+
+/**
+ * Validate an entire delegation chain from root to leaf.
+ * Returns detailed status for each link.
+ */
+export function validateChain(delegationIds: string[]): DelegationChainValidation {
+  const links: DelegationChainLink[] = []
+  let firstFailure: DelegationChainValidation['firstFailure'] | undefined
+
+  for (let i = 0; i < delegationIds.length; i++) {
+    const id = delegationIds[i]
+    const entry = chainRegistry.get(id)
+
+    if (!entry) {
+      const link: DelegationChainLink = {
+        delegationId: id,
+        delegatedBy: 'unknown',
+        delegatedTo: 'unknown',
+        depth: i,
+        status: {
+          valid: false, revoked: false, expired: false,
+          depthExceeded: false, errors: ['Delegation not found in registry']
+        }
+      }
+      links.push(link)
+      if (!firstFailure) {
+        firstFailure = { index: i, delegationId: id, reason: 'Delegation not found in registry' }
+      }
+      continue
+    }
+
+    const status = verifyDelegation(entry.delegation)
+    const link: DelegationChainLink = {
+      delegationId: id,
+      delegatedBy: entry.delegation.delegatedBy,
+      delegatedTo: entry.delegation.delegatedTo,
+      depth: entry.delegation.currentDepth,
+      status
+    }
+    links.push(link)
+
+    if (!status.valid && !firstFailure) {
+      firstFailure = {
+        index: i,
+        delegationId: id,
+        reason: status.errors.join('; ')
+      }
+    }
+
+    // Check chain continuity: link[i].delegatedTo should == link[i+1].delegatedBy
+    if (i > 0) {
+      const prev = links[i - 1]
+      if (prev.delegatedTo !== link.delegatedBy) {
+        const reason = `Chain break: ${prev.delegatedTo} → ${link.delegatedBy}`
+        link.status.valid = false
+        link.status.errors.push(reason)
+        if (!firstFailure) {
+          firstFailure = { index: i, delegationId: id, reason }
+        }
+      }
+    }
+  }
+
+  return {
+    valid: !firstFailure,
+    chainLength: links.length,
+    links,
+    firstFailure
+  }
+}
+
+/**
+ * Get all child delegation IDs for a given delegation (recursive).
+ */
+export function getDescendants(delegationId: string): string[] {
+  const result: string[] = []
+  const entry = chainRegistry.get(delegationId)
+  if (!entry) return result
+
+  for (const childId of entry.childIds) {
+    result.push(childId)
+    result.push(...getDescendants(childId))
+  }
+  return result
+}
+
+/**
+ * Get the chain registry entry (for inspection/debugging).
+ */
+export function getChainEntry(delegationId: string) {
+  const entry = chainRegistry.get(delegationId)
+  if (!entry) return undefined
+  return {
+    delegation: entry.delegation,
+    parentId: entry.parentId,
+    childIds: [...entry.childIds]
+  }
 }
 
 // ══════════════════════════════════════
@@ -263,4 +515,6 @@ export function getRevocation(delegationId: string): RevocationRecord | undefine
 export function clearStores(): void {
   revocationRegistry.clear()
   receiptStore.length = 0
+  chainRegistry.clear()
+  revocationListeners.length = 0
 }
