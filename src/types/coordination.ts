@@ -8,7 +8,9 @@
 
 // ── Task Roles (extends Layer 5 AgentRole for coordination) ──
 
-export type CoordinationRole = 'operator' | 'researcher' | 'analyst' | 'builder' | 'reviewer';
+// Built-in roles (common patterns). Users can define any string as a role.
+export type BuiltinRole = 'operator' | 'researcher' | 'analyst' | 'builder' | 'reviewer';
+export type CoordinationRole = BuiltinRole | (string & {});
 
 export type TaskStatus = 'draft' | 'assigned' | 'in_progress' | 'evidence_submitted' |
   'under_review' | 'rework_requested' | 'approved' | 'delivered' | 'completed' | 'failed';
