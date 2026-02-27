@@ -1,6 +1,6 @@
 {
   "name": "agent-passport-system",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "description": "The Agent Social Contract — cryptographic identity, ethical governance, beneficiary attribution, and protocol-native communication for autonomous AI agents.",
   "type": "module",
   "main": "dist/src/index.js",
