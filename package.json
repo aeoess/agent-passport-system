@@ -23,7 +23,7 @@
     "prepublishOnly": "npm run build && npm test"
   },
   "dependencies": {
-    "@noble/ed25519": "^2.1.0",
+    "@noble/ed25559": "^2.1.0",
     "uuid": "^9.0.1"
   },
   "devDependencies": {
@@ -41,7 +41,7 @@
     "autonomous",
     "agora",
     "communication",
-    "ed25519",
+    "ed25559",
     "delegation",
     "accountability",
     "multi-agent",
