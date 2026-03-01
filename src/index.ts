@@ -151,3 +151,22 @@ export type {
   PolicyVerdict, PrincipleEvaluation,
   PolicyValidator, ValidationContext, PolicyEvaluationResult,
 } from './types/policy.js'
+
+// ── Layer 7: Agentic Commerce (ACP) ──
+export {
+  commercePreflight,
+  createCheckout, updateCheckout, completeCheckout, cancelCheckout,
+  requestHumanApproval,
+  createCommerceDelegation,
+  getSpendSummary,
+  verifyCommerceReceipt,
+} from './core/commerce.js'
+
+export type {
+  ACPCheckoutSession, ACPLineItem, ACPMoney, ACPTotals,
+  ACPFulfillment, ACPFulfillmentOption, ACPPaymentMethod,
+  ACPCustomer, ACPAddress, ACPOrderEvent,
+  CommerceConfig, CommerceDelegation,
+  CommercePreflightResult, CommercePreflightCheck,
+  CommerceActionReceipt, HumanApprovalRequest,
+} from './types/commerce.js'
