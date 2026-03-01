@@ -369,7 +369,7 @@ The protocol ships with a coordination-native MCP server — any MCP client (Cla
 npm install agent-passport-system-mcp
 ```
 
-**14 tools, role-scoped access control.** Operator creates task briefs, assigns agents, reviews evidence, hands off between roles, closes tasks. Workers accept assignments, submit evidence, get handed-off evidence, submit deliverables.
+**30 tools across all 8 layers, role-scoped access control.** Identity, delegation, agora, values/policy, coordination, and commerce — all accessible via MCP. Every operation Ed25519 signed.
 
 ```json
 {
