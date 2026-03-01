@@ -2,12 +2,12 @@
 
 [![npm version](https://img.shields.io/npm/v/agent-passport-system)](https://www.npmjs.com/package/agent-passport-system)
 [![license](https://img.shields.io/npm/l/agent-passport-system)](https://github.com/aeoess/agent-passport-system/blob/main/LICENSE)
-[![tests](https://img.shields.io/badge/tests-165%20passing-brightgreen)](https://github.com/aeoess/agent-passport-system)
+[![tests](https://img.shields.io/badge/tests-182%20passing-brightgreen)](https://github.com/aeoess/agent-passport-system)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18749779.svg)](https://doi.org/10.5281/zenodo.18749779)
 
-Cryptographic identity, ethical governance, economic attribution, protocol-native communication, intent architecture, cascade revocation, and coordination primitives for autonomous AI agents.
+Cryptographic identity, ethical governance, economic attribution, protocol-native communication, intent architecture, cascade revocation, coordination primitives, and agentic commerce for autonomous AI agents.
 
-**7 layers. 165 tests. Zero heavy dependencies. Running code. MCP server included.**
+**8 layers. 182 tests. Zero heavy dependencies. Running code. MCP server included.**
 
 > *As AI agents from different creators, running different models, serving different humans begin to collaborate — who is responsible, under what authority, according to what values, and who benefits?*
 
@@ -231,10 +231,76 @@ const completion = completeTask(brief.id, {
 }, operatorKeys)
 ```
 
+### Layer 8 — Agentic Commerce (ACP by OpenAI + Stripe)
+
+```typescript
+import {
+  commercePreflight, createCheckout, completeCheckout,
+  createCommerceDelegation, getSpendSummary,
+  requestHumanApproval, verifyCommerceReceipt
+} from 'agent-passport-system'
+
+// Create a commerce-scoped delegation with spend limit
+const delegation = createCommerceDelegation({
+  delegatorKeys: humanKeys,
+  agentPublicKey: agent.publicKey,
+  spendLimit: 500,
+  allowedMerchants: ['merchant.example.com'],
+  currency: 'usd',
+  expiresAt: '2026-04-01T00:00:00Z'
+})
+
+// 4-gate preflight check before any merchant interaction
+const preflight = commercePreflight(agent.passport, delegation, {
+  amount: { amount: 4999, currency: 'usd' },  // $49.99
+  merchant: 'merchant.example.com'
+})
+// → { approved: true, gates: { passport: ✓, scope: ✓, spend: ✓, merchant: ✓ } }
+
+// Create ACP checkout session with merchant
+const session = await createCheckout('https://merchant.example.com', {
+  lineItems: [{ name: 'Cloud API Credits', quantity: 1, price: { amount: 4999, currency: 'usd' } }],
+  agentPassport: agent.passport,
+  delegation
+})
+
+// Check if human approval needed (configurable threshold)
+if (session.total.amount > config.humanApprovalThreshold) {
+  const approval = requestHumanApproval(session, agent, delegation)
+  // → { requestId, amount, merchant, beneficiary, expiresAt }
+  // Wait for human confirmation before proceeding
+}
+
+// Complete purchase → signed receipt with beneficiary attribution
+const receipt = await completeCheckout(session.id, {
+  paymentToken: sharedPaymentToken,
+  agentKeys: agent.keys,
+  delegation
+})
+
+// Verify any commerce receipt (tamper-proof)
+const valid = verifyCommerceReceipt(receipt)
+// → true (Ed25519 signature over canonical JSON)
+
+// Track spending against delegation limits
+const summary = getSpendSummary(delegation, allReceipts)
+// → { limit: 500, spent: 49.99, remaining: 450.01, utilization: '10.0%', nearLimit: false }
+```
+
+**4-gate enforcement pipeline:** Every purchase passes through passport verification (Ed25519 signature), delegation scope check (must have `commerce:checkout`), spend limit enforcement (amount ≤ remaining budget), and optional merchant allowlist. Agents cannot bypass gates — the cryptography prevents it.
+
+**Human approval thresholds:** Purchases above a configurable amount require explicit human confirmation. The agent generates an approval request; the human signs it. No unsigned approvals accepted.
+
+**Beneficiary attribution:** Every purchase receipt traces back to a human principal through the delegation chain. Who authorized the spend, under what limits, and who benefits — cryptographically provable.
+
 ## Architecture
 
 ```
 ┌─────────────────────────────────────────────────┐
+│  Layer 8: Agentic Commerce (ACP)                │
+│  4-gate preflight · Spend tracking · Human       │
+│  approval · Signed receipts · Beneficiary trace  │
+├─────────────────────────────────────────────────┤
 │  Layer 7: Coordination Primitives               │
 │  Task briefs · Role assignment · Evidence ·      │
 │  Review gates · Handoffs · Deliverables · Metrics│
@@ -278,6 +344,8 @@ const completion = completeTask(brief.id, {
 **Layer 6 — Cascade Revocation & Policy Engine.** Three-signature action chain: agent creates intent, policy validator evaluates against floor principles and delegation scope, agent executes and signs receipt. Parent→child chain registry tracks all delegation relationships. Revoking a parent automatically cascade-revokes all descendants. Batch revocation by agent ID. Chain validation detects broken links, revoked delegations, and continuity breaks. Revocation events emitted for real-time monitoring.
 
 **Layer 7 — Coordination Primitives.** Protocol-native multi-agent task orchestration. Operator creates a signed task brief with roles, deliverables, and acceptance criteria. Agents are assigned to roles and sign acceptance. Researchers submit signed evidence packets with citations (every claim needs a 10+ word quote from source). Operator reviews evidence against a quality threshold — cannot approve below threshold, forcing rework. Approved evidence is handed off between roles (handoff requires approved review). Analysts submit deliverables citing evidence packets. Operator closes the task with metrics: overhead ratio, gap rate, rework count, errors caught. Full lifecycle container (`TaskUnit`) with integrity validation catches mismatched IDs, unapproved handoffs, and missing references.
+
+**Layer 8 — Agentic Commerce (ACP by OpenAI + Stripe).** Implements the [Agentic Commerce Protocol](https://openai.com/index/agentic-commerce-protocol/) identity and governance layer. 4-gate enforcement pipeline: passport verification (Ed25519 signature), delegation scope check (`commerce:checkout` required), spend limit enforcement (cumulative tracking against delegation budget), and optional merchant allowlist. Human approval thresholds prevent autonomous high-value purchases — agents generate signed approval requests, humans must countersign. Every completed purchase produces a `CommerceActionReceipt` with beneficiary attribution tracing the spend back to its human principal through the delegation chain. Spend analytics with utilization warnings at 80%. 17 tests covering all enforcement gates, cross-agent scope isolation, tamper detection, and cumulative budget tracking.
 
 ## Human Values Floor — v0.1
 
@@ -327,7 +395,7 @@ npm: [agent-passport-system-mcp](https://www.npmjs.com/package/agent-passport-sy
 
 ```bash
 npm test
-# 165 tests across 12 files, 40 suites, 0 failures
+# 182 tests across 13 files, 40+ suites, 0 failures
 ```
 
 Includes 23 adversarial tests: Merkle tree tampering, attribution gaming resistance, compliance violations, floor negotiation attacks, wrong-key attestations.
@@ -335,6 +403,8 @@ Includes 23 adversarial tests: Merkle tree tampering, attribution gaming resista
 15 Agora-specific tests: message signing, tamper detection, registry membership, feed operations, threading, full feed verification.
 
 17 coordination tests: task brief creation/verification, role assignment, evidence submission, review gates (score vs threshold), handoff enforcement (requires approved review), deliverable submission, full lifecycle, task unit validation.
+
+17 commerce tests: delegation creation with commerce scopes, 4-gate preflight (passport, scope, spend, merchant), spend analytics, human approval request generation, receipt signing/verification, tamper detection, cross-agent scope enforcement, cumulative spend tracking.
 
 ## Paper
 
@@ -356,13 +426,14 @@ By Tymofii Pidlisnyi — Published on Zenodo
 | Attribution | Merkle proofs | — | — | — | — |
 | Communication | Signed Agora | — | — | — | — |
 | Coordination | Task units + MCP server | — | — | — | — |
-| Tests | 165 (23 adversarial) | None | Limited | None | None |
+| Commerce | ACP + 4-gate enforcement | — | — | — | — |
+| Tests | 182 (23 adversarial) | None | Limited | None | None |
 | Dependencies | Node.js crypto + uuid | — | Multi-LLM | — | Consensus network |
 
 ## Structure
 
 ```
-src/                    21 source files
+src/                    22 source files
   contract.ts          — High-level API (6 functions)
   core/
     passport.ts        — Ed25519 identity
@@ -373,6 +444,7 @@ src/                    21 source files
     intent.ts          — Intent architecture, deliberation, roles
     policy.ts          — 3-signature chain, policy validation
     coordination.ts    — Task briefs, evidence, review, handoff, deliverables
+    commerce.ts        — ACP checkout, 4-gate enforcement, spend tracking
   cli/
     index.ts           — CLI (14 commands)
   crypto/
@@ -383,7 +455,8 @@ src/                    21 source files
     intent.ts          — Layer 5 types
     policy.ts          — Layer 6 types
     coordination.ts    — Layer 7 types
-tests/                  12 test files, 165 tests (40 suites)
+    commerce.ts        — Layer 8 types
+tests/                  13 test files, 182 tests (40+ suites)
   adversarial.ts       — 23 adversarial cases
   agora.test.ts        — 15 Agora tests
   contract.test.ts     — High-level API tests
@@ -396,6 +469,7 @@ tests/                  12 test files, 165 tests (40 suites)
   policy.test.ts       — Intent, policy decision, 3-sig chain
   cascade.test.ts      — Chain registry, cascade revocation, batch
   coordination.test.ts — Task briefs, evidence, review, handoff, lifecycle
+  commerce.test.ts     — ACP checkout, 4-gate preflight, spend tracking
 values/
   floor.yaml           — Human Values Floor manifest
 papers/
