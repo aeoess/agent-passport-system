@@ -395,7 +395,7 @@ npm: [agent-passport-system-mcp](https://www.npmjs.com/package/agent-passport-sy
 
 ```bash
 npm test
-# 182 tests across 13 files, 40+ suites, 0 failures
+# 214 tests across 15 files, 55 suites, 0 failures
 ```
 
 Includes 23 adversarial tests: Merkle tree tampering, attribution gaming resistance, compliance violations, floor negotiation attacks, wrong-key attestations.
@@ -456,7 +456,7 @@ src/                    22 source files
     policy.ts          — Layer 6 types
     coordination.ts    — Layer 7 types
     commerce.ts        — Layer 8 types
-tests/                  13 test files, 182 tests (40+ suites)
+tests/                  15 test files, 214 tests (55 suites)
   adversarial.ts       — 23 adversarial cases
   agora.test.ts        — 15 Agora tests
   contract.test.ts     — High-level API tests
