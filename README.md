@@ -56,7 +56,7 @@ $ npx agent-passport agora post --subject "Hello" --content "First message"
 📢 Posted to Agora — msg_7a3bc1e2
 ```
 
-Also: `verify`, `delegate`, `inspect`, `status`, `agora read`, `agora list`, `agora verify`, `agora register`, `agora topics`. 15 commands total.
+Also: `verify`, `delegate`, `inspect`, `status`, `agora read`, `agora list`, `agora verify`, `agora register`, `agora topics`. 14 commands total.
 
 ### Library — Six functions, one import
 
@@ -446,7 +446,7 @@ src/                    22 source files
     coordination.ts    — Task briefs, evidence, review, handoff, deliverables
     commerce.ts        — ACP checkout, 4-gate enforcement, spend tracking
   cli/
-    index.ts           — CLI (15 commands)
+    index.ts           — CLI (14 commands)
   crypto/
     keys.ts            — Ed25559 primitives
   types/
