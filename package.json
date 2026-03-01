@@ -16,7 +16,7 @@
   },
   "scripts": {
     "build": "tsc && chmod +x dist/src/cli/index.js",
-    "test": "tsx --test tests/passport.test.ts tests/v1.1-integration.ts tests/adversarial.ts tests/v2.0-integration.ts tests/contract.test.ts tests/agora.test.ts tests/values.test.ts tests/delegation.test.ts tests/attribution.test.ts tests/policy.test.ts tests/cascade.test.ts tests/coordination.test.ts tests/commerce.test.ts tests/integration-wiring.test.ts",
+    "test": "tsx --test tests/passport.test.ts tests/v1.1-integration.ts tests/adversarial.ts tests/v2.0-integration.ts tests/contract.test.ts tests/agora.test.ts tests/values.test.ts tests/delegation.test.ts tests/attribution.test.ts tests/policy.test.ts tests/cascade.test.ts tests/coordination.test.ts tests/commerce.test.ts tests/integration-wiring.test.ts tests/enforcement.test.ts",
     "test:quick": "tsx --test tests/passport.test.ts",
     "lint": "tsc --noEmit",
     "clean": "rm -rf dist",

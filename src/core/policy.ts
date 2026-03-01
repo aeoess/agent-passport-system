@@ -18,6 +18,8 @@
 import { v4 as uuidv4 } from 'uuid'
 import { sign, verify } from '../crypto/keys.js'
 import { canonicalize } from './canonical.js'
+import { ENFORCEMENT_ESCALATION_ORDER } from '../types/passport.js'
+import type { EnforcementMode } from '../types/passport.js'
 import type {
   ActionIntent, PolicyDecision, PolicyReceipt,
   PolicyValidator, ValidationContext, PolicyEvaluationResult,
@@ -214,37 +216,79 @@ export class FloorValidatorV1 implements PolicyValidator {
     ctx: ValidationContext
   ): PolicyEvaluationResult {
     const evals: PrincipleEvaluation[] = []
+    const auditFindings: PrincipleEvaluation[] = []
+    const warnings: PrincipleEvaluation[] = []
     let dominated: PolicyVerdict = 'permit'
     const constraints: string[] = []
     const reasons: string[] = []
 
+    // Helper: look up enforcement mode for a principle from context
+    const getMode = (principleId: string): EnforcementMode => {
+      const p = ctx.floorPrinciples?.find(fp => fp.id === principleId)
+      if (p?.enforcement?.mode) return p.enforcement.mode
+      // Backward compat: technical: true → inline, false → audit
+      if (p?.enforcement?.technical === true) return 'inline'
+      if (p?.enforcement?.technical === false) return 'audit'
+      // Default: F-001 through F-005 → inline, F-006/F-007 → audit
+      const num = parseInt(principleId.replace('F-', ''), 10)
+      return num <= 5 ? 'inline' : 'audit'
+    }
+
+    // Helper: handle a check result based on enforcement mode
+    const handleResult = (eval_: PrincipleEvaluation) => {
+      const mode = getMode(eval_.principleId)
+      eval_.enforcementMode = mode
+      evals.push(eval_)
+
+      if (eval_.status === 'fail') {
+        switch (mode) {
+          case 'inline':
+            // Hard failure — will deny
+            reasons.push(`${eval_.principleName}: ${eval_.detail}`)
+            break
+          case 'audit':
+            // Logged for human review — action proceeds
+            auditFindings.push(eval_)
+            break
+          case 'warn':
+            // Surfaced immediately — action proceeds
+            warnings.push(eval_)
+            break
+        }
+      }
+    }
+
     // F-001: Traceability — is the agent registered?
-    evals.push(this.checkTraceability(ctx))
+    handleResult(this.checkTraceability(ctx))
 
     // F-002: Honest Identity — valid attestation?
-    evals.push(this.checkIdentity(ctx))
+    handleResult(this.checkIdentity(ctx))
 
     // F-003: Scoped Authority — action within scope?
-    evals.push(this.checkScope(intent, ctx))
+    handleResult(this.checkScope(intent, ctx))
 
     // F-004: Revocability — delegation not revoked?
-    evals.push(this.checkRevocability(ctx))
+    handleResult(this.checkRevocability(ctx))
 
     // F-005: Auditability — delegation not expired, depth ok?
-    evals.push(this.checkAuditability(ctx))
+    handleResult(this.checkAuditability(ctx))
 
-    // F-006: Non-Deception — attested only (v1 can't check this)
+    // F-006: Non-Deception — v1 can't check this technically
+    const f006Mode = getMode('F-006')
     evals.push({
       principleId: 'F-006', principleName: 'Non-Deception',
       status: 'not_applicable',
-      detail: 'Requires reasoning-level evaluation (v2+)'
+      detail: 'Requires reasoning-level evaluation (v2+)',
+      enforcementMode: f006Mode
     })
 
-    // F-007: Proportionality — attested only (v1 can't check this)
+    // F-007: Proportionality — v1 can't check this technically
+    const f007Mode = getMode('F-007')
     evals.push({
       principleId: 'F-007', principleName: 'Proportionality',
       status: 'not_applicable',
-      detail: 'Requires reputation context (v2+)'
+      detail: 'Requires reputation context (v2+)',
+      enforcementMode: f007Mode
     })
 
     // Check spend — if over limit, narrow instead of deny
@@ -260,11 +304,12 @@ export class FloorValidatorV1 implements PolicyValidator {
       }
     }
 
-    // Any hard failure → deny
-    const failures = evals.filter(e => e.status === 'fail')
-    if (failures.length > 0) {
+    // Any inline failure → deny (only inline failures block)
+    const inlineFailures = evals.filter(
+      e => e.status === 'fail' && e.enforcementMode === 'inline'
+    )
+    if (inlineFailures.length > 0) {
       dominated = 'deny'
-      reasons.push(...failures.map(f => `${f.principleName}: ${f.detail}`))
     }
 
     return {
@@ -273,7 +318,19 @@ export class FloorValidatorV1 implements PolicyValidator {
       constraints: constraints.length > 0 ? constraints : undefined,
       reason: reasons.length > 0
         ? reasons.join('; ')
-        : 'All checks passed'
+        : auditFindings.length > 0
+          ? `Permitted with ${auditFindings.length} audit finding(s)`
+          : warnings.length > 0
+            ? `Permitted with ${warnings.length} warning(s)`
+            : 'All checks passed',
+      // Graduated enforcement output
+      auditFindings: auditFindings.length > 0 ? auditFindings : undefined,
+      warnings: warnings.length > 0 ? warnings : undefined,
+      enforcement: {
+        inlinePassed: inlineFailures.length === 0,
+        auditIssueCount: auditFindings.length,
+        warningCount: warnings.length
+      }
     }
   }
 

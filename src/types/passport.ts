@@ -178,12 +178,26 @@ export interface CreatePassportOptions {
 // LAYER 2 — Human Values Floor
 // ══════════════════════════════════════
 
+// Graduated enforcement: what happens when a principle check fails.
+//   inline — hard deny, agent cannot proceed
+//   audit  — logged + flagged for human review, agent proceeds
+//   warn   — surfaced immediately to caller, agent proceeds
+// Extensions can escalate (warn→audit→inline) but never de-escalate.
+export type EnforcementMode = 'inline' | 'audit' | 'warn'
+
+export const ENFORCEMENT_ESCALATION_ORDER: Record<EnforcementMode, number> = {
+  warn: 0,
+  audit: 1,
+  inline: 2
+}
+
 export interface FloorPrinciple {
   id: string                   // e.g. "F-001"
   name: string                 // e.g. "Traceability"
   principle: string            // natural language description
   enforcement: {
-    technical: boolean         // true if enforced by passport protocol
+    mode: EnforcementMode      // graduated enforcement level
+    technical?: boolean        // deprecated — use mode. Kept for backward compat.
     mechanism: string          // how it's enforced
     protocolRef?: string       // reference to spec
   }
@@ -206,6 +220,17 @@ export interface ValuesFloor {
   governanceUri: string
   floor: FloorPrinciple[]
   extensions?: FloorExtension[]
+  governance?: FloorGovernance
+}
+
+export interface FloorGovernance {
+  amendmentProcess: string
+  escalationRules: string[]
+  versionHistory?: Array<{
+    version: string
+    date: string
+    changes: string
+  }>
 }
 
 export interface FloorReference {
@@ -231,6 +256,7 @@ export interface ComplianceCheck {
   principleId: string
   principleName: string
   status: 'enforced' | 'attested' | 'violation' | 'unverifiable'
+  enforcementMode?: EnforcementMode  // graduated enforcement context
   evidence?: string            // receipt ID or delegation ID proving compliance
   detail: string
 }

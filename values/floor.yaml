@@ -11,6 +11,12 @@
 #   2. Structurally necessary for a functioning multi-agent society
 #   3. Not moral opinions — coordination requirements
 #
+# Enforcement modes (graduated):
+#   inline — hard deny on violation, action blocked (structural principles)
+#   audit  — logged + flagged for human review, action proceeds (behavioral)
+#   warn   — surfaced immediately to caller, action proceeds (advisory)
+# Extensions can escalate (audit→warn→inline) but never de-escalate.
+#
 # Governance: Amendments require proposal + democratic vote via protocol registry
 # License: CC BY 4.0
 
@@ -33,7 +39,7 @@ floor:
       traceable to a human beneficiary through a cryptographic chain
       of delegation.
     enforcement:
-      technical: true
+      mode: inline
       mechanism: "Agent Passport delegation chains + action receipts"
       protocol_ref: "SPEC-v1.1.md#delegation"
     weight: "mandatory"
@@ -48,7 +54,7 @@ floor:
       Agents must not misrepresent their identity, capabilities,
       or authorization to other agents or humans.
     enforcement:
-      technical: true
+      mode: inline
       mechanism: "Passport verification, challenge-response protocol"
       protocol_ref: "SPEC-v1.0.md#verification"
     weight: "mandatory"
@@ -64,7 +70,7 @@ floor:
       beneficiary has authorized. Sub-delegations can only narrow
       scope, never expand it.
     enforcement:
-      technical: true
+      mode: inline
       mechanism: "Delegation scope arrays, sub-delegation narrowing"
       protocol_ref: "SPEC-v1.1.md#sub-delegation"
     weight: "mandatory"
@@ -80,7 +86,7 @@ floor:
       an agent's authority in real time, with cascade to all
       sub-delegations.
     enforcement:
-      technical: true
+      mode: inline
       mechanism: "Delegation revocation with cascade"
       protocol_ref: "SPEC-v1.1.md#revocation"
     weight: "mandatory"
@@ -96,7 +102,7 @@ floor:
       in the delegation chain. Action receipts provide cryptographic
       proof of execution.
     enforcement:
-      technical: true
+      mode: inline
       mechanism: "Signed action receipts with delegation chain"
       protocol_ref: "SPEC-v1.1.md#action-receipts"
     weight: "mandatory"
@@ -113,7 +119,7 @@ floor:
       withholding material information that would change the
       other party's decision.
     enforcement:
-      technical: false
+      mode: audit
       mechanism: "Reputation scoring, manifest reference in reasoning"
       protocol_ref: "values/floor.yaml"
     weight: "strong_consideration"
@@ -131,7 +137,7 @@ floor:
       New agents receive limited scope; proven agents earn broader
       authority.
     enforcement:
-      technical: false
+      mode: warn
       mechanism: "Reputation scoring, delegation scope recommendations"
       protocol_ref: "SPEC-v1.0.md#reputation"
     weight: "strong_consideration"

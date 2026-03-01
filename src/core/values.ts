@@ -11,10 +11,12 @@ import { v4 as uuidv4 } from 'uuid'
 import { readFileSync } from 'node:fs'
 import { sign, verify } from '../crypto/keys.js'
 import { canonicalize } from './canonical.js'
+import { ENFORCEMENT_ESCALATION_ORDER } from '../types/passport.js'
 import type {
   ValuesFloor, FloorPrinciple, FloorAttestation,
   ComplianceCheck, ComplianceReport, SharedGround,
-  AgentPassport, ActionReceipt, SignedPassport
+  AgentPassport, ActionReceipt, SignedPassport,
+  EnforcementMode
 } from '../types/passport.js'
 
 // ══════════════════════════════════════
@@ -92,7 +94,7 @@ function parseYamlFloor(yamlContent: string): ValuesFloor {
         if (currentPrinciple?.id) floor.floor.push(currentPrinciple as FloorPrinciple)
         currentPrinciple = {
           id: extractVal(trimmed.slice(2)),
-          enforcement: { technical: false, mechanism: '' },
+          enforcement: { technical: false, mechanism: '' } as FloorPrinciple['enforcement'],
           weight: 'mandatory'
         }
         inEnforcement = false
@@ -105,6 +107,12 @@ function parseYamlFloor(yamlContent: string): ValuesFloor {
         }
         if (trimmed === 'enforcement:') { inEnforcement = true; continue }
         if (inEnforcement) {
+          if (trimmed.startsWith('mode:')) {
+            const mode = extractVal(trimmed)
+            if (mode === 'inline' || mode === 'audit' || mode === 'warn') {
+              currentPrinciple.enforcement!.mode = mode
+            }
+          }
           if (trimmed.startsWith('technical:')) currentPrinciple.enforcement!.technical = trimmed.includes('true')
           if (trimmed.startsWith('mechanism:')) currentPrinciple.enforcement!.mechanism = extractVal(trimmed)
           if (trimmed.startsWith('protocol_ref:')) currentPrinciple.enforcement!.protocolRef = extractVal(trimmed)
@@ -113,6 +121,15 @@ function parseYamlFloor(yamlContent: string): ValuesFloor {
     }
   }
   if (currentPrinciple?.id) floor.floor.push(currentPrinciple as FloorPrinciple)
+
+  // Post-process: resolve enforcement modes for backward compat
+  // Old YAML with technical: true/false gets mapped to mode: inline/audit
+  for (const p of floor.floor) {
+    if (!p.enforcement.mode) {
+      p.enforcement.mode = resolveEnforcementMode(p.enforcement)
+    }
+  }
+
   return floor
 }
 
@@ -124,6 +141,51 @@ function extractVal(line: string): string {
     v = v.slice(1, -1)
   }
   return v
+}
+
+// ══════════════════════════════════════
+// ENFORCEMENT MODE RESOLUTION
+// ══════════════════════════════════════
+
+/**
+ * Resolve the effective enforcement mode for a principle.
+ * 
+ * Handles backward compatibility:
+ *   - mode present → use it
+ *   - mode absent, technical: true → 'inline'
+ *   - mode absent, technical: false → 'audit'
+ *   - nothing → 'audit' (safe default: log but don't block)
+ */
+export function resolveEnforcementMode(
+  enforcement: FloorPrinciple['enforcement']
+): EnforcementMode {
+  if (enforcement.mode) return enforcement.mode
+  if (enforcement.technical === true) return 'inline'
+  if (enforcement.technical === false) return 'audit'
+  return 'audit'
+}
+
+/**
+ * Compute the effective enforcement mode across floor + extensions.
+ * 
+ * Strictness ordering: inline > warn > audit
+ * Extensions can only escalate (audit→warn→inline), never de-escalate.
+ * The strictest mode wins.
+ * 
+ * This is the core narrowing rule: if the floor says 'audit' and
+ * an extension says 'inline', the effective mode is 'inline'.
+ * If the floor says 'inline', nothing can weaken it.
+ */
+export function effectiveEnforcementMode(
+  floorMode: EnforcementMode,
+  ...extensionModes: EnforcementMode[]
+): EnforcementMode {
+  const all = [floorMode, ...extensionModes]
+  return all.reduce((strictest, current) =>
+    ENFORCEMENT_ESCALATION_ORDER[current] > ENFORCEMENT_ESCALATION_ORDER[strictest]
+      ? current
+      : strictest
+  )
 }
 
 // ══════════════════════════════════════
@@ -258,7 +320,8 @@ function evaluatePrinciple(
   receipts: ActionReceipt[],
   delegations: Map<string, { scope: string[]; revoked: boolean }>
 ): ComplianceCheck {
-  const base = { principleId: principle.id, principleName: principle.name }
+  const mode = resolveEnforcementMode(principle.enforcement)
+  const base = { principleId: principle.id, principleName: principle.name, enforcementMode: mode }
 
   switch (principle.id) {
     case 'F-001': { // Traceability

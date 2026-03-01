@@ -46,8 +46,11 @@ export {
   loadFloor, loadFloorFromFile,
   attestFloor, verifyAttestation,
   evaluateCompliance,
-  negotiateCommonGround
+  negotiateCommonGround,
+  resolveEnforcementMode, effectiveEnforcementMode
 } from './core/values.js'
+
+export { ENFORCEMENT_ESCALATION_ORDER } from './types/passport.js'
 
 // ── Layer 3: Beneficiary Attribution ──
 export {
@@ -79,6 +82,8 @@ export type {
   // Layer 2
   ValuesFloor, FloorPrinciple, FloorAttestation,
   ComplianceCheck, ComplianceReport, SharedGround, FloorReference,
+  // Layer 2 — Enforcement
+  EnforcementMode,
   // Layer 3
   BeneficiaryInfo, BeneficiaryTrace, DelegationHop,
   AttributionEntry, AttributionReport,

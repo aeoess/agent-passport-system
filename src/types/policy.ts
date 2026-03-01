@@ -11,6 +11,8 @@
 // "here's proof of what was checked."
 // ══════════════════════════════════════════════════════════════════
 
+import type { EnforcementMode } from './passport.js'
+
 // ── Action Intent ──
 // Before executing, the agent declares intent. This is the request.
 
@@ -44,6 +46,7 @@ export interface PrincipleEvaluation {
   principleName: string
   status: 'pass' | 'fail' | 'not_applicable'
   detail: string
+  enforcementMode?: EnforcementMode  // what happens when this fails
 }
 
 export interface PolicyDecision {
@@ -97,7 +100,11 @@ export interface ValidationContext {
   floorPrinciples: Array<{
     id: string
     name: string
-    enforcement: { technical: boolean; mechanism: string }
+    enforcement: {
+      mode?: EnforcementMode    // graduated enforcement
+      technical?: boolean       // deprecated compat
+      mechanism: string
+    }
     weight: string
   }>
   delegation: {
@@ -118,4 +125,12 @@ export interface PolicyEvaluationResult {
   principlesEvaluated: PrincipleEvaluation[]
   constraints?: string[]
   reason: string
+  // Graduated enforcement output
+  auditFindings?: PrincipleEvaluation[]   // audit-mode failures (logged, don't block)
+  warnings?: PrincipleEvaluation[]         // warn-mode failures (surfaced, don't block)
+  enforcement?: {
+    inlinePassed: boolean       // all inline principles passed?
+    auditIssueCount: number     // how many audit findings?
+    warningCount: number        // how many warnings?
+  }
 }
