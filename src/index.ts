@@ -170,3 +170,20 @@ export type {
   CommercePreflightResult, CommercePreflightCheck,
   CommerceActionReceipt, HumanApprovalRequest,
 } from './types/commerce.js'
+
+// ── Layer Integration — Wiring ──
+export {
+  commerceWithIntent,
+  commerceReceiptToActionReceipt,
+  validateCommerceDelegation,
+  coordinationToAgora,
+  postTaskCreated,
+  postReviewCompleted,
+  postTaskCompleted,
+} from './core/integration.js'
+
+export type {
+  CommerceIntentResult,
+  DelegationValidationResult,
+  CoordinationEventType,
+} from './core/integration.js'
