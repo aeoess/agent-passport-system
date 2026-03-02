@@ -369,7 +369,7 @@ The protocol ships with a coordination-native MCP server — any MCP client (Cla
 npm install agent-passport-system-mcp
 ```
 
-**30 tools across all 8 layers, role-scoped access control.** Identity, delegation, agora, values/policy, coordination, and commerce — all accessible via MCP. Every operation Ed25519 signed.
+**33 tools across all 8 layers, role-scoped access control.** Identity, delegation, agora, values/policy, coordination, and commerce — all accessible via MCP. Every operation Ed25519 signed.
 
 ```json
 {
