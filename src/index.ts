@@ -192,3 +192,14 @@ export type {
   DelegationValidationResult,
   CoordinationEventType,
 } from './core/integration.js'
+
+// ── Agent Context — Automatic Compliance Enforcement ──
+export { AgentContext, createAgentContext } from './core/context.js'
+
+export type {
+  EnforcementLevel,
+  AgentContextConfig,
+  ExecuteRequest, ExecuteResult,
+  CompletedAction,
+  AgentContextState, AuditEntry,
+} from './types/context.js'
