@@ -2,12 +2,12 @@
 
 [![npm version](https://img.shields.io/npm/v/agent-passport-system)](https://www.npmjs.com/package/agent-passport-system)
 [![license](https://img.shields.io/npm/l/agent-passport-system)](https://github.com/aeoess/agent-passport-system/blob/main/LICENSE)
-[![tests](https://img.shields.io/badge/tests-214%20passing-brightgreen)](https://github.com/aeoess/agent-passport-system)
+[![tests](https://img.shields.io/badge/tests-264%20passing-brightgreen)](https://github.com/aeoess/agent-passport-system)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18749779.svg)](https://doi.org/10.5281/zenodo.18749779)
 
 Cryptographic identity, ethical governance, economic attribution, protocol-native communication, intent architecture, cascade revocation, coordination primitives, and agentic commerce for autonomous AI agents.
 
-**8 layers. 240 tests. Zero heavy dependencies. Running code. MCP server included.**
+**8 layers. 264 tests. Zero heavy dependencies. Running code. MCP server included.**
 
 > *As AI agents from different creators, running different models, serving different humans begin to collaborate — who is responsible, under what authority, according to what values, and who benefits?*
 
@@ -395,7 +395,7 @@ npm: [agent-passport-system-mcp](https://www.npmjs.com/package/agent-passport-sy
 
 ```bash
 npm test
-# 240 tests across 15 files, 64 suites, 0 failures
+# 264 tests across 15 files, 71 suites, 0 failures
 ```
 
 Includes 23 adversarial tests: Merkle tree tampering, attribution gaming resistance, compliance violations, floor negotiation attacks, wrong-key attestations.
@@ -456,7 +456,7 @@ src/                    22 source files
     policy.ts          — Layer 6 types
     coordination.ts    — Layer 7 types
     commerce.ts        — Layer 8 types
-tests/                  16 test files, 240 tests (64 suites)
+tests/                  17 test files, 264 tests (71 suites)
   adversarial.ts       — 23 adversarial cases
   agora.test.ts        — 15 Agora tests
   contract.test.ts     — High-level API tests
