@@ -203,3 +203,24 @@ export type {
   CompletedAction,
   AgentContextState, AuditEntry,
 } from './types/context.js'
+
+// ── Task Routing Protocol ──
+export {
+  createTaskRequest, verifyTaskRequest,
+  advertiseCapabilities, verifyAdvertisement,
+  claimTask, verifyClaim,
+  declineTask, verifyDecline,
+  routeTask, verifyRoutingDecision,
+  scoreCandidate,
+  capabilityMatches, capabilityCoverage,
+  checkDelegationScope, isAdvertisementFresh,
+  DEFAULT_ROUTER_CONFIG, DEFAULT_MATCH_WEIGHTS, DEFAULT_PRIORITY_BOOSTS,
+} from './core/routing.js'
+
+export type {
+  TaskRequest, TaskRequestStatus, TaskRequestPriority,
+  CapabilityAdvertisement, AgentEnvironment,
+  ClaimResponse, TaskDecline, RoutingDecision,
+  RouterConfig, MatchWeights, CandidateScore, RoutingResult,
+  CapabilityString,
+} from './types/routing.js'
