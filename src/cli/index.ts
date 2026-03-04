@@ -22,6 +22,7 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { execSync } from 'node:child_process'
+import { createInterface } from 'node:readline'
 
 import {
   joinSocialContract, verifySocialContract,
@@ -104,6 +105,16 @@ function loadReceipts(): ActionReceipt[] {
     .map(f => loadJSON<ActionReceipt>(join(RECEIPT_DIR, f)))
 }
 
+function askYesNo(question: string): Promise<boolean> {
+  const rl = createInterface({ input: process.stdin, output: process.stdout })
+  return new Promise(resolve => {
+    rl.question(question, answer => {
+      rl.close()
+      resolve(answer.trim().toLowerCase() !== 'n')
+    })
+  })
+}
+
 // ── CLI Router ──
 
 const args = process.argv.slice(2)
@@ -142,6 +153,7 @@ function cmdJoin(): void {
   const floorPath = getFlag('--floor')
   const beneficiaryId = getFlag('--beneficiary')
   const extensions = getFlag('--extensions')?.split(',') || []
+  const skipRegister = args.includes('--no-register')
 
   let floor: string | undefined
   if (floorPath) {
@@ -189,6 +201,19 @@ function cmdJoin(): void {
   console.log('')
   console.log(`  Stored in ${DIR}/`)
   console.log(`  ⚠️  Keep ${AGENT_FILE} safe — contains private key`)
+  console.log('')
+
+  if (skipRegister) return
+
+  // Prompt for public Agora registration
+  askYesNo('  Register in the public Agora? (Y/n) ').then(yes => {
+    if (yes) {
+      cmdRegister()
+    } else {
+      console.log('  Skipped. Run `npx agent-passport register` later to join the Agora.')
+      console.log('')
+    }
+  })
 }
 
 // ══════════════════════════════════════
