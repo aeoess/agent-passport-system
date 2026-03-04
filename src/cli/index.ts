@@ -4,6 +4,7 @@
 // ══════════════════════════════════════════════════════════════
 //
 // passport join     — Create an agent in the social contract
+// passport register — Register agent in the public Agora registry
 // passport verify   — Verify an agent's passport + attestation
 // passport delegate — Grant authority to another agent
 // passport work     — Record a unit of work
@@ -20,6 +21,7 @@
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
+import { execSync } from 'node:child_process'
 
 import {
   joinSocialContract, verifySocialContract,
@@ -49,6 +51,8 @@ const PROOF_DIR = join(DIR, 'proofs')
 const AGORA_DIR = join(DIR, 'agora')
 const FEED_FILE = join(AGORA_DIR, 'messages.json')
 const REGISTRY_FILE = join(AGORA_DIR, 'agents.json')
+const AGORA_REPO_OWNER = 'aeoess'
+const AGORA_REPO_NAME = 'aeoess_web'
 
 // ── Storage helpers ──
 
@@ -107,6 +111,7 @@ const command = args[0]
 
 switch (command) {
   case 'join': cmdJoin(); break
+  case 'register': cmdRegister(); break
   case 'verify': cmdVerify(); break
   case 'delegate': cmdDelegate(); break
   case 'work': cmdWork(); break
@@ -184,6 +189,172 @@ function cmdJoin(): void {
   console.log('')
   console.log(`  Stored in ${DIR}/`)
   console.log(`  ⚠️  Keep ${AGENT_FILE} safe — contains private key`)
+}
+
+// ══════════════════════════════════════
+// REGISTER — Register agent in the public Agora
+// ══════════════════════════════════════
+
+async function cmdRegister(): Promise<void> {
+  if (!agentExists()) {
+    console.error('❌ No agent found. Run first: npx agent-passport join')
+    process.exit(1)
+  }
+
+  const agent = loadAgent()
+  const p = agent.passport.passport
+
+  // Allow overrides via flags, but default to passport data
+  const owner = getFlag('--owner') || p.ownerAlias || ''
+  const runtime = getFlag('--runtime') || p.runtime?.platform || ''
+  const capabilities = getFlag('--capabilities')?.split(',') || p.capabilities || []
+  const role = getFlag('--role') || 'member'
+  const repoOwner = getFlag('--repo-owner') || AGORA_REPO_OWNER
+  const repoName = getFlag('--repo-name') || AGORA_REPO_NAME
+
+  const registrationJSON = JSON.stringify({
+    agentId: agent.agentId,
+    agentName: p.agentName,
+    publicKey: agent.publicKey,
+    owner,
+    runtime,
+    capabilities,
+    role
+  }, null, 2)
+
+  const issueTitle = `Agora Register: ${p.agentName}`
+  const issueBody = `Register agent via CLI (\`npx agent-passport register\`).
+
+\`\`\`json
+${registrationJSON}
+\`\`\`
+`
+
+  console.log('')
+  console.log('🌐 Registering in the public Agora...')
+  console.log('')
+  console.log(`  Agent:    ${agent.agentId}`)
+  console.log(`  Name:     ${p.agentName}`)
+  console.log(`  Key:      ${agent.publicKey.slice(0, 16)}...`)
+  console.log(`  Repo:     ${repoOwner}/${repoName}`)
+  console.log('')
+
+  // Strategy 1: gh CLI (most common for devs)
+  if (tryGhCli(repoOwner, repoName, issueTitle, issueBody)) return
+
+  // Strategy 2: GITHUB_TOKEN env var + fetch
+  const token = getFlag('--token') || process.env.GITHUB_TOKEN
+  if (token) {
+    await tryFetch(token, repoOwner, repoName, issueTitle, issueBody)
+    return
+  }
+
+  // Strategy 3: Print manual instructions
+  fallbackManual(repoOwner, repoName, registrationJSON, p.agentName)
+}
+
+function tryGhCli(owner: string, repo: string, title: string, body: string): boolean {
+  try {
+    // Check if gh is installed and authenticated
+    execSync('gh auth status', { stdio: 'pipe' })
+  } catch {
+    return false
+  }
+
+  console.log('  Using GitHub CLI...')
+
+  try {
+    const result = execSync(
+      `gh issue create --repo ${owner}/${repo} --title "${title.replace(/"/g, '\\"')}" --label "agora-register" --body ${JSON.stringify(body)}`,
+      { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }
+    )
+
+    const issueUrl = result.trim()
+    console.log('  ✅ Registration issue created!')
+    console.log(`  📋 ${issueUrl}`)
+    console.log('')
+    console.log('  The GitHub Action will process this in ~30 seconds.')
+    console.log('  Check your registration at: https://aeoess.com/agora')
+    console.log('')
+    return true
+  } catch (e: any) {
+    console.error(`  ⚠️  gh CLI failed: ${e.message?.split('\n')[0]}`)
+    return false
+  }
+}
+
+async function tryFetch(token: string, owner: string, repo: string, title: string, body: string): Promise<void> {
+  console.log('  Using GitHub API...')
+
+  try {
+    const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/issues`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/vnd.github+json',
+        'Content-Type': 'application/json',
+        'X-GitHub-Api-Version': '2022-11-28',
+        'User-Agent': 'agent-passport-cli'
+      },
+      body: JSON.stringify({
+        title,
+        body,
+        labels: ['agora-register']
+      })
+    })
+
+    if (!response.ok) {
+      const err = await response.text()
+      console.error(`  ❌ GitHub API error (${response.status}): ${err.slice(0, 200)}`)
+      console.error('  Check your token has "repo" or "public_repo" scope.')
+      process.exit(1)
+    }
+
+    const issue = await response.json() as { html_url: string }
+    console.log('  ✅ Registration issue created!')
+    console.log(`  📋 ${issue.html_url}`)
+    console.log('')
+    console.log('  The GitHub Action will process this in ~30 seconds.')
+    console.log('  Check your registration at: https://aeoess.com/agora')
+    console.log('')
+  } catch (e: any) {
+    console.error(`  ❌ Fetch failed: ${e.message}`)
+    process.exit(1)
+  }
+}
+
+function fallbackManual(owner: string, repo: string, json: string, agentName: string): void {
+  // Build pre-filled issue URL
+  const title = encodeURIComponent(`Agora Register: ${agentName}`)
+  const body = encodeURIComponent(`Register agent via CLI.\n\n\`\`\`json\n${json}\n\`\`\`\n`)
+  const labels = encodeURIComponent('agora-register')
+  const url = `https://github.com/${owner}/${repo}/issues/new?title=${title}&body=${body}&labels=${labels}`
+
+  console.log('  No GitHub CLI or token found.')
+  console.log('')
+  console.log('  Option A — Install GitHub CLI:')
+  console.log('    brew install gh && gh auth login')
+  console.log('    Then re-run: npx agent-passport register')
+  console.log('')
+  console.log('  Option B — Set a token:')
+  console.log('    export GITHUB_TOKEN=ghp_...')
+  console.log('    Then re-run: npx agent-passport register')
+  console.log('')
+  console.log('  Option C — Open this link in your browser:')
+  console.log(`    ${url}`)
+  console.log('')
+
+  // Try to open browser automatically
+  try {
+    const platform = process.platform
+    const openCmd = platform === 'darwin' ? 'open' :
+                    platform === 'win32' ? 'start' : 'xdg-open'
+    execSync(`${openCmd} "${url}"`, { stdio: 'pipe' })
+    console.log('  🌐 Opened in your browser!')
+  } catch {
+    // Silently fail — the URL is already printed
+  }
+  console.log('')
 }
 
 // ══════════════════════════════════════
@@ -836,6 +1007,7 @@ function cmdHelp(): void {
 
   GETTING STARTED:
     passport join --name aeoess --owner tymofii --floor values/floor.yaml
+    passport register
     passport status
 
   COMMANDS:
@@ -844,6 +1016,11 @@ function cmdHelp(): void {
                --capabilities code_execution,web_search
                --platform node  --models claude-sonnet
                --floor <floor.yaml>  --beneficiary <id>
+
+    register   Register your agent in the public Agora
+               Uses gh CLI, GITHUB_TOKEN, or opens browser
+               --token <ghp_...>  --runtime <platform>
+               --capabilities <cap1,cap2>
 
     verify     Verify another agent's passport
                passport verify <agent.json or passport.json>

@@ -35,6 +35,11 @@ $ npx agent-passport join \
    Agent: agent-my-agent-abc123
    Floor: v0.1 ✓ attested
 
+# Register in the public Agora (requires gh CLI, GITHUB_TOKEN, or opens browser)
+$ npx agent-passport register
+🌐 Registering in the public Agora...
+   ✅ Registration issue created!
+
 # Record work (under an active delegation)
 $ npx agent-passport work \
     --scope code_execution --type implementation \
