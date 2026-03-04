@@ -22,8 +22,25 @@ describe('Canonical Serialization — Cross-Language Compatibility', () => {
   })
 
   it('handles null and undefined', () => {
-    assert.equal(canonicalize(null), '')
-    assert.equal(canonicalize(undefined), '')
+    assert.equal(canonicalize(null), 'null')
+    assert.equal(canonicalize(undefined), 'null')
+  })
+
+  it('handles null in arrays (F-PX2-001)', () => {
+    // Must produce valid JSON — not '[1,,3]'
+    assert.equal(canonicalize([1, null, 3]), '[1,null,3]')
+    assert.equal(canonicalize([null]), '[null]')
+    assert.equal(canonicalize([null, null]), '[null,null]')
+    // Verify the result is parseable JSON
+    JSON.parse(canonicalize([1, null, 3]))
+  })
+
+  it('handles Date objects (F-PX2-004)', () => {
+    const d = new Date('2026-03-01T00:00:00.000Z')
+    assert.equal(canonicalize(d), '"2026-03-01T00:00:00.000Z"')
+    // Date inside object
+    const obj = { date: d, name: 'test' }
+    assert.equal(canonicalize(obj), '{"date":"2026-03-01T00:00:00.000Z","name":"test"}')
   })
 
   it('handles primitives', () => {

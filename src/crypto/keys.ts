@@ -1,15 +1,8 @@
 // Ed25519 Cryptographic Operations for Agent Passport System
-// Uses @noble/ed25519 for pure JS Ed25519
+// Uses Node.js crypto for Ed25519 key generation, signing, and verification
 
-import { randomBytes, createHash } from 'node:crypto'
+import crypto from 'node:crypto'
 import type { KeyPair } from '../types/passport.js'
-
-// Ed25519 field order
-const L = 2n ** 252n + 27742317777372353535851937790883648493n
-
-function sha512(data: Uint8Array): Uint8Array {
-  return new Uint8Array(createHash('sha512').update(data).digest())
-}
 
 function hexToBytes(hex: string): Uint8Array {
   const bytes = new Uint8Array(hex.length / 2)
@@ -22,10 +15,6 @@ function hexToBytes(hex: string): Uint8Array {
 function bytesToHex(bytes: Uint8Array): string {
   return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('')
 }
-
-// Simplified Ed25519-like signing using Node.js crypto
-// For production, use @noble/ed25519 — this is a compatible implementation
-import crypto from 'node:crypto'
 
 export function generateKeyPair(): KeyPair {
   const { publicKey, privateKey } = crypto.generateKeyPairSync('ed25519', {
@@ -58,7 +47,12 @@ export function verify(message: string, signatureHex: string, publicKeyHex: stri
     const keyObj = crypto.createPublicKey({ key: derKey, format: 'der', type: 'spki' })
     const sigBytes = hexToBytes(signatureHex)
     return crypto.verify(null, Buffer.from(message, 'utf8'), keyObj, Buffer.from(sigBytes))
-  } catch {
+  } catch (err: unknown) {
+    // Distinguish input errors from verification failures (F-PX2-003)
+    const msg = err instanceof Error ? err.message : String(err)
+    if (msg.includes('Invalid key') || msg.includes('asn1') || msg.includes('key length')) {
+      console.warn(`[agent-passport] verify(): malformed input — ${msg}`)
+    }
     return false
   }
 }

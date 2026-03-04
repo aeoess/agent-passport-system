@@ -20,7 +20,7 @@ import json
 def canonicalize(obj) -> str:
     """Canonical JSON serialization matching Node.js SDK."""
     if obj is None:
-        return ''
+        return 'null'
     if isinstance(obj, bool):
         return 'true' if obj else 'false'
     if isinstance(obj, (int, float)):
@@ -81,6 +81,10 @@ if __name__ == '__main__':
          '{"empty_array":[],"neg":-1,"num":0}'),
         ({'a': 'quotes "inside"'},
          '{"a":"quotes \\"inside\\""}'),
+        # F-PX2-001: null in arrays must produce valid JSON
+        ([1, None, 3], '[1,null,3]'),
+        ([None], '[null]'),
+        (None, 'null'),
     ]
     print('Canonical serialization test vectors:')
     all_pass = True

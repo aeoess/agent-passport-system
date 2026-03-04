@@ -134,7 +134,7 @@ export interface Precedent {
   subject: string
   context: string               // what situation triggered this
   decision: string              // what was decided
-  tradeoffApplied: string       // which tradeoff rule was used
+  tradeoffApplied?: string      // which tradeoff rule was used (if applicable)
   agentScores: Record<string, number>  // final scores by agentId
   createdAt: string
   citedCount: number            // how many future deliberations reference this

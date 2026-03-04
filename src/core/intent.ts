@@ -135,7 +135,7 @@ export function createDeliberation(opts: {
   subject: string
   description: string
   initiatedBy: string  // agentId
-  convergenceThreshold?: number  // default 15
+  convergenceThreshold?: number  // default 8 (stdDev on 0-100 scale)
   maxRounds?: number            // default 5
   reversibilityScore: number    // 0-1
 }): Deliberation {
@@ -147,7 +147,7 @@ export function createDeliberation(opts: {
     initiatedAt: new Date().toISOString(),
     status: 'active',
     rounds: [],
-    convergenceThreshold: opts.convergenceThreshold ?? 15,
+    convergenceThreshold: opts.convergenceThreshold ?? 8,
     maxRounds: opts.maxRounds ?? 5,
     reversibilityScore: opts.reversibilityScore,
   }
@@ -317,7 +317,7 @@ export function resolveDeliberation(
     subject: deliberation.subject,
     context: deliberation.description,
     decision: opts.decision,
-    tradeoffApplied: '',  // filled by caller if applicable
+    // tradeoffApplied omitted — caller sets if applicable
     agentScores: Object.fromEntries(
       deliberation.rounds
         .filter(r => r.roundNumber === evaluation.roundNumber)
