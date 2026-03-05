@@ -18,6 +18,7 @@
 import { v4 as uuidv4 } from 'uuid'
 import { sign, verify } from '../crypto/keys.js'
 import { canonicalize } from './canonical.js'
+import { scopeAuthorizes } from './delegation.js'
 import { ENFORCEMENT_ESCALATION_ORDER } from '../types/passport.js'
 import type { EnforcementMode } from '../types/passport.js'
 import type {
@@ -364,7 +365,7 @@ export class FloorValidatorV1 implements PolicyValidator {
     intent: Omit<ActionIntent, 'signature'>,
     ctx: ValidationContext
   ): PrincipleEvaluation {
-    if (!ctx.delegation.scope.includes(intent.action.scopeRequired)) {
+    if (!scopeAuthorizes(ctx.delegation.scope, intent.action.scopeRequired)) {
       return {
         principleId: 'F-003', principleName: 'Scoped Authority',
         status: 'fail',

@@ -16,7 +16,7 @@
 import { createActionIntent, evaluateIntent } from './policy.js'
 import { commercePreflight } from './commerce.js'
 import { createAgoraMessage, appendToFeed } from './agora.js'
-import { verifyDelegation, getRevocation } from './delegation.js'
+import { verifyDelegation, getRevocation, scopeAuthorizes } from './delegation.js'
 import { canonicalize } from './canonical.js'
 import { sign } from '../crypto/keys.js'
 import type { SignedPassport, ActionReceipt, Delegation } from '../types/passport.js'
@@ -221,10 +221,8 @@ export function validateCommerceDelegation(
   }
 
   // 4. Commerce scopes should be within protocol delegation scope
-  const protocolScopes = new Set(protocolDelegation.scope)
-  const hasCommerceWildcard = protocolScopes.has('commerce:*')
   const scopeMatch = commerceDelegation.scope.every(
-    s => protocolScopes.has(s) || hasCommerceWildcard || protocolScopes.has('*')
+    s => scopeAuthorizes(protocolDelegation.scope, s)
   )
   if (!scopeMatch) {
     errors.push(`Commerce scopes [${commerceDelegation.scope.join(', ')}] not within protocol scopes [${protocolDelegation.scope.join(', ')}]`)

@@ -1,5 +1,5 @@
 // ══════════════════════════════════════
-// LAYER 9 — Task Routing Protocol
+// Task Routing Protocol — Coordination Extension
 // ══════════════════════════════════════
 // Automatic task-to-agent matching. Sits on top of Layer 6 Coordination.
 // Agents broadcast needs, advertise capabilities, claim work.

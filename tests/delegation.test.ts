@@ -6,7 +6,8 @@ import assert from 'node:assert/strict'
 import {
   generateKeyPair, createDelegation, subDelegate,
   verifyDelegation, revokeDelegation, verifyRevocation,
-  createReceipt, verifyReceipt, clearStores
+  createReceipt, verifyReceipt, clearStores,
+  scopeCovers, scopeAuthorizes
 } from '../src/index.js'
 
 const human = generateKeyPair()
@@ -327,5 +328,64 @@ describe('Action Receipts', () => {
     // Verify with agentB's key — should fail
     const v = verifyReceipt(receipt, agentB.publicKey)
     assert.ok(!v.valid)
+  })
+})
+
+// ═══════════════════════════════════════
+// Scope Resolution (R2-PX2-026 fix)
+// ═══════════════════════════════════════
+
+describe('scopeCovers', () => {
+  it('exact match', () => {
+    assert.ok(scopeCovers('code', 'code'))
+  })
+
+  it('parent covers child (hierarchical)', () => {
+    assert.ok(scopeCovers('code', 'code:deploy'))
+    assert.ok(scopeCovers('code', 'code:deploy:staging'))
+  })
+
+  it('[ADVERSARIAL] child does NOT cover parent', () => {
+    assert.ok(!scopeCovers('code:deploy', 'code'))
+  })
+
+  it('universal wildcard covers everything', () => {
+    assert.ok(scopeCovers('*', 'code'))
+    assert.ok(scopeCovers('*', 'commerce:checkout'))
+    assert.ok(scopeCovers('*', 'anything:at:all'))
+  })
+
+  it('prefix wildcard covers prefix and children', () => {
+    assert.ok(scopeCovers('commerce:*', 'commerce'))
+    assert.ok(scopeCovers('commerce:*', 'commerce:checkout'))
+    assert.ok(scopeCovers('commerce:*', 'commerce:checkout:express'))
+  })
+
+  it('[ADVERSARIAL] prefix wildcard does NOT cover other roots', () => {
+    assert.ok(!scopeCovers('commerce:*', 'code'))
+    assert.ok(!scopeCovers('commerce:*', 'code:deploy'))
+  })
+
+  it('no partial string match', () => {
+    assert.ok(!scopeCovers('code', 'codebase'))
+    assert.ok(!scopeCovers('cod', 'code'))
+  })
+})
+
+describe('scopeAuthorizes', () => {
+  it('finds covering scope in array', () => {
+    assert.ok(scopeAuthorizes(['code', 'web_search'], 'code:deploy'))
+  })
+
+  it('returns false when no scope covers', () => {
+    assert.ok(!scopeAuthorizes(['web_search', 'data_analysis'], 'code:deploy'))
+  })
+
+  it('works with wildcard in array', () => {
+    assert.ok(scopeAuthorizes(['commerce:*', 'code'], 'commerce:checkout'))
+  })
+
+  it('[ADVERSARIAL] empty scope array covers nothing', () => {
+    assert.ok(!scopeAuthorizes([], 'code'))
   })
 })

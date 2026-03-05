@@ -23,7 +23,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { sign } from '../crypto/keys.js'
 import { canonicalize } from './canonical.js'
 import { createActionIntent, evaluateIntent, createPolicyReceipt, FloorValidatorV1 } from './policy.js'
-import { createReceipt } from './delegation.js'
+import { createReceipt, scopeAuthorizes } from './delegation.js'
 import { verifyAttestation } from './values.js'
 import type { SocialContractAgent } from '../contract.js'
 import type { ValuesFloor, FloorAttestation, Delegation, ActionReceipt } from '../types/passport.js'
@@ -87,7 +87,7 @@ export class AgentContext {
   /** Find the best matching delegation for a required scope. */
   findDelegation(scopeRequired: string): Delegation | null {
     for (const [, d] of this.state.delegations) {
-      if (d.scope.includes(scopeRequired) && new Date(d.expiresAt) > new Date()) {
+      if (scopeAuthorizes(d.scope, scopeRequired) && new Date(d.expiresAt) > new Date()) {
         return d
       }
     }

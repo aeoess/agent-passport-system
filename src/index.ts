@@ -38,7 +38,8 @@ export {
   cascadeRevoke, revokeByAgent, validateChain,
   getDescendants, getChainEntry, onRevocation,
   createReceipt, verifyReceipt,
-  getReceipts, getRevocation, clearStores
+  getReceipts, getRevocation, clearStores,
+  scopeCovers, scopeAuthorizes
 } from './core/delegation.js'
 
 // ── Layer 2: Human Values Floor ──

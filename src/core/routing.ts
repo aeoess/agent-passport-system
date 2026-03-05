@@ -1,5 +1,5 @@
 // ══════════════════════════════════════
-// LAYER 9 — Task Routing Protocol
+// Task Routing Protocol — Coordination Extension
 // ══════════════════════════════════════
 // Automatic task-to-agent matching on top of Layer 6 Coordination.
 // Respects delegation scope, advertisement freshness, reputation.
@@ -10,6 +10,7 @@
 import { randomBytes } from 'node:crypto'
 import { sign, verify } from '../crypto/keys.js'
 import { canonicalize } from './canonical.js'
+import { scopeCovers } from './delegation.js'
 import type { Delegation } from '../types/passport.js'
 import type {
   TaskRequest, TaskRequestPriority, TaskRequestStatus,
@@ -87,7 +88,7 @@ export function checkDelegationScope(
 ): { valid: boolean; violations: string[] } {
   const violations: string[] = []
   for (const cap of requiredCapabilities) {
-    const inScope = delegationScope.some(s => capabilityMatches(s, cap))
+    const inScope = delegationScope.some(s => scopeCovers(s, cap))
     if (!inScope) violations.push(cap)
   }
   return { valid: violations.length === 0, violations }

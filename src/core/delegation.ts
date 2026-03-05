@@ -512,6 +512,40 @@ export function getRevocation(delegationId: string): RevocationRecord | undefine
   return revocationRegistry.get(delegationId)
 }
 
+// ═══════════════════════════════════════
+// Scope Resolution — SINGLE SOURCE OF TRUTH
+// ═══════════════════════════════════════
+// Used by context.ts, policy.ts, integration.ts, routing.ts.
+// All scope authorization checks MUST go through these functions.
+//
+// Rules:
+// - Exact match: 'code' covers 'code'
+// - Hierarchical: 'code' covers 'code:deploy' (parent covers child)
+// - Universal wildcard: '*' covers everything
+// - Prefix wildcard: 'commerce:*' covers 'commerce' and 'commerce:checkout'
+// - NO reverse: 'code:deploy' does NOT cover 'code' (child does not satisfy parent)
+
+/**
+ * Check if a single granted scope covers a required scope.
+ */
+export function scopeCovers(granted: string, required: string): boolean {
+  if (granted === required) return true
+  if (granted === '*') return true
+  if (required.startsWith(granted + ':')) return true
+  if (granted.endsWith(':*')) {
+    const prefix = granted.slice(0, -2)
+    if (required === prefix || required.startsWith(prefix + ':')) return true
+  }
+  return false
+}
+
+/**
+ * Check if any scope in a delegation's scope array covers the required scope.
+ */
+export function scopeAuthorizes(delegationScope: string[], required: string): boolean {
+  return delegationScope.some(s => scopeCovers(s, required))
+}
+
 export function clearStores(): void {
   revocationRegistry.clear()
   receiptStore.length = 0
