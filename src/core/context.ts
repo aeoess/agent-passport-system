@@ -340,11 +340,25 @@ export class AgentContext {
   }
 
   private createPermitResult(intent: ActionIntent, reason: string): ExecuteResult {
+    const now = new Date()
+    const manualDecision: PolicyDecision = {
+      decisionId: `manual-${intent.intentId}`,
+      intentId: intent.intentId,
+      evaluatorId: 'manual-mode',
+      evaluatorPublicKey: '',
+      verdict: 'permit',
+      principlesEvaluated: [],
+      reason,
+      floorVersion: this.floor.version,
+      evaluatedAt: now.toISOString(),
+      expiresAt: new Date(now.getTime() + 3600_000).toISOString(),
+      signature: '',  // Explicitly unsigned — manual mode bypass
+    }
     return {
       permitted: true,
       verdict: 'permit',
       intent,
-      decision: {} as PolicyDecision,  // Manual mode — no real decision
+      decision: manualDecision,
       reason
     }
   }

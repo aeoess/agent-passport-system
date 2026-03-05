@@ -339,6 +339,19 @@ describe('Task Routing Protocol', () => {
       assert.ok(result.rejectedClaims[0].reason.includes('no_capability_advertisement'))
     })
 
+    it('rejects claim from agent without delegation (R2-PX2-009)', () => {
+      // Empty delegations map — agent-1 has ad and claim but no delegation
+      const delegations = new Map<string, typeof deleg1>()
+      const result = routeTask({
+        request, claims: [claim1], advertisements: [ad1],
+        delegations, routerPublicKey: operator.publicKey, routerPrivateKey: operator.privateKey,
+      })
+      assert.equal(result.rejectedClaims.length, 1)
+      assert.equal(result.rejectedClaims[0].claimantId, 'agent-1')
+      assert.ok(result.rejectedClaims[0].reason.includes('no_delegation'))
+      assert.equal(result.decision.selectedAgentId, null)
+    })
+
     it('returns null when no claims meet coverage threshold', () => {
       const lowReq = createTaskRequest({
         requesterId: 'op-001', title: 'Complex task',

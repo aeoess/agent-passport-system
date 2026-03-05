@@ -17,7 +17,7 @@ import json
 def canonicalize(obj):
     """Canonicalize a Python object to deterministic JSON string."""
     if obj is None:
-        return ""
+        return "null"
     if isinstance(obj, bool):
         return "true" if obj else "false"
     if isinstance(obj, (int, float)):
@@ -143,9 +143,17 @@ if __name__ == "__main__":
     # Empty/edge cases
     assert canonicalize({}) == "{}"
     assert canonicalize([]) == "[]"
-    assert canonicalize(None) == ""
+    assert canonicalize(None) == "null"
     assert canonicalize("hello") == '"hello"'
     assert canonicalize(42) == "42"
     print("✅ Edge cases passed")
+
+    # Cross-language null asymmetry vectors (R2-PX2-008):
+    # - Object keys with None values are OMITTED
+    # - Array elements with None are PRESERVED as "null"
+    assert canonicalize({"a": 1, "b": None}) == '{"a":1}'
+    assert canonicalize([1, None, 3]) == '[1,null,3]'
+    assert canonicalize({"a": 1, "b": None, "c": [None, 2]}) == '{"a":1,"c":[null,2]}'
+    print("✅ Null asymmetry vectors passed (objects omit, arrays preserve)")
 
     print("\nAll canonicalization tests passed. This output matches the TypeScript SDK.")

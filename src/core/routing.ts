@@ -260,8 +260,8 @@ export function scoreCandidate(
   // Freshness check
   const fresh = isAdvertisementFresh(ad, now)
 
-  // Delegation scope gate (hard gate)
-  let scopeValid = true
+  // Delegation scope gate (hard gate — no delegation = no scope validity)
+  let scopeValid = false
   if (delegation) {
     const scopeCheck = checkDelegationScope(request.requiredCapabilities, delegation.scope)
     scopeValid = scopeCheck.valid
@@ -348,17 +348,19 @@ export function routeTask(opts: {
       continue
     }
 
-    // Delegation scope gate (hard security gate)
+    // Delegation scope gate (hard security gate — non-negotiable)
     const delegation = opts.delegations.get(claim.claimantId)
-    if (delegation) {
-      const scopeCheck = checkDelegationScope(opts.request.requiredCapabilities, delegation.scope)
-      if (!scopeCheck.valid) {
-        rejected.push({
-          claimantId: claim.claimantId,
-          reason: `delegation_scope_violation: ${scopeCheck.violations.join(', ')}`,
-        })
-        continue
-      }
+    if (!delegation) {
+      rejected.push({ claimantId: claim.claimantId, reason: 'no_delegation' })
+      continue
+    }
+    const scopeCheck = checkDelegationScope(opts.request.requiredCapabilities, delegation.scope)
+    if (!scopeCheck.valid) {
+      rejected.push({
+        claimantId: claim.claimantId,
+        reason: `delegation_scope_violation: ${scopeCheck.violations.join(', ')}`,
+      })
+      continue
     }
 
     // Score the candidate

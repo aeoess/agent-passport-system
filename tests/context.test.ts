@@ -224,6 +224,12 @@ describe('AgentContext — Manual Mode', () => {
     const result = ctx.execute({ type: 'fetch', target: 't', scope: 'data:read' })
     assert.equal(result.permitted, true)
     assert.match(result.reason, /Manual mode/)
+    // R2-PX2-014: manual mode must create a real PolicyDecision, not {} as PolicyDecision
+    assert.ok(result.decision.decisionId, 'manual decision must have decisionId')
+    assert.ok(result.decision.decisionId.startsWith('manual-'), 'manual decisionId should be prefixed')
+    assert.equal(result.decision.verdict, 'permit')
+    assert.equal(result.decision.evaluatorId, 'manual-mode')
+    assert.equal(result.decision.signature, '', 'manual decision must be explicitly unsigned')
   })
 
   it('still denies when no delegation exists even in manual mode', () => {
