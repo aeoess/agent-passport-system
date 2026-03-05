@@ -7,7 +7,7 @@
 
 Cryptographic identity, ethical governance, economic attribution, protocol-native communication, intent architecture, cascade revocation, coordination primitives, and agentic commerce for autonomous AI agents.
 
-**8 layers. 265 tests. Zero heavy dependencies. Running code. MCP server included.**
+**8 layers. 276 tests. Zero heavy dependencies. Running code. MCP server included.**
 
 > *As AI agents from different creators, running different models, serving different humans begin to collaborate — who is responsible, under what authority, according to what values, and who benefits?*
 
@@ -400,7 +400,7 @@ npm: [agent-passport-system-mcp](https://www.npmjs.com/package/agent-passport-sy
 
 ```bash
 npm test
-# 265 tests across 15 files, 71 suites, 0 failures
+# 276 tests across 15 files, 73 suites, 0 failures
 ```
 
 Includes 23 adversarial tests: Merkle tree tampering, attribution gaming resistance, compliance violations, floor negotiation attacks, wrong-key attestations.
@@ -461,7 +461,7 @@ src/                    22 source files
     policy.ts          — Layer 6 types
     coordination.ts    — Layer 7 types
     commerce.ts        — Layer 8 types
-tests/                  17 test files, 265 tests (71 suites)
+tests/                  17 test files, 276 tests (73 suites)
   adversarial.ts       — 23 adversarial cases
   agora.test.ts        — 15 Agora tests
   contract.test.ts     — High-level API tests
