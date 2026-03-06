@@ -249,3 +249,16 @@ export type {
   PassportCredentialSubject, DelegationCredentialSubject,
   FloorAttestationCredentialSubject, PolicyReceiptCredentialSubject
 } from './types/did.js'
+
+
+// ── Layer 10: A2A Protocol Bridge ──
+export {
+  passportToAgentCard, verifyAgentCard,
+  agentCardToCapabilities, hasPassportIdentity,
+  getDIDFromAgentCard
+} from './core/a2a.js'
+
+export type {
+  A2AAgentCard, A2AAgentSkill, A2AAgentProvider,
+  A2ACapabilities, A2ASecurityScheme
+} from './types/a2a.js'

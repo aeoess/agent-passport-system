@@ -5,3 +5,4 @@ export * from './context.js'
 export * from './routing.js'
 
 export * from './did.js'
+export * from './a2a.js'
