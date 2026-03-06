@@ -274,3 +274,17 @@ export type {
   RiskCategory, EUAIActArticle, ComplianceProfile,
   TransparencyDisclosure, EUComplianceReport, EUComplianceGap
 } from './types/euaiact.js'
+
+
+// ── Principal Identity ──
+export {
+  createPrincipalIdentity, endorseAgent, verifyEndorsement,
+  revokeEndorsement, createDisclosure, verifyDisclosure,
+  createFleet, addToFleet, getFleetStatus, revokeFromFleet,
+  endorsePassport, verifyPassportEndorsement, hasPrincipalEndorsement
+} from './core/principal.js'
+
+export type {
+  PrincipalIdentity, PrincipalEndorsement, PrincipalDisclosure,
+  FleetRecord, FleetAgent, EndorsementVerification, DisclosureLevel
+} from './types/principal.js'
