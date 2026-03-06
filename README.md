@@ -396,6 +396,18 @@ Every operation is Ed25519 signed. Role is auto-detected from task assignments. 
 
 npm: [agent-passport-system-mcp](https://www.npmjs.com/package/agent-passport-system-mcp) · GitHub: [aeoess/agent-passport-mcp](https://github.com/aeoess/agent-passport-mcp)
 
+## Python SDK
+
+Full Python implementation with cross-language compatibility. Signatures created in Python verify in TypeScript and vice versa.
+
+```bash
+pip install agent-passport-system
+```
+
+All 8 protocol layers + Principal Identity. 86 tests. Same canonical JSON serialization and Ed25519 signatures.
+
+PyPI: [agent-passport-system](https://pypi.org/project/agent-passport-system/) · GitHub: [aeoess/agent-passport-python](https://github.com/aeoess/agent-passport-python)
+
 ## Tests
 
 ```bash
