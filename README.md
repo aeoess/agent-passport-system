@@ -432,7 +432,7 @@ By Tymofii Pidlisnyi — Published on Zenodo
 | Communication | Signed Agora | — | — | — | — |
 | Coordination | Task units + MCP server | — | — | — | — |
 | Commerce | ACP + 4-gate enforcement | — | — | — | — |
-| Tests | 214 (38 adversarial) | None | Limited | None | None |
+| Tests | 329 (23 adversarial) | None | Limited | None | None |
 | Dependencies | Node.js crypto + uuid | — | Multi-LLM | — | Consensus network |
 
 ## Structure
