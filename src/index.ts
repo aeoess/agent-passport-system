@@ -225,3 +225,27 @@ export type {
   RouterConfig, MatchWeights, CandidateScore, RoutingResult,
   CapabilityString,
 } from './types/routing.js'
+
+
+// ── Layer 9: W3C DID & Verifiable Credentials Bridge ──
+export {
+  createDID, publicKeyFromDID, isValidDID,
+  passportToDIDDocument, resolveDID,
+  signWithDID, verifyWithDID,
+  hexToMultibase, multibaseToHex
+} from './core/did.js'
+
+export {
+  passportToVC, delegationToVC,
+  floorAttestationToVC, receiptToVC,
+  createPresentation,
+  verifyVC, verifyPresentation
+} from './core/vc.js'
+
+export type {
+  DIDDocument, VerificationMethod, ServiceEndpoint,
+  DIDResolutionResult,
+  VerifiableCredential, VerifiablePresentation, LinkedDataProof,
+  PassportCredentialSubject, DelegationCredentialSubject,
+  FloorAttestationCredentialSubject, PolicyReceiptCredentialSubject
+} from './types/did.js'
