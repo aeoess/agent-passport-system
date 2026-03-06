@@ -262,3 +262,15 @@ export type {
   A2AAgentCard, A2AAgentSkill, A2AAgentProvider,
   A2ACapabilities, A2ASecurityScheme
 } from './types/a2a.js'
+
+
+// ── EU AI Act Compliance ──
+export {
+  classifyRisk, mapArticles, generateTransparencyDisclosure,
+  generateComplianceProfile, identifyGaps, generateComplianceReport
+} from './core/euaiact.js'
+
+export type {
+  RiskCategory, EUAIActArticle, ComplianceProfile,
+  TransparencyDisclosure, EUComplianceReport, EUComplianceGap
+} from './types/euaiact.js'
