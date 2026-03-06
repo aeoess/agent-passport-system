@@ -195,10 +195,10 @@ The following attacks MUST be mitigated by any conforming implementation:
 
 The Agent Passport System SDK implements this specification:
 
-- **npm:** agent-passport-system (v1.9.2)
+- **npm:** agent-passport-system (v2.4.3)
 - **Source:** [github.com/aeoess/agent-passport-system](https://github.com/aeoess/agent-passport-system)
 - **File:** src/core/delegation.ts (~520 lines)
-- **Tests:** 276 tests, 73 suites, including 23 adversarial scenarios
+- **Tests:** 329 tests, 91 suites, including 23 adversarial scenarios
 - **License:** Apache-2.0
 
 Key functions: cascadeRevoke(), batchRevokeByAgent(), validateChain(), getDescendants(), onRevocation()
