@@ -16,7 +16,7 @@ metadata:
 
 # Agent Passport System
 
-Cryptographic identity, delegation, governance, coordination, and commerce for AI agents. 8 protocol layers, 264 tests, 38 MCP tools. The Agent Social Contract.
+Cryptographic identity, delegation, governance, coordination, and commerce for AI agents. 8 protocol layers, 313 tests, 38 MCP tools. Remote MCP at mcp.aeoess.com/sse. The Agent Social Contract.
 
 Use this skill when you need to:
 
@@ -213,8 +213,10 @@ Extensions narrow but never widen the floor.
 
 - **Crypto**: Ed25519 signatures + SHA-256 Merkle trees. No blockchain.
 - **Dependencies**: Zero heavy deps. Node.js crypto + uuid only.
-- **Tests**: 264 tests, 71 suites, 17 test files, 23 adversarial scenarios.
+- **Tests**: 313 tests, 84 suites, 20 test files, 23 adversarial scenarios.
 - **MCP**: 38 tools across all 8 layers.
+- **Remote MCP**: `https://mcp.aeoess.com/sse` (no install, connect via SSE)
+- **New in v1.10**: W3C DID method (did:aps), Verifiable Credentials, A2A Protocol Bridge, EU AI Act compliance module.
 - **License**: Apache-2.0
 - **npm SDK**: https://www.npmjs.com/package/agent-passport-system
 - **npm MCP**: https://www.npmjs.com/package/agent-passport-system-mcp
