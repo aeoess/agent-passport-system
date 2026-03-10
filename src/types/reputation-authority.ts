@@ -145,3 +145,30 @@ export interface PromotionReview {
   timestamp: string
   signature: string             // Ed25519 signed by reviewer
 }
+
+
+// ── Tier Authority Check ──
+
+/**
+ * Context for tier checking during policy evaluation.
+ * Optional — if not provided, tier check is skipped (backwards-compatible).
+ */
+export interface TierCheckContext {
+  agentTier: AuthorityTier
+  effectiveScore: number
+}
+
+/**
+ * Returned when an action is within delegation scope but above earned tier.
+ * Attached to PolicyEvaluationResult to signal the agent needs promotion.
+ */
+export interface TierEscalation {
+  currentTier: number
+  requiredTier: number
+  effectiveScore: number
+  effectiveAutonomy: number
+  requestedAutonomy: number
+  effectiveSpend: number
+  requestedSpend?: number
+  recommendation: 'needs_promotion' | 'needs_human_approval'
+}

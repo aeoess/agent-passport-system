@@ -7,11 +7,16 @@
 // Tier crossing requires signed promotion review.
 // ══════════════════════════════════════════════════════════════════
 
+import { randomBytes } from 'node:crypto'
+import { sign, verify } from '../crypto/keys.js'
+import { canonicalize } from './canonical.js'
 import type {
   ScopedReputation, AuthorityTier, TierDefinition,
   EvidenceClass, TaskClassification, EvidencePortfolio,
-  PromotionRequirements, RuntimeProfile, RuntimeChangeClass,
-  DemotionCause, DemotionEvent, TierOrigin
+  PromotionRequirements, PromotionReview,
+  RuntimeProfile, RuntimeChangeClass,
+  DemotionCause, DemotionEvent, TierOrigin,
+  TierEscalation, TierCheckContext
 } from '../types/reputation-authority.js'
 import type { AutonomyLevel } from '../types/intent.js'
 
@@ -296,4 +301,289 @@ export function meetsPromotionRequirements(
   }
 
   return { eligible: failures.length === 0, failures }
+}
+
+
+// ══════════════════════════════════════════════════════════════════
+// Phase 2: Signed Promotion Reviews, Demotion, Tier Checking
+
+// ══════════════════════════════════════════════════════════════════
+// Phase 2: Signed Promotion Reviews, Demotion, Tier Checking
+// ══════════════════════════════════════════════════════════════════
+
+// ── Promotion Reviews ──
+
+/**
+ * Create a signed promotion review.
+ * The reviewer cryptographically commits: "I reviewed this agent's
+ * evidence and approve/deny their promotion to tier X."
+ *
+ * Enforces: reviewer must be Earned (not Fiat), reviewer tier > target tier,
+ * no self-promotion.
+ */
+export function createPromotionReview(opts: {
+  agentId: string
+  principalId: string
+  scope: string
+  fromTier: number
+  toTier: number
+  reviewerId: string
+  reviewerTier: number
+  reviewerOrigin: TierOrigin
+  evidence: EvidencePortfolio
+  effectiveScore: number
+  verdict: 'promoted' | 'denied'
+  reasoning: string
+  reviewerPrivateKey: string
+  probationDays?: number
+}): PromotionReview {
+  // Validation: only Earned agents can promote
+  if (opts.reviewerOrigin !== 'earned') {
+    throw new Error(
+      `Reviewer origin is '${opts.reviewerOrigin}' — only 'earned' agents can approve promotions. ` +
+      'Fiat and provisional agents lack the operational track record to evaluate others.'
+    )
+  }
+
+  // Validation: reviewer must be above target tier
+  if (opts.reviewerTier <= opts.toTier) {
+    throw new Error(
+      `Reviewer tier ${opts.reviewerTier} is not above target tier ${opts.toTier}. ` +
+      'Agents can only approve promotions to tiers below their own.'
+    )
+  }
+
+  // Validation: no self-promotion
+  if (opts.reviewerId === opts.agentId) {
+    throw new Error('Self-promotion is not allowed. A different agent or human must review.')
+  }
+
+  const now = new Date()
+  const probationEnd = opts.verdict === 'promoted' && opts.probationDays !== 0
+    ? new Date(now.getTime() + (opts.probationDays ?? 7) * 24 * 60 * 60 * 1000).toISOString()
+    : undefined
+
+  const payload: Omit<PromotionReview, 'signature'> = {
+    reviewId: `promo-${randomBytes(8).toString('hex')}`,
+    agentId: opts.agentId,
+    principalId: opts.principalId,
+    scope: opts.scope,
+    fromTier: opts.fromTier,
+    toTier: opts.toTier,
+    reviewerId: opts.reviewerId,
+    reviewerTier: opts.reviewerTier,
+    reviewerOrigin: opts.reviewerOrigin,
+    evidence: opts.evidence,
+    effectiveScore: opts.effectiveScore,
+    verdict: opts.verdict,
+    reasoning: opts.reasoning,
+    probationEndsAt: probationEnd,
+    timestamp: now.toISOString(),
+  }
+
+  const signature = sign(canonicalize(payload), opts.reviewerPrivateKey)
+  return { ...payload, signature }
+}
+
+/**
+ * Validate a promotion review's cryptographic signature and structural rules.
+ */
+export function validatePromotionReview(
+  review: PromotionReview,
+  reviewerPublicKey: string
+): { valid: boolean; errors: string[] } {
+  const errors: string[] = []
+
+  // Structural checks
+  if (review.reviewerOrigin !== 'earned') {
+    errors.push(`Reviewer origin '${review.reviewerOrigin}' is not 'earned'`)
+  }
+  if (review.reviewerTier <= review.toTier) {
+    errors.push(`Reviewer tier ${review.reviewerTier} not above target tier ${review.toTier}`)
+  }
+  if (review.reviewerId === review.agentId) {
+    errors.push('Self-promotion detected')
+  }
+
+  // Cryptographic signature verification
+  const { signature, ...payload } = review
+  const canonical = canonicalize(payload)
+  const sigValid = verify(canonical, signature, reviewerPublicKey)
+  if (!sigValid) {
+    errors.push('Invalid signature')
+  }
+
+  return { valid: errors.length === 0, errors }
+}
+
+// ── Demotion ──
+
+/**
+ * Create a demotion event. Only behavioral demotions affect reputation.
+ * Administrative (policy change, delegation expired) and environmental
+ * (upstream revocation) demotions restrict authority but preserve reputation.
+ */
+export function triggerDemotion(opts: {
+  agentId: string
+  principalId: string
+  scope: string
+  currentTier: number
+  cause: DemotionCause
+  reason: string
+}): DemotionEvent {
+  const toTier = Math.max(0, opts.currentTier - 1)
+
+  return {
+    agentId: opts.agentId,
+    principalId: opts.principalId,
+    scope: opts.scope,
+    fromTier: opts.currentTier,
+    toTier,
+    cause: opts.cause,
+    reason: opts.reason,
+    timestamp: new Date().toISOString(),
+    affectsReputation: opts.cause === 'behavioral',
+  }
+}
+
+// ── Tier Authority Check ──
+
+/**
+ * Check if an agent's earned tier permits a specific action.
+ * Called alongside evaluateIntent() — not inside it (zero blast radius).
+ *
+ * Returns null if the tier check passes (agent has sufficient earned authority).
+ * Returns TierEscalation if the action requires higher tier than earned.
+ */
+export function checkTierForIntent(opts: {
+  tierContext: TierCheckContext
+  requestedAutonomy?: AutonomyLevel
+  requestedSpend?: number
+  requestedDepth?: number
+}): TierEscalation | null {
+  const tier = opts.tierContext.agentTier
+  const score = opts.tierContext.effectiveScore
+
+  // Check autonomy level
+  const reqAutonomy = opts.requestedAutonomy ?? 1
+  if (tier.autonomyLevel < reqAutonomy) {
+    // Find what tier is needed
+    const needed = DEFAULT_TIERS.find(t => t.autonomyLevel >= reqAutonomy)
+    return {
+      currentTier: tier.tier,
+      requiredTier: needed?.tier ?? 4,
+      effectiveScore: score,
+      effectiveAutonomy: tier.autonomyLevel,
+      requestedAutonomy: reqAutonomy,
+      effectiveSpend: tier.maxSpendPerAction,
+      requestedSpend: opts.requestedSpend,
+      recommendation: 'needs_promotion',
+    }
+  }
+
+  // Check spend limit
+  if (opts.requestedSpend !== undefined && tier.maxSpendPerAction < opts.requestedSpend) {
+    const needed = DEFAULT_TIERS.find(t => t.maxSpendPerAction >= opts.requestedSpend!)
+    return {
+      currentTier: tier.tier,
+      requiredTier: needed?.tier ?? 4,
+      effectiveScore: score,
+      effectiveAutonomy: tier.autonomyLevel,
+      requestedAutonomy: reqAutonomy,
+      effectiveSpend: tier.maxSpendPerAction,
+      requestedSpend: opts.requestedSpend,
+      recommendation: opts.requestedSpend > 2000 ? 'needs_human_approval' : 'needs_promotion',
+    }
+  }
+
+  // Check delegation depth
+  if (opts.requestedDepth !== undefined && tier.maxDelegationDepth < opts.requestedDepth) {
+    const needed = DEFAULT_TIERS.find(t => t.maxDelegationDepth >= opts.requestedDepth!)
+    return {
+      currentTier: tier.tier,
+      requiredTier: needed?.tier ?? 4,
+      effectiveScore: score,
+      effectiveAutonomy: tier.autonomyLevel,
+      requestedAutonomy: reqAutonomy,
+      effectiveSpend: tier.maxSpendPerAction,
+      recommendation: 'needs_promotion',
+    }
+  }
+
+  // All checks passed
+  return null
+}
+
+/**
+ * Advisory soft precheck before intent creation.
+ * Returns warnings but does NOT block the agent.
+ * The agent can still create the intent — this is for ergonomics only.
+ */
+export function advisoryTierPrecheck(opts: {
+  tierContext: TierCheckContext
+  requestedAutonomy?: AutonomyLevel
+  requestedSpend?: number
+}): string[] {
+  const warnings: string[] = []
+  const tier = opts.tierContext.agentTier
+
+  if (opts.requestedAutonomy && tier.autonomyLevel < opts.requestedAutonomy) {
+    warnings.push(
+      `Advisory: requested autonomy ${opts.requestedAutonomy} exceeds earned tier ` +
+      `${tier.name} (max ${tier.autonomyLevel}). Intent will likely be denied.`
+    )
+  }
+
+  if (opts.requestedSpend && tier.maxSpendPerAction < opts.requestedSpend) {
+    warnings.push(
+      `Advisory: requested spend $${opts.requestedSpend} exceeds tier ` +
+      `${tier.name} limit ($${tier.maxSpendPerAction}).`
+    )
+  }
+
+  return warnings
+}
+
+// ── Reputation Updates ──
+
+/** Mu/sigma adjustments per evidence class and outcome */
+const REPUTATION_UPDATES: Record<EvidenceClass, {
+  successMu: number; successSigma: number;
+  failureMu: number; failureSigma: number;
+}> = {
+  trivial:  { successMu: 0.5, successSigma: -0.3,  failureMu: -1.0, failureSigma: 0.5 },
+  standard: { successMu: 1.0, successSigma: -0.5,  failureMu: -2.0, failureSigma: 1.0 },
+  complex:  { successMu: 2.0, successSigma: -0.8,  failureMu: -3.0, failureSigma: 1.5 },
+  critical: { successMu: 3.0, successSigma: -1.0,  failureMu: -5.0, failureSigma: 2.0 },
+}
+
+/** Minimum sigma — we never have perfect certainty */
+const MIN_SIGMA = 1
+
+/**
+ * Update reputation (mu, sigma) from an action result.
+ * Success → mu increases, sigma decreases (more confident of capability).
+ * Failure → mu decreases, sigma increases (less confident).
+ * Higher evidence class → larger updates (complex tasks are more informative).
+ */
+export function updateReputationFromResult(
+  rep: ScopedReputation,
+  success: boolean,
+  evidenceClass: EvidenceClass
+): ScopedReputation {
+  const updates = REPUTATION_UPDATES[evidenceClass]
+
+  const muDelta = success ? updates.successMu : updates.failureMu
+  const sigmaDelta = success ? updates.successSigma : updates.failureSigma
+
+  const newMu = Math.max(0, Math.min(100, rep.mu + muDelta))
+  const newSigma = Math.max(MIN_SIGMA, Math.min(MAX_SIGMA, rep.sigma + sigmaDelta))
+
+  return {
+    ...rep,
+    mu: Math.round(newMu * 100) / 100,
+    sigma: Math.round(newSigma * 100) / 100,
+    receiptCount: rep.receiptCount + 1,
+    lastUpdatedAt: new Date().toISOString(),
+  }
 }

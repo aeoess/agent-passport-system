@@ -298,7 +298,10 @@ export {
   classifyEvidence, resolveAuthorityTier, shouldDemote,
   effectiveAutonomy, effectiveSpendLimit, effectiveDelegationDepth,
   classifyRuntimeChange, sigmaAfterRuntimeChange,
-  meetsPromotionRequirements
+  meetsPromotionRequirements,
+  createPromotionReview, validatePromotionReview,
+  triggerDemotion, checkTierForIntent, advisoryTierPrecheck,
+  updateReputationFromResult
 } from './core/reputation-authority.js'
 
 export type {
@@ -306,5 +309,6 @@ export type {
   EvidenceClass, TaskClassification, EvidencePortfolio,
   PromotionRequirements, PromotionReview,
   RuntimeProfile, RuntimeChangeClass,
-  DemotionCause, DemotionEvent
+  DemotionCause, DemotionEvent,
+  TierEscalation, TierCheckContext
 } from './types/reputation-authority.js'

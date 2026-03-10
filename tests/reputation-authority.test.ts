@@ -12,12 +12,16 @@ import {
   classifyEvidence, resolveAuthorityTier, shouldDemote,
   effectiveAutonomy, effectiveSpendLimit, effectiveDelegationDepth,
   classifyRuntimeChange, sigmaAfterRuntimeChange,
-  meetsPromotionRequirements
+  meetsPromotionRequirements,
+  createPromotionReview, validatePromotionReview,
+  triggerDemotion, checkTierForIntent, advisoryTierPrecheck,
+  updateReputationFromResult, generateKeyPair
 } from '../src/index.js'
 
 import type {
   TaskClassification, EvidencePortfolio,
-  RuntimeProfile, PromotionRequirements
+  RuntimeProfile, PromotionRequirements,
+  AuthorityTier, TierCheckContext
 } from '../src/index.js'
 
 // ══════════════════════════════════════
@@ -373,5 +377,339 @@ describe('meetsPromotionRequirements', () => {
     const result = meetsPromotionRequirements(badPortfolio, reqs)
     assert.equal(result.eligible, false)
     assert.ok(result.failures.length >= 5, `Expected 5+ failures, got ${result.failures.length}`)
+  })
+})
+
+
+// ══════════════════════════════════════
+// Phase 2: Promotion Reviews
+// ══════════════════════════════════════
+
+describe('createPromotionReview', () => {
+  const goodEvidence: EvidencePortfolio = {
+    scope: 'code_execution', totalReceipts: 60,
+    classCounts: { trivial: 30, standard: 18, complex: 9, critical: 3 },
+    distinctReviewers: 3, distinctTaskTypes: 4,
+    failureRate: 0.05, interventionRate: 0.1,
+  }
+
+  it('creates a signed promotion review', () => {
+    const reviewer = generateKeyPair()
+    const review = createPromotionReview({
+      agentId: 'agent-target', principalId: 'principal-1',
+      scope: 'code_execution', fromTier: 1, toTier: 2,
+      reviewerId: 'agent-reviewer', reviewerTier: 3, reviewerOrigin: 'earned',
+      evidence: goodEvidence, effectiveScore: 65,
+      verdict: 'promoted', reasoning: 'Strong evidence',
+      reviewerPrivateKey: reviewer.privateKey,
+    })
+    assert.ok(review.reviewId.startsWith('promo-'))
+    assert.equal(review.verdict, 'promoted')
+    assert.ok(review.signature)
+    assert.ok(review.probationEndsAt, 'Promoted reviews should have probation')
+  })
+
+  it('rejects fiat reviewer', () => {
+    const reviewer = generateKeyPair()
+    assert.throws(() => {
+      createPromotionReview({
+        agentId: 'agent-target', principalId: 'p1', scope: 's',
+        fromTier: 0, toTier: 1,
+        reviewerId: 'reviewer', reviewerTier: 3, reviewerOrigin: 'fiat',
+        evidence: goodEvidence, effectiveScore: 40,
+        verdict: 'promoted', reasoning: 'test',
+        reviewerPrivateKey: reviewer.privateKey,
+      })
+    }, /only 'earned' agents/)
+  })
+
+  it('rejects reviewer at same tier as target', () => {
+    const reviewer = generateKeyPair()
+    assert.throws(() => {
+      createPromotionReview({
+        agentId: 'agent-target', principalId: 'p1', scope: 's',
+        fromTier: 1, toTier: 2,
+        reviewerId: 'reviewer', reviewerTier: 2, reviewerOrigin: 'earned',
+        evidence: goodEvidence, effectiveScore: 65,
+        verdict: 'promoted', reasoning: 'test',
+        reviewerPrivateKey: reviewer.privateKey,
+      })
+    }, /not above target tier/)
+  })
+
+  it('rejects self-promotion', () => {
+    const reviewer = generateKeyPair()
+    assert.throws(() => {
+      createPromotionReview({
+        agentId: 'agent-same', principalId: 'p1', scope: 's',
+        fromTier: 1, toTier: 2,
+        reviewerId: 'agent-same', reviewerTier: 3, reviewerOrigin: 'earned',
+        evidence: goodEvidence, effectiveScore: 65,
+        verdict: 'promoted', reasoning: 'test',
+        reviewerPrivateKey: reviewer.privateKey,
+      })
+    }, /Self-promotion/)
+  })
+
+  it('denied verdict has no probation', () => {
+    const reviewer = generateKeyPair()
+    const review = createPromotionReview({
+      agentId: 'agent-target', principalId: 'p1', scope: 's',
+      fromTier: 1, toTier: 2,
+      reviewerId: 'reviewer', reviewerTier: 3, reviewerOrigin: 'earned',
+      evidence: goodEvidence, effectiveScore: 65,
+      verdict: 'denied', reasoning: 'Insufficient evidence',
+      reviewerPrivateKey: reviewer.privateKey,
+    })
+    assert.equal(review.probationEndsAt, undefined)
+  })
+})
+
+describe('validatePromotionReview', () => {
+  const goodEvidence: EvidencePortfolio = {
+    scope: 's', totalReceipts: 60,
+    classCounts: { trivial: 30, standard: 18, complex: 9, critical: 3 },
+    distinctReviewers: 3, distinctTaskTypes: 4,
+    failureRate: 0.05, interventionRate: 0.1,
+  }
+
+  it('validates a correctly signed review', () => {
+    const reviewer = generateKeyPair()
+    const review = createPromotionReview({
+      agentId: 'target', principalId: 'p1', scope: 's',
+      fromTier: 1, toTier: 2,
+      reviewerId: 'reviewer', reviewerTier: 3, reviewerOrigin: 'earned',
+      evidence: goodEvidence, effectiveScore: 65,
+      verdict: 'promoted', reasoning: 'Good',
+      reviewerPrivateKey: reviewer.privateKey,
+    })
+    const result = validatePromotionReview(review, reviewer.publicKey)
+    assert.equal(result.valid, true)
+    assert.equal(result.errors.length, 0)
+  })
+
+  it('rejects tampered review', () => {
+    const reviewer = generateKeyPair()
+    const review = createPromotionReview({
+      agentId: 'target', principalId: 'p1', scope: 's',
+      fromTier: 1, toTier: 2,
+      reviewerId: 'reviewer', reviewerTier: 3, reviewerOrigin: 'earned',
+      evidence: goodEvidence, effectiveScore: 65,
+      verdict: 'promoted', reasoning: 'Good',
+      reviewerPrivateKey: reviewer.privateKey,
+    })
+    review.verdict = 'denied' // tamper
+    const result = validatePromotionReview(review, reviewer.publicKey)
+    assert.equal(result.valid, false)
+    assert.ok(result.errors.some(e => e.includes('signature')))
+  })
+
+  it('detects structural rule violations', () => {
+    const reviewer = generateKeyPair()
+    const review = createPromotionReview({
+      agentId: 'target', principalId: 'p1', scope: 's',
+      fromTier: 1, toTier: 2,
+      reviewerId: 'reviewer', reviewerTier: 3, reviewerOrigin: 'earned',
+      evidence: goodEvidence, effectiveScore: 65,
+      verdict: 'promoted', reasoning: 'Good',
+      reviewerPrivateKey: reviewer.privateKey,
+    })
+    // Manually corrupt the structural fields (signature won't match, but test structural checks)
+    const corrupted = { ...review, reviewerOrigin: 'fiat' as const, reviewerTier: 1 }
+    const result = validatePromotionReview(corrupted, reviewer.publicKey)
+    assert.equal(result.valid, false)
+    assert.ok(result.errors.some(e => e.includes('earned')))
+    assert.ok(result.errors.some(e => e.includes('not above')))
+  })
+})
+
+// ══════════════════════════════════════
+// Phase 2: Demotion
+// ══════════════════════════════════════
+
+describe('triggerDemotion', () => {
+  it('behavioral demotion affects reputation', () => {
+    const event = triggerDemotion({
+      agentId: 'a1', principalId: 'p1', scope: 's',
+      currentTier: 3, cause: 'behavioral', reason: 'Policy violation',
+    })
+    assert.equal(event.fromTier, 3)
+    assert.equal(event.toTier, 2)
+    assert.equal(event.affectsReputation, true)
+    assert.equal(event.cause, 'behavioral')
+  })
+
+  it('administrative demotion preserves reputation', () => {
+    const event = triggerDemotion({
+      agentId: 'a1', principalId: 'p1', scope: 's',
+      currentTier: 2, cause: 'administrative', reason: 'Policy changed',
+    })
+    assert.equal(event.affectsReputation, false)
+  })
+
+  it('environmental demotion preserves reputation', () => {
+    const event = triggerDemotion({
+      agentId: 'a1', principalId: 'p1', scope: 's',
+      currentTier: 1, cause: 'environmental', reason: 'Upstream revoked',
+    })
+    assert.equal(event.affectsReputation, false)
+  })
+
+  it('does not demote below tier 0', () => {
+    const event = triggerDemotion({
+      agentId: 'a1', principalId: 'p1', scope: 's',
+      currentTier: 0, cause: 'behavioral', reason: 'Failed',
+    })
+    assert.equal(event.toTier, 0)
+  })
+})
+
+// ══════════════════════════════════════
+// Phase 2: Tier Authority Check
+// ══════════════════════════════════════
+
+describe('checkTierForIntent', () => {
+  const specialistTier: AuthorityTier = {
+    tier: 2, name: 'specialist', origin: 'earned',
+    autonomyLevel: 3, maxDelegationDepth: 2, maxSpendPerAction: 500,
+    demotionCount: 0,
+  }
+  const ctx: TierCheckContext = { agentTier: specialistTier, effectiveScore: 65 }
+
+  it('returns null when action within tier', () => {
+    const result = checkTierForIntent({
+      tierContext: ctx, requestedAutonomy: 3, requestedSpend: 200,
+    })
+    assert.equal(result, null)
+  })
+
+  it('returns escalation when autonomy above tier', () => {
+    const result = checkTierForIntent({
+      tierContext: ctx, requestedAutonomy: 5, // sovereign-level, agent is specialist
+    })
+    assert.ok(result)
+    assert.equal(result!.currentTier, 2)
+    assert.equal(result!.requestedAutonomy, 5)
+    assert.equal(result!.effectiveAutonomy, 3)
+    assert.equal(result!.recommendation, 'needs_promotion')
+  })
+
+  it('returns escalation when spend above tier limit', () => {
+    const result = checkTierForIntent({
+      tierContext: ctx, requestedSpend: 1000, // specialist limit is $500
+    })
+    assert.ok(result)
+    assert.equal(result!.effectiveSpend, 500)
+    assert.equal(result!.requestedSpend, 1000)
+  })
+
+  it('high spend triggers needs_human_approval', () => {
+    const result = checkTierForIntent({
+      tierContext: ctx, requestedSpend: 5000, // above $2000 threshold
+    })
+    assert.ok(result)
+    assert.equal(result!.recommendation, 'needs_human_approval')
+  })
+})
+
+describe('advisoryTierPrecheck', () => {
+  const ctx: TierCheckContext = {
+    agentTier: {
+      tier: 1, name: 'operator', origin: 'earned',
+      autonomyLevel: 2, maxDelegationDepth: 1, maxSpendPerAction: 100,
+      demotionCount: 0,
+    },
+    effectiveScore: 35,
+  }
+
+  it('returns empty array when within tier', () => {
+    const warnings = advisoryTierPrecheck({ tierContext: ctx, requestedAutonomy: 2 })
+    assert.equal(warnings.length, 0)
+  })
+
+  it('warns when autonomy above tier', () => {
+    const warnings = advisoryTierPrecheck({ tierContext: ctx, requestedAutonomy: 4 })
+    assert.equal(warnings.length, 1)
+    assert.ok(warnings[0].includes('Advisory'))
+  })
+
+  it('warns on both autonomy and spend', () => {
+    const warnings = advisoryTierPrecheck({
+      tierContext: ctx, requestedAutonomy: 4, requestedSpend: 500,
+    })
+    assert.equal(warnings.length, 2)
+  })
+})
+
+// ══════════════════════════════════════
+// Phase 2: Reputation Updates
+// ══════════════════════════════════════
+
+describe('updateReputationFromResult', () => {
+  it('success increases mu and decreases sigma', () => {
+    const rep = createScopedReputation('p', 'a', 'code')
+    const updated = updateReputationFromResult(rep, true, 'standard')
+    assert.ok(updated.mu > rep.mu, `mu should increase: ${updated.mu} > ${rep.mu}`)
+    assert.ok(updated.sigma < rep.sigma, `sigma should decrease: ${updated.sigma} < ${rep.sigma}`)
+    assert.equal(updated.receiptCount, 1)
+  })
+
+  it('failure decreases mu and increases sigma', () => {
+    const rep = { ...createScopedReputation('p', 'a', 'code'), mu: 50, sigma: 10 }
+    const updated = updateReputationFromResult(rep, false, 'standard')
+    assert.ok(updated.mu < rep.mu, `mu should decrease: ${updated.mu} < ${rep.mu}`)
+    assert.ok(updated.sigma > rep.sigma, `sigma should increase: ${updated.sigma} > ${rep.sigma}`)
+  })
+
+  it('complex tasks have larger effect than trivial', () => {
+    const rep = { ...createScopedReputation('p', 'a', 'code'), mu: 50, sigma: 15 }
+    const trivial = updateReputationFromResult(rep, true, 'trivial')
+    const complex = updateReputationFromResult(rep, true, 'complex')
+    assert.ok(complex.mu > trivial.mu, 'Complex success should give more mu than trivial')
+    assert.ok(complex.sigma < trivial.sigma, 'Complex success should reduce sigma more')
+  })
+
+  it('mu clamped at 0', () => {
+    const rep = { ...createScopedReputation('p', 'a', 'code'), mu: 1, sigma: 10 }
+    const updated = updateReputationFromResult(rep, false, 'critical') // mu -= 5
+    assert.equal(updated.mu, 0)
+  })
+
+  it('mu clamped at 100', () => {
+    const rep = { ...createScopedReputation('p', 'a', 'code'), mu: 99, sigma: 5 }
+    const updated = updateReputationFromResult(rep, true, 'critical') // mu += 3
+    assert.equal(updated.mu, 100)
+  })
+
+  it('sigma clamped at MIN_SIGMA (1)', () => {
+    const rep = { ...createScopedReputation('p', 'a', 'code'), mu: 90, sigma: 1.2 }
+    const updated = updateReputationFromResult(rep, true, 'critical') // sigma -= 1.0
+    assert.equal(updated.sigma, 1, 'Sigma should not go below 1')
+  })
+
+  it('sigma clamped at MAX_SIGMA', () => {
+    const rep = { ...createScopedReputation('p', 'a', 'code'), mu: 10, sigma: 24 }
+    const updated = updateReputationFromResult(rep, false, 'critical') // sigma += 2.0
+    assert.equal(updated.sigma, MAX_SIGMA)
+  })
+
+  it('scenario: new agent builds reputation from scratch', () => {
+    let rep = createScopedReputation('p', 'agent-new', 'code')
+
+    // Initially: mu=25, sigma=25, effective=0
+    assert.equal(computeEffectiveScore(rep.mu, rep.sigma), 0)
+
+    // 20 standard successes
+    for (let i = 0; i < 20; i++) {
+      rep = updateReputationFromResult(rep, true, 'standard')
+    }
+    // mu should be around 45 (25 + 20*1.0), sigma around 15 (25 - 20*0.5)
+    assert.ok(rep.mu > 40, `After 20 successes, mu=${rep.mu}`)
+    assert.ok(rep.sigma < 20, `After 20 successes, sigma=${rep.sigma}`)
+
+    // Effective score should now be positive
+    const score = computeEffectiveScore(rep.mu, rep.sigma)
+    assert.ok(score > 0, `Effective score should be positive: ${score}`)
+    assert.equal(rep.receiptCount, 20)
   })
 })
