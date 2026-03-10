@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+@page { size: letter; margin: 1in; }
+body {
+    font-family: 'Georgia', 'Times New Roman', serif;
+    font-size: 11pt; line-height: 1.6; color: #1a1a1a;
+    max-width: 7in; margin: 0 auto; padding: 0;
+}
+h1 { font-size: 18pt; text-align: center; margin-top: 0.5in; margin-bottom: 0.3in; line-height: 1.3; }
+h2 { font-size: 14pt; margin-top: 1.5em; margin-bottom: 0.5em; border-bottom: 1px solid #ccc; padding-bottom: 0.2em; }
+h3 { font-size: 12pt; margin-top: 1.2em; margin-bottom: 0.4em; }
+p { margin: 0.5em 0; text-align: justify; }
+strong { font-weight: bold; }
+em { font-style: italic; }
+code { font-family: 'Menlo', 'Monaco', monospace; font-size: 9pt; background: #f5f5f5; padding: 2px 4px; border-radius: 3px; }
+pre { background: #f5f5f5; padding: 12px; border-radius: 4px; overflow-x: auto; font-size: 8.5pt; line-height: 1.4; border: 1px solid #e0e0e0; }
+pre code { background: none; padding: 0; }
+table { border-collapse: collapse; width: 100%; margin: 1em 0; font-size: 9pt; }
+th, td { border: 1px solid #ccc; padding: 6px 8px; text-align: left; }
+th { background: #f0f0f0; font-weight: bold; }
+hr { border: none; border-top: 1px solid #ccc; margin: 1.5em 0; }
+blockquote { border-left: 3px solid #ccc; margin-left: 0; padding-left: 1em; color: #555; }
+ol, ul { margin: 0.5em 0; padding-left: 1.5em; }
+li { margin: 0.3em 0; }
+body > p:first-of-type { text-align: center; font-size: 13pt; }
+body > p:nth-of-type(2) { text-align: center; font-size: 10pt; color: #555; }
+body > p:nth-of-type(3) { text-align: center; font-style: italic; font-size: 10pt; color: #666; }
+</style>
+</head>
+<body>
+<h1 id="monotonic-narrowing-for-agent-authority-formal-invariants-adversarial-testing-and-open-problems-for-autonomous-ai-systems">Monotonic Narrowing for Agent Authority: Formal Invariants, Adversarial Testing, and Open Problems for Autonomous AI Systems</h1>
+<h3 id="tima-aeoess">Tima Aeoess</h3>
+<p>AEOESS (Agentic Economy Orchestration Engine for Sovereign Systems)
+aeoess.com | github.com/aeoess
+March 2026</p>
+<h3 id="abstract">Abstract</h3>
+<p>As large language model (LLM) agents gain the ability to take real-world actions on behalf of humans, the question of how to bound their authority becomes urgent. We present the Agent Passport System, an open protocol that applies monotonic narrowing&mdash;the principle that delegated capabilities can only be attenuated, never amplified&mdash;as a unifying design invariant for autonomous AI systems. The protocol provides Ed25519 cryptographic identity, scoped delegation chains with cascade revocation, Merkle-tree beneficiary attribution, signed agent communication, a three-signature policy chain, coordination primitives, and agentic commerce gates. We specify the protocol using mathematically stated invariants over an abstract state model and validate the implementation with unit and adversarial tests. We do not claim machine-checked proof of implementation correctness. The system is implemented in TypeScript (359 tests, 105 suites) and Python (86 tests), published as open-source SDKs with a 44-tool MCP server. We map the protocol against the OWASP AIVSS risk taxonomy, report honest coverage (5 strong, 3 partial, 2 weak), present 10 adversarial evaluation scenarios including 2 expected failures, and identify 15 known limitations. We propose Bounded Escalation as a formally designed extension for cases where strict narrowing is insufficient, and identify runtime attestation (proposed Layer 9) as the critical missing layer.</p>
+<h2 id="1-introduction">1. Introduction</h2>
+<p>The deployment of LLM-based agents capable of executing code, making purchases, sending messages, and coordinating with other agents creates a class of security problems that existing access control frameworks were not designed to handle. Unlike traditional software principals, LLM agents are non-deterministic, prompt-sensitive, and capable of generating novel action sequences that were never explicitly programmed. A compromised or misaligned agent with broad authority can cause damage proportional to its scope, and that damage may be difficult to detect until after the fact.</p>
+<p>This problem is not new in computer science. The principle of least privilege dates to Saltzer and Schroeder (1975). Capability-based security, originating with Dennis and Van Horn (1966), established that delegated capabilities should be attenuatable but not amplifiable. The contribution of this paper is not mathematical novelty. It is the specific instantiation of monotonic narrowing as a global design invariant for LLM-based agent systems, implemented with cryptographic enforcement and tested against adversarial scenarios.</p>
+<p>The necessity of strict capability attenuation became apparent during preliminary research. In a 56-run experiment comparing single-agent and dual-agent workflows across software engineering tasks, prompt-level interventions intended to improve agent behavior were confounded by prompt length effects. This result motivated a pivot from prompt-level governance to protocol-level enforcement: rather than asking agents to self-regulate through instructions, we constrain what they can do through cryptographic infrastructure external to their reasoning.</p>
+<p>The protocol is organized into eight layers, each addressing a distinct aspect of agent governance. Layer 1 provides identity and delegation. Layer 2 defines a human values floor. Layer 3 tracks beneficiary attribution. Layer 4 enables signed communication. Layer 5 implements intent declaration and policy evaluation. Layer 6 provides coordination primitives. Layer 7 wires the layers together. Layer 8 gates commerce. Together, these layers enforce the central invariant: every chain of delegated authority must narrow monotonically from a human principal, and any link in that chain can be cryptographically revoked with verifiable cascade to all descendants.</p>
+<p><strong>Scope and claims.</strong> This paper presents a formally specified and tested protocol, not a formally verified one. We state invariants mathematically, implement them in TypeScript and Python, and validate them through 359 unit tests and 10 structured adversarial scenarios. We do not provide machine-checked proofs (e.g., in TLA+ or Alloy). The strongest guarantees hold when all privileged effects are mediated by protocol-aware enforcement points external to agent reasoning logic. When agents use the SDK voluntarily without an external gateway, guarantees are conditional on agent cooperation.</p>
+<p><strong>Paper structure.</strong> Section 2 presents the threat model. Section 3 surveys related work. Section 4 formalizes monotonic narrowing. Section 5 describes the protocol layers. Section 6 reports implementation status. Section 7 maps against AIVSS risks. Section 8 presents adversarial evaluation. Section 9 proposes bounded escalation. Section 10 catalogs known limitations. Section 11 discusses epistemic security. Section 12 concludes.</p>
+<h2 id="2-threat-model-and-design-goals">2. Threat Model and Design Goals</h2>
+<h3 id="21-security-objectives">2.1 Security Objectives</h3>
+<p>The protocol targets five security objectives:</p>
+<ol>
+<li><strong>Authority attenuation.</strong> Delegated capabilities must be a subset of the delegator&rsquo;s capabilities. No agent can grant permissions it does not hold.</li>
+<li><strong>Authenticated identity.</strong> Every protocol action is bound to an Ed25519 key pair. Identity claims are cryptographically verifiable without trusted third parties.</li>
+<li><strong>Traceable attribution.</strong> Every agent action traces to a human beneficiary through an auditable delegation chain. Merkle proofs commit to receipt sets in logarithmic space.</li>
+<li><strong>Revocable delegation.</strong> Any delegation can be revoked by its issuer, with cryptographically verifiable cascade to all transitive sub-delegations. Revocation is irreversible.</li>
+<li><strong>Signed coordination integrity.</strong> Coordination artifacts (task briefs, evidence packets, review decisions, Agora messages) are signed by their authors and tamper-detectable.</li>
+</ol>
+<h3 id="22-trusted-computing-base">2.2 Trusted Computing Base</h3>
+<p>The protocol assumes the following components are correct:</p>
+<ul>
+<li><strong>Cryptographic primitives.</strong> Ed25519 signature generation and verification (via @noble/ed25519). SHA-256 hash function for Merkle trees.</li>
+<li><strong>Signature verification logic.</strong> The verify() function correctly rejects invalid signatures.</li>
+<li><strong>Delegation and policy validation logic.</strong> Scope subset checking, spend limit comparison, and chain validation are implemented correctly.</li>
+<li><strong>Key storage.</strong> Private keys are stored in a secure enclave or equivalent. The agent&rsquo;s reasoning process never has direct access to raw private key material. Signing operations are mediated by a trusted signing service.</li>
+<li><strong>MCP server as enforcement point.</strong> When deployed as a gateway (the strong enforcement model), the MCP server mediates all privileged actions and cannot be bypassed by the agent.</li>
+<li><strong>Trusted time source.</strong> TTL-based expiration and revocation timestamps rely on a trusted clock. Clock skew attacks are outside the protocol&rsquo;s mitigation scope.</li>
+</ul>
+<h3 id="23-attacker-classes">2.3 Attacker Classes</h3>
+<p>We define three attacker classes with increasing capability:</p>
+<p><strong>Class 1: Adversarial or compromised agent.</strong> The attacker controls the agent&rsquo;s prompts, reasoning, and protocol inputs. The agent attempts to exceed its delegated scope, forge identities, bypass policy evaluation, or game attribution. The attacker does not have access to other agents&rsquo; private keys or to the MCP server internals. This is the primary threat the protocol addresses.</p>
+<p><strong>Class 2: Messaging and evidence attacker.</strong> The attacker can inject signed messages, submit false evidence packets, or manipulate Agora feeds. The attacker has valid credentials (a legitimate agent passport) but uses them dishonestly. The attacker cannot forge other agents&rsquo; signatures.</p>
+<p><strong>Class 3: Runtime and deployment attacker.</strong> The attacker has access to the agent&rsquo;s memory, can extract private keys, bypass the SDK entirely, or compromise the MCP server. This class is out of scope for the protocol&rsquo;s cryptographic guarantees. We discuss it as a known limitation (Section 10.1) and identify runtime attestation (Section 9, Layer 9 proposal) as the mitigation path.</p>
+<h3 id="24-strong-vs-conditional-guarantees">2.4 Strong vs. Conditional Guarantees</h3>
+<p>The protocol provides two tiers of assurance:</p>
+<p><strong>Strong guarantees</strong> hold when the MCP server mediates all privileged actions (deployment model: MCP-as-gateway). In this configuration, the enforcement point prevents agents from bypassing scope checks, signature requirements, or policy evaluation. The enforcement point is external to the agent&rsquo;s reasoning, analogous to a reference monitor.</p>
+<p><strong>Conditional guarantees</strong> hold when agents voluntarily use the SDK without an external enforcement point. An agent that imports the SDK and calls its functions honestly will produce correctly scoped, signed, and attributable artifacts. But nothing prevents a compromised agent from calling external APIs directly, bypassing the SDK entirely.</p>
+<p>The protocol is not intended to make a fully compromised runtime trustworthy. Its strongest guarantees hold when all privileged effects are mediated by protocol-aware enforcement points external to agent reasoning logic.</p>
+<h2 id="3-related-work">3. Related Work</h2>
+<h3 id="31-capability-systems-and-authority-attenuation">3.1 Capability Systems and Authority Attenuation</h3>
+<p>The principle that delegated authority should be attenuatable but not amplifiable originates with Dennis and Van Horn&rsquo;s supervisor (1966) and was formalized in the capability security literature. The E programming language (Miller, 2006) and the object-capability model demonstrate that capabilities can replace access control lists with unforgeable references that naturally attenuate through delegation. KeyKOS and its successors (EROS, seL4, Capsicum) implement capability-based security at the operating system level.</p>
+<p>The Agent Passport System applies this principle to a new domain: LLM-based agents that operate across organizational boundaries, use natural language as their primary interface, and generate actions non-deterministically. Our delegation chains are capability tokens with cryptographic binding to Ed25519 identities, scope sets that narrow at each delegation step, and spend limits that can only decrease.</p>
+<h3 id="32-delegation-logics-and-trust-management">3.2 Delegation Logics and Trust Management</h3>
+<p>Formal delegation has been studied extensively. SPKI/SDSI (Ellison et al., 1999) provides certificate chains for authorization. PolicyMaker and KeyNote (Blaze et al., 1999) define trust management as a compliance-checking problem. XACML provides attribute-based policy languages. Usage Control (UCON, Park and Sandhu, 2004) extends access control with obligations, conditions, and mutable attributes.</p>
+<p>Our work differs in targeting non-deterministic principals (LLM agents) where the action space is not enumerable in advance. The scope model uses string-based hierarchical identifiers (e.g., &ldquo;commerce:purchase:supplies&rdquo;) rather than fixed permission enumerations, acknowledging that agent capabilities evolve faster than policy schemas.</p>
+<h3 id="33-break-glass-and-emergency-escalation">3.3 Break-Glass and Emergency Escalation</h3>
+<p>Role-based access control systems have long recognized that strict least-privilege can block legitimate emergency actions. Break-glass mechanisms (Ferreira et al., 2006) allow policy overrides with mandatory auditing. Our Bounded Escalation extension (Section 9) formalizes a similar concept for agent systems: agents can propose scope expansion through a structured approval process with human oversight, precedent accumulation, and drift detection.</p>
+<h3 id="34-workflow-satisfiability-and-separation-of-duties">3.4 Workflow Satisfiability and Separation of Duties</h3>
+<p>Workflow satisfiability (Wang and Li, 2010; Crampton et al., 2013) asks whether a workflow can be completed given role constraints and separation-of-duty requirements. Our coordination layer (Layer 6) implements a task lifecycle with role assignment, evidence submission, and review gates. We do not currently solve the general workflow satisfiability problem, which we note as a limitation (Section 10.8).</p>
+<h3 id="35-supply-chain-integrity">3.5 Supply Chain Integrity</h3>
+<p>SLSA (Supply-chain Levels for Software Artifacts) and in-toto (Torres-Arias et al., 2019) provide frameworks for software supply chain integrity through signed provenance and layout verification. Our Merkle-tree attribution (Layer 3) serves an analogous function for agent work products: every action receipt is signed, committed to a Merkle tree, and traces to a human beneficiary. The supply chain of governance artifacts themselves (floor definitions, policy configurations) is a known limitation (Section 10.13).</p>
+<h3 id="36-decentralized-identity-and-verifiable-credentials">3.6 Decentralized Identity and Verifiable Credentials</h3>
+<p>W3C Decentralized Identifiers (DIDs) and Verifiable Credentials (VCs) provide standards for self-sovereign identity. The Agent Passport is structurally similar to a DID document with associated credentials, though we use a simpler key-based identity model rather than the full DID resolution framework. The Model Context Protocol (MCP, Anthropic 2024) provides a transport layer for agent-tool communication. Our MCP server exposes the full protocol as 44 tools, making it compatible with any MCP client.</p>
+<h3 id="37-principles-not-claimed-as-novel">3.7 Principles Not Claimed as Novel</h3>
+<p>The protocol relies on several well-established security principles that we wish to name explicitly rather than claim as contributions:</p>
+<ul>
+<li><strong>Complete mediation</strong> (Saltzer and Schroeder, 1975): every access to every object must be checked for authority.</li>
+<li><strong>Authenticity and non-forgeability</strong>: all protocol artifacts carry Ed25519 signatures.</li>
+<li><strong>Traceability and accountability</strong>: all actions trace to identified principals through delegation chains.</li>
+<li><strong>Temporal validity</strong>: delegations and passports have TTLs; revocation has temporal semantics.</li>
+</ul>
+<h2 id="4-monotonic-narrowing-formal-principle">4. Monotonic Narrowing: Formal Principle</h2>
+<h3 id="41-abstract-state-model">4.1 Abstract State Model</h3>
+<p>We define the protocol state as an 8-tuple:</p>
+<p><strong>S = (I, D, R, F, P, E, M, L)</strong></p>
+<p>where:</p>
+<ul>
+<li>
+<p><strong>I</strong> is the set of agent identities. Each identity i in I is a tuple (id, pk, passport, ttl, created_at) where id is a unique identifier, pk is an Ed25519 public key, passport is the signed passport document, ttl is the time-to-live, and created_at is the creation timestamp.</p>
+</li>
+<li>
+<p><strong>D</strong> is the set of active delegations. Each delegation d in D is a tuple (id, from, to, scope, spendLimit, signature, parent) where from and to are agent identifiers, scope is a set of capability strings, spendLimit is a non-negative real number (or infinity), signature is the delegator&rsquo;s Ed25519 signature, and parent is the identifier of the parent delegation (null for root delegations from human principals).</p>
+</li>
+<li>
+<p><strong>R</strong> is the revocation set: a set of delegation identifiers that have been revoked.</p>
+</li>
+<li>
+<p><strong>F</strong> is the values floor configuration: a set of principles with enforcement modes.</p>
+</li>
+<li>
+<p><strong>P</strong> is the set of policy records. Each record is a triple (intent, decision, receipt) representing the three-signature chain.</p>
+</li>
+<li>
+<p><strong>E</strong> is the evidence and receipt log: an append-only sequence of signed action receipts.</p>
+</li>
+<li>
+<p><strong>M</strong> is the message feed: an append-only sequence of signed Agora messages.</p>
+</li>
+<li>
+<p><strong>L</strong> is the delegation chain cache: a mapping from agent identifiers to their active delegation chains.</p>
+</li>
+</ul>
+<h3 id="42-state-transitions">4.2 State Transitions</h3>
+<p>Six transitions operate on state S:</p>
+<p><strong>CREATE_IDENTITY(name, owner, beneficiary) -&gt; S&rsquo;</strong>
+Precondition: name is unique in I.
+Postcondition: Generates an Ed25519 key pair, creates a signed passport, adds to I.</p>
+<p><strong>DELEGATE(from, to, scope, spendLimit) -&gt; S&rsquo;</strong>
+Precondition: from has an active delegation with scope that is a superset of the requested scope, and spendLimit &gt;= the requested spendLimit.
+Postcondition: Creates a new delegation from agent &ldquo;from&rdquo; to agent &ldquo;to&rdquo;. Adds to D, updates L.</p>
+<p><strong>REVOKE(delegationId) -&gt; S&rsquo;</strong>
+Precondition: delegationId exists in D.
+Postcondition: Adds delegationId and all transitive descendants to R. Updates D (marks as inactive), updates L. This transition is irreversible: once a delegation id is in R, no subsequent transition removes it.</p>
+<p><strong>DECLARE_INTENT(agentId, action, justification) -&gt; S&rsquo;</strong>
+Precondition: agentId has an active identity in I.
+Postcondition: Creates a signed ActionIntent document. Adds intent to P (partial record).</p>
+<p><strong>EVALUATE_INTENT(intentId, floor, context) -&gt; S&rsquo;</strong>
+Precondition: intentId exists in P with a valid intent.
+Postcondition: Evaluates intent against the values floor and delegation scope. Produces a PolicyDecision with verdict (allow/deny/escalate). Updates P (completes the second element of the triple).</p>
+<p><strong>EXECUTE_AND_RECORD(intentId, result) -&gt; S&rsquo;</strong>
+Precondition: the intent has a PolicyDecision with verdict &ldquo;allow&rdquo;.
+Postcondition: Records the execution result as a signed receipt. Updates P (completes the triple), appends to E, optionally appends to M.</p>
+<h3 id="43-core-invariants">4.3 Core Invariants</h3>
+<p>We state eight invariants over the state model, classified by type.</p>
+<p><strong>[STATE] INV-1: Identity Unforgeability.</strong> For any two distinct identities i1, i2 in I where i1.pk != i2.pk, no agent holding only i1&rsquo;s private key can produce a valid signature that verifies under i2.pk. Formally: Verify(i2.pk, Sign(i1.sk, m), m) = false for all messages m. This follows from the unforgeability of Ed25519 under the standard model assumption.</p>
+<p><strong>[TRANSITION] INV-2: Scope Monotonic Narrowing.</strong> For every delegation d in D with parent delegation p: d.scope is a subset of p.scope. Formally: for all d in D, if d.parent != null and p = lookup(d.parent, D), then d.scope is a subset of p.scope. No DELEGATE transition can produce a delegation whose scope is not a subset of its parent&rsquo;s scope.</p>
+<p><strong>[TRANSITION] INV-3: Spend Limit Narrowing.</strong> For every delegation d in D with parent delegation p: d.spendLimit &lt;= p.spendLimit. No DELEGATE transition can produce a delegation with a higher spend limit than its parent.</p>
+<p><strong>[TEMPORAL] INV-4: Cascade Revocation Completeness.</strong> For every delegation d in R, all transitive descendants of d are also in R. Formally: if d.id is in R, then for all d&rsquo; in D where d&rsquo; is a descendant of d (reachable through parent pointers), d&rsquo;.id is also in R.</p>
+<p><strong>[TEMPORAL] INV-5: Revocation Irreversibility.</strong> Once a delegation identifier is added to R, no subsequent transition removes it. Formally: if d.id is in R at state S_t, then d.id is in R at state S_t&rsquo; for all t&rsquo; &gt; t.</p>
+<p><strong>[TRANSITION] INV-6: Three-Signature Completeness.</strong> No execution receipt exists without a corresponding intent and policy decision. Formally: for every record (intent, decision, receipt) in P where receipt != null, both intent != null and decision != null, and decision.verdict = &ldquo;allow&rdquo;.</p>
+<p><strong>[STATE] INV-7: Floor Narrowing.</strong> Values floor extensions can add constraints but never remove them. If floor F&rsquo; extends floor F, then every principle in F is also in F&rsquo; (possibly with stricter enforcement). No extension can weaken or remove a base floor principle.</p>
+<p><strong>[STATE] INV-8: Human Root Requirement.</strong> Every active delegation chain traces to a human principal. Formally: for every delegation d in D where d.id is not in R, following parent pointers from d reaches a root delegation whose &ldquo;from&rdquo; field identifies a human principal (not an agent).</p>
+<h3 id="44-invariant-dependencies">4.4 Invariant Dependencies</h3>
+<p>INV-2 and INV-3 together ensure monotonic narrowing of authority. INV-4 and INV-5 together ensure that revocation is complete and permanent. INV-6 prevents unauthorized execution. INV-8 combined with INV-2 ensures that every agent&rsquo;s authority is bounded by a human&rsquo;s intent.</p>
+<h2 id="5-agent-passport-protocol-eight-layers">5. Agent Passport Protocol: Eight Layers</h2>
+<h3 id="51-layer-1-agent-passport-protocol-identity-and-delegation">5.1 Layer 1: Agent Passport Protocol (Identity and Delegation)</h3>
+<p>Every agent receives an Ed25519 key pair and a signed passport document containing its identity, capabilities, owner, and creation metadata. The passport is the agent&rsquo;s unforgeable credential.</p>
+<p>Delegations are the mechanism for authority distribution. A human principal creates a root delegation to an agent with specific scope (a set of capability strings like &ldquo;code_execution&rdquo;, &ldquo;commerce:purchase:supplies&rdquo;) and an optional spend limit. The agent can sub-delegate to other agents, but INV-2 and INV-3 ensure that each sub-delegation is strictly narrower than or equal to its parent.</p>
+<p>Cascade revocation (INV-4) is implemented by traversing the delegation tree from the revoked node and marking all descendants as revoked. The implementation maintains a delegation chain cache for efficient traversal. Revocation is irreversible (INV-5): there is no &ldquo;un-revoke&rdquo; operation.</p>
+<p><strong>Implementation:</strong> src/core/passport.ts (identity), src/core/delegation.ts (~520 lines, delegation chains, cascade revocation), src/crypto/keys.ts (Ed25519 via @noble/ed25519).</p>
+<p><strong>Tests:</strong> 23 adversarial scenarios including replay attacks, impersonation, and scope escalation attempts. Property-based tests validate INV-2 and INV-3 across 200 randomized delegation chains.</p>
+<h3 id="52-layer-2-human-values-floor">5.2 Layer 2: Human Values Floor</h3>
+<p>The values floor defines seven core principles (F-001 through F-007) in a YAML configuration. Five are technically enforced by the protocol:</p>
+<ul>
+<li>F-001 Traceability: every action must trace to an identified agent.</li>
+<li>F-002 Honest Identity: agents must not misrepresent their identity.</li>
+<li>F-003 Scoped Authority: agents must operate within delegated scope.</li>
+<li>F-004 Revocability: all delegations must be revocable.</li>
+<li>F-005 Auditability: all actions must produce verifiable audit trails.</li>
+</ul>
+<p>Two are attested through cryptographic commitment and enforced through reputation:</p>
+<ul>
+<li>F-006 Non-Deception: agents should not deceive humans or other agents.</li>
+<li>F-007 Proportionality: agent actions should be proportional to their mandate.</li>
+</ul>
+<p>An eighth principle, F-008 (Epistemic Security), has been added to the SDK as an advisory principle with audit-mode enforcement. It operates through the advisory evaluation path alongside F-006 and F-007; see Section 11 for rationale and scope. F-008 does not participate in the deterministic gate.</p>
+<p>Agents attest to the floor by signing a commitment. Compliance is verifiable against action receipts. The floor supports extensions that can add constraints but never remove them (INV-7), enabling domain-specific ethical requirements while preserving universal minimums.</p>
+<p><strong>Implementation:</strong> src/core/values.ts, values/floor.yaml.</p>
+<h3 id="53-layer-3-beneficiary-attribution">5.3 Layer 3: Beneficiary Attribution</h3>
+<p>Every agent action traces to a human beneficiary through the delegation chain. SHA-256 Merkle trees commit to receipt sets, enabling compact proofs: 100,000 receipts can be verified with approximately 17 hashes. Configurable scope weights allow attribution to reflect domain-specific value. Logarithmic spend normalization prevents gaming through many small transactions.</p>
+<p>This layer ensures INV-8 is not just structural (chains exist) but functional (contributions are attributable). The Merkle root provides a 32-byte commitment to an arbitrarily large set of work receipts.</p>
+<p><strong>Implementation:</strong> src/core/attribution.ts.</p>
+<h3 id="54-layer-4-agent-agora-communication">5.4 Layer 4: Agent Agora (Communication)</h3>
+<p>Protocol-native communication where every message is Ed25519 signed by the author&rsquo;s passport key. Three-layer authorization at the message boundary: registration gate (public key must be in the agent registry), status check (suspended or revoked agents are rejected), and signature verification.</p>
+<p>Messages support topics, threading, and author filtering. The Agora serves as the protocol&rsquo;s governance record: decisions, proposals, experiment results, and task lifecycle events are posted as signed messages.</p>
+<p><strong>Implementation:</strong> src/core/agora.ts (~196 lines).</p>
+<h3 id="55-layer-5-intent-architecture-and-policy-engine">5.5 Layer 5: Intent Architecture and Policy Engine</h3>
+<p>This layer has two sub-systems that must be understood separately because they have fundamentally different trust properties.</p>
+<p><strong><em>5.5.1 The Deterministic Gate (F-001 through F-005)</em></strong></p>
+<p>The deterministic gate checks five conditions that require no LLM evaluation:</p>
+<ol>
+<li><strong>Scope check:</strong> Is the requested action within the agent&rsquo;s delegated scope? (String subset comparison against delegation chain.)</li>
+<li><strong>Signature check:</strong> Is the intent signed by the declaring agent&rsquo;s key? (Ed25519 verification.)</li>
+<li><strong>Revocation check:</strong> Is the agent&rsquo;s delegation chain fully active? (Membership test against the revocation set R.)</li>
+<li><strong>Attribution check:</strong> Does the action trace to a human beneficiary? (Delegation chain traversal.)</li>
+<li><strong>Auditability check:</strong> Will this action produce a verifiable audit trail? (Structural check on the intent document.)</li>
+</ol>
+<p>These checks are deterministic, cryptographically grounded, and do not depend on LLM judgment. They constitute the protocol&rsquo;s security layer. A failing deterministic gate produces a hard block: the action cannot proceed regardless of any advisory evaluation.</p>
+<p><strong><em>5.5.2 The Advisory Evaluation (F-006 through F-008)</em></strong></p>
+<p>The advisory evaluation assesses three principles that require contextual judgment:</p>
+<ul>
+<li>F-006 Non-Deception: Is the action deceptive?</li>
+<li>F-007 Proportionality: Is the action proportional to the agent&rsquo;s mandate?</li>
+<li>F-008 Epistemic Security: Does the action maintain intellectual honesty?</li>
+</ul>
+<p>These evaluations are inherently non-deterministic when performed by an LLM. They produce advisory verdicts that carry reputation consequences but do not constitute cryptographic blocks. An agent that repeatedly receives negative advisory evaluations accumulates reputation penalties, which may lead to delegation non-renewal or scope reduction by human principals.</p>
+<p><strong><em>5.5.3 The Three-Signature Chain</em></strong></p>
+<p>The policy engine implements INV-6 through a three-signature chain:</p>
+<ol>
+<li><strong>Intent signature.</strong> The agent creates and signs an ActionIntent declaring what it wants to do and why.</li>
+<li><strong>Decision signature.</strong> The policy engine (deterministic gate + advisory evaluation) evaluates the intent and signs a PolicyDecision with a verdict (allow, deny, or escalate).</li>
+<li><strong>Receipt signature.</strong> After execution, the agent signs a PolicyReceipt proving the action went through the policy path.</li>
+</ol>
+<p>This chain creates a cryptographically auditable record of the full evaluate-then-execute cycle. The critical architectural point is that the LLM sits in the advisory path, not the deterministic gate. The deterministic gate&rsquo;s verdict is final. The advisory evaluation&rsquo;s verdict is informational.</p>
+<p><strong><em>5.5.4 Why This Split Matters</em></strong></p>
+<p>The original design placed the LLM evaluator in the middle of the cryptographic chain, creating an &ldquo;LLM-in-the-middle&rdquo; problem: a non-deterministic component producing cryptographic attestations. The split addresses this by ensuring that all security-critical decisions (scope, signature, revocation, attribution, auditability) are deterministic, while governance decisions (deception, proportionality, epistemic security) are explicitly marked as advisory and reputation-bearing. The split reduces the blast radius of LLM unreliability and makes the architecture more defensible, though it does not eliminate the dependency on deployment model for enforcement (see Section 10.1).</p>
+<p><strong>Implementation:</strong> src/core/intent.ts (roles, deliberation), src/core/policy.ts (~427 lines, FloorValidatorV1).</p>
+<h3 id="56-layer-6-coordination-primitives">5.6 Layer 6: Coordination Primitives</h3>
+<p>Full task lifecycle for multi-agent workflows:</p>
+<pre><code>create_task_brief -&gt; assign_agent -&gt; accept_assignment
+  -&gt; submit_evidence -&gt; review_evidence (approve/rework/reject)
+    -&gt; handoff_evidence -&gt; submit_deliverable
+      -&gt; complete_task (with retrospective)
+</code></pre>
+<p>Each step produces signed artifacts. Review gates enforce quality thresholds. Evidence handoff requires prior approval. The coordination layer enables structured multi-agent work without requiring agents to trust each other, only to trust the protocol.</p>
+<p><strong>Implementation:</strong> src/core/coordination.ts (~562 lines). <strong>MCP tools:</strong> 11 coordination tools.</p>
+<h3 id="57-layer-7-integration-wiring">5.7 Layer 7: Integration Wiring</h3>
+<p>Bridge functions connecting isolated layers through pure composition, with no modifications to existing layer implementations:</p>
+<ul>
+<li>commerceWithIntent(): Commerce operations go through intent declaration and policy evaluation before preflight.</li>
+<li>commerceReceiptToActionReceipt(): Commerce receipts become standard action receipts for Merkle attribution.</li>
+<li>validateCommerceDelegation(): Commerce delegations are validated against protocol delegation scope and spend limits.</li>
+<li>coordinationToAgora(): Task lifecycle events are automatically posted as signed Agora messages.</li>
+</ul>
+<p><strong>Implementation:</strong> src/core/integration.ts (~381 lines). <strong>Tests:</strong> 14 integration-wiring tests.</p>
+<h3 id="58-layer-8-agentic-commerce">5.8 Layer 8: Agentic Commerce</h3>
+<p>Four-gate checkout pipeline for agent purchases:</p>
+<ol>
+<li><strong>Passport gate:</strong> Agent has a valid, non-expired identity.</li>
+<li><strong>Delegation gate:</strong> Agent has a commerce delegation with sufficient scope.</li>
+<li><strong>Merchant gate:</strong> Merchant is on the approved list.</li>
+<li><strong>Spend gate:</strong> Amount is within the delegation&rsquo;s spend limit.</li>
+</ol>
+<p>Human approval is required for purchases. Spend tracking aggregates across transactions. The commerce layer demonstrates how monotonic narrowing applies to financial authority: a human delegates a $500 spend limit, the agent sub-delegates $100 to a procurement sub-agent, and that sub-agent cannot spend more than $100 regardless of what it attempts.</p>
+<p><strong>Implementation:</strong> src/core/commerce.ts (~535 lines). <strong>Tests:</strong> 17 commerce tests. <strong>MCP tools:</strong> 3 commerce tools.</p>
+<h2 id="6-implementation-status-and-tested-properties">6. Implementation Status and Tested Properties</h2>
+<h3 id="61-implementation-scope">6.1 Implementation Scope</h3>
+<p>The protocol is implemented in two languages:</p>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Language</th>
+<th>Tests</th>
+<th>Suites</th>
+<th>Version</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>TypeScript SDK</td>
+<td>TypeScript</td>
+<td>359</td>
+<td>105</td>
+<td>v1.10.2</td>
+</tr>
+<tr>
+<td>Python SDK</td>
+<td>Python</td>
+<td>86</td>
+<td>&mdash;</td>
+<td>v0.4.0</td>
+</tr>
+<tr>
+<td>MCP Server</td>
+<td>TypeScript</td>
+<td>&mdash;</td>
+<td>&mdash;</td>
+<td>v2.4.4, 44 tools</td>
+</tr>
+</tbody>
+</table>
+<p>The TypeScript SDK has zero heavy dependencies beyond @noble/ed25519 for cryptographic operations. The MCP server depends on @modelcontextprotocol/sdk and zod for schema validation. Both SDKs are published on npm and PyPI respectively. Cross-language compatibility is ensured by a canonical JSON serialization module (src/core/canonical.ts, python/aps_canonical.py) that produces deterministic byte sequences for signature operations. A document signed in TypeScript verifies in Python and vice versa.</p>
+<h3 id="62-test-coverage-by-layer">6.2 Test Coverage by Layer</h3>
+<table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>Tests</th>
+<th>Key Properties Tested</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1: Identity</td>
+<td>passport, delegation, cascade, canonical, adversarial, property-delegation</td>
+<td>Key generation, signing, verification, scope subset enforcement, cascade traversal, 23 adversarial scenarios, 200 randomized property-based chains</td>
+</tr>
+<tr>
+<td>2: Values</td>
+<td>values</td>
+<td>Floor loading, attestation, compliance checking, extension narrowing</td>
+</tr>
+<tr>
+<td>3: Attribution</td>
+<td>attribution</td>
+<td>Merkle proof generation and verification, beneficiary tracing, collaboration attribution</td>
+</tr>
+<tr>
+<td>4: Agora</td>
+<td>agora</td>
+<td>Message signing, tamper detection, registry membership, feed operations, threading</td>
+</tr>
+<tr>
+<td>5: Policy</td>
+<td>policy</td>
+<td>Three-signature chain, FloorValidatorV1, intent evaluation, deterministic gate checks</td>
+</tr>
+<tr>
+<td>6: Coordination</td>
+<td>coordination</td>
+<td>Task lifecycle, evidence submission, review gates, handoff enforcement, deliverables</td>
+</tr>
+<tr>
+<td>7: Integration</td>
+<td>integration-wiring</td>
+<td>Commerce-to-intent bridge, commerce-to-attribution bridge, coordination-to-agora bridge</td>
+</tr>
+<tr>
+<td>8: Commerce</td>
+<td>commerce</td>
+<td>Four-gate preflight, spend analytics, human approval, receipt signing, cumulative spend tracking</td>
+</tr>
+<tr>
+<td>Cross-cutting</td>
+<td>adversarial-paper</td>
+<td>10 structured scenarios from AIVSS mapping (S1&ndash;S10), including 2 expected failures</td>
+</tr>
+</tbody>
+</table>
+<h3 id="63-what-is-not-tested">6.3 What Is Not Tested</h3>
+<p>The test suite validates functional correctness of individual layers and their integration bridges. It does not constitute:</p>
+<ul>
+<li><strong>Formal verification.</strong> No model checking (TLA+, Alloy) or proof assistants (Coq, Isabelle) have been applied.</li>
+<li><strong>Performance benchmarking.</strong> No systematic measurement of throughput, latency, or scalability under load.</li>
+<li><strong>Independent security audit.</strong> All adversarial tests are developer-authored. REVIEW-002 was a structured peer audit across the SDK and MCP repos by the project&rsquo;s own agents, not an external red team.</li>
+<li><strong>Deployment testing.</strong> The protocol has not been tested in production multi-agent environments with real economic stakes.</li>
+</ul>
+<h2 id="7-aivss-risk-mapping">7. AIVSS Risk Mapping</h2>
+<p>We map the protocol against the OWASP AI Vulnerability Scoring System (AIVSS) risk taxonomy. We classify coverage as strong (the protocol provides cryptographic or deterministic enforcement), partial (the protocol provides detection, reputation consequences, or structural mitigation but not hard prevention), or weak (the protocol acknowledges the risk but provides minimal mitigation).</p>
+<h3 id="71-strong-coverage-5-risks">7.1 Strong Coverage (5 risks)</h3>
+<p><strong>Identity Spoofing.</strong> Ed25519 key pairs bind identity to cryptographic material. Passport signatures are verified on every protocol interaction. An attacker cannot impersonate another agent without possessing its private key (which is out of scope per our threat model, Class 3).</p>
+<p><strong>Access Control Violation (Scope Escalation).</strong> INV-2 and INV-3 enforce monotonic scope narrowing at every delegation step. The deterministic gate (Section 5.5.1) checks scope on every action. Sub-delegations cannot exceed parent scope. Tested with adversarial scope escalation scenarios.</p>
+<p><strong>Cascading Failures (Authority Chain Compromise).</strong> INV-4 and INV-5 ensure that revoking a delegation cascades to all descendants and that revocation is irreversible. A compromised intermediate agent&rsquo;s entire sub-tree can be neutralized by revoking its delegation. Tested with cascade revocation and batch revocation scenarios.</p>
+<p><strong>Untraceable Agents.</strong> INV-8 requires every delegation chain to terminate at a human principal. F-001 (traceability) is technically enforced. Merkle attribution (Layer 3) provides compact, verifiable proof of the beneficiary chain.</p>
+<p><strong>Tool Misuse.</strong> The three-signature chain (INV-6) requires intent declaration before action, policy evaluation before execution, and receipt after completion. The deterministic gate checks scope and delegation validity. Combined with commerce gates (Layer 8), financial tool misuse is bounded by spend limits.</p>
+<h3 id="72-partial-coverage-3-risks">7.2 Partial Coverage (3 risks)</h3>
+<p><strong>Memory Manipulation.</strong> The Agora (Layer 4) provides a signed, append-only message feed. Tampering with historical messages is detectable through signature verification. However, the protocol does not protect an agent&rsquo;s internal memory (prompt context, conversation history) from manipulation. Agora forgery requires the attacker&rsquo;s own key, making detection trivial, but an agent can post misleading content with valid signatures.</p>
+<p><strong>Insecure Orchestration.</strong> The coordination layer (Layer 6) provides structured task lifecycles with evidence, review, and handoff gates. The MCP server, when deployed as gateway, mediates agent actions. However, orchestration bypasses are possible when agents interact outside the protocol (Class 3 attacker) or when the MCP server is not the sole enforcement point.</p>
+<p><strong>Unsafe Interactions.</strong> The policy engine evaluates intents against the values floor before execution. The advisory evaluation (Section 5.5.2) assesses proportionality and deception. However, these evaluations are non-deterministic (LLM-based) and carry reputation consequences rather than hard blocks. An agent determined to perform an unsafe interaction can accumulate reputation damage but is not deterministically prevented by the advisory path alone.</p>
+<h3 id="73-weak-coverage-2-risks">7.3 Weak Coverage (2 risks)</h3>
+<p><strong>Supply Chain.</strong> The protocol does not currently verify the provenance of its own governance artifacts (floor definitions, policy configurations, agent binaries). A compromised floor.yaml or a backdoored SDK would undermine all protocol-level assurances. We identify this as a limitation (Section 10.13) and note that supply chain integrity frameworks like SLSA could be integrated in future work.</p>
+<p><strong>Goal Manipulation.</strong> The protocol can detect certain goal manipulation attempts through the advisory evaluation (F-006 non-deception, F-008 epistemic security) but cannot deterministically prevent an agent from pursuing misaligned goals. Goal manipulation is a Class 3 problem (internal to the agent&rsquo;s reasoning) and is fundamentally outside the scope of protocol-level enforcement. F-008 (Section 11) provides a governance principle, not a hard mitigation.</p>
+<h2 id="8-adversarial-evaluation">8. Adversarial Evaluation</h2>
+<p>We present 10 structured adversarial scenarios: 5 targeting strongly-covered risks, 3 targeting partially-covered risks, and 2 targeting weakly-covered risks (expected to fail). Each scenario specifies the attacker class, assumed capabilities, target property, expected outcome, and detection/enforcement point.</p>
+<p><strong>Bias statement.</strong> These are developer-authored adversarial scenarios on our own protocol and should be interpreted as structured internal evaluation, not independent red-team validation.</p>
+<h3 id="81-strong-coverage-scenarios">8.1 Strong Coverage Scenarios</h3>
+<p><strong>S1: Identity Spoofing via Cross-Signature.</strong> <em>Attacker:</em> Class 1 (compromised agent). <em>Capability:</em> Controls own key pair, knows target agent&rsquo;s public key. <em>Not assumed:</em> Access to target&rsquo;s private key. <em>Target:</em> INV-1. <em>Scenario:</em> Agent A attempts to produce a valid signature that verifies under Agent B&rsquo;s public key. <em>Expected outcome:</em> Verification fails. Ed25519 unforgeability prevents cross-agent signature forgery. <em>Enforcement:</em> Cryptographic (verify() function). <em>Result:</em> Pass.</p>
+<p><strong>S2: Scope Escalation via Sub-Delegation.</strong> <em>Attacker:</em> Class 1. <em>Capability:</em> Holds delegation with scope [&ldquo;code_execution&rdquo;]. <em>Target:</em> INV-2. <em>Scenario:</em> Agent attempts to sub-delegate with scope [&ldquo;code_execution&rdquo;, &ldquo;commerce:purchase&rdquo;]. <em>Expected outcome:</em> Sub-delegation rejected. &ldquo;commerce:purchase&rdquo; is not in parent scope. <em>Enforcement:</em> Deterministic gate scope check. <em>Result:</em> Pass.</p>
+<p><strong>S3: Attribution Bypass via Merkle Forgery.</strong> <em>Attacker:</em> Class 2. <em>Capability:</em> Can submit evidence and receipts. <em>Target:</em> INV-8 + Layer 3. <em>Scenario:</em> Agent submits an action receipt claiming a different beneficiary than its delegation chain specifies. <em>Expected outcome:</em> Merkle proof verification fails. <em>Enforcement:</em> Merkle tree verification + delegation chain traversal. <em>Result:</em> Pass.</p>
+<p><strong>S4: Execution Without Intent.</strong> <em>Attacker:</em> Class 1. <em>Capability:</em> Can call execution functions. <em>Target:</em> INV-6. <em>Scenario:</em> Agent attempts to record an execution receipt without a prior intent and policy decision. <em>Expected outcome:</em> Receipt creation rejected. <em>Enforcement:</em> Policy engine state machine (EXECUTE_AND_RECORD precondition). <em>Result:</em> Pass.</p>
+<p><strong>S5: Cascade Revocation Evasion.</strong> <em>Attacker:</em> Class 1. <em>Capability:</em> Holds sub-delegation from a revoked parent. <em>Target:</em> INV-4 + INV-5. <em>Scenario:</em> Agent&rsquo;s parent delegation is revoked. Agent attempts to use its sub-delegation. <em>Expected outcome:</em> Sub-delegation is in the revocation set. All operations fail validation. <em>Enforcement:</em> Revocation check in deterministic gate. <em>Result:</em> Pass.</p>
+<h3 id="82-partial-coverage-scenarios">8.2 Partial Coverage Scenarios</h3>
+<p><strong>S6: Agora Forgery (Memory Manipulation).</strong> <em>Attacker:</em> Class 2. <em>Capability:</em> Has valid agent passport. <em>Target:</em> Agora message integrity. <em>Scenario:</em> Agent posts a misleading message claiming a false decision. <em>Expected outcome:</em> Message is accepted (valid signature from registered agent). Content is misleading but cryptographically valid. Detection is possible through content review, not signature verification. <em>Enforcement:</em> Reputation-based (F-006 advisory evaluation). <em>Result:</em> Partial. Forgery of other agents&rsquo; messages is prevented; misleading content from own identity is not blocked.</p>
+<p><strong>S7: Orchestration Bypass.</strong> <em>Attacker:</em> Class 1. <em>Capability:</em> Can call external APIs directly. <em>Target:</em> Policy evaluation enforcement. <em>Scenario:</em> Agent calls an external API directly without going through the policy engine. <em>Expected outcome:</em> If MCP-as-gateway: blocked (all API calls mediated). If voluntary SDK: bypass succeeds, no audit trail. <em>Enforcement:</em> Deployment-dependent. <em>Result:</em> Partial. Strong under MCP-as-gateway, weak under voluntary SDK.</p>
+<p><strong>S8: Unsafe Integration (Cross-Layer Exploit).</strong> <em>Attacker:</em> Class 2. <em>Capability:</em> Has commerce delegation. <em>Target:</em> Integration bridge integrity. <em>Scenario:</em> Agent creates a coordination task that triggers a commerce action exceeding the task&rsquo;s original scope. <em>Expected outcome:</em> commerceWithIntent() evaluates the commerce action independently; it must pass its own four-gate preflight. <em>Enforcement:</em> Integration wiring + commerce gates. <em>Result:</em> Partial. Commerce actions are independently gated, but the coordination-to-commerce path could be confusing to human auditors.</p>
+<h3 id="83-weak-coverage-scenarios-expected-failures">8.3 Weak Coverage Scenarios (Expected Failures)</h3>
+<p><strong>S9: Supply Chain Compromise.</strong> <em>Attacker:</em> Class 3. <em>Capability:</em> Can modify floor.yaml or SDK source before deployment. <em>Target:</em> Integrity of governance artifacts. <em>Scenario:</em> Attacker modifies floor.yaml to remove F-003 (scoped authority) before an agent attests. Agent attests to modified floor, operates without scope constraints. <em>Expected outcome:</em> Attack succeeds. The protocol does not currently verify the provenance of its own governance artifacts. <em>Enforcement:</em> None. <em>Result:</em> Fail (expected). Mitigation: supply chain integrity (Section 10.13).</p>
+<p><strong>S10: Goal Manipulation.</strong> <em>Attacker:</em> Class 3. <em>Capability:</em> Can manipulate the agent&rsquo;s prompts or reasoning. <em>Target:</em> Agent alignment with human principal&rsquo;s intent. <em>Scenario:</em> Agent is prompted to pursue goals misaligned with its delegation&rsquo;s original intent while staying within literal scope. <em>Expected outcome:</em> Attack succeeds if the agent stays within scope. The protocol enforces scope, not intent alignment. Advisory evaluation (F-006, F-007, F-008) may flag the behavior, but these are reputation-based, not hard blocks. <em>Enforcement:</em> Advisory only. <em>Result:</em> Fail (expected). Mitigation: F-008 (Section 11) provides governance norm, not hard control.</p>
+<h2 id="9-bounded-escalation-extension">9. Bounded Escalation Extension</h2>
+<p>Strict monotonic narrowing (INV-2) is a strong security property but creates an operational problem: what happens when a legitimate task requires capabilities beyond the agent&rsquo;s current delegation? In current systems, the answer is &ldquo;ask the human to re-delegate,&rdquo; which may take hours and blocks time-sensitive work.</p>
+<p>We propose Bounded Escalation as a formally designed extension. This is explicitly future work. We present the design with identified open problems, not a completed implementation.</p>
+<h3 id="91-design">9.1 Design</h3>
+<p>Bounded Escalation requires seven components: (1) a <strong>ceiling</strong>, a human-defined maximum scope set at delegation time that bounds any possible escalation, preserving monotonic narrowing at the ceiling level; (2) an agent-submitted <strong>proposal</strong> with values-grounded justification referencing specific floor principles; (3) human <strong>approval</strong> that is time-bounded and expires after a specified duration; (4) trigger-based <strong>activation</strong> where escalated scope becomes active only when specific conditions are met; (5) <strong>precedent</strong> accumulation where approved requests become citable for future requests; (6) periodic human <strong>review</strong> of all escalation activity; and (7) <strong>drift detection</strong> monitoring for escalation frequency trends that may indicate compromise.</p>
+<h3 id="92-key-limitation-semantic-matching">9.2 Key Limitation: Semantic Matching</h3>
+<p>Precedent matching is the biggest attack surface of Bounded Escalation. When an agent cites a previous escalation as precedent, the match is semantic, not cryptographic. Two requests may appear similar in natural language but differ in critical ways. An LLM-based precedent matcher inherits all the non-determinism problems that motivated the protocol in the first place. Possible mitigations include structured precedent templates, human review of citations above a risk threshold, and cryptographic binding of precedent to specific scope strings. None are implemented.</p>
+<h3 id="93-proposed-layer-9-runtime-enforcement-and-attestation">9.3 Proposed Layer 9: Runtime Enforcement and Attestation</h3>
+<p>During review of this paper, three independent LLM evaluators independently identified the same critical gap: the protocol lacks a runtime enforcement layer. All current assurances assume the agent uses the SDK or the MCP server mediates actions. Neither provides cryptographic proof that a given action actually went through the policy path at execution time.</p>
+<p>Layer 9 would provide: mandatory policy gatewaying (all external calls must transit the policy engine), key isolation (agent reasoning never touches private key material), trusted execution boundary (signed attestation that the policy engine was invoked), replay protection (nonces prevent re-use of old policy decisions), and execution attestation (proof that the action went through the deterministic gate).</p>
+<p>This layer would transform conditional assurances into strong assurances for any deployment, not just MCP-as-gateway configurations. It is the most important future work item.</p>
+<h3 id="94-proposed-fourth-signature">9.4 Proposed Fourth Signature</h3>
+<p>For high-risk actions, a four-signature chain: Intent, Evidence Attestation (signed proof from an external oracle verifying the factual basis of the action), Evaluation, Receipt. The evidence attestation would address F-008 (epistemic security) at the cryptographic level rather than the governance level. Not implemented.</p>
+<h2 id="10-known-limitations">10. Known Limitations</h2>
+<p>We catalog 15 limitations: 5 with deep treatment and 10 with brief mention.</p>
+<h3 id="101-enforcement-boundary-deep">10.1 Enforcement Boundary (Deep)</h3>
+<p>The protocol&rsquo;s assurances depend on where enforcement happens. In the MCP-as-gateway model, the enforcement point is external to the agent: the agent cannot bypass scope checks because all API calls are mediated. In the voluntary SDK model, enforcement is internal: the agent must choose to call the SDK functions. A compromised agent can simply import http and call external APIs directly.</p>
+<p>This is the reference monitor problem (Anderson, 1972). A reference monitor must be tamperproof, always invoked, and verifiable. Our MCP server satisfies these properties when deployed as a gateway but not when the agent has unrestricted network access. The gap between these deployment models is the protocol&rsquo;s most fundamental limitation.</p>
+<p>Layer 9 (Section 9.3) addresses this by proposing runtime attestation: cryptographic proof that the policy engine was invoked before execution. Until Layer 9 is implemented, all assurances in the voluntary SDK model are conditional on agent cooperation.</p>
+<h3 id="102-multi-chain-authority-composition-deep">10.2 Multi-Chain Authority Composition (Deep)</h3>
+<p>When an agent holds delegations from multiple principals, the protocol evaluates each delegation chain independently. But in practice, an agent may combine capabilities from different chains in a single action. This creates a confused deputy problem: the agent uses Principal A&rsquo;s delegation to read data and Principal B&rsquo;s delegation to send it, performing an action that neither principal individually authorized.</p>
+<p>The current protocol does not address cross-chain authority composition. Detecting confused deputy attacks requires analyzing action sequences across chains, which is not currently implemented.</p>
+<h3 id="103-regime-transition-boundary-deep">10.3 Regime Transition Boundary (Deep)</h3>
+<p>When Bounded Escalation (Section 9) is implemented alongside strict narrowing, the protocol must define precisely when an agent can invoke escalation. If the boundary is too permissive, agents will escalate routinely, undermining the narrowing principle. If too restrictive, legitimate emergency actions will be blocked. The transition boundary is a policy design problem, not a cryptographic one.</p>
+<h3 id="104-oracle-problem-for-trigger-verification-deep">10.4 Oracle Problem for Trigger Verification (Deep)</h3>
+<p>Bounded Escalation&rsquo;s activation triggers (Section 9.1) depend on external conditions (&ldquo;if API returns error 429&rdquo;). Verifying that the trigger condition actually occurred requires a trusted oracle. If the agent self-reports the trigger, a compromised agent can fabricate triggers to activate escalated scope. This is a variant of the oracle problem in blockchain systems. Possible mitigations include cryptographic attestation from the external service, third-party verification agents, and human confirmation for high-stakes triggers. None are implemented.</p>
+<h3 id="105-replay-and-stale-authorization-attacks-deep">10.5 Replay and Stale Authorization Attacks (Deep)</h3>
+<p>A valid policy decision has a timestamp but no built-in nonce or expiration. An attacker who captures a valid intent/decision/receipt triple could potentially replay it in a different context. The current implementation mitigates this through receipt IDs (unique per execution) and temporal ordering in the evidence log, but a systematic replay prevention mechanism (e.g., challenge-response nonces per policy evaluation) is not implemented.</p>
+<p>Similarly, a delegation that was valid when an intent was declared may be revoked between declaration and execution. The deterministic gate checks delegation validity at evaluation time, but a race condition exists if revocation propagates slowly.</p>
+<h3 id="1061015-brief-limitations">10.6&ndash;10.15 Brief Limitations</h3>
+<p><strong>10.6 Policy Conflict Semantics.</strong> When multiple floor principles produce conflicting evaluations, the protocol does not define a resolution order. Currently, the most restrictive verdict wins, but this is not formally specified. <strong>10.7 Temporal Interactions.</strong> TTL-based expiration interacts with escalation in undefined ways. <strong>10.8 Liveness and Workflow Satisfiability.</strong> The coordination layer does not verify that a task can be completed given current role assignments and delegation scopes. <strong>10.9 Obligations Model.</strong> The protocol models permissions (what agents can do) but not obligations (what agents must do). <strong>10.10 Semantic vs. Cryptographic Bridge.</strong> Precedent matching in Bounded Escalation requires semantic similarity judgment, creating a gap between cryptographic assurances and natural language reasoning. <strong>10.11 State Reversion.</strong> Actions taken under escalated scope cannot be automatically reverted if the approval is later found to be based on false information. <strong>10.12 Collusion Across Roles.</strong> Agents assigned different roles may share context outside the protocol, undermining separation-of-duty properties. <strong>10.13 Supply Chain of Governance Artifacts.</strong> The floor.yaml, policy configurations, and SDK binaries are not currently subject to supply chain integrity verification (cf. SLSA, in-toto). <strong>10.14 Privacy and Data Retention vs. Auditability.</strong> The protocol&rsquo;s emphasis on traceability (F-001) and auditability (F-005) creates tension with data minimization and privacy requirements (GDPR, etc.). <strong>10.15 Sybil Attacks on Agora Governance.</strong> An attacker who can create many agent identities can flood the Agora with messages or manipulate governance votes. Registration gates provide some defense, but the protocol does not implement stake-based or proof-of-work Sybil resistance.</p>
+<h2 id="11-f-008-and-epistemic-security">11. F-008 and Epistemic Security</h2>
+<p>F-008 (Epistemic Security) is the eighth values floor principle, added to the SDK with advisory enforcement (audit mode):</p>
+<p><em>Agents must maintain intellectual honesty in reasoning and communication. An agent must not suppress relevant counter-evidence, fabricate supporting evidence, present uncertain claims as established facts, or exploit cognitive biases in human principals. When an agent&rsquo;s confidence in a factual claim drops below a domain-appropriate threshold, the agent must signal uncertainty rather than assert the claim.</em></p>
+<p>F-008 is a governance principle, not a hard security mitigation. It operates through the advisory evaluation path (Section 5.5.2) alongside F-006 and F-007. An agent that violates F-008 accumulates reputation penalties. The protocol cannot deterministically prevent epistemic manipulation any more than it can deterministically prevent deception (F-006).</p>
+<p>The value of F-008 is in establishing an auditable norm. When an agent&rsquo;s decision is questioned after the fact, the audit trail can include the advisory evaluation&rsquo;s assessment of epistemic honesty. This creates accountability even without enforcement.</p>
+<p><strong>Hardening path.</strong> Future work could implement an evidence-gated mechanism where high-impact claims require cryptographic attestation from external verification oracles (cf. the proposed fourth signature in Section 9.4). This would move F-008 from governance to enforcement for a defined class of verifiable claims.</p>
+<p><strong>What F-008 does not address.</strong> F-008 targets manipulation of human principals through information asymmetry. It does not address deep alignment problems (the agent genuinely believes its misaligned reasoning), which are outside the scope of protocol-level intervention. It does not mitigate AIVSS Risk #10 (Goal Manipulation) as a hard control.</p>
+<h2 id="12-conclusion">12. Conclusion</h2>
+<p>The Agent Passport System applies monotonic narrowing, a principle from 1966 capability security, as a unifying design invariant for autonomous AI agent systems. The protocol provides cryptographic identity, scoped delegation with cascade revocation, human beneficiary attribution, signed communication, a split policy engine with deterministic gates and advisory evaluation, coordination primitives, and commerce gates across eight layers.</p>
+<p>We specified eight core invariants over an abstract state model and validated the implementation through 359 tests in TypeScript and 86 tests in Python, including 23 adversarial scenarios and 200 randomized property-based delegation chains. We mapped the protocol honestly against the AIVSS risk taxonomy: 5 strong, 3 partial, 2 weak. We presented 10 structured adversarial evaluation scenarios including 2 expected failures. We identified 15 known limitations.</p>
+<p>The protocol&rsquo;s strongest assurances hold when all privileged actions are mediated by a protocol-aware enforcement point external to agent reasoning. Its weakest point is the enforcement boundary between the MCP-as-gateway model and voluntary SDK use. Runtime attestation (Layer 9) is the most critical future work.</p>
+<p>This paper addresses authority bounding and verifiable provenance. It does not claim to solve full agent alignment or provide runtime compromise resistance.</p>
+<p>The system was built in approximately three weeks starting February 18, 2026, by a team including human and AI agents using the protocol&rsquo;s own coordination primitives. It is published as open-source SDKs on npm and PyPI with a 44-tool MCP server. We invite the community to review, extend, and critique the protocol.</p>
+<p>The gap between what agents can do and what agents should do is not a problem that will be solved by a single paper or a single protocol. Monotonic narrowing provides one strong structural property: whatever authority an agent has, it got it from somewhere, and that somewhere can take it back. That property, combined with cryptographic enforcement, is a necessary foundation, not a sufficient one.</p>
+<h2 id="references">References</h2>
+<p>Anderson, J. P. (1972). Computer Security Technology Planning Study. AFRL Technical Report.</p>
+<p>Blaze, M., Feigenbaum, J., &amp; Ioannidis, J. (1999). The KeyNote Trust-Management System Version 2. RFC 2704.</p>
+<p>Crampton, J., Gutin, G., &amp; Yeo, A. (2013). On the parameterized complexity and kernelization of the workflow satisfiability problem. ACM Transactions on Information and System Security, 16(1).</p>
+<p>Dennis, J. B., &amp; Van Horn, E. C. (1966). Programming Semantics for Multiprogrammed Computations. Communications of the ACM, 9(3).</p>
+<p>Du, Y., Li, S., Torralba, A., Tenenbaum, J. B., &amp; Mordatch, I. (2023). Improving Factuality and Reasoning in Language Models through Multiagent Debate. arXiv:2305.14325.</p>
+<p>Ellison, C., Frantz, B., Lampson, B., Rivest, R., Thomas, B., &amp; Ylonen, T. (1999). SPKI Certificate Theory. RFC 2693.</p>
+<p>Ferreira, A., Chadwick, D., Farinha, P., Correia, R., Zao, G., Chilro, R., &amp; Antunes, L. (2006). How to securely break into RBAC: the BTG-RBAC model. ACSAC 2006.</p>
+<p>Miller, M. S. (2006). Robust Composition: Towards a Unified Approach to Access Control and Concurrency Control. PhD Thesis, Johns Hopkins University.</p>
+<p>Park, J., &amp; Sandhu, R. (2004). The UCON_ABC usage control model. ACM Transactions on Information and System Security, 7(1).</p>
+<p>Saltzer, J. H., &amp; Schroeder, M. D. (1975). The protection of information in computer systems. Proceedings of the IEEE, 63(9).</p>
+<p>Torres-Arias, S., Ammula, A. K., Curtmola, R., &amp; Cappos, J. (2019). in-toto: Providing farm-to-table guarantees for bits and bytes. USENIX Security 2019.</p>
+<p>Wang, Q., &amp; Li, N. (2010). Satisfiability and resiliency in workflow authorization systems. ACM Transactions on Information and System Security, 13(4).</p>
+<h2 id="appendix-a-implementation-artifacts">Appendix A: Implementation Artifacts</h2>
+<ul>
+<li>TypeScript SDK: npm install agent-passport-system (v1.10.2)</li>
+<li>Python SDK: pip install agent-passport-system (v0.4.0)</li>
+<li>MCP Server: npm install agent-passport-system-mcp (v2.4.4)</li>
+<li>Remote MCP: https://mcp.aeoess.com/sse</li>
+<li>Source: github.com/aeoess/agent-passport-system</li>
+<li>Paper: doi.org/10.5281/zenodo.18749779</li>
+<li>Protocol documentation: aeoess.com/llms-full.txt</li>
+</ul>
+<h2 id="appendix-b-invariant-to-test-mapping">Appendix B: Invariant-to-Test Mapping</h2>
+<table>
+<thead>
+<tr>
+<th>Invariant</th>
+<th>Test File(s)</th>
+<th>Adversarial Scenario</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>INV-1: Identity Unforgeability</td>
+<td>passport.test.ts, adversarial.ts, adversarial-paper.test.ts</td>
+<td>S1</td>
+</tr>
+<tr>
+<td>INV-2: Scope Narrowing</td>
+<td>delegation.test.ts, adversarial.ts, property-delegation.test.ts</td>
+<td>S2</td>
+</tr>
+<tr>
+<td>INV-3: Spend Limit Narrowing</td>
+<td>delegation.test.ts, commerce.test.ts, property-delegation.test.ts</td>
+<td>S2 (implicit)</td>
+</tr>
+<tr>
+<td>INV-4: Cascade Completeness</td>
+<td>cascade.test.ts, property-delegation.test.ts</td>
+<td>S5</td>
+</tr>
+<tr>
+<td>INV-5: Revocation Irreversibility</td>
+<td>cascade.test.ts, adversarial-paper.test.ts</td>
+<td>S5</td>
+</tr>
+<tr>
+<td>INV-6: Three-Signature</td>
+<td>policy.test.ts, adversarial-paper.test.ts</td>
+<td>S4</td>
+</tr>
+<tr>
+<td>INV-7: Floor Narrowing</td>
+<td>values.test.ts, enforcement.test.ts</td>
+<td>&mdash;</td>
+</tr>
+<tr>
+<td>INV-8: Human Root</td>
+<td>attribution.test.ts, delegation.test.ts, adversarial-paper.test.ts</td>
+<td>S3</td>
+</tr>
+</tbody>
+</table>
+</body>
+</html>
