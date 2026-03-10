@@ -2,12 +2,12 @@
 
 [![npm version](https://img.shields.io/npm/v/agent-passport-system)](https://www.npmjs.com/package/agent-passport-system)
 [![license](https://img.shields.io/npm/l/agent-passport-system)](https://github.com/aeoess/agent-passport-system/blob/main/LICENSE)
-[![tests](https://img.shields.io/badge/tests-329%20passing-brightgreen)](https://github.com/aeoess/agent-passport-system)
+[![tests](https://img.shields.io/badge/tests-481%20passing-brightgreen)](https://github.com/aeoess/agent-passport-system)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18749779.svg)](https://doi.org/10.5281/zenodo.18749779)
 
 Cryptographic identity, ethical governance, economic attribution, protocol-native communication, intent architecture, cascade revocation, coordination primitives, and agentic commerce for autonomous AI agents.
 
-**8 layers. 470 tests. Zero heavy dependencies. Running code. MCP server included.**
+**8 layers. 481 tests. Zero heavy dependencies. Running code. MCP server included.**
 
 > *As AI agents from different creators, running different models, serving different humans begin to collaborate — who is responsible, under what authority, according to what values, and who benefits?*
 
@@ -412,7 +412,7 @@ PyPI: [agent-passport-system](https://pypi.org/project/agent-passport-system/) �
 
 ```bash
 npm test
-# 470 tests across 22 files, 133 suites, 0 failures
+# 481 tests across 26 files, 134 suites, 0 failures
 ```
 
 Includes 23 adversarial tests: Merkle tree tampering, attribution gaming resistance, compliance violations, floor negotiation attacks, wrong-key attestations.
@@ -444,7 +444,7 @@ By Tymofii Pidlisnyi — Published on Zenodo
 | Communication | Signed Agora | — | — | — | — |
 | Coordination | Task units + MCP server | — | — | — | — |
 | Commerce | ACP + 4-gate enforcement | — | — | — | — |
-| Tests | 329 (23 adversarial) | None | Limited | None | None |
+| Tests | 481 (23 adversarial) | None | Limited | None | None |
 | Dependencies | Node.js crypto + uuid | — | Multi-LLM | — | Consensus network |
 
 ## Structure
@@ -455,13 +455,23 @@ src/                    22 source files
   core/
     passport.ts        — Ed25519 identity
     delegation.ts      — Scoped delegation, receipts, cascade revocation
+    canonical.ts       — Deterministic JSON serialization
     values.ts          — Floor attestation, compliance, negotiation
     attribution.ts     — Merkle trees, beneficiary tracing
     agora.ts           — Protocol-native signed communication
     intent.ts          — Intent architecture, deliberation, roles
     policy.ts          — 3-signature chain, policy validation
     coordination.ts    — Task briefs, evidence, review, handoff, deliverables
+    integration.ts     — Cross-layer bridges
     commerce.ts        — ACP checkout, 4-gate enforcement, spend tracking
+    context.ts         — Agent context enforcement middleware
+    routing.ts         — Task routing protocol
+    did.ts             — W3C DID method (did:aps)
+    vc.ts              — Verifiable Credentials
+    a2a.ts             — Google A2A bridge
+    euaiact.ts         — EU AI Act compliance
+    principal.ts       — Principal identity, endorsement, fleet
+    reputation-authority.ts — Bayesian trust, tier authority, promotions
   cli/
     index.ts           — CLI (14 commands)
   crypto/
@@ -473,7 +483,13 @@ src/                    22 source files
     policy.ts          — Layer 6 types
     coordination.ts    — Layer 7 types
     commerce.ts        — Layer 8 types
-tests/                  22 test files, 470 tests (133 suites)
+    context.ts         — Agent context types
+    routing.ts         — Routing types
+    did.ts             — DID/VC types
+    euaiact.ts         — EU AI Act types
+    principal.ts       — Principal identity types
+    reputation-authority.ts — Reputation/tier types
+tests/                  26 test files, 481 tests (134 suites)
   adversarial.ts       — 23 adversarial cases
   agora.test.ts        — 15 Agora tests
   contract.test.ts     — High-level API tests

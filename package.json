@@ -1,7 +1,7 @@
 {
   "name": "agent-passport-system",
   "version": "1.11.0",
-  "description": "The Agent Social Contract — cryptographic identity, ethical governance, beneficiary attribution, protocol-native communication, and agentic commerce for autonomous AI agents.",
+  "description": "The Agent Social Contract \u2014 cryptographic identity, ethical governance, beneficiary attribution, protocol-native communication, and agentic commerce for autonomous AI agents.",
   "type": "module",
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
@@ -16,7 +16,7 @@
   },
   "scripts": {
     "build": "tsc && chmod +x dist/src/cli/index.js",
-    "test": "tsx --test tests/passport.test.ts tests/v1.1-integration.ts tests/adversarial.ts tests/v2.0-integration.ts tests/contract.test.ts tests/agora.test.ts tests/values.test.ts tests/delegation.test.ts tests/attribution.test.ts tests/policy.test.ts tests/cascade.test.ts tests/coordination.test.ts tests/commerce.test.ts tests/integration-wiring.test.ts tests/enforcement.test.ts tests/context.test.ts tests/routing.test.ts tests/did-vc.test.ts tests/a2a.test.ts tests/euaiact.test.ts tests/principal.test.ts tests/adversarial-paper.test.ts tests/property-delegation.test.ts tests/intent.test.ts tests/reputation-authority.test.ts",
+    "test": "tsx --test tests/passport.test.ts tests/v1.1-integration.ts tests/adversarial.ts tests/v2.0-integration.ts tests/contract.test.ts tests/agora.test.ts tests/values.test.ts tests/delegation.test.ts tests/attribution.test.ts tests/policy.test.ts tests/cascade.test.ts tests/canonical.test.ts tests/coordination.test.ts tests/commerce.test.ts tests/integration-wiring.test.ts tests/enforcement.test.ts tests/context.test.ts tests/routing.test.ts tests/did-vc.test.ts tests/a2a.test.ts tests/euaiact.test.ts tests/principal.test.ts tests/adversarial-paper.test.ts tests/property-delegation.test.ts tests/intent.test.ts tests/reputation-authority.test.ts",
     "test:quick": "tsx --test tests/passport.test.ts",
     "lint": "tsc --noEmit",
     "clean": "rm -rf dist",
