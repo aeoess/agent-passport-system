@@ -29,6 +29,7 @@ import {
   requestAction, createAgoraMessage, verifyAgoraMessage,
   createFeed, appendToFeed, createRegistry, registerAgent,
   loadFloor, attestFloor,
+  createPrincipalIdentity, endorseAgent, verifyEndorsement,
 } from 'agent-passport-system';
 
 import type {
@@ -217,5 +218,35 @@ describe('S10: Goal Manipulation (Expected Failure)', () => {
     const intent = createActionIntent({ agentId: 'manipulated-agent', agentPublicKey: agent.publicKey, delegationId: delegation.delegationId, action: { type: 'analysis', target: 'market-data', scopeRequired: 'data_analysis' }, context: 'Analyzing market data for the team', privateKey: agent.privateKey });
     const decision = evaluateIntent({ intent, validator: new FloorValidatorV1(), validationContext: makeFloorContext(delegation), evaluatorId: 'evaluator-1', evaluatorPublicKey: evaluator.publicKey, evaluatorPrivateKey: evaluator.privateKey });
     assert.equal(decision.verdict, 'permit', 'Misaligned goal within valid scope passes policy (EXPECTED FAILURE: protocol enforces scope, not intent alignment)');
+  });
+});
+
+// S11: Principal Endorsement Forgery (Expected Failure) | Attacker: Class 2 | Target: Principal trust chain
+describe('S11: Principal Endorsement Forgery (Expected Failure)', () => {
+  it('anyone can create a fake principal and endorse agents — no trust anchor', () => {
+    // Attacker creates a principal claiming to be Google
+    const { principal: fakePrincipal, keyPair: fakeKP } = createPrincipalIdentity({
+      displayName: 'Google DeepMind',
+      domain: 'deepmind.google.com',
+      jurisdiction: 'UK',
+    });
+
+    // Endorses a malicious agent "under Google's authority"
+    const endorsement = endorseAgent({
+      principal: fakePrincipal,
+      principalPrivateKey: fakeKP.privateKey,
+      agentId: 'malicious-agent',
+      agentPublicKey: 'a'.repeat(64),
+      scope: ['financial_transactions', 'admin'],
+      relationship: 'creator',
+    });
+
+    // The endorsement is cryptographically valid!
+    const result = verifyEndorsement(endorsement);
+    assert.equal(result.valid, true,
+      'EXPECTED FAILURE: Fake principal endorsement passes verification. ' +
+      'Protocol proves "this key endorsed this agent" but NOT "this key belongs to Google." ' +
+      'Requires DNS TXT or .well-known domain verification to close the trust chain.'
+    );
   });
 });

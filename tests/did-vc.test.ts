@@ -2,12 +2,12 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  createPassport, createDelegation,
+  createPassport, createDelegation, createReceipt, generateKeyPair, clearStores,
   createDID, publicKeyFromDID, isValidDID,
   passportToDIDDocument, resolveDID,
   signWithDID, verifyWithDID,
   hexToMultibase, multibaseToHex,
-  passportToVC, delegationToVC, floorAttestationToVC,
+  passportToVC, delegationToVC, floorAttestationToVC, receiptToVC,
   createPresentation,
   verifyVC, verifyPresentation
 } from '../src/index.js'
@@ -223,5 +223,76 @@ describe('W3C Verifiable Presentations', () => {
     const result = await verifyPresentation(vp)
     assert.ok(result.valid) // Presentation signature itself is valid
     assert.notEqual(result.holderDID, `did:aps:${agent.publicKey}`)
+  })
+})
+
+// ── receiptToVC (NW-PX2-013: was untested) ──
+
+describe('receiptToVC', () => {
+  it('converts an action receipt to a verifiable credential', async () => {
+    clearStores()
+    const principal = generateKeyPair()
+    const agent = generateKeyPair()
+
+    const delegation = createDelegation({
+      delegatedTo: agent.publicKey,
+      delegatedBy: principal.publicKey,
+      scope: ['code_execution'],
+      privateKey: principal.privateKey,
+    })
+
+    const receipt = createReceipt({
+      agentId: 'agent-receipt-vc',
+      delegationId: delegation.delegationId,
+      delegation,
+      action: { type: 'execute', target: 'build.sh', scopeUsed: 'code_execution' },
+      result: { status: 'success', summary: 'Build completed' },
+      delegationChain: [principal.publicKey, agent.publicKey],
+      privateKey: agent.privateKey,
+    })
+
+    const vc = await receiptToVC(receipt, agent.privateKey)
+
+    // VC structure checks
+    assert.ok(vc.id.includes(receipt.receiptId))
+    assert.ok(vc.type.includes('ActionReceiptCredential'))
+    assert.equal(vc.issuer, `did:aps:${agent.publicKey}`)
+    assert.equal(vc.credentialSubject.receiptId, receipt.receiptId)
+    assert.equal(vc.credentialSubject.status, 'success')
+    assert.equal(vc.credentialSubject.actionType, 'execute')
+    assert.ok(vc.proof)
+
+    // Verify the VC
+    const result = await verifyVC(vc)
+    assert.equal(result.valid, true)
+  })
+
+  it('rejects tampered receipt VC', async () => {
+    clearStores()
+    const principal = generateKeyPair()
+    const agent = generateKeyPair()
+
+    const delegation = createDelegation({
+      delegatedTo: agent.publicKey,
+      delegatedBy: principal.publicKey,
+      scope: ['web_search'],
+      privateKey: principal.privateKey,
+    })
+
+    const receipt = createReceipt({
+      agentId: 'agent-tamper-vc',
+      delegationId: delegation.delegationId,
+      delegation,
+      action: { type: 'search', target: 'news', scopeUsed: 'web_search' },
+      result: { status: 'success', summary: 'Found 10 results' },
+      delegationChain: [principal.publicKey, agent.publicKey],
+      privateKey: agent.privateKey,
+    })
+
+    const vc = await receiptToVC(receipt, agent.privateKey)
+    // Tamper with the receipt data inside the VC
+    vc.credentialSubject.status = 'failure'
+    const result = await verifyVC(vc)
+    assert.equal(result.valid, false)
   })
 })

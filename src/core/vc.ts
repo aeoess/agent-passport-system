@@ -3,7 +3,7 @@
 // Pure translation layer: no changes to core protocol.
 
 import { canonicalize } from './canonical.js'
-import { sign, verify } from '../crypto/keys.js'
+import { sign, verify, publicKeyFromPrivate } from '../crypto/keys.js'
 import { createDID, publicKeyFromDID, hexToMultibase } from './did.js'
 import type { AgentPassport, Delegation, ActionReceipt } from '../types/passport.js'
 import type {
@@ -136,7 +136,8 @@ export async function receiptToVC(
   receipt: ActionReceipt,
   agentPrivateKey: string
 ): Promise<VerifiableCredential> {
-  const agentDID = createDID(receipt.agentId)
+  const agentPublicKey = publicKeyFromPrivate(agentPrivateKey)
+  const agentDID = createDID(agentPublicKey)
 
   const credential: Omit<VerifiableCredential, 'proof'> = {
     '@context': [...VC_CONTEXT, APS_CONTEXT],
