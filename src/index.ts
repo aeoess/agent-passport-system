@@ -288,3 +288,23 @@ export type {
   PrincipalIdentity, PrincipalEndorsement, PrincipalDisclosure,
   FleetRecord, FleetAgent, EndorsementVerification, DisclosureLevel
 } from './types/principal.js'
+
+
+// ── Reputation-Gated Authority ──
+export {
+  DEFAULT_K, MAX_SIGMA, INITIAL_MU, INITIAL_SIGMA, SCARRING_PENALTY,
+  DEFAULT_TIERS, DEFAULT_PROMOTION_REQUIREMENTS,
+  computeEffectiveScore, createScopedReputation,
+  classifyEvidence, resolveAuthorityTier, shouldDemote,
+  effectiveAutonomy, effectiveSpendLimit, effectiveDelegationDepth,
+  classifyRuntimeChange, sigmaAfterRuntimeChange,
+  meetsPromotionRequirements
+} from './core/reputation-authority.js'
+
+export type {
+  ScopedReputation, AuthorityTier, TierDefinition, TierOrigin,
+  EvidenceClass, TaskClassification, EvidencePortfolio,
+  PromotionRequirements, PromotionReview,
+  RuntimeProfile, RuntimeChangeClass,
+  DemotionCause, DemotionEvent
+} from './types/reputation-authority.js'
