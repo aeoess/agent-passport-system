@@ -273,5 +273,59 @@ describe('Principal Identity', () => {
       assert.equal(result.valid, false)
       assert.ok(result.errors[0].includes('No principal endorsement'))
     })
+
+    it('verifies endorsement even when passport timestamps differ (NW-PX2 HIGH fix)', () => {
+      const { principal, keyPair: principalKP } = createPrincipalIdentity({
+        displayName: 'Owner'
+      })
+      const { signedPassport } = createPassport({
+        agentId: 'agent-timing', agentName: 'Timing Bot',
+        ownerAlias: 'owner', mission: 'Test timing',
+        capabilities: ['web_search'],
+        runtime: { platform: 'node', models: [], toolsCount: 1, memoryType: 'none' }
+      })
+
+      // Deliberately set passport timestamps to be DIFFERENT from what endorsePassport will create
+      const alteredPassport = {
+        ...signedPassport,
+        signedAt: '2020-01-01T00:00:00.000Z',
+        passport: {
+          ...signedPassport.passport,
+          expiresAt: '2020-12-31T00:00:00.000Z'
+        }
+      }
+
+      const { endorsedPassport } = endorsePassport({
+        principal, principalPrivateKey: principalKP.privateKey,
+        signedPassport: alteredPassport, scope: ['web_search'], relationship: 'operator'
+      })
+
+      // This MUST pass because we now use the endorsement's own timestamps
+      // from metadata, not the passport's timestamps
+      const result = verifyPassportEndorsement(endorsedPassport)
+      assert.equal(result.valid, true, 'Endorsement should verify using its own timestamps, not passport timestamps')
+      assert.equal(result.principalId, principal.principalId)
+    })
+  })
+
+  describe('Minimal Disclosure Hash Strength (NW-PX2 HIGH fix)', () => {
+    it('simpleHash produces SHA-256 output (64 hex chars)', () => {
+      const { principal, keyPair } = createPrincipalIdentity({
+        displayName: 'Test', domain: 'test.com'
+      })
+      const disclosure = createDisclosure(principal, keyPair.privateKey, 'minimal')
+      const idHash = disclosure.revealedFields.idHash as string
+      // SHA-256 produces 64 hex characters. Old 32-bit hash produced 8.
+      assert.equal(idHash.length, 64, 'idHash should be SHA-256 (64 hex chars), not 32-bit (8 chars)')
+      assert.match(idHash, /^[0-9a-f]{64}$/, 'idHash should be valid hex')
+    })
+
+    it('different principals produce different hashes', () => {
+      const { principal: p1, keyPair: k1 } = createPrincipalIdentity({ displayName: 'Alice' })
+      const { principal: p2, keyPair: k2 } = createPrincipalIdentity({ displayName: 'Bob' })
+      const d1 = createDisclosure(p1, k1.privateKey, 'minimal')
+      const d2 = createDisclosure(p2, k2.privateKey, 'minimal')
+      assert.notEqual(d1.revealedFields.idHash, d2.revealedFields.idHash)
+    })
   })
 })

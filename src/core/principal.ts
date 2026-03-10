@@ -3,6 +3,7 @@
 // The principal has their own Ed25519 keypair and endorses agents.
 
 import { v4 as uuidv4 } from 'uuid'
+import { createHash } from 'node:crypto'
 import { generateKeyPair, sign, verify } from '../crypto/keys.js'
 import { canonicalize } from './canonical.js'
 import { createDID } from './did.js'
@@ -158,7 +159,11 @@ export function createDisclosure(
 
   switch (effectiveLevel) {
     case 'minimal': {
-      // Hash the principalId so it's verifiable but not directly identifying
+      // Hash the principalId with SHA-256 (non-reversible).
+      // NOTE: DID is included for signature verification but reveals the public key.
+      // Known limitation: minimal disclosure is anonymous to third parties who don't
+      // have a public key directory, but not anonymous to parties who do.
+      // Future: consider blind signatures or ZK proofs for true anonymity.
       const idHash = simpleHash(principal.principalId)
       revealedFields = { idHash, did: createDID(principal.publicKey) }
       break
@@ -343,6 +348,8 @@ export function endorsePassport(options: {
           principalPublicKey: principal.publicKey,
           relationship: endorsement.relationship,
           scope: endorsement.scope,
+          endorsedAt: endorsement.endorsedAt,
+          expiresAt: endorsement.expiresAt,
           signature: endorsement.signature
         }
       }
@@ -364,6 +371,8 @@ export function verifyPassportEndorsement(signedPassport: SignedPassport): Endor
     principalPublicKey: string
     relationship: string
     scope: string[]
+    endorsedAt: string
+    expiresAt: string
     signature: string
   } | undefined
 
@@ -384,8 +393,8 @@ export function verifyPassportEndorsement(signedPassport: SignedPassport): Endor
     agentPublicKey: signedPassport.passport.publicKey,
     scope: meta.scope,
     relationship: meta.relationship as PrincipalEndorsement['relationship'],
-    endorsedAt: signedPassport.signedAt,
-    expiresAt: signedPassport.passport.expiresAt,
+    endorsedAt: meta.endorsedAt,
+    expiresAt: meta.expiresAt,
     revoked: false,
     signature: meta.signature
   }
@@ -403,13 +412,8 @@ export function hasPrincipalEndorsement(signedPassport: SignedPassport): boolean
 // ── Helpers ──
 
 function simpleHash(input: string): string {
-  // Simple deterministic hash for disclosure ID hashing
-  // Not crypto-grade, just for creating non-reversible identifiers
-  let hash = 0
-  for (let i = 0; i < input.length; i++) {
-    const char = input.charCodeAt(i)
-    hash = ((hash << 5) - hash) + char
-    hash = hash & hash // Convert to 32-bit integer
-  }
-  return Math.abs(hash).toString(16).padStart(8, '0')
+  // SHA-256 hash for creating non-reversible identifiers in minimal disclosure.
+  // Replaces prior 32-bit shift-XOR that was brute-forceable against
+  // the principal-XXXXXXXX format (~4B possibilities).
+  return createHash('sha256').update(input).digest('hex')
 }
