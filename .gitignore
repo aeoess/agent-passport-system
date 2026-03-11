@@ -8,3 +8,4 @@ dist/
 .passport
 seed-agora.mjs
 .DS_Store
+*.tgz

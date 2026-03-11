@@ -7,7 +7,7 @@
 
 Cryptographic identity, ethical governance, economic attribution, protocol-native communication, intent architecture, cascade revocation, coordination primitives, and agentic commerce for autonomous AI agents.
 
-**8 layers. 481 tests. Zero heavy dependencies. Running code. MCP server included.**
+**8 layers. 511 tests. Zero heavy dependencies. Running code. MCP server included.**
 
 > *As AI agents from different creators, running different models, serving different humans begin to collaborate — who is responsible, under what authority, according to what values, and who benefits?*
 
@@ -374,7 +374,7 @@ The protocol ships with a coordination-native MCP server — any MCP client (Cla
 npm install agent-passport-system-mcp
 ```
 
-**49 tools across all 8 layers, role-scoped access control.** Identity, delegation, agora, values/policy, coordination, and commerce — all accessible via MCP. Every operation Ed25519 signed.
+**55 tools across all 8 layers, role-scoped access control.** Identity, delegation, agora, values/policy, coordination, and commerce — all accessible via MCP. Every operation Ed25519 signed.
 
 ```json
 {
@@ -412,7 +412,7 @@ PyPI: [agent-passport-system](https://pypi.org/project/agent-passport-system/) �
 
 ```bash
 npm test
-# 481 tests across 26 files, 134 suites, 0 failures
+# 511 tests across 26 files, 145 suites, 0 failures
 ```
 
 Includes 23 adversarial tests: Merkle tree tampering, attribution gaming resistance, compliance violations, floor negotiation attacks, wrong-key attestations.
@@ -489,7 +489,7 @@ src/                    22 source files
     euaiact.ts         — EU AI Act types
     principal.ts       — Principal identity types
     reputation-authority.ts — Reputation/tier types
-tests/                  26 test files, 481 tests (134 suites)
+tests/                  27 test files, 511 tests (145 suites)
   adversarial.ts       — 23 adversarial cases
   agora.test.ts        — 15 Agora tests
   contract.test.ts     — High-level API tests

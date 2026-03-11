@@ -226,6 +226,14 @@ export type {
   CapabilityString,
 } from './types/routing.js'
 
+// ── Proxy Gateway (Enforcement Boundary) ──
+export { ProxyGateway, createProxyGateway } from './core/gateway.js'
+
+export type {
+  ToolCallRequest, ToolCallResult, GatewayProof,
+  GatewayApproval, ToolExecutor, GatewayConfig,
+  RegisteredAgent, GatewayStats
+} from './types/gateway.js'
 
 // ── Layer 9: W3C DID & Verifiable Credentials Bridge ──
 export {
