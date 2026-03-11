@@ -7,7 +7,7 @@
 
 Cryptographic identity, ethical governance, economic attribution, protocol-native communication, intent architecture, cascade revocation, coordination primitives, and agentic commerce for autonomous AI agents.
 
-**16 modules. 534 tests. Zero heavy dependencies. Running code. MCP server included.**
+**17 modules. 534 tests. Zero heavy dependencies. Running code. MCP server included.**
 
 > *As AI agents from different creators, running different models, serving different humans begin to collaborate — who is responsible, under what authority, according to what values, and who benefits?*
 
@@ -374,7 +374,7 @@ The protocol ships with a coordination-native MCP server — any MCP client (Cla
 npm install agent-passport-system-mcp
 ```
 
-**61 tools across all 16 modules, role-scoped access control.** Identity, delegation, agora, values/policy, coordination, and commerce — all accessible via MCP. Every operation Ed25519 signed.
+**61 tools across all 17 modules, role-scoped access control.** Identity, delegation, agora, values/policy, coordination, and commerce — all accessible via MCP. Every operation Ed25519 signed.
 
 ```json
 {
@@ -404,7 +404,7 @@ Full Python implementation with cross-language compatibility. Signatures created
 pip install agent-passport-system
 ```
 
-All 16 protocol modules. 86 tests. Same canonical JSON serialization and Ed25519 signatures.
+All 17 protocol modules. 86 tests. Same canonical JSON serialization and Ed25519 signatures.
 
 PyPI: [agent-passport-system](https://pypi.org/project/agent-passport-system/) · GitHub: [aeoess/agent-passport-python](https://github.com/aeoess/agent-passport-python)
 
