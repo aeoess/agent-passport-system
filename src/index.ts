@@ -320,3 +320,19 @@ export type {
   DemotionCause, DemotionEvent,
   TierEscalation, TierCheckContext
 } from './types/reputation-authority.js'
+
+// ── Intent Network (Module 17) ──
+
+export {
+  createIntentNetwork,
+  createIntentCard, verifyIntentCard, isCardExpired,
+  publishCard, removeCard,
+  computeRelevance, searchMatches,
+  requestIntro, respondToIntro,
+  getDigest, getVisibleItems
+} from './core/intent-network.js'
+
+export type {
+  IntentCard, IntentItem, IntentNetwork, NeedOfferMatch,
+  RelevanceMatch, IntroRequest, IntroResponse, Digest, SearchOptions
+} from './types/intent-network.js'
