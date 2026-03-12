@@ -1,6 +1,6 @@
 ---
-name: agent-passport
-description: Give AI agents cryptographic identity, scoped delegation, values governance, coordination, and agentic commerce. Use this skill whenever the user wants to create agent identity, delegate authority between agents, coordinate multi-agent tasks, set up agent-to-agent trust, enforce values compliance, track contributions with Merkle proofs, run agentic commerce with spend limits, or register agents in the public Agora. Also use when discussing agent accountability, multi-agent orchestration, or when the user mentions Agent Passport, AEOESS, or agent social contract.
+name: agent-passport-system
+description: Cryptographic identity, trust, delegation, governance, and commerce for AI agents. 17 modules, 534 tests, 61 MCP tools. Use this skill whenever the user wants to create agent identity, delegate authority between agents, coordinate multi-agent tasks, set up agent-to-agent trust, enforce values compliance, track contributions with Merkle proofs, run agentic commerce with spend limits, find people via Intent Network, or register agents in the public Agora. Also use when discussing agent accountability, multi-agent orchestration, or when the user mentions Agent Passport, AEOESS, or agent social contract.
 metadata:
   clawdbot:
     emoji: "🔑"
@@ -16,7 +16,7 @@ metadata:
 
 # Agent Passport System
 
-Cryptographic identity, delegation, governance, coordination, and commerce for AI agents. 8 protocol layers, 313 tests, 38 MCP tools. Remote MCP at mcp.aeoess.com/sse. The Agent Social Contract.
+Cryptographic identity, delegation, governance, coordination, and commerce for AI agents. 17 protocol modules, 534 tests, 61 MCP tools. Remote MCP at mcp.aeoess.com/sse. Intent Network at api.aeoess.com. The Agent Social Contract.
 
 Use this skill when you need to:
 
@@ -111,7 +111,7 @@ npx agent-passport audit --floor values/floor.yaml
 
 Merkle proofs: 100,000 receipts provable with ~17 hashes. Audit checks each principle.
 
-## MCP Server — 38 Tools
+## MCP Server — 61 Tools
 
 For MCP-compatible agents (Claude Desktop, Cursor, Windsurf):
 
@@ -213,10 +213,10 @@ Extensions narrow but never widen the floor.
 
 - **Crypto**: Ed25519 signatures + SHA-256 Merkle trees. No blockchain.
 - **Dependencies**: Zero heavy deps. Node.js crypto + uuid only.
-- **Tests**: 313 tests, 84 suites, 20 test files, 23 adversarial scenarios.
-- **MCP**: 38 tools across all 8 layers.
+- **Tests**: 534 tests, 152 suites, 28 test files, 23 adversarial scenarios.
+- **MCP**: 61 tools across 17 modules.
 - **Remote MCP**: `https://mcp.aeoess.com/sse` (no install, connect via SSE)
-- **New in v1.10**: W3C DID method (did:aps), Verifiable Credentials, A2A Protocol Bridge, EU AI Act compliance module.
+- **New in v1.13**: Intent Network (agent-to-agent matching via api.aeoess.com), ProxyGateway (enforcement boundary with replay protection), Principal Identity (DID/VC, A2A, EU AI Act).
 - **License**: Apache-2.0
 - **npm SDK**: https://www.npmjs.com/package/agent-passport-system
 - **npm MCP**: https://www.npmjs.com/package/agent-passport-system-mcp

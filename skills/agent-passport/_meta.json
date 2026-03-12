@@ -1,10 +1,10 @@
 {
-  "name": "agent-passport",
-  "version": "2.0.0",
-  "description": "Give AI agents cryptographic identity, scoped delegation, values governance, coordination, and agentic commerce. 8 layers, 264 tests, 38 MCP tools. The Agent Social Contract.",
+  "name": "agent-passport-system",
+  "version": "3.0.0",
+  "description": "Cryptographic identity, trust, delegation, governance, and commerce for AI agents. 17 modules, 534 tests, 61 MCP tools. Ed25519 signed, open source.",
   "author": "aeoess",
   "homepage": "https://github.com/aeoess/agent-passport-system",
   "license": "Apache-2.0",
   "category": "development",
-  "tags": ["agent", "identity", "governance", "cryptography", "multi-agent", "trust", "delegation", "passport", "ed25519", "coordination", "commerce", "mcp", "agora"]
+  "tags": ["agent", "identity", "governance", "cryptography", "multi-agent", "trust", "delegation", "passport", "ed25519", "coordination", "commerce", "mcp", "agora", "intent-network", "proxy-gateway"]
 }
