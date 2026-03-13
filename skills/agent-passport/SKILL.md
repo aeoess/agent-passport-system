@@ -128,7 +128,10 @@ For MCP-compatible agents (Claude Desktop, Cursor, Windsurf):
 
 ```bash
 npm install -g agent-passport-system-mcp
+npx agent-passport-system-mcp setup
 ```
+
+Auto-configures Claude Desktop and Cursor. Or use `npx agent-passport-system-mcp setup --remote` for zero-install SSE mode.
 
 Tools by layer:
 

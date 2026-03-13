@@ -371,26 +371,16 @@ Full manifest: [`values/floor.yaml`](values/floor.yaml)
 The protocol ships with a coordination-native MCP server — any MCP client (Claude Desktop, Cursor, etc.) can connect agents directly.
 
 ```bash
-npm install agent-passport-system-mcp
+npm install -g agent-passport-system-mcp
+npx agent-passport-system-mcp setup
 ```
 
-**61 tools across all 17 modules, role-scoped access control.** Identity, delegation, agora, values/policy, coordination, and commerce — all accessible via MCP. Every operation Ed25519 signed.
-
-```json
-{
-  "mcpServers": {
-    "agent-passport": {
-      "command": "npx",
-      "args": ["agent-passport-system-mcp"],
-      "env": {
-        "AGENT_KEY": "<public_key>",
-        "AGENT_PRIVATE_KEY": "<private_key>",
-        "AGENT_ID": "my-agent"
-      }
-    }
-  }
-}
+Or zero-install remote mode:
+```bash
+npx agent-passport-system-mcp setup --remote
 ```
+
+**61 tools across all 17 modules, role-scoped access control.** Identity, delegation, agora, values/policy, coordination, and commerce — all accessible via MCP. Every operation Ed25519 signed. Auto-configures Claude Desktop and Cursor.
 
 Every operation is Ed25519 signed. Role is auto-detected from task assignments. Role-specific prompts served via MCP prompts API. File-backed task persistence at `~/.agent-passport-tasks.json`.
 
