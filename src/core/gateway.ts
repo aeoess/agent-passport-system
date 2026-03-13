@@ -45,12 +45,11 @@ import type {
 // ══════════════════════════════════════
 
 export class ProxyGateway {
-  private config: Required<Pick<GatewayConfig, 'approvalTTLSeconds' | 'maxPendingPerAgent' | 'recheckRevocationOnExecute'>> & GatewayConfig
+  private config: Required<Pick<GatewayConfig, 'approvalTTLSeconds' | 'maxPendingPerAgent' | 'recheckRevocationOnExecute'>> & GatewayConfig & { requestIdTTLMs: number }
   private validator: PolicyValidator
   private agents: Map<string, RegisteredAgent> = new Map()
   private approvals: Map<string, GatewayApproval> = new Map()
-  private usedNonces: Set<string> = new Set()
-  private usedRequestIds: Set<string> = new Set()
+  private usedRequestIds: Map<string, number> = new Map() // requestId → timestamp (NW-001: TTL-based pruning)
   private executor: ToolExecutor
   private stats: GatewayStats = {
     totalRequests: 0,
@@ -70,6 +69,7 @@ export class ProxyGateway {
       approvalTTLSeconds: config.approvalTTLSeconds ?? 30,
       maxPendingPerAgent: config.maxPendingPerAgent ?? 10,
       recheckRevocationOnExecute: config.recheckRevocationOnExecute ?? true,
+      requestIdTTLMs: (config as any).requestIdTTLMs ?? 3_600_000, // 1 hour default (NW-001)
       ...config
     }
     this.validator = config.validator || new FloorValidatorV1()
@@ -226,7 +226,7 @@ export class ProxyGateway {
 
     if (decision.verdict === 'deny') {
       this.stats.totalDenied++
-      this.usedRequestIds.add(request.requestId)
+      this.usedRequestIds.set(request.requestId, Date.now())
       const result: ToolCallResult = { executed: false, requestId: request.requestId, denialReason: decision.reason, decision }
       this.config.onToolCall?.(request, result)
       return result
@@ -238,7 +238,7 @@ export class ProxyGateway {
       const revocation = getRevocation(delegation.delegationId)
       if (revocation) {
         this.stats.totalDenied++
-        this.usedRequestIds.add(request.requestId)
+        this.usedRequestIds.set(request.requestId, Date.now())
         return { executed: false, requestId: request.requestId, denialReason: 'Delegation was revoked between approval and execution', decision }
       }
     }
@@ -250,7 +250,7 @@ export class ProxyGateway {
       toolResult = await this.executor(request.tool, request.params)
     } catch (err: unknown) {
       this.stats.totalToolErrors++
-      this.usedRequestIds.add(request.requestId)
+      this.usedRequestIds.set(request.requestId, Date.now())
       const result: ToolCallResult = { executed: true, requestId: request.requestId, toolError: err instanceof Error ? err.message : String(err), decision }
       this.config.onToolCall?.(request, result)
       return result
@@ -287,7 +287,7 @@ export class ProxyGateway {
       verifierPrivateKey: this.config.gatewayPrivateKey
     })
 
-    this.usedRequestIds.add(request.requestId)
+    this.usedRequestIds.set(request.requestId, Date.now())
 
     const proof: GatewayProof = {
       requestSignature: request.signature, decisionSignature: decision.signature,
@@ -372,18 +372,20 @@ export class ProxyGateway {
     if (approval.consumed) { this.stats.replayAttemptsBlocked++; return { executed: false, requestId: approval.requestId, denialReason: 'Approval already consumed (replay)' } }
     if (new Date(approval.expiresAt) < new Date()) { this.stats.expiredApprovalsCleared++; this.approvals.delete(approvalId); return { executed: false, requestId: approval.requestId, denialReason: 'Approval expired' } }
 
+    // NW-003: Always check agent exists, regardless of recheckRevocationOnExecute
+    const agent = this.agents.get(approval.agentId)
+    if (!agent) return { executed: false, requestId: approval.requestId, denialReason: 'Agent unregistered since approval' }
+    const delegation = agent.delegations.get(approval.delegationId)
+    if (!delegation) return { executed: false, requestId: approval.requestId, denialReason: 'Delegation removed since approval' }
+
     if (this.config.recheckRevocationOnExecute) {
       this.stats.revocationRechecksTriggered++
-      const agent = this.agents.get(approval.agentId)
-      if (!agent) return { executed: false, requestId: approval.requestId, denialReason: 'Agent unregistered since approval' }
-      const delegation = agent.delegations.get(approval.delegationId)
-      if (!delegation) return { executed: false, requestId: approval.requestId, denialReason: 'Delegation removed since approval' }
       const delegationStatus = verifyDelegation(delegation)
       if (!delegationStatus.valid || delegationStatus.expired || delegationStatus.revoked) return { executed: false, requestId: approval.requestId, denialReason: 'Delegation invalidated since approval' }
     }
 
     approval.consumed = true
-    this.usedRequestIds.add(approval.requestId)
+    this.usedRequestIds.set(approval.requestId, Date.now())
 
     let toolResult: { success: boolean; result?: unknown; error?: string }
     try { toolResult = await this.executor(approval.tool, approval.params) }
@@ -391,13 +393,10 @@ export class ProxyGateway {
 
     if (toolResult.success) { this.stats.totalExecuted++ } else { this.stats.totalToolErrors++ }
 
-    const agent = this.agents.get(approval.agentId)
-    const delegation = agent?.delegations.get(approval.delegationId)
-
     const receipt = createReceipt({
       agentId: this.config.gatewayId,
       delegationId: approval.delegationId,
-      delegation: delegation!,
+      delegation: delegation,
       action: {
         type: `gateway:${approval.tool}`,
         target: JSON.stringify(approval.params),
@@ -433,7 +432,16 @@ export class ProxyGateway {
     for (const [id, approval] of this.approvals) { if (new Date(approval.expiresAt) < now) { this.approvals.delete(id); cleared++ } }
     this.stats.expiredApprovalsCleared += cleared
     this.stats.pendingApprovals = this.approvals.size
-    return cleared
+
+    // NW-001: Prune stale requestIds to prevent unbounded memory growth
+    const ttl = this.config.requestIdTTLMs
+    const cutoff = Date.now() - ttl
+    let pruned = 0
+    for (const [id, ts] of this.usedRequestIds) {
+      if (ts < cutoff) { this.usedRequestIds.delete(id); pruned++ }
+    }
+
+    return cleared + pruned
   }
 
   getStats(): GatewayStats { return { ...this.stats } }
