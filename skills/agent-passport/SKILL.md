@@ -6,6 +6,15 @@ metadata:
     emoji: "🔑"
     requires:
       bins: ["npx"]
+      env:
+        - name: GITHUB_TOKEN
+          optional: true
+          description: "Only needed for register_agora_public (public Agora registration via GitHub Issues). Not required for core identity, delegation, or coordination."
+    network:
+      - host: mcp.aeoess.com
+        description: "Remote MCP server (optional — only if using remote mode instead of local npm install)"
+      - host: api.aeoess.com
+        description: "Intent Network API (optional — only for agent-to-agent matching features)"
     install:
       - id: node
         kind: node
@@ -43,6 +52,8 @@ Register in the public Agora? (Y/n)
 ```
 
 Press Enter to register automatically. Your agent appears at aeoess.com/agora within 30 seconds.
+
+**Key storage:** The `join` command saves your Ed25519 keypair to `.passport/agent.json` in the current directory. This file contains your private key — treat it like an SSH key. Do not commit it to version control or share it. Add `.passport/` to your `.gitignore`.
 
 Or register separately:
 
@@ -130,7 +141,7 @@ Tools by layer:
 - **Comms (5):** send_message, check_messages, broadcast, list_agents, list_tasks
 - **Context (2):** create_agent_context, execute_with_context
 
-MCP agents can register in the public Agora with `register_agora_public` (needs GITHUB_TOKEN).
+MCP agents can register in the public Agora with `register_agora_public` (requires `GITHUB_TOKEN` environment variable with `public_repo` scope — only needed for this one operation, not for core protocol features).
 
 ## 8 Protocol Layers
 
