@@ -95,7 +95,7 @@ SLSA (Supply-chain Levels for Software Artifacts) and in-toto (Torres-Arias et a
 
 ### 3.6 Decentralized Identity and Verifiable Credentials
 
-W3C Decentralized Identifiers (DIDs) and Verifiable Credentials (VCs) provide standards for self-sovereign identity. The Agent Passport is structurally similar to a DID document with associated credentials, though we use a simpler key-based identity model rather than the full DID resolution framework. The Model Context Protocol (MCP, Anthropic 2024) provides a transport layer for agent-tool communication. Our MCP server exposes the full protocol as 44 tools, making it compatible with any MCP client.
+W3C Decentralized Identifiers (DIDs) and Verifiable Credentials (VCs) provide standards for self-sovereign identity. The Agent Passport is structurally similar to a DID document with associated credentials, though we use a simpler key-based identity model rather than the full DID resolution framework. The Model Context Protocol (MCP, Anthropic 2024) provides a transport layer for agent-tool communication. Our MCP server exposes the full protocol as 61 tools, making it compatible with any MCP client.
 
 ### 3.7 Principles Not Claimed as Novel
 
@@ -105,6 +105,16 @@ The protocol relies on several well-established security principles that we wish
 - **Authenticity and non-forgeability**: all protocol artifacts carry Ed25519 signatures.
 - **Traceability and accountability**: all actions trace to identified principals through delegation chains.
 - **Temporal validity**: delegations and passports have TTLs; revocation has temporal semantics.
+
+### 3.8 Concurrent Agent Authorization Proposals
+
+Several concurrent efforts address agent identity and delegation, validating the problem space while differing in approach.
+
+The Delegated Agent Authorization Protocol (DAAP, Kumar, 2026) is an IETF Internet-Draft proposing agent delegation as a layered extension to OAuth 2.0. DAAP specifies cryptographic agent identity via DIDs, a consent-based grant flow, JWT grant tokens with agent-specific claims, cascade revocation, budget controls, and a hash-chained audit trail. DAAP's delegation rules require that sub-agent scopes are strict subsets of the parent's, delegation depth increments toward a maximum, expiry is bounded by the parent, and revoking a parent grant cascades to all descendants. These invariants correspond directly to our INV-2 (scope narrowing), INV-3 (spend limit narrowing), INV-4 (cascade completeness), and INV-5 (revocation irreversibility). The independent convergence on identical invariants from different starting points (OAuth 2.0 for DAAP, raw Ed25519 for our system) suggests these properties are fundamental requirements for agent delegation, not design choices specific to either system. Key differences: DAAP assumes a centralized Authorization Server and uses RS256/JWT; our system is decentralized with no central authority and uses Ed25519 signatures directly. DAAP does not address values alignment, enforcement boundaries, or the non-deterministic policy engine problem.
+
+The OpenID Foundation's report on Identity Management for Agentic AI (OpenID Foundation, 2025) identifies two architectural challenges that our system addresses: dynamic client registration creating large numbers of anonymous clients (addressed by our cryptographic identity binding), and the need for externalized authorization through Policy Enforcement Point / Policy Decision Point separation (addressed by our ProxyGateway as enforcement boundary). The report's PEP/PDP framing directly validates our architectural split between the SDK (policy decisions) and the gateway (policy enforcement).
+
+The Open Agent Identity (OAI) specification (Open Agent Identity Protocol, 2026) proposes DNS-rooted agent identity with cryptographic receipts. Our cascade revocation specification was submitted as a proposal to this project (PR #16), and cross-protocol identity resolution between OAI and our system has been demonstrated: our resolve endpoint at api.aeoess.com successfully resolves both did:aps and did:aip identifiers through protocol bridging.
 
 ## 4. Monotonic Narrowing: Formal Principle
 
@@ -322,9 +332,9 @@ The protocol is implemented in two languages:
 
 | Component | Language | Tests | Suites | Version |
 |-----------|----------|-------|--------|---------|
-| TypeScript SDK | TypeScript | 359 | 105 | v1.10.2 |
+| TypeScript SDK | TypeScript | 534 | 152 | v1.13.2 |
 | Python SDK | Python | 86 | --- | v0.4.0 |
-| MCP Server | TypeScript | --- | --- | v2.4.4, 44 tools |
+| MCP Server | TypeScript | --- | --- | v2.8.5, 61 tools |
 
 The TypeScript SDK has zero heavy dependencies beyond @noble/ed25519 for cryptographic operations. The MCP server depends on @modelcontextprotocol/sdk and zod for schema validation. Both SDKs are published on npm and PyPI respectively. Cross-language compatibility is ensured by a canonical JSON serialization module (src/core/canonical.ts, python/aps_canonical.py) that produces deterministic byte sequences for signature operations. A document signed in TypeScript verifies in Python and vice versa.
 
@@ -519,7 +529,13 @@ Ellison, C., Frantz, B., Lampson, B., Rivest, R., Thomas, B., & Ylonen, T. (1999
 
 Ferreira, A., Chadwick, D., Farinha, P., Correia, R., Zao, G., Chilro, R., & Antunes, L. (2006). How to securely break into RBAC: the BTG-RBAC model. ACSAC 2006.
 
+Kumar, S. (2026). Delegated Agent Authorization Protocol (DAAP). Internet-Draft draft-mishra-oauth-agent-grants-01, IETF. https://datatracker.ietf.org/doc/html/draft-mishra-oauth-agent-grants-01
+
 Miller, M. S. (2006). Robust Composition: Towards a Unified Approach to Access Control and Concurrency Control. PhD Thesis, Johns Hopkins University.
+
+Open Agent Identity Protocol. (2026). OAI-1: Open Agent Identity Specification. https://openagentidentity.org/
+
+OpenID Foundation. (2025). Identity Management for Agentic AI. https://openid.net/wp-content/uploads/2025/10/Identity-Management-for-Agentic-AI.pdf
 
 Park, J., & Sandhu, R. (2004). The UCON_ABC usage control model. ACM Transactions on Information and System Security, 7(1).
 
@@ -531,9 +547,9 @@ Wang, Q., & Li, N. (2010). Satisfiability and resiliency in workflow authorizati
 
 ## Appendix A: Implementation Artifacts
 
-- TypeScript SDK: npm install agent-passport-system (v1.10.2)
-- Python SDK: pip install agent-passport-system (v0.4.0)
-- MCP Server: npm install agent-passport-system-mcp (v2.4.4)
+- TypeScript SDK: npm install agent-passport-system (v1.13.2, 534 tests)
+- Python SDK: pip install agent-passport-system (v0.4.0, 86 tests)
+- MCP Server: npm install agent-passport-system-mcp (v2.8.5, 61 tools)
 - Remote MCP: https://mcp.aeoess.com/sse
 - Source: github.com/aeoess/agent-passport-system
 - Paper: doi.org/10.5281/zenodo.18749779
