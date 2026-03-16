@@ -402,7 +402,7 @@ PyPI: [agent-passport-system](https://pypi.org/project/agent-passport-system/) Â
 
 ```bash
 npm test
-# 534 tests across 26 files, 152 suites, 0 failures
+# 534 tests across 28 files, 152 suites, 0 failures
 ```
 
 Includes 23 adversarial tests: Merkle tree tampering, attribution gaming resistance, compliance violations, floor negotiation attacks, wrong-key attestations.
