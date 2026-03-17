@@ -499,6 +499,14 @@ papers/
   agent-social-contract.md
 ```
 
+## Recognition
+
+- Integrated into [Microsoft agent-governance-toolkit](https://github.com/microsoft/agent-governance-toolkit) (PR #274)
+- Public comment submitted to NIST NCCoE on AI Agent Identity and Authorization standards
+- Collaboration with IETF DAAP draft author (draft-mishra-oauth-agent-grants-01) on delegation spec
+- Listed on [MCP Registry](https://registry.modelcontextprotocol.io)
+- Endorsed by Garry Tan (CEO, Y Combinator)
+
 ## Authorship
 
 Designed and built by **Tymofii Pidlisnyi** with AI assistance from **Claude** (Anthropic) through human-AI collaboration as described in the paper.
