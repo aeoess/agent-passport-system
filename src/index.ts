@@ -336,3 +336,22 @@ export type {
   IntentCard, IntentItem, IntentNetwork, NeedOfferMatch,
   RelevanceMatch, IntroRequest, IntroResponse, Digest, SearchOptions
 } from './types/intent-network.js'
+
+
+// ── Cross-Chain Data Flow Authorization (Module 18) ──
+
+export {
+  createTaintLabel, mergeTaints,
+  createSAO, verifySAO, isSAOExpired,
+  createExecutionFrame, recordAccess, closeFrame,
+  createCrossChainPermit, countersignPermit,
+  verifyCrossChainPermit, revokePermit,
+  checkDataFlow
+} from './core/cross-chain.js'
+
+export type {
+  TaintLabel, TaintUsage, TaintSet,
+  SignedAuthorityObject, CrossChainPermit,
+  ExecutionFrame, FlowCheckResult, FlowVerdict,
+  TaintTransformation, TransformationType
+} from './types/cross-chain.js'
