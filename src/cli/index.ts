@@ -29,7 +29,7 @@ import {
   delegate, recordWork, proveContributions, auditCompliance,
   generateKeyPair, loadFloor, clearStores, verifyMerkleProof,
   verifyPassport, verifyAttestation, verifyReceipt,
-  verifyAttributionReport,
+  verifyAttributionReport, scopeAuthorizes,
   createAgoraMessage, verifyAgoraMessage,
   createFeed, appendToFeed, getThread, getByTopic, getTopics,
   createRegistry, registerAgent, verifyFeed
@@ -512,7 +512,7 @@ function cmdWork(): void {
     del = delegations.find(d => d.delegationId === delId)
   } else {
     // Auto-find: first delegation that includes this scope
-    del = delegations.find(d => d.scope.includes(scope))
+    del = delegations.find(d => scopeAuthorizes(d.scope, scope))
   }
 
   if (!del) {

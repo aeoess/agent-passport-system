@@ -17,6 +17,7 @@ import { randomBytes } from 'node:crypto'
 import { sign, verify as ed25519Verify } from '../crypto/keys.js'
 import { canonicalize } from './canonical.js'
 import { verifyPassport } from '../verification/verify.js'
+import { scopeAuthorizes } from './delegation.js'
 import type { SignedPassport, ActionReceipt } from '../types/passport.js'
 import type {
   ACPCheckoutSession, ACPLineItem, ACPMoney, ACPAddress,
@@ -37,7 +38,7 @@ const COMMERCE_SCOPES = [
 type CommerceScope = typeof COMMERCE_SCOPES[number]
 
 function hasScope(delegation: CommerceDelegation, required: CommerceScope): boolean {
-  return delegation.scope.includes(required) || delegation.scope.includes('commerce:*')
+  return scopeAuthorizes(delegation.scope, required)
 }
 
 // ── Preflight Check: 4-Gate Pipeline ──

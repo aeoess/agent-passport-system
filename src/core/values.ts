@@ -11,6 +11,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { readFileSync } from 'node:fs'
 import { sign, verify } from '../crypto/keys.js'
 import { canonicalize } from './canonical.js'
+import { scopeAuthorizes } from './delegation.js'
 import { ENFORCEMENT_ESCALATION_ORDER } from '../types/passport.js'
 import type {
   ValuesFloor, FloorPrinciple, FloorAttestation,
@@ -342,7 +343,7 @@ function evaluatePrinciple(
     case 'F-003': { // Scoped Authority
       const bad = receipts.filter(r => {
         const d = delegations.get(r.delegationId)
-        return d && !d.scope.includes(r.action.scopeUsed)
+        return d && !scopeAuthorizes(d.scope, r.action.scopeUsed)
       })
       return bad.length === 0
         ? { ...base, status: 'enforced', detail: 'All actions within delegated scope' }
