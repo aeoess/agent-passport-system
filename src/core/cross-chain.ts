@@ -18,7 +18,7 @@ import { canonicalize } from './canonical.js'
 import type {
   TaintLabel, TaintUsage, TaintSet,
   SignedAuthorityObject, CrossChainPermit,
-  ExecutionFrame, FlowCheckResult, FlowVerdict,
+  ExecutionFrame, ExecutionStep, FlowCheckResult, FlowVerdict,
   TaintTransformation, TransformationType,
   ExecutionReceipt, CrossChainViolation
 } from '../types/cross-chain.js'
@@ -134,20 +134,42 @@ export function createExecutionFrame(agentId: string): ExecutionFrame {
     accessedContexts: [],
     frameTaint: { labels: [], principals: [], isCrossChain: false },
     startedAt: new Date().toISOString(),
-    active: true
+    active: true,
+    chainHead: '',
+    stepCount: 0
   }
 }
 
 /**
- * Record a data access in the execution frame.
- * Called whenever the agent reads data through any delegation.
+ * Compute the hash for an execution step.
+ * step_hash = sha256(previousStepHash + canonical(taint) + stepIndex)
+ * This creates a Merkle-like chain where each step is causally linked to its predecessor.
+ */
+export function computeStepHash(previousStepHash: string, taint: TaintLabel, stepIndex: number): string {
+  return createHash('sha256')
+    .update(previousStepHash)
+    .update(canonicalize(taint))
+    .update(String(stepIndex))
+    .digest('hex')
+}
+
+/**
+ * Record a data access in the execution frame with causal hash chaining.
+ * Each step carries a cryptographic reference to its predecessor execution state.
+ * This gives the frame a strict total order (<_exec) that is independently verifiable.
  */
 export function recordAccess(frame: ExecutionFrame, taint: TaintLabel): ExecutionFrame {
+  const stepIndex = frame.stepCount
+  const previousStepHash = frame.chainHead || ''
+  const stepHash = computeStepHash(previousStepHash, taint, stepIndex)
+
   const accessedContexts = [...frame.accessedContexts, taint]
   return {
     ...frame,
     accessedContexts,
-    frameTaint: mergeTaints(...accessedContexts)
+    frameTaint: mergeTaints(...accessedContexts),
+    chainHead: stepHash,
+    stepCount: stepIndex + 1
   }
 }
 
@@ -156,6 +178,27 @@ export function recordAccess(frame: ExecutionFrame, taint: TaintLabel): Executio
  */
 export function closeFrame(frame: ExecutionFrame): ExecutionFrame {
   return { ...frame, active: false }
+}
+
+/**
+ * Verify the causal hash chain of an execution frame.
+ * Replays all recorded accesses and verifies each step hash matches.
+ * If the chain is valid, the execution order is cryptographically proven.
+ * This is the function that makes <_exec independently verifiable.
+ */
+export function verifyFrameChain(frame: ExecutionFrame): { valid: boolean; error?: string } {
+  let currentHash = ''
+  for (let i = 0; i < frame.accessedContexts.length; i++) {
+    const expectedHash = computeStepHash(currentHash, frame.accessedContexts[i], i)
+    currentHash = expectedHash
+  }
+  if (currentHash !== (frame.chainHead || '')) {
+    return { valid: false, error: `Chain head mismatch at step ${frame.accessedContexts.length}: expected ${currentHash}, got ${frame.chainHead}` }
+  }
+  if (frame.stepCount !== frame.accessedContexts.length) {
+    return { valid: false, error: `Step count mismatch: declared ${frame.stepCount}, actual ${frame.accessedContexts.length}` }
+  }
+  return { valid: true }
 }
 
 // ── Cross-Chain Permits ──

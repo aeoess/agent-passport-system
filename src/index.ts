@@ -344,6 +344,7 @@ export {
   createTaintLabel, mergeTaints,
   createSAO, verifySAO, isSAOExpired,
   createExecutionFrame, recordAccess, closeFrame,
+  computeStepHash, verifyFrameChain,
   createCrossChainPermit, countersignPermit,
   verifyCrossChainPermit, revokePermit,
   checkDataFlow,
@@ -355,7 +356,7 @@ export {
 export type {
   TaintLabel, TaintUsage, TaintSet,
   SignedAuthorityObject, CrossChainPermit,
-  ExecutionFrame, FlowCheckResult, FlowVerdict,
+  ExecutionFrame, ExecutionStep, FlowCheckResult, FlowVerdict,
   TaintTransformation, TransformationType,
   ExecutionReceipt, CrossChainViolation
 } from './types/cross-chain.js'

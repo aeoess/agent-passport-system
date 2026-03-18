@@ -5,6 +5,7 @@ import {
   createTaintLabel, mergeTaints,
   createSAO, verifySAO, isSAOExpired,
   createExecutionFrame, recordAccess, closeFrame,
+  verifyFrameChain, computeStepHash,
   createCrossChainPermit, countersignPermit,
   verifyCrossChainPermit, revokePermit,
   checkDataFlow,
@@ -535,6 +536,94 @@ describe('Cross-Chain Data Flow Authorization', () => {
       assert.equal(violation.attemptedTool, 'email:send')
       assert.ok(violation.gatewaySignature)
       assert.ok(violation.blockingLabels.length > 0)
+    })
+  })
+
+  describe('Causal Hash Chain (<_exec ordering)', () => {
+    it('should produce deterministic step hashes', () => {
+      const frame1 = createExecutionFrame('agent-1')
+      const taint = createTaintLabel('alice', 'chain-1', 'del-1')
+      const f1 = recordAccess(frame1, taint)
+
+      const frame2 = createExecutionFrame('agent-2')
+      const f2 = recordAccess(frame2, taint)
+
+      // Same taint at same step index with same previous hash → same step hash
+      assert.equal(f1.chainHead, f2.chainHead)
+      assert.equal(f1.stepCount, 1)
+    })
+
+    it('should chain steps causally — reordering produces different hash', () => {
+      const taintA = createTaintLabel('alice', 'chain-1', 'del-1')
+      const taintB = createTaintLabel('bob', 'chain-2', 'del-2')
+
+      // Order: A then B
+      let frameAB = createExecutionFrame('agent-1')
+      frameAB = recordAccess(frameAB, taintA)
+      frameAB = recordAccess(frameAB, taintB)
+
+      // Order: B then A
+      let frameBA = createExecutionFrame('agent-2')
+      frameBA = recordAccess(frameBA, taintB)
+      frameBA = recordAccess(frameBA, taintA)
+
+      // Different execution order → different chain head
+      assert.notEqual(frameAB.chainHead, frameBA.chainHead)
+      assert.equal(frameAB.stepCount, 2)
+      assert.equal(frameBA.stepCount, 2)
+    })
+
+    it('should verify a valid frame chain', () => {
+      let frame = createExecutionFrame('agent-1')
+      frame = recordAccess(frame, createTaintLabel('alice', 'c1', 'd1'))
+      frame = recordAccess(frame, createTaintLabel('bob', 'c2', 'd2'))
+      frame = recordAccess(frame, createTaintLabel('alice', 'c1', 'd3'))
+
+      const result = verifyFrameChain(frame)
+      assert.equal(result.valid, true)
+    })
+
+    it('should detect tampered chain head', () => {
+      let frame = createExecutionFrame('agent-1')
+      frame = recordAccess(frame, createTaintLabel('alice', 'c1', 'd1'))
+      frame = recordAccess(frame, createTaintLabel('bob', 'c2', 'd2'))
+
+      // Tamper with chain head
+      const tampered = { ...frame, chainHead: 'deadbeef' }
+      const result = verifyFrameChain(tampered)
+      assert.equal(result.valid, false)
+      assert.ok(result.error?.includes('Chain head mismatch'))
+    })
+
+    it('should detect removed step (step count mismatch)', () => {
+      let frame = createExecutionFrame('agent-1')
+      frame = recordAccess(frame, createTaintLabel('alice', 'c1', 'd1'))
+      frame = recordAccess(frame, createTaintLabel('bob', 'c2', 'd2'))
+
+      // Remove a step but keep chain head
+      const tampered = { ...frame, accessedContexts: [frame.accessedContexts[0]] }
+      const result = verifyFrameChain(tampered)
+      assert.equal(result.valid, false)
+    })
+
+    it('each step hash depends on ALL previous steps (not just immediate predecessor)', () => {
+      const taintA = createTaintLabel('alice', 'c1', 'd1')
+      const taintB = createTaintLabel('bob', 'c2', 'd2')
+      const taintC = createTaintLabel('charlie', 'c3', 'd3')
+
+      // Full chain: A → B → C
+      let full = createExecutionFrame('agent-1')
+      full = recordAccess(full, taintA)
+      full = recordAccess(full, taintB)
+      full = recordAccess(full, taintC)
+
+      // Skip B: A → C (attacker tries to hide step B)
+      let skipped = createExecutionFrame('agent-2')
+      skipped = recordAccess(skipped, taintA)
+      skipped = recordAccess(skipped, taintC)
+
+      // Chain heads must differ — proves step B's existence is embedded in the chain
+      assert.notEqual(full.chainHead, skipped.chainHead)
     })
   })
 

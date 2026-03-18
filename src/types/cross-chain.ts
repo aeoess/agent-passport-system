@@ -121,6 +121,24 @@ export interface ExecutionFrame {
   startedAt: string
   /** Whether frame is still active */
   active: boolean
+  /** Hash of the latest step — cryptographic proof of execution order */
+  chainHead?: string
+  /** Step counter — monotonic, proves no gaps */
+  stepCount: number
+}
+
+/** A causally-ordered execution step with hash chain linkage */
+export interface ExecutionStep {
+  /** Step number in this frame (0-indexed, monotonic) */
+  stepIndex: number
+  /** Hash of the previous step (empty string for step 0) */
+  previousStepHash: string
+  /** The taint introduced at this step */
+  taint: TaintLabel
+  /** Hash of this step: sha256(previousStepHash + canonical(taint) + stepIndex) */
+  stepHash: string
+  /** When this step was recorded */
+  recordedAt: string
 }
 
 // ── Flow Check Result ──
