@@ -11,6 +11,8 @@
 
 import type { SignedPassport, Delegation, ActionReceipt, ValuesFloor, FloorAttestation } from './passport.js'
 import type { ActionIntent, PolicyDecision, PolicyReceipt, PolicyValidator } from './policy.js'
+import type { SignedAuthorityObject, FlowCheckResult, ExecutionFrame, CrossChainPermit } from './cross-chain.js'
+import type { Obligation, ObligationResolution } from './obligations.js'
 
 // ── Tool Executor ──
 // The gateway wraps any tool. This is the abstraction.
@@ -56,6 +58,12 @@ export interface ToolCallResult {
   receipt?: ActionReceipt
   /** Policy decision (always present, even on denial) */
   decision?: PolicyDecision
+  /** Signed Authority Object wrapping the result (cross-chain enforcement) */
+  sao?: SignedAuthorityObject
+  /** Cross-chain flow check result (if cross-chain enforcement enabled) */
+  flowCheck?: FlowCheckResult
+  /** Obligation resolutions triggered by this call (if obligation monitoring enabled) */
+  obligationResolutions?: ObligationResolution[]
 }
 
 /** The complete cryptographic proof chain */
@@ -121,6 +129,14 @@ export interface GatewayConfig {
   onToolCall?: (request: ToolCallRequest, result: ToolCallResult) => void
   /** Callback: fires when a suspicious pattern is detected */
   onSuspicious?: (agentId: string, reason: string) => void
+  /** Enable cross-chain data flow enforcement (Module 18). Default: false */
+  enableCrossChainEnforcement?: boolean
+  /** Enable obligation monitoring (Module 20). Default: false */
+  enableObligationMonitoring?: boolean
+  /** Callback: fires when an obligation is resolved */
+  onObligationResolved?: (resolution: ObligationResolution) => void
+  /** Callback: fires when cross-chain flow is blocked */
+  onCrossChainBlocked?: (agentId: string, result: FlowCheckResult) => void
 }
 
 // ── Registered Agent ──
@@ -130,6 +146,12 @@ export interface RegisteredAgent {
   passport: SignedPassport
   attestation: FloorAttestation
   delegations: Map<string, Delegation>
+  /** Per-agent execution frame for taint tracking (cross-chain) */
+  executionFrame?: ExecutionFrame
+  /** Active cross-chain permits for this agent */
+  permits?: CrossChainPermit[]
+  /** Pending obligations for this agent */
+  obligations?: Obligation[]
 }
 
 // ── Gateway Stats ──
@@ -145,4 +167,12 @@ export interface GatewayStats {
   revocationRechecksTriggered: number
   activeAgents: number
   pendingApprovals: number
+  /** Cross-chain enforcement stats */
+  crossChainChecks?: number
+  crossChainBlocked?: number
+  crossChainPermitted?: number
+  /** Obligation monitoring stats */
+  obligationsRegistered?: number
+  obligationsFulfilled?: number
+  obligationsTerminated?: number
 }

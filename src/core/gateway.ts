@@ -31,8 +31,12 @@ import { createActionIntent, evaluateIntent, createPolicyReceipt, FloorValidator
 import { verifyDelegation, createReceipt, scopeAuthorizes, getRevocation } from './delegation.js'
 import { verifyPassport } from '../verification/verify.js'
 import { verifyAttestation } from './values.js'
+import { createTaintLabel, createSAO, createExecutionFrame, recordAccess, checkDataFlow, mergeTaints } from './cross-chain.js'
+import { checkFulfillment, resolveObligation } from './obligations.js'
 import type { Delegation, ActionReceipt, ValuesFloor, FloorAttestation } from '../types/passport.js'
 import type { ActionIntent, PolicyDecision, PolicyReceipt, PolicyValidator, ValidationContext } from '../types/policy.js'
+import type { TaintLabel, TaintSet, CrossChainPermit, ExecutionFrame, SignedAuthorityObject } from '../types/cross-chain.js'
+import type { Obligation, ObligationResolution } from '../types/obligations.js'
 import type {
   ToolCallRequest, ToolCallResult, GatewayProof,
   GatewayApproval, ToolExecutor, GatewayConfig,
@@ -61,7 +65,13 @@ export class ProxyGateway {
     expiredApprovalsCleared: 0,
     revocationRechecksTriggered: 0,
     activeAgents: 0,
-    pendingApprovals: 0
+    pendingApprovals: 0,
+    crossChainChecks: 0,
+    crossChainBlocked: 0,
+    crossChainPermitted: 0,
+    obligationsRegistered: 0,
+    obligationsFulfilled: 0,
+    obligationsTerminated: 0
   }
 
   constructor(config: GatewayConfig, executor: ToolExecutor) {
@@ -106,7 +116,10 @@ export class ProxyGateway {
 
     const agentId = passport.passport.agentId
     this.agents.set(agentId, {
-      passport, attestation, delegations: delegationMap
+      passport, attestation, delegations: delegationMap,
+      executionFrame: this.config.enableCrossChainEnforcement ? createExecutionFrame(agentId) : undefined,
+      permits: this.config.enableCrossChainEnforcement ? [] : undefined,
+      obligations: this.config.enableObligationMonitoring ? [] : undefined
     })
     this.stats.activeAgents = this.agents.size
     return { registered: true }
@@ -139,6 +152,25 @@ export class ProxyGateway {
     const agent = this.agents.get(agentId)
     if (!agent) return false
     const deleted = agent.delegations.delete(delegationId)
+    // Terminate obligations associated with this delegation (Module 20)
+    if (deleted && this.config.enableObligationMonitoring && agent.obligations) {
+      for (const obligation of agent.obligations) {
+        if (obligation.delegationId === delegationId && obligation.status === 'pending') {
+          if (!obligation.survivesTermination) {
+            obligation.status = 'terminated_by_revocation'
+            this.stats.obligationsTerminated = (this.stats.obligationsTerminated || 0) + 1
+            const resolution = resolveObligation({
+              obligation,
+              receipts: [],
+              delegationRevoked: true,
+              gatewayId: this.config.gatewayId,
+              gatewayPrivateKey: this.config.gatewayPrivateKey
+            })
+            this.config.onObligationResolved?.(resolution)
+          }
+        }
+      }
+    }
     this.stats.pendingApprovals = Array.from(this.approvals.values()).filter(a => !a.consumed).length
     return deleted
   }
@@ -243,6 +275,42 @@ export class ProxyGateway {
       }
     }
 
+    // Step 5.5: Cross-chain data flow check (Module 18)
+    // If the agent's frame is tainted by a different principal than this
+    // delegation's principal, block unless a valid permit exists.
+    let flowCheckResult: import('../types/cross-chain.js').FlowCheckResult | undefined
+    if (this.config.enableCrossChainEnforcement && agent.executionFrame) {
+      const actionPrincipalId = delegation.delegatedBy
+      const frameTaint = agent.executionFrame.frameTaint
+      // Only run check if frame has accumulated taint
+      if (frameTaint.labels.length > 0) {
+        this.stats.crossChainChecks = (this.stats.crossChainChecks || 0) + 1
+        flowCheckResult = checkDataFlow({
+          inputTaint: frameTaint,
+          actionPrincipalId,
+          actionScope: request.scopeRequired,
+          permits: agent.permits || [],
+          frame: agent.executionFrame
+        })
+        if (flowCheckResult.verdict === 'blocked') {
+          this.stats.crossChainBlocked = (this.stats.crossChainBlocked || 0) + 1
+          this.stats.totalDenied++
+          this.usedRequestIds.set(request.requestId, Date.now())
+          this.config.onCrossChainBlocked?.(request.agentId, flowCheckResult)
+          const result: ToolCallResult = {
+            executed: false, requestId: request.requestId,
+            denialReason: `Cross-chain blocked: ${flowCheckResult.reason}`,
+            decision, flowCheck: flowCheckResult
+          }
+          this.config.onToolCall?.(request, result)
+          return result
+        }
+        if (flowCheckResult.verdict === 'permitted') {
+          this.stats.crossChainPermitted = (this.stats.crossChainPermitted || 0) + 1
+        }
+      }
+    }
+
     // Step 6: Execute the tool (GATEWAY executes, not agent)
     this.stats.totalPermitted++
     let toolResult: { success: boolean; result?: unknown; error?: string }
@@ -257,6 +325,28 @@ export class ProxyGateway {
     }
 
     if (!toolResult.success) { this.stats.totalToolErrors++ } else { this.stats.totalExecuted++ }
+
+    // Step 6.5: Taint tracking + SAO wrapping (Module 18)
+    // After execution, taint the frame with the delegation's principal
+    // and wrap the result in an SAO for downstream taint propagation
+    let sao: SignedAuthorityObject | undefined
+    if (this.config.enableCrossChainEnforcement && agent.executionFrame && toolResult.success) {
+      const taintLabel = createTaintLabel(
+        delegation.delegatedBy,         // principal who authorized this
+        delegation.delegationId,         // chain ID
+        delegation.delegationId,         // delegation ID
+        'same-context-only'
+      )
+      // Record this access on the agent's frame (accumulates taint)
+      agent.executionFrame = recordAccess(agent.executionFrame, taintLabel)
+      // Wrap result in SAO so downstream consumers see the taint
+      sao = createSAO(
+        toolResult.result,
+        taintLabel,
+        this.config.gatewayPrivateKey,
+        this.config.gatewayPublicKey
+      )
+    }
 
     // Step 7: Generate receipt (GATEWAY signs, not agent)
     const receipt = createReceipt({
@@ -287,6 +377,35 @@ export class ProxyGateway {
       verifierPrivateKey: this.config.gatewayPrivateKey
     })
 
+    // Step 8.5: Obligation fulfillment check (Module 20)
+    // Check if this receipt satisfies any pending obligations for this agent
+    const obligationResolutions: ObligationResolution[] = []
+    if (this.config.enableObligationMonitoring && agent.obligations && toolResult.success) {
+      const receiptForCheck = {
+        receiptId: receipt.receiptId,
+        action: { type: receipt.action.type, scopeUsed: receipt.action.scopeUsed },
+        params: request.params,
+        timestamp: receipt.timestamp,
+        toolError: undefined
+      }
+      for (const obligation of agent.obligations) {
+        if (obligation.status !== 'pending') continue
+        const fulfillment = checkFulfillment(obligation.evidence, [receiptForCheck])
+        if (fulfillment.fulfilled) {
+          const resolution = resolveObligation({
+            obligation,
+            receipts: [receiptForCheck],
+            gatewayId: this.config.gatewayId,
+            gatewayPrivateKey: this.config.gatewayPrivateKey
+          })
+          obligationResolutions.push(resolution)
+          obligation.status = 'fulfilled'
+          this.stats.obligationsFulfilled = (this.stats.obligationsFulfilled || 0) + 1
+          this.config.onObligationResolved?.(resolution)
+        }
+      }
+    }
+
     this.usedRequestIds.set(request.requestId, Date.now())
 
     const proof: GatewayProof = {
@@ -297,7 +416,9 @@ export class ProxyGateway {
     const result: ToolCallResult = {
       executed: true, requestId: request.requestId,
       result: toolResult.result, toolError: toolResult.success ? undefined : toolResult.error,
-      proof, receipt, decision
+      proof, receipt, decision,
+      sao, flowCheck: flowCheckResult,
+      obligationResolutions: obligationResolutions.length > 0 ? obligationResolutions : undefined
     }
 
     this.config.onToolCall?.(request, result)
@@ -448,6 +569,31 @@ export class ProxyGateway {
 
   getAgentApprovals(agentId: string): GatewayApproval[] {
     return Array.from(this.approvals.values()).filter(a => a.agentId === agentId)
+  }
+
+  // ── Cross-Chain + Obligation Management ──
+
+  registerPermit(agentId: string, permit: CrossChainPermit): boolean {
+    const agent = this.agents.get(agentId)
+    if (!agent || !agent.permits) return false
+    agent.permits.push(permit)
+    return true
+  }
+
+  registerObligation(agentId: string, obligation: Obligation): boolean {
+    const agent = this.agents.get(agentId)
+    if (!agent || !agent.obligations) return false
+    agent.obligations.push(obligation)
+    this.stats.obligationsRegistered = (this.stats.obligationsRegistered || 0) + 1
+    return true
+  }
+
+  getAgentFrame(agentId: string): ExecutionFrame | undefined {
+    return this.agents.get(agentId)?.executionFrame
+  }
+
+  getAgentObligations(agentId: string): Obligation[] | undefined {
+    return this.agents.get(agentId)?.obligations
   }
 
   private findDelegation(agent: RegisteredAgent, request: ToolCallRequest): Delegation | null {
