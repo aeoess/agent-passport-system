@@ -33,10 +33,12 @@ import { verifyPassport } from '../verification/verify.js'
 import { verifyAttestation } from './values.js'
 import { createTaintLabel, createSAO, createExecutionFrame, recordAccess, checkDataFlow, mergeTaints } from './cross-chain.js'
 import { checkFulfillment, resolveObligation } from './obligations.js'
+import { createExecutionEnvelope } from './execution-envelope.js'
 import type { Delegation, ActionReceipt, ValuesFloor, FloorAttestation } from '../types/passport.js'
 import type { ActionIntent, PolicyDecision, PolicyReceipt, PolicyValidator, ValidationContext } from '../types/policy.js'
 import type { TaintLabel, TaintSet, CrossChainPermit, ExecutionFrame, SignedAuthorityObject } from '../types/cross-chain.js'
 import type { Obligation, ObligationResolution } from '../types/obligations.js'
+import type { ExecutionEnvelope } from '../types/execution-envelope.js'
 import type {
   ToolCallRequest, ToolCallResult, GatewayProof,
   GatewayApproval, ToolExecutor, GatewayConfig,
@@ -408,6 +410,25 @@ export class ProxyGateway {
 
     this.usedRequestIds.set(request.requestId, Date.now())
 
+    // Step 9: Produce execution envelope for cross-engine interop (optional)
+    let envelope: ExecutionEnvelope | undefined
+    if (this.config.produceEnvelope && toolResult.success) {
+      envelope = createExecutionEnvelope({
+        intent,
+        decision,
+        receipt: policyReceipt,
+        delegation,
+        runId: request.requestId,
+        agentDid: `did:aps:${request.agentPublicKey}`,
+        evaluatorDid: `did:aps:${this.config.gatewayPublicKey}`,
+        revocationStatus: 'active',
+        chainDepth: delegation.currentDepth,
+        evaluationMethod: 'deterministic',
+        signerPrivateKey: this.config.gatewayPrivateKey,
+        signerPublicKey: this.config.gatewayPublicKey
+      })
+    }
+
     const proof: GatewayProof = {
       requestSignature: request.signature, decisionSignature: decision.signature,
       receiptSignature: receipt.signature, policyReceipt
@@ -418,7 +439,8 @@ export class ProxyGateway {
       result: toolResult.result, toolError: toolResult.success ? undefined : toolResult.error,
       proof, receipt, decision,
       sao, flowCheck: flowCheckResult,
-      obligationResolutions: obligationResolutions.length > 0 ? obligationResolutions : undefined
+      obligationResolutions: obligationResolutions.length > 0 ? obligationResolutions : undefined,
+      envelope
     }
 
     this.config.onToolCall?.(request, result)

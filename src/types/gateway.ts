@@ -13,6 +13,7 @@ import type { SignedPassport, Delegation, ActionReceipt, ValuesFloor, FloorAttes
 import type { ActionIntent, PolicyDecision, PolicyReceipt, PolicyValidator } from './policy.js'
 import type { SignedAuthorityObject, FlowCheckResult, ExecutionFrame, CrossChainPermit } from './cross-chain.js'
 import type { Obligation, ObligationResolution } from './obligations.js'
+import type { ExecutionEnvelope } from './execution-envelope.js'
 
 // ── Tool Executor ──
 // The gateway wraps any tool. This is the abstraction.
@@ -64,6 +65,8 @@ export interface ToolCallResult {
   flowCheck?: FlowCheckResult
   /** Obligation resolutions triggered by this call (if obligation monitoring enabled) */
   obligationResolutions?: ObligationResolution[]
+  /** Execution envelope for cross-engine interop (if produceEnvelope enabled) */
+  envelope?: ExecutionEnvelope
 }
 
 /** The complete cryptographic proof chain */
@@ -133,6 +136,8 @@ export interface GatewayConfig {
   enableCrossChainEnforcement?: boolean
   /** Enable obligation monitoring (Module 20). Default: false */
   enableObligationMonitoring?: boolean
+  /** Produce ExecutionEnvelope on successful tool calls for cross-engine interop. Default: false */
+  produceEnvelope?: boolean
   /** Callback: fires when an obligation is resolved */
   onObligationResolved?: (resolution: ObligationResolution) => void
   /** Callback: fires when cross-chain flow is blocked */

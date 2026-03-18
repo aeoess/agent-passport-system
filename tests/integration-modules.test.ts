@@ -347,3 +347,66 @@ describe('Gateway Integration — Obligation Monitoring (Module 20)', () => {
     assert.ok((stats.obligationsTerminated || 0) > 0)
   })
 })
+
+
+// ══════════════════════════════════════════════════════════════════
+// TEST 8: Execution envelope production from gateway
+// ══════════════════════════════════════════════════════════════════
+
+describe('Gateway Integration — Execution Envelope (Fix 6)', () => {
+  it('produces envelope when produceEnvelope is enabled', async () => {
+    clearStores()
+    const gk = generateKeyPair()
+    const principal = joinSocialContract({
+      name: 'P', mission: 'test', owner: 'o',
+      capabilities: ['data:read'], platform: 'test', models: ['m'], floor
+    })
+    const agent = joinSocialContract({
+      name: 'A', mission: 'test', owner: 'o',
+      capabilities: ['data:read'], platform: 'test', models: ['m'], floor
+    })
+    const d = delegate({
+      from: principal, toPublicKey: agent.keyPair.publicKey,
+      scope: ['data:read'], spendLimit: 100, maxDepth: 2
+    })
+    const gw = createProxyGateway({
+      gatewayId: 'gw-env', gatewayPublicKey: gk.publicKey,
+      gatewayPrivateKey: gk.privateKey, floor,
+      produceEnvelope: true
+    }, makeExecutor())
+    gw.registerAgent(agent.passport, agent.attestation, [d])
+    const r = await gw.processToolCall(makeRequest(agent))
+    assert.equal(r.executed, true)
+    assert.ok(r.envelope, 'Should produce execution envelope')
+    assert.equal(r.envelope!.schema, 'execution-envelope.v0.1')
+    assert.equal(r.envelope!.agent_did, `did:aps:${agent.keyPair.publicKey}`)
+    assert.ok(r.envelope!.signature.value, 'Envelope should be signed')
+    assert.ok(r.envelope!.capability_ref.scope.includes('data:read'))
+  })
+
+  it('does NOT produce envelope when flag is off', async () => {
+    clearStores()
+    const gk = generateKeyPair()
+    const principal = joinSocialContract({
+      name: 'P', mission: 'test', owner: 'o',
+      capabilities: ['data:read'], platform: 'test', models: ['m'], floor
+    })
+    const agent = joinSocialContract({
+      name: 'A', mission: 'test', owner: 'o',
+      capabilities: ['data:read'], platform: 'test', models: ['m'], floor
+    })
+    const d = delegate({
+      from: principal, toPublicKey: agent.keyPair.publicKey,
+      scope: ['data:read'], spendLimit: 100, maxDepth: 2
+    })
+    const gw = createProxyGateway({
+      gatewayId: 'gw-noenv', gatewayPublicKey: gk.publicKey,
+      gatewayPrivateKey: gk.privateKey, floor
+      // produceEnvelope NOT set — defaults to false
+    }, makeExecutor())
+    gw.registerAgent(agent.passport, agent.attestation, [d])
+    const r = await gw.processToolCall(makeRequest(agent))
+    assert.equal(r.executed, true)
+    assert.equal(r.envelope, undefined, 'No envelope without flag')
+  })
+})
