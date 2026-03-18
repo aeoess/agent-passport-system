@@ -25,7 +25,7 @@
 // ══════════════════════════════════════════════════════════════════
 
 import { v4 as uuidv4 } from 'uuid'
-import { sign, verify } from '../crypto/keys.js'
+import { verify } from '../crypto/keys.js'
 import { canonicalize } from './canonical.js'
 import { createActionIntent, evaluateIntent, createPolicyReceipt, FloorValidatorV1 } from './policy.js'
 import { verifyDelegation, createReceipt, scopeAuthorizes, getRevocation } from './delegation.js'

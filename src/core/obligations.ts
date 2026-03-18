@@ -2,7 +2,7 @@
 // Obligations Model — Core Implementation (Module 20)
 // ══════════════════════════════════════════════════════════════════
 import { randomBytes } from 'node:crypto'
-import { sign, verify } from '../crypto/keys.js'
+import { sign } from '../crypto/keys.js'
 import { canonicalize } from './canonical.js'
 import { scopeAuthorizes } from './delegation.js'
 import type {

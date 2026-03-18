@@ -24,7 +24,6 @@
     "postpublish": "cd ~/aeoess_web && node scripts/propagate.mjs --apply --commit 2>/dev/null || echo 'Propagation skipped (aeoess_web not found)'"
   },
   "dependencies": {
-    "@noble/ed25519": "^2.1.0",
     "libsodium-wrappers": "^0.8.2",
     "uuid": "^9.0.1"
   },
