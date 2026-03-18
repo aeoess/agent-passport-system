@@ -50,6 +50,8 @@ export interface Delegation {
   maxDepth: number
   currentDepth: number
   createdAt: string
+  /** Hash of the obligation IDs accepted with this delegation (Module 20) */
+  obligationBundleHash?: string
   signature: string  // signed by delegator
 }
 

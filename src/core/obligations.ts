@@ -4,6 +4,7 @@
 import { randomBytes } from 'node:crypto'
 import { sign, verify } from '../crypto/keys.js'
 import { canonicalize } from './canonical.js'
+import { scopeAuthorizes } from './delegation.js'
 import type {
   Obligation, ObligationAction, EvidenceRequirement,
   PenaltySpec, RecurrenceSpec, ObligationBundle,
@@ -288,7 +289,8 @@ function getRecurrenceIntervalHours(rec: RecurrenceSpec): number {
 }
 
 export function validateObligationConstraints(
-  obligations: Obligation[]
+  obligations: Obligation[],
+  delegationScope?: string[]
 ): { valid: boolean; errors: string[] } {
   const errors: string[] = []
   const byDelegation = new Map<string, number>()
@@ -300,6 +302,10 @@ export function validateObligationConstraints(
     }
   }
   for (const o of obligations) {
+    // Scope validation: obligation action scope must be within delegation scope
+    if (delegationScope && !scopeAuthorizes(delegationScope, o.action.scope)) {
+      errors.push(`Obligation ${o.obligationId}: action scope "${o.action.scope}" is not within delegation scope [${delegationScope.join(', ')}]`)
+    }
     if (o.penalty.gracePeriodMinutes < 5) {
       errors.push(`Obligation ${o.obligationId}: grace period ${o.penalty.gracePeriodMinutes}min is below 5min minimum`)
     }

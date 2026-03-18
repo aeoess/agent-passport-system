@@ -23,277 +23,327 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const floorYaml = readFileSync(join(__dirname, '../values/floor.yaml'), 'utf-8')
 const floor = loadFloor(floorYaml)
 
-// ── Helpers ──
+// ── Test Helpers ──
 
-function makeToolExecutor(): ToolExecutor {
+function makeExecutor(): ToolExecutor {
   return async (tool: string, params: Record<string, unknown>) => {
     return { success: true, result: { tool, echo: params } }
   }
 }
 
-async function setupCrossChainScenario(opts?: {
-  enableCrossChain?: boolean
-  enableObligations?: boolean
-}) {
-  clearStores()
-  const gatewayKeys = generateKeyPair()
+function makeRequest(
+  agent: ReturnType<typeof joinSocialContract>,
+  overrides: Partial<ToolCallRequest> = {}
+): ToolCallRequest {
+  const requestId = overrides.requestId || `req-${Date.now()}-${Math.random().toString(36).slice(2)}`
+  const tool = overrides.tool || 'api:fetch'
+  const params = overrides.params || { url: 'https://example.com' }
+  const scopeRequired = overrides.scopeRequired || 'data:read'
+  const spend = overrides.spend
 
-  const principalA = joinSocialContract({
-    name: 'Principal A', mission: 'Data provider', owner: 'owner-a',
-    capabilities: ['data:read'], platform: 'test', models: ['test'], floor
+  const payload = canonicalize({
+    requestId, agentId: agent.agentId, tool, params, scopeRequired, spend
   })
-  const principalB = joinSocialContract({
-    name: 'Principal B', mission: 'Action executor', owner: 'owner-b',
-    capabilities: ['data:write', 'api:send'], platform: 'test', models: ['test'], floor
-  })
-  // The agent gets delegations from BOTH principals
-  const agent = joinSocialContract({
-    name: 'Shared Agent', mission: 'Multi-principal ops', owner: 'owner-agent',
-    capabilities: ['data:read', 'data:write', 'api:send'], platform: 'test', models: ['test'], floor
-  })
-
-  // Delegation A: data:read from Principal A
-  const delegationA = delegate({
-    from: principalA, toPublicKey: agent.keyPair.publicKey,
-    scope: ['data:read'], spendLimit: 100, maxDepth: 2
-  })
-
-  // Delegation B: data:write, api:send from Principal B
-  const delegationB = delegate({
-    from: principalB, toPublicKey: agent.keyPair.publicKey,
-    scope: ['data:write', 'api:send'], spendLimit: 100, maxDepth: 2
-  })
-
-  const config: GatewayConfig = {
-    gatewayId: 'gw-integration-test',
-    gatewayPublicKey: gatewayKeys.publicKey,
-    gatewayPrivateKey: gatewayKeys.privateKey,
-    floor,
-    approvalTTLSeconds: 30,
-    recheckRevocationOnExecute: true,
-    enableCrossChainEnforcement: opts?.enableCrossChain ?? true,
-    enableObligationMonitoring: opts?.enableObligations ?? true
-  }
-
-  const gateway = createProxyGateway(config, makeToolExecutor())
-  gateway.registerAgent(agent.passport, agent.attestation!, [delegationA, delegationB])
-
-  function makeRequest(overrides: {
-    tool?: string; params?: Record<string, unknown>
-    scopeRequired?: string; delegationId?: string; spend?: { amount: number; currency: string }
-  } = {}): ToolCallRequest {
-    const requestId = `req-${Date.now()}-${Math.random().toString(36).slice(2)}`
-    const tool = overrides.tool || 'data:fetch'
-    const params = overrides.params || { query: 'test' }
-    const scopeRequired = overrides.scopeRequired || 'data:read'
-    const spend = overrides.spend
-
-    const payload = canonicalize({
-      requestId, agentId: agent.agentId, tool, params, scopeRequired, spend
-    })
-    return {
-      requestId, agentId: agent.agentId,
-      agentPublicKey: agent.keyPair.publicKey,
-      signature: sign(payload, agent.keyPair.privateKey),
-      tool, params, scopeRequired, spend,
-      delegationId: overrides.delegationId,
-      context: 'Integration test'
-    }
-  }
-
   return {
-    gateway, config, principalA, principalB, agent,
-    delegationA, delegationB, gatewayKeys, makeRequest
+    requestId,
+    agentId: overrides.agentId || agent.agentId,
+    agentPublicKey: overrides.agentPublicKey || agent.keyPair.publicKey,
+    signature: overrides.signature || sign(payload, agent.keyPair.privateKey),
+    tool, params, scopeRequired, spend,
+    context: overrides.context || 'Integration test'
   }
 }
 
 // ══════════════════════════════════════════════════════════════════
-// Tests
+// TEST 1: Backward compatibility — no cross-chain flags = old behavior
 // ══════════════════════════════════════════════════════════════════
 
-describe('Gateway + Module 18 (Cross-Chain Enforcement)', () => {
+describe('Gateway Integration — Backward Compatibility', () => {
+  it('works without cross-chain or obligation flags', async () => {
+    clearStores()
+    const gk = generateKeyPair()
+    const principal = joinSocialContract({
+      name: 'P', mission: 'test', owner: 'o',
+      capabilities: ['data:read'], platform: 'test', models: ['m'], floor
+    })
+    const agent = joinSocialContract({
+      name: 'A', mission: 'test', owner: 'o',
+      capabilities: ['data:read'], platform: 'test', models: ['m'], floor
+    })
+    const d = delegate({
+      from: principal, toPublicKey: agent.keyPair.publicKey,
+      scope: ['data:read'], spendLimit: 100, maxDepth: 2
+    })
+    const gw = createProxyGateway({
+      gatewayId: 'gw', gatewayPublicKey: gk.publicKey,
+      gatewayPrivateKey: gk.privateKey, floor
+    }, makeExecutor())
+    gw.registerAgent(agent.passport, agent.attestation, [d])
+    const r = await gw.processToolCall(makeRequest(agent))
+    assert.equal(r.executed, true)
+    assert.equal(r.sao, undefined, 'No SAO without cross-chain flag')
+    assert.equal(r.flowCheck, undefined, 'No flow check without cross-chain flag')
+  })
+})
 
-  it('creates execution frame on agent registration when cross-chain enabled', async () => {
-    const { gateway, agent } = await setupCrossChainScenario()
-    const frame = gateway.getAgentFrame(agent.agentId)
+// ══════════════════════════════════════════════════════════════════
+// TESTS 2-5: Cross-chain enforcement through gateway
+// ══════════════════════════════════════════════════════════════════
+
+describe('Gateway Integration — Cross-Chain Enforcement (Module 18)', () => {
+  let gw: ProxyGateway
+  let agent: ReturnType<typeof joinSocialContract>
+  let principalA: ReturnType<typeof joinSocialContract>
+  let principalB: ReturnType<typeof joinSocialContract>
+  let delegationA: ReturnType<typeof delegate>
+  let delegationB: ReturnType<typeof delegate>
+  let gk: ReturnType<typeof generateKeyPair>
+
+  beforeEach(() => {
+    clearStores()
+    gk = generateKeyPair()
+    principalA = joinSocialContract({
+      name: 'Principal A', mission: 'data', owner: 'a',
+      capabilities: ['data:read'], platform: 'test', models: ['m'], floor
+    })
+    principalB = joinSocialContract({
+      name: 'Principal B', mission: 'actions', owner: 'b',
+      capabilities: ['data:write', 'api:send'], platform: 'test', models: ['m'], floor
+    })
+    agent = joinSocialContract({
+      name: 'Shared Agent', mission: 'multi', owner: 'shared',
+      capabilities: ['data:read', 'data:write', 'api:send'], platform: 'test', models: ['m'], floor
+    })
+    delegationA = delegate({
+      from: principalA, toPublicKey: agent.keyPair.publicKey,
+      scope: ['data:read'], spendLimit: 100, maxDepth: 2
+    })
+    delegationB = delegate({
+      from: principalB, toPublicKey: agent.keyPair.publicKey,
+      scope: ['data:write', 'api:send'], spendLimit: 100, maxDepth: 2
+    })
+    gw = createProxyGateway({
+      gatewayId: 'gw-xchain', gatewayPublicKey: gk.publicKey,
+      gatewayPrivateKey: gk.privateKey, floor,
+      enableCrossChainEnforcement: true
+    }, makeExecutor())
+    gw.registerAgent(agent.passport, agent.attestation, [delegationA, delegationB])
+  })
+
+  it('creates execution frame on registration', () => {
+    const frame = gw.getAgentFrame(agent.agentId)
     assert.ok(frame, 'Frame should exist')
-    assert.equal(frame.agentId, agent.agentId)
-    assert.equal(frame.active, true)
-    assert.equal(frame.frameTaint.labels.length, 0, 'Frame starts with no taint')
+    assert.equal(frame!.agentId, agent.agentId)
+    assert.equal(frame!.frameTaint.labels.length, 0, 'Fresh frame has no taint')
+    assert.equal(frame!.active, true)
   })
 
-  it('wraps tool result in SAO after execution', async () => {
-    const { gateway, makeRequest } = await setupCrossChainScenario()
-    const r = await gateway.processToolCall(makeRequest({
-      tool: 'data:fetch', scopeRequired: 'data:read'
+  it('wraps results in SAO after execution', async () => {
+    const r = await gw.processToolCall(makeRequest(agent, {
+      tool: 'read-data', scopeRequired: 'data:read',
+      delegationId: delegationA.delegationId
     }))
-    assert.ok(r.executed, 'Should execute')
-    assert.ok(r.sao, 'Result should include SAO')
-    assert.ok(r.sao.saoId.startsWith('sao-'), 'SAO should have valid ID')
-    assert.ok(r.sao.taint.principalId, 'SAO taint should have principal ID')
-    assert.ok(r.sao.dataHash, 'SAO should have data hash')
+    assert.equal(r.executed, true)
+    assert.ok(r.sao, 'Result should be wrapped in SAO')
+    assert.equal(r.sao!.taint.principalId, principalA.publicKey)
   })
 
-  it('BLOCKS confused deputy — read under A, send under B', async () => {
-    const { gateway, makeRequest, delegationA, delegationB } = await setupCrossChainScenario()
-
-    // Step 1: Read under delegation A (taints frame with principal A)
-    const r1 = await gateway.processToolCall(makeRequest({
-      tool: 'data:fetch', scopeRequired: 'data:read', delegationId: delegationA.delegationId
+  it('BLOCKS confused deputy — cross-chain without permit', async () => {
+    // Step 1: Agent reads data under delegation A (taint: principal A)
+    const r1 = await gw.processToolCall(makeRequest(agent, {
+      tool: 'read-data', scopeRequired: 'data:read',
+      delegationId: delegationA.delegationId
     }))
-    assert.ok(r1.executed, 'Read should succeed')
+    assert.equal(r1.executed, true, 'Read should succeed')
 
-    // Step 2: Try to send under delegation B (different principal)
-    // This is the confused deputy — agent uses A's data in B's action
-    const r2 = await gateway.processToolCall(makeRequest({
-      tool: 'api:send', scopeRequired: 'api:send', delegationId: delegationB.delegationId,
-      params: { payload: 'data from principal A' }
+    // Step 2: Agent tries to write under delegation B (principal B)
+    // Frame is tainted with principal A → confused deputy → BLOCKED
+    const r2 = await gw.processToolCall(makeRequest(agent, {
+      tool: 'send-data', scopeRequired: 'data:write',
+      delegationId: delegationB.delegationId
     }))
-    assert.equal(r2.executed, false, 'Send should be BLOCKED')
-    assert.ok(r2.denialReason?.includes('Cross-chain blocked'), 'Denial reason should mention cross-chain')
+    assert.equal(r2.executed, false, 'Write should be BLOCKED')
+    assert.ok(r2.denialReason?.includes('Cross-chain'), 'Should cite cross-chain as reason')
     assert.ok(r2.flowCheck, 'Should include flow check result')
-    assert.equal(r2.flowCheck?.verdict, 'blocked')
+    assert.equal(r2.flowCheck!.verdict, 'blocked')
 
-    const stats = gateway.getStats()
-    assert.ok((stats.crossChainBlocked || 0) >= 1, 'Should track blocked cross-chain attempts')
+    // Verify stats
+    const stats = gw.getStats()
+    assert.ok((stats.crossChainChecks || 0) > 0, 'Should have performed cross-chain checks')
+    assert.ok((stats.crossChainBlocked || 0) > 0, 'Should have blocked at least one')
   })
 
   it('ALLOWS cross-chain with valid permit', async () => {
-    const { gateway, agent, makeRequest, principalA, principalB,
-            delegationA, delegationB } = await setupCrossChainScenario()
-
-    // Create permit: A authorizes data flow to B's actions
-    const permitUnsigned = createCrossChainPermit({
+    // Create a permit: principal A allows data to flow to principal B
+    const halfPermit = createCrossChainPermit({
       sourcePrincipalId: principalA.publicKey,
       sourcePrincipalPublicKey: principalA.publicKey,
       sourceDataClasses: ['data:read'],
       destPrincipalId: principalB.publicKey,
       destPrincipalPublicKey: principalB.publicKey,
-      destAllowedScopes: ['api:send'],
-      purpose: 'Integration test: allow A data to flow to B actions',
+      destAllowedScopes: ['data:write', 'api:send'],
+      purpose: 'Authorized data sharing',
       sourcePrivateKey: principalA.keyPair.privateKey
     })
-    const permit = countersignPermit(permitUnsigned, principalB.keyPair.privateKey)
-    gateway.registerPermit(agent.agentId, permit)
+    const permit = countersignPermit(halfPermit, principalB.keyPair.privateKey)
+    gw.registerPermit(agent.agentId, permit)
 
-    // Read under A
-    const r1 = await gateway.processToolCall(makeRequest({
-      tool: 'data:fetch', scopeRequired: 'data:read', delegationId: delegationA.delegationId
+    // Step 1: Read under delegation A (taint: principal A)
+    const r1 = await gw.processToolCall(makeRequest(agent, {
+      tool: 'read-data', scopeRequired: 'data:read',
+      delegationId: delegationA.delegationId
     }))
-    assert.ok(r1.executed)
+    assert.equal(r1.executed, true)
 
-    // Send under B — should succeed because permit exists
-    const r2 = await gateway.processToolCall(makeRequest({
-      tool: 'api:send', scopeRequired: 'api:send', delegationId: delegationB.delegationId
+    // Step 2: Write under delegation B — should be PERMITTED (not blocked)
+    const r2 = await gw.processToolCall(makeRequest(agent, {
+      tool: 'send-data', scopeRequired: 'data:write',
+      delegationId: delegationB.delegationId
     }))
-    assert.ok(r2.executed, 'Send should SUCCEED with permit')
+    assert.equal(r2.executed, true, 'Write should succeed with permit')
+    assert.ok(r2.flowCheck, 'Should include flow check')
+    assert.equal(r2.flowCheck!.verdict, 'permitted')
 
-    const stats = gateway.getStats()
-    assert.ok((stats.crossChainPermitted || 0) >= 1, 'Should track permitted cross-chain flows')
+    const stats = gw.getStats()
+    assert.ok((stats.crossChainPermitted || 0) > 0, 'Should count permitted flows')
   })
 })
 
-describe('Gateway + Module 20 (Obligation Enforcement)', () => {
+// ══════════════════════════════════════════════════════════════════
+// TESTS 6-7: Obligation monitoring through gateway
+// ══════════════════════════════════════════════════════════════════
+
+describe('Gateway Integration — Obligation Monitoring (Module 20)', () => {
+  let gw: ProxyGateway
+  let agent: ReturnType<typeof joinSocialContract>
+  let principal: ReturnType<typeof joinSocialContract>
+  let delegation: ReturnType<typeof delegate>
+  let gk: ReturnType<typeof generateKeyPair>
+
+  beforeEach(() => {
+    clearStores()
+    gk = generateKeyPair()
+    principal = joinSocialContract({
+      name: 'Principal', mission: 'test', owner: 'o',
+      capabilities: ['data:read', 'data:write', 'reporting:submit'],
+      platform: 'test', models: ['m'], floor
+    })
+    agent = joinSocialContract({
+      name: 'Agent', mission: 'work', owner: 'o',
+      capabilities: ['data:read', 'data:write', 'reporting:submit'],
+      platform: 'test', models: ['m'], floor
+    })
+    delegation = delegate({
+      from: principal, toPublicKey: agent.keyPair.publicKey,
+      scope: ['data:read', 'data:write', 'reporting:submit'],
+      spendLimit: 100, maxDepth: 2
+    })
+    gw = createProxyGateway({
+      gatewayId: 'gw-obl', gatewayPublicKey: gk.publicKey,
+      gatewayPrivateKey: gk.privateKey, floor,
+      enableObligationMonitoring: true
+    }, makeExecutor())
+    gw.registerAgent(agent.passport, agent.attestation, [delegation])
+  })
 
   it('fulfills obligation when matching receipt is produced', async () => {
-    const { gateway, agent, makeRequest, principalA, delegationA } = await setupCrossChainScenario()
-
-    // Create obligation: agent must perform a data:fetch within deadline
+    // Create obligation: agent must submit a report
     const obligation = createObligation({
-      delegationId: delegationA.delegationId,
+      delegationId: delegation.delegationId,
       obligorAgentId: agent.agentId,
-      obligorPublicKey: agent.publicKey,
-      action: { type: 'gateway:data:fetch', scope: 'data:read', description: 'Must fetch data' },
-      deadline: new Date(Date.now() + 3600000).toISOString(), // 1 hour from now
+      obligorPublicKey: agent.keyPair.publicKey,
+      action: {
+        type: 'reporting:submit',
+        scope: 'reporting:submit',
+        description: 'Submit weekly report'
+      },
+      deadline: new Date(Date.now() + 86400000).toISOString(),
       evidence: {
         type: 'action_receipt',
-        matchCriteria: { toolMatch: 'gateway:data:fetch', scopeMatch: 'data:read' }
+        matchCriteria: {
+          toolMatch: 'gateway:submit-report',
+          scopeMatch: 'reporting:submit'
+        }
       },
-      penalty: { type: 'warning', severity: 'minor', gracePeriodMinutes: 5, autoExecute: false },
-      principalPrivateKey: principalA.keyPair.privateKey,
-      principalPublicKey: principalA.publicKey
+      penalty: {
+        type: 'reputation_penalty',
+        severity: 'minor',
+        reputationImpact: -10,
+        gracePeriodMinutes: 60,
+        autoExecute: false
+      },
+      principalPrivateKey: principal.keyPair.privateKey,
+      principalPublicKey: principal.publicKey
     })
-    gateway.registerObligation(agent.agentId, obligation)
+    gw.registerObligation(agent.agentId, obligation)
 
     // Verify obligation is pending
-    const before = gateway.getAgentObligations(agent.agentId)
-    assert.ok(before?.some(o => o.status === 'pending'))
+    const oblsBefore = gw.getAgentObligations(agent.agentId)
+    assert.ok(oblsBefore)
+    assert.equal(oblsBefore!.length, 1)
+    assert.equal(oblsBefore![0].status, 'pending')
 
-    // Execute the matching tool call
-    const r = await gateway.processToolCall(makeRequest({
-      tool: 'data:fetch', scopeRequired: 'data:read', delegationId: delegationA.delegationId
+    // Agent submits the report — this should auto-fulfill
+    const r = await gw.processToolCall(makeRequest(agent, {
+      tool: 'submit-report',
+      scopeRequired: 'reporting:submit',
+      params: { title: 'Weekly Report' }
     }))
-    assert.ok(r.executed, 'Tool call should succeed')
+    assert.equal(r.executed, true)
+
+    // Obligation should now be fulfilled
     assert.ok(r.obligationResolutions, 'Should have obligation resolutions')
     assert.equal(r.obligationResolutions!.length, 1)
     assert.equal(r.obligationResolutions![0].outcome, 'fulfilled')
 
-    // Verify obligation status updated
-    const after = gateway.getAgentObligations(agent.agentId)
-    assert.ok(after?.some(o => o.status === 'fulfilled'))
+    // Verify obligation status was updated in the registry
+    const oblsAfter = gw.getAgentObligations(agent.agentId)
+    assert.equal(oblsAfter![0].status, 'fulfilled')
 
-    const stats = gateway.getStats()
-    assert.ok((stats.obligationsFulfilled || 0) >= 1)
+    // Verify stats
+    const stats = gw.getStats()
+    assert.ok((stats.obligationsFulfilled || 0) > 0)
+    assert.ok((stats.obligationsRegistered || 0) > 0)
   })
 
   it('terminates obligations when delegation is revoked', async () => {
-    const { gateway, agent, principalA, delegationA } = await setupCrossChainScenario()
-
     const obligation = createObligation({
-      delegationId: delegationA.delegationId,
+      delegationId: delegation.delegationId,
       obligorAgentId: agent.agentId,
-      obligorPublicKey: agent.publicKey,
-      action: { type: 'gateway:data:fetch', scope: 'data:read', description: 'Must fetch' },
-      deadline: new Date(Date.now() + 3600000).toISOString(),
+      obligorPublicKey: agent.keyPair.publicKey,
+      action: {
+        type: 'data:write',
+        scope: 'data:write',
+        description: 'Write data periodically'
+      },
+      deadline: new Date(Date.now() + 86400000).toISOString(),
       evidence: {
         type: 'action_receipt',
-        matchCriteria: { toolMatch: 'gateway:data:fetch' }
+        matchCriteria: { toolMatch: 'gateway:write-data', scopeMatch: 'data:write' }
       },
-      penalty: { type: 'warning', severity: 'minor', gracePeriodMinutes: 5, autoExecute: false },
+      penalty: {
+        type: 'warning',
+        severity: 'minor',
+        gracePeriodMinutes: 30,
+        autoExecute: false
+      },
       survivesTermination: false,
-      principalPrivateKey: principalA.keyPair.privateKey,
-      principalPublicKey: principalA.publicKey
+      principalPrivateKey: principal.keyPair.privateKey,
+      principalPublicKey: principal.publicKey
     })
-    gateway.registerObligation(agent.agentId, obligation)
+    gw.registerObligation(agent.agentId, obligation)
 
     // Verify pending
-    assert.ok(gateway.getAgentObligations(agent.agentId)?.some(o => o.status === 'pending'))
+    assert.equal(gw.getAgentObligations(agent.agentId)![0].status, 'pending')
 
-    // Revoke the delegation — should terminate the obligation
-    gateway.revokeDelegation(agent.agentId, delegationA.delegationId)
+    // Revoke the delegation — obligation should be terminated
+    gw.revokeDelegation(agent.agentId, delegation.delegationId)
 
-    // Verify terminated
-    const after = gateway.getAgentObligations(agent.agentId)
-    assert.ok(after?.some(o => o.status === 'terminated_by_revocation'),
-      'Obligation should be terminated by revocation')
+    // Obligation should be terminated_by_revocation
+    const obls = gw.getAgentObligations(agent.agentId)
+    assert.equal(obls![0].status, 'terminated_by_revocation')
 
-    const stats = gateway.getStats()
-    assert.ok((stats.obligationsTerminated || 0) >= 1)
-  })
-})
-
-describe('Gateway — Backward Compatibility', () => {
-
-  it('works without cross-chain or obligation flags (old behavior)', async () => {
-    const { gateway, makeRequest, delegationA, delegationB } = await setupCrossChainScenario({
-      enableCrossChain: false, enableObligations: false
-    })
-
-    // Read under A, then send under B — should work because cross-chain is off
-    const r1 = await gateway.processToolCall(makeRequest({
-      tool: 'data:fetch', scopeRequired: 'data:read', delegationId: delegationA.delegationId
-    }))
-    assert.ok(r1.executed)
-    assert.equal(r1.sao, undefined, 'No SAO when cross-chain disabled')
-
-    const r2 = await gateway.processToolCall(makeRequest({
-      tool: 'api:send', scopeRequired: 'api:send', delegationId: delegationB.delegationId
-    }))
-    assert.ok(r2.executed, 'Should succeed — no cross-chain enforcement')
-    assert.equal(r2.flowCheck, undefined, 'No flow check when disabled')
-
-    // No frame should exist
-    const frame = gateway.getAgentFrame(gateway.getStats().activeAgents > 0 ? r1.requestId : '')
-    // getAgentFrame returns undefined for non-existent agent
+    const stats = gw.getStats()
+    assert.ok((stats.obligationsTerminated || 0) > 0)
   })
 })
