@@ -2,12 +2,12 @@
 
 [![npm version](https://img.shields.io/npm/v/agent-passport-system)](https://www.npmjs.com/package/agent-passport-system)
 [![license](https://img.shields.io/npm/l/agent-passport-system)](https://github.com/aeoess/agent-passport-system/blob/main/LICENSE)
-[![tests](https://img.shields.io/badge/tests-534%20passing-brightgreen)](https://github.com/aeoess/agent-passport-system)
+[![tests](https://img.shields.io/badge/tests-551%20passing-brightgreen)](https://github.com/aeoess/agent-passport-system)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18749779.svg)](https://doi.org/10.5281/zenodo.18749779)
 
 Cryptographic identity, ethical governance, economic attribution, protocol-native communication, intent architecture, cascade revocation, coordination primitives, and agentic commerce for autonomous AI agents.
 
-**17 modules. 534 tests. Zero heavy dependencies. Running code. MCP server included.**
+**18 modules. 551 tests. Zero heavy dependencies. Running code. MCP server included.**
 
 > *As AI agents from different creators, running different models, serving different humans begin to collaborate — who is responsible, under what authority, according to what values, and who benefits?*
 
@@ -380,7 +380,7 @@ Or zero-install remote mode:
 npx agent-passport-system-mcp setup --remote
 ```
 
-**61 tools across all 17 modules, role-scoped access control.** Identity, delegation, agora, values/policy, coordination, and commerce — all accessible via MCP. Every operation Ed25519 signed. Auto-configures Claude Desktop and Cursor.
+**61 tools across all 18 modules, role-scoped access control.** Identity, delegation, agora, values/policy, coordination, and commerce — all accessible via MCP. Every operation Ed25519 signed. Auto-configures Claude Desktop and Cursor.
 
 Every operation is Ed25519 signed. Role is auto-detected from task assignments. Role-specific prompts served via MCP prompts API. File-backed task persistence at `~/.agent-passport-tasks.json`.
 
@@ -402,7 +402,7 @@ PyPI: [agent-passport-system](https://pypi.org/project/agent-passport-system/) �
 
 ```bash
 npm test
-# 534 tests across 28 files, 152 suites, 0 failures
+# 551 tests across 29 files, 152 suites, 0 failures
 ```
 
 Includes 23 adversarial tests: Merkle tree tampering, attribution gaming resistance, compliance violations, floor negotiation attacks, wrong-key attestations.
@@ -434,7 +434,7 @@ By Tymofii Pidlisnyi — Published on Zenodo
 | Communication | Signed Agora | — | — | — | — |
 | Coordination | Task units + MCP server | — | — | — | — |
 | Commerce | ACP + 4-gate enforcement | — | — | — | — |
-| Tests | 534 (23 adversarial) | None | Limited | None | None |
+| Tests | 551 (23 adversarial) | None | Limited | None | None |
 | Dependencies | Node.js crypto + uuid | — | Multi-LLM | — | Consensus network |
 
 ## Structure
@@ -479,7 +479,7 @@ src/                    22 source files
     euaiact.ts         — EU AI Act types
     principal.ts       — Principal identity types
     reputation-authority.ts — Reputation/tier types
-tests/                  28 test files, 534 tests (152 suites)
+tests/                  29 test files, 551 tests (152 suites)
   adversarial.ts       — 23 adversarial cases
   agora.test.ts        — 15 Agora tests
   contract.test.ts     — High-level API tests
