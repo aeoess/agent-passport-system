@@ -159,6 +159,10 @@ export function computeStepHash(previousStepHash: string, taint: TaintLabel, ste
  * This gives the frame a strict total order (<_exec) that is independently verifiable.
  */
 export function recordAccess(frame: ExecutionFrame, taint: TaintLabel): ExecutionFrame {
+  if (!frame.active) {
+    throw new Error(`Cannot record access on closed frame ${frame.frameId}`)
+  }
+
   const stepIndex = frame.stepCount
   const previousStepHash = frame.chainHead || ''
   const stepHash = computeStepHash(previousStepHash, taint, stepIndex)
@@ -382,7 +386,8 @@ export function checkDataFlow(opts: {
       p.destinationContext.principalId === opts.actionPrincipalId &&
       p.destinationContext.allowedScopes.some(s =>
         s === '*' || s === opts.actionScope || opts.actionScope.startsWith(s + ':')
-      )
+      ) &&
+      verifyCrossChainPermit(p) // Defense-in-depth: verify signatures inline (review finding F-4)
     )
 
     if (!permit) {

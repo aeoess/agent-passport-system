@@ -31,7 +31,7 @@ import { createActionIntent, evaluateIntent, createPolicyReceipt, FloorValidator
 import { verifyDelegation, createReceipt, scopeAuthorizes, getRevocation } from './delegation.js'
 import { verifyPassport } from '../verification/verify.js'
 import { verifyAttestation } from './values.js'
-import { createTaintLabel, createSAO, createExecutionFrame, recordAccess, checkDataFlow, mergeTaints } from './cross-chain.js'
+import { createTaintLabel, createSAO, createExecutionFrame, recordAccess, checkDataFlow, mergeTaints, verifyCrossChainPermit } from './cross-chain.js'
 import { checkFulfillment, resolveObligation } from './obligations.js'
 import { createExecutionEnvelope } from './execution-envelope.js'
 import type { Delegation, ActionReceipt, ValuesFloor, FloorAttestation } from '../types/passport.js'
@@ -56,6 +56,7 @@ export class ProxyGateway {
   private agents: Map<string, RegisteredAgent> = new Map()
   private approvals: Map<string, GatewayApproval> = new Map()
   private usedRequestIds: Map<string, number> = new Map() // requestId → timestamp (NW-001: TTL-based pruning)
+  private agentLocks: Map<string, Promise<void>> = new Map() // Per-agent sequential execution (concurrency fix)
   private executor: ToolExecutor
   private stats: GatewayStats = {
     totalRequests: 0,
@@ -180,6 +181,23 @@ export class ProxyGateway {
   // ── Core: Process Tool Call ──
 
   async processToolCall(request: ToolCallRequest): Promise<ToolCallResult> {
+    // Per-agent sequential execution: prevents concurrent frame clobbering
+    // (Claude Opus review finding: async chain-fork attack)
+    const agentId = request.agentId
+    const previousLock = this.agentLocks.get(agentId) || Promise.resolve()
+    let releaseLock: () => void
+    const currentLock = new Promise<void>(resolve => { releaseLock = resolve })
+    this.agentLocks.set(agentId, currentLock)
+
+    try {
+      await previousLock
+      return await this._processToolCallInner(request)
+    } finally {
+      releaseLock!()
+    }
+  }
+
+  private async _processToolCallInner(request: ToolCallRequest): Promise<ToolCallResult> {
     this.stats.totalRequests++
 
     // Step 0: Replay protection
@@ -309,6 +327,22 @@ export class ProxyGateway {
         }
         if (flowCheckResult.verdict === 'permitted') {
           this.stats.crossChainPermitted = (this.stats.crossChainPermitted || 0) + 1
+        }
+      }
+    }
+
+    // Step 5.75: Permit recheck before execution (TOCTOU fix — all 3 review models flagged this)
+    // If step 5.5 authorized via a permit, recheck that the permit is still valid
+    // right before we execute. Closes the window between check and execute.
+    if (flowCheckResult?.verdict === 'permitted' && flowCheckResult.permitId) {
+      const permit = (agent.permits || []).find(p => p.permitId === flowCheckResult!.permitId)
+      if (!permit || permit.revoked || new Date(permit.expiresAt) < new Date()) {
+        this.stats.totalDenied++
+        this.usedRequestIds.set(request.requestId, Date.now())
+        return {
+          executed: false, requestId: request.requestId,
+          denialReason: `Cross-chain permit ${flowCheckResult.permitId} was revoked or expired between approval and execution`,
+          decision
         }
       }
     }
@@ -598,6 +632,8 @@ export class ProxyGateway {
   registerPermit(agentId: string, permit: CrossChainPermit): boolean {
     const agent = this.agents.get(agentId)
     if (!agent || !agent.permits) return false
+    // Verify both signatures before storing (GPT review finding)
+    if (!verifyCrossChainPermit(permit)) return false
     agent.permits.push(permit)
     return true
   }
