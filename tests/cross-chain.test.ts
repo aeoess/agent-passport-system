@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it } from 'node:test'
+import assert from 'node:assert/strict'
 import { generateKeyPair } from '../src/crypto/keys.js'
 import {
   createTaintLabel, mergeTaints,
@@ -23,9 +24,9 @@ describe('Cross-Chain Data Flow Authorization', () => {
   describe('Taint Labels', () => {
     it('should create a taint label with default usage', () => {
       const label = createTaintLabel('alice', 'chain-a', 'del-001')
-      expect(label.principalId).toBe('alice')
-      expect(label.usage).toBe('same-context-only')
-      expect(label.taintedAt).toBeTruthy()
+      assert.equal(label.principalId, 'alice')
+      assert.equal(label.usage, 'same-context-only')
+      assert.ok(label.taintedAt)
     })
 
     it('should detect cross-chain taint when merging from different principals', () => {
@@ -33,10 +34,10 @@ describe('Cross-Chain Data Flow Authorization', () => {
       const labelB = createTaintLabel('bob', 'chain-b', 'del-002')
       const taintSet = mergeTaints(labelA, labelB)
 
-      expect(taintSet.isCrossChain).toBe(true)
-      expect(taintSet.principals).toContain('alice')
-      expect(taintSet.principals).toContain('bob')
-      expect(taintSet.labels).toHaveLength(2)
+      assert.equal(taintSet.isCrossChain, true)
+      assert.ok(taintSet.principals.includes('alice'))
+      assert.ok(taintSet.principals.includes('bob'))
+      assert.equal(taintSet.labels.length, 2)
     })
 
     it('should NOT be cross-chain when all labels from same principal', () => {
@@ -44,8 +45,8 @@ describe('Cross-Chain Data Flow Authorization', () => {
       const label2 = createTaintLabel('alice', 'chain-a', 'del-003')
       const taintSet = mergeTaints(label1, label2)
 
-      expect(taintSet.isCrossChain).toBe(false)
-      expect(taintSet.principals).toEqual(['alice'])
+      assert.equal(taintSet.isCrossChain, false)
+      assert.deepStrictEqual(taintSet.principals, ['alice'])
     })
   })
 
@@ -55,9 +56,9 @@ describe('Cross-Chain Data Flow Authorization', () => {
       const taint = createTaintLabel('alice', 'chain-a', 'del-001')
       const sao = createSAO('confidential data', taint, monitor.privateKey, monitor.publicKey)
 
-      expect(sao.data).toBe('confidential data')
-      expect(sao.taint.principalId).toBe('alice')
-      expect(verifySAO(sao)).toBe(true)
+      assert.equal(sao.data, 'confidential data')
+      assert.equal(sao.taint.principalId, 'alice')
+      assert.equal(verifySAO(sao), true)
     })
 
     it('should reject tampered SAO data', () => {
@@ -65,7 +66,7 @@ describe('Cross-Chain Data Flow Authorization', () => {
       const sao = createSAO('confidential data', taint, monitor.privateKey, monitor.publicKey)
       const tampered = { ...sao, data: 'modified data' }
 
-      expect(verifySAO(tampered)).toBe(false)
+      assert.equal(verifySAO(tampered), false)
     })
   })
 
@@ -83,12 +84,12 @@ describe('Cross-Chain Data Flow Authorization', () => {
         sourcePrivateKey: alice.privateKey
       })
 
-      expect(partial.sourceSignature).toBeTruthy()
-      expect(partial.destinationSignature).toBe('')
+      assert.ok(partial.sourceSignature)
+      assert.equal(partial.destinationSignature, '')
 
       const permit = countersignPermit(partial, bob.privateKey)
-      expect(permit.destinationSignature).toBeTruthy()
-      expect(verifyCrossChainPermit(permit)).toBe(true)
+      assert.ok(permit.destinationSignature)
+      assert.equal(verifyCrossChainPermit(permit), true)
     })
 
 
@@ -105,7 +106,7 @@ describe('Cross-Chain Data Flow Authorization', () => {
       })
 
       // Not countersigned — should be invalid
-      expect(verifyCrossChainPermit(partial as any)).toBe(false)
+      assert.equal(verifyCrossChainPermit(partial as any), false)
     })
 
     it('should reject revoked permit', () => {
@@ -122,7 +123,7 @@ describe('Cross-Chain Data Flow Authorization', () => {
       const permit = countersignPermit(partial, bob.privateKey)
       const revoked = revokePermit(permit)
 
-      expect(verifyCrossChainPermit(revoked)).toBe(false)
+      assert.equal(verifyCrossChainPermit(revoked), false)
     })
   })
 
@@ -146,11 +147,11 @@ describe('Cross-Chain Data Flow Authorization', () => {
         permits: []  // No cross-chain permits exist
       })
 
-      expect(result.verdict).toBe('blocked')
-      expect(result.blockingLabels).toHaveLength(1)
-      expect(result.blockingLabels![0].principalId).toBe('alice')
-      expect(result.reason).toContain('alice')
-      expect(result.reason).toContain('bob')
+      assert.equal(result.verdict, 'blocked')
+      assert.equal(result.blockingLabels.length, 1)
+      assert.equal(result.blockingLabels![0].principalId, 'alice')
+      assert.ok(result.reason.includes('alice'))
+      assert.ok(result.reason.includes('bob'))
     })
 
     it('SAFE: read from Alice, send via Alice → ALLOWED', () => {
@@ -165,7 +166,7 @@ describe('Cross-Chain Data Flow Authorization', () => {
         permits: []
       })
 
-      expect(result.verdict).toBe('allowed')
+      assert.equal(result.verdict, 'allowed')
     })
 
     it('PERMITTED: read from Alice, send via Bob WITH valid permit → PERMITTED', () => {
@@ -192,8 +193,8 @@ describe('Cross-Chain Data Flow Authorization', () => {
         permits: [permit]
       })
 
-      expect(result.verdict).toBe('permitted')
-      expect(result.permitId).toBe(permit.permitId)
+      assert.equal(result.verdict, 'permitted')
+      assert.equal(result.permitId, permit.permitId)
     })
 
     it('ATTACK: permit exists but wrong scope → BLOCKED', () => {
@@ -220,7 +221,7 @@ describe('Cross-Chain Data Flow Authorization', () => {
         permits: [permit]
       })
 
-      expect(result.verdict).toBe('blocked')
+      assert.equal(result.verdict, 'blocked')
     })
 
     it('ATTACK: read-only data used in outbound action → BLOCKED', () => {
@@ -234,8 +235,8 @@ describe('Cross-Chain Data Flow Authorization', () => {
         permits: []
       })
 
-      expect(result.verdict).toBe('blocked')
-      expect(result.reason).toContain('read-only')
+      assert.equal(result.verdict, 'blocked')
+      assert.ok(result.reason.includes('read-only'))
     })
   })
 
@@ -254,7 +255,7 @@ describe('Cross-Chain Data Flow Authorization', () => {
       const aliceTaint = createTaintLabel('alice', 'chain-a', 'del-001')
       frame = recordAccess(frame, aliceTaint)
 
-      expect(frame.frameTaint.principals).toContain('alice')
+      assert.ok(frame.frameTaint.principals.includes('alice'))
 
       // Agent "launders" the data by summarizing it
       // The output has NO SAO wrapper — just a raw string
@@ -273,8 +274,8 @@ describe('Cross-Chain Data Flow Authorization', () => {
       })
 
       // Frame taint catches the laundering attempt
-      expect(result.verdict).toBe('blocked')
-      expect(result.blockingLabels![0].principalId).toBe('alice')
+      assert.equal(result.verdict, 'blocked')
+      assert.equal(result.blockingLabels![0].principalId, 'alice')
     })
 
     it('SAFE: frame only accessed Bob data, send via Bob → ALLOWED', () => {
@@ -291,7 +292,7 @@ describe('Cross-Chain Data Flow Authorization', () => {
         frame
       })
 
-      expect(result.verdict).toBe('allowed')
+      assert.equal(result.verdict, 'allowed')
     })
 
     it('ATTACK: multi-principal frame, no permits → BLOCKED', () => {
@@ -301,7 +302,7 @@ describe('Cross-Chain Data Flow Authorization', () => {
       frame = recordAccess(frame, createTaintLabel('alice', 'chain-a', 'del-001'))
       frame = recordAccess(frame, createTaintLabel('bob', 'chain-b', 'del-002'))
 
-      expect(frame.frameTaint.isCrossChain).toBe(true)
+      assert.equal(frame.frameTaint.isCrossChain, true)
 
       // Any outbound action under either principal is blocked
       // because the frame contains data from the OTHER principal
@@ -313,23 +314,23 @@ describe('Cross-Chain Data Flow Authorization', () => {
         frame
       })
 
-      expect(result.verdict).toBe('blocked')
-      expect(result.blockingLabels![0].principalId).toBe('bob')
+      assert.equal(result.verdict, 'blocked')
+      assert.equal(result.blockingLabels![0].principalId, 'bob')
     })
 
     it('should track frame accumulation correctly', () => {
       let frame = createExecutionFrame('agent-001')
-      expect(frame.accessedContexts).toHaveLength(0)
-      expect(frame.frameTaint.isCrossChain).toBe(false)
+      assert.equal(frame.accessedContexts.length, 0)
+      assert.equal(frame.frameTaint.isCrossChain, false)
 
       frame = recordAccess(frame, createTaintLabel('alice', 'chain-a', 'del-001'))
-      expect(frame.accessedContexts).toHaveLength(1)
-      expect(frame.frameTaint.isCrossChain).toBe(false)
+      assert.equal(frame.accessedContexts.length, 1)
+      assert.equal(frame.frameTaint.isCrossChain, false)
 
       frame = recordAccess(frame, createTaintLabel('bob', 'chain-b', 'del-002'))
-      expect(frame.accessedContexts).toHaveLength(2)
-      expect(frame.frameTaint.isCrossChain).toBe(true)
-      expect(frame.frameTaint.principals).toHaveLength(2)
+      assert.equal(frame.accessedContexts.length, 2)
+      assert.equal(frame.frameTaint.isCrossChain, true)
+      assert.equal(frame.frameTaint.principals.length, 2)
     })
   })
 
@@ -356,10 +357,10 @@ describe('Cross-Chain Data Flow Authorization', () => {
         monitor.privateKey, monitor.publicKey
       )
 
-      expect(derived.saoId).toContain('sao-derived-')
-      expect(derived.taint.principalId).toBe('MULTI_PRINCIPAL')
-      expect(derived.taint.usage).toBe('export-with-permit')
-      expect(verifySAO(derived)).toBe(true)
+      assert.ok(derived.saoId.includes('sao-derived-'))
+      assert.equal(derived.taint.principalId, 'MULTI_PRINCIPAL')
+      assert.equal(derived.taint.usage, 'export-with-permit')
+      assert.equal(verifySAO(derived), true)
     })
 
     it('same-principal derivation keeps original context', () => {
@@ -380,8 +381,8 @@ describe('Cross-Chain Data Flow Authorization', () => {
         monitor.privateKey, monitor.publicKey
       )
 
-      expect(derived.taint.principalId).toBe('alice')
-      expect(derived.taint.usage).toBe('same-context-only')
+      assert.equal(derived.taint.principalId, 'alice')
+      assert.equal(derived.taint.usage, 'same-context-only')
     })
   })
 
@@ -414,14 +415,14 @@ describe('Cross-Chain Data Flow Authorization', () => {
         gatewayPrivateKey: monitor.privateKey
       })
 
-      expect(receipt.receiptId).toContain('exreceipt-')
-      expect(receipt.crossChainDetected).toBe(false)
-      expect(receipt.crossChainAuthorized).toBe(false)
-      expect(receipt.taintPrincipals).toContain('alice')
+      assert.ok(receipt.receiptId.includes('exreceipt-'))
+      assert.equal(receipt.crossChainDetected, false)
+      assert.equal(receipt.crossChainAuthorized, false)
+      assert.ok(receipt.taintPrincipals.includes('alice'))
 
       const v = verifyExecutionReceipt(receipt, monitor.publicKey)
-      expect(v.valid).toBe(true)
-      expect(v.expired).toBe(false)
+      assert.equal(v.valid, true)
+      assert.equal(v.expired, false)
     })
 
     it('should reject receipt with wrong gateway key', () => {
@@ -448,8 +449,8 @@ describe('Cross-Chain Data Flow Authorization', () => {
       })
 
       const v = verifyExecutionReceipt(receipt, alice.publicKey)
-      expect(v.valid).toBe(false)
-      expect(v.error).toContain('Invalid')
+      assert.equal(v.valid, false)
+      assert.ok(v.error.includes('Invalid'))
     })
 
     it('should record cross-chain authorization in receipt', () => {
@@ -489,11 +490,11 @@ describe('Cross-Chain Data Flow Authorization', () => {
         gatewayPrivateKey: monitor.privateKey
       })
 
-      expect(receipt.crossChainDetected).toBe(true)
-      expect(receipt.crossChainAuthorized).toBe(true)
-      expect(receipt.permitId).toBe(permit.permitId)
-      expect(receipt.taintPrincipals).toContain('alice')
-      expect(receipt.taintPrincipals).toContain('bob')
+      assert.equal(receipt.crossChainDetected, true)
+      assert.equal(receipt.crossChainAuthorized, true)
+      assert.equal(receipt.permitId, permit.permitId)
+      assert.ok(receipt.taintPrincipals.includes('alice'))
+      assert.ok(receipt.taintPrincipals.includes('bob'))
     })
   })
 
@@ -515,7 +516,7 @@ describe('Cross-Chain Data Flow Authorization', () => {
         frame
       })
 
-      expect(flowResult.verdict).toBe('blocked')
+      assert.equal(flowResult.verdict, 'blocked')
 
       const violation = createCrossChainViolation({
         frame,
@@ -528,12 +529,12 @@ describe('Cross-Chain Data Flow Authorization', () => {
         gatewayPrivateKey: monitor.privateKey
       })
 
-      expect(violation.frameId).toBe(frame.frameId)
-      expect(violation.sourcePrincipalId).toBe('alice')
-      expect(violation.destinationPrincipalId).toBe('bob')
-      expect(violation.attemptedTool).toBe('email:send')
-      expect(violation.gatewaySignature).toBeTruthy()
-      expect(violation.blockingLabels.length).toBeGreaterThan(0)
+      assert.equal(violation.frameId, frame.frameId)
+      assert.equal(violation.sourcePrincipalId, 'alice')
+      assert.equal(violation.destinationPrincipalId, 'bob')
+      assert.equal(violation.attemptedTool, 'email:send')
+      assert.ok(violation.gatewaySignature)
+      assert.ok(violation.blockingLabels.length > 0)
     })
   })
 

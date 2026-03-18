@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it } from 'node:test'
+import assert from 'node:assert/strict'
 import { generateKeyPair } from '../src/crypto/keys.js'
 import {
   generateEncryptionKeypair,
@@ -22,9 +23,9 @@ describe('E2E Encrypted Messaging', () => {
   it('should generate encryption keypairs', async () => {
     aliceEnc = await generateEncryptionKeypair()
     bobEnc = await generateEncryptionKeypair()
-    expect(aliceEnc.publicKey).toBeTruthy()
-    expect(bobEnc.publicKey).toBeTruthy()
-    expect(aliceEnc.publicKey).not.toBe(bobEnc.publicKey)
+    assert.ok(aliceEnc.publicKey)
+    assert.ok(bobEnc.publicKey)
+    assert.notEqual(aliceEnc.publicKey, bobEnc.publicKey)
   })
 
   // ── Key Announcement ──
@@ -37,9 +38,9 @@ describe('E2E Encrypted Messaging', () => {
         aliceIdentity.publicKey,
         aliceIdentity.privateKey
       )
-      expect(announcement.agentId).toBe('alice-agent')
-      expect(announcement.encryptionPublicKey).toBe('fake-enc-pubkey-for-test')
-      expect(verifyKeyAnnouncement(announcement)).toBe(true)
+      assert.equal(announcement.agentId, 'alice-agent')
+      assert.equal(announcement.encryptionPublicKey, 'fake-enc-pubkey-for-test')
+      assert.equal(verifyKeyAnnouncement(announcement), true)
     })
 
     it('should reject announcement signed by wrong key', () => {
@@ -51,7 +52,7 @@ describe('E2E Encrypted Messaging', () => {
       )
       // Tamper: claim it's bob's identity
       const tampered = { ...announcement, identityPublicKey: bobIdentity.publicKey }
-      expect(verifyKeyAnnouncement(tampered)).toBe(false)
+      assert.equal(verifyKeyAnnouncement(tampered), false)
     })
   })
 
@@ -61,15 +62,15 @@ describe('E2E Encrypted Messaging', () => {
     it('should pad to power-of-2 block sizes', () => {
       const small = new Uint8Array(50)
       const padded = padToBlock(small)
-      expect(padded.length).toBe(256)  // Nearest block
+      assert.equal(padded.length, 256)  // Nearest block
     })
 
     it('should roundtrip pad → unpad', () => {
       const original = new TextEncoder().encode('Hello, encrypted world!')
       const padded = padToBlock(original)
-      expect(padded.length).toBeGreaterThan(original.length)
+      assert.ok(padded.length > original.length)
       const unpadded = unpad(padded)
-      expect(new TextDecoder().decode(unpadded)).toBe('Hello, encrypted world!')
+      assert.equal(new TextDecoder().decode(unpadded), 'Hello, encrypted world!')
     })
   })
 
@@ -93,18 +94,18 @@ describe('E2E Encrypted Messaging', () => {
         sequenceNumber: 1
       })
 
-      expect(msg.message.type).toBe('encrypted')
-      expect(msg.message.ciphertext).toBeTruthy()
-      expect(msg.outerSignature).toBeTruthy()
+      assert.equal(msg.message.type, 'encrypted')
+      assert.ok(msg.message.ciphertext)
+      assert.ok(msg.outerSignature)
 
       // Decrypt
       const result = await decryptAgoraMessage(msg, bobEnc.privateKey, 'bob-agent')
 
-      expect(result.valid).toBe(true)
-      expect(result.errors).toHaveLength(0)
-      expect(result.payload.subject).toBe('Secret meeting notes')
-      expect(result.payload.content).toBe('The quarterly numbers look great.')
-      expect(result.payload.recipientAgentId).toBe('bob-agent')
+      assert.equal(result.valid, true)
+      assert.equal(result.errors.length, 0)
+      assert.equal(result.payload.subject, 'Secret meeting notes')
+      assert.equal(result.payload.content, 'The quarterly numbers look great.')
+      assert.equal(result.payload.recipientAgentId, 'bob-agent')
     })
 
     it('should verify outer signature without decrypting', async () => {
@@ -124,7 +125,7 @@ describe('E2E Encrypted Messaging', () => {
       })
 
       // Gateway verifies sender without decrypting
-      expect(verifyOuterSignature(msg)).toBe(true)
+      assert.equal(verifyOuterSignature(msg), true)
     })
 
     // ══════════════════════════════════════
@@ -150,8 +151,8 @@ describe('E2E Encrypted Messaging', () => {
       // Eve tries to decrypt with her key
       const eveEnc = await generateEncryptionKeypair()
       const result = await decryptAgoraMessage(msg, eveEnc.privateKey, 'eve-agent')
-      expect(result.valid).toBe(false)
-      expect(result.errors.length).toBeGreaterThan(0)
+      assert.equal(result.valid, false)
+      assert.ok(result.errors.length > 0)
     })
 
     it('ATTACK: surreptitious forwarding → recipient mismatch detected', async () => {
@@ -173,14 +174,14 @@ describe('E2E Encrypted Messaging', () => {
 
       // Bob decrypts successfully
       const bobResult = await decryptAgoraMessage(msg, bobEnc.privateKey, 'bob-agent')
-      expect(bobResult.valid).toBe(true)
+      assert.equal(bobResult.valid, true)
 
       // Inner payload says "for bob-agent". If Charlie somehow gets the decrypted payload,
       // the recipientAgentId check catches the mismatch.
       // Simulate: Charlie claims to be the recipient but inner says "bob-agent"
       const charlieResult = await decryptAgoraMessage(msg, bobEnc.privateKey, 'charlie-agent')
-      expect(charlieResult.valid).toBe(false)
-      expect(charlieResult.errors.some(e => e.includes('charlie-agent'))).toBe(true)
+      assert.equal(charlieResult.valid, false)
+      assert.equal(charlieResult.errors.some(e => e.includes('charlie-agent')), true)
     })
 
     it('ATTACK: tampered ciphertext → decryption fails (AEAD)', async () => {
@@ -205,8 +206,8 @@ describe('E2E Encrypted Messaging', () => {
         message: { ...msg.message, ciphertext: msg.message.ciphertext.slice(0, -4) + 'AAAA' }
       }
       const result = await decryptAgoraMessage(tampered, bobEnc.privateKey, 'bob-agent')
-      expect(result.valid).toBe(false)
-      expect(result.errors.some(e => e.includes('Decryption failed') || e.includes('Outer signature invalid'))).toBe(true)
+      assert.equal(result.valid, false)
+      assert.equal(result.errors.some(e => e.includes('Decryption failed') || e.includes('Outer signature invalid')), true)
     })
 
     it('ATTACK: outer signature stripped and re-signed by Eve → inner sig catches it', async () => {
@@ -249,7 +250,7 @@ describe('E2E Encrypted Messaging', () => {
       const result = await decryptAgoraMessage(eveMsg, bobEnc.privateKey, 'bob-agent')
       // Inner signature check uses msg.message.author.publicKey (Eve's)
       // but the actual inner sig was made by Alice → mismatch
-      expect(result.errors.some(e => e.includes('Inner signature invalid'))).toBe(true)
+      assert.equal(result.errors.some(e => e.includes('Inner signature invalid')), true)
     })
 
     it('should include taint hashes in cleartext envelope', async () => {
@@ -270,10 +271,10 @@ describe('E2E Encrypted Messaging', () => {
       })
 
       // Taint hashes are in cleartext (gateway can enforce Module 18)
-      expect(msg.message.taintHashes).toHaveLength(2)
+      assert.equal(msg.message.taintHashes.length, 2)
       // They're hashed, not raw principal IDs
-      expect(msg.message.taintHashes[0]).not.toBe('principal-alice')
-      expect(msg.message.taintHashes[0]).toHaveLength(64) // sha256 hex
+      assert.notEqual(msg.message.taintHashes[0], 'principal-alice')
+      assert.equal(msg.message.taintHashes[0].length, 64) // sha256 hex
     })
 
     it('should use different ephemeral key per message (forward secrecy)', async () => {
@@ -308,17 +309,17 @@ describe('E2E Encrypted Messaging', () => {
       })
 
       // Different ephemeral key per message
-      expect(msg1.message.ephemeralPublicKey).not.toBe(msg2.message.ephemeralPublicKey)
+      assert.notEqual(msg1.message.ephemeralPublicKey, msg2.message.ephemeralPublicKey)
       // Different nonce per message
-      expect(msg1.message.nonce).not.toBe(msg2.message.nonce)
+      assert.notEqual(msg1.message.nonce, msg2.message.nonce)
 
       // Both still decrypt correctly
       const r1 = await decryptAgoraMessage(msg1, bobEnc.privateKey, 'bob-agent')
       const r2 = await decryptAgoraMessage(msg2, bobEnc.privateKey, 'bob-agent')
-      expect(r1.valid).toBe(true)
-      expect(r2.valid).toBe(true)
-      expect(r1.payload.content).toBe('First')
-      expect(r2.payload.content).toBe('Second')
+      assert.equal(r1.valid, true)
+      assert.equal(r2.valid, true)
+      assert.equal(r1.payload.content, 'First')
+      assert.equal(r2.payload.content, 'Second')
     })
   })
 
