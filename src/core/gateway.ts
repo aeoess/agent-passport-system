@@ -570,6 +570,80 @@ export class ProxyGateway {
       if (!delegationStatus.valid || delegationStatus.expired || delegationStatus.revoked) return { executed: false, requestId: approval.requestId, denialReason: 'Delegation invalidated since approval' }
     }
 
+    // ═══ V2-CRIT-1 FIX: All enforcement steps from processToolCall now applied here ═══
+    // Per-agent sequential execution (concurrency protection)
+    const agentId = approval.agentId
+    const previousLock = this.agentLocks.get(agentId) || Promise.resolve()
+    let releaseLock: () => void
+    const currentLock = new Promise<void>(resolve => { releaseLock = resolve })
+    this.agentLocks.set(agentId, currentLock)
+
+    try {
+      await previousLock
+      return await this._executeApprovalInner(approval, agent, delegation)
+    } finally {
+      releaseLock!()
+    }
+  }
+
+  private async _executeApprovalInner(
+    approval: GatewayApproval,
+    agent: RegisteredAgent,
+    delegation: Delegation
+  ): Promise<ToolCallResult> {
+    // Frame TTL auto-rotation (F-2 fix)
+    if (this.config.enableCrossChainEnforcement && agent.executionFrame) {
+      if (isFrameExpired(agent.executionFrame)) {
+        const { sealed, fresh } = rotateFrame(agent.executionFrame, { ttlMinutes: this.config.frameTTLMinutes ?? 0 })
+        this.config.onFrameRotated?.(approval.agentId, sealed.frameId, fresh.frameId)
+        agent.executionFrame = fresh
+      }
+    }
+
+    // Cross-chain data flow check (Module 18)
+    let flowCheckResult: import('../types/cross-chain.js').FlowCheckResult | undefined
+    if (this.config.enableCrossChainEnforcement && agent.executionFrame) {
+      const actionPrincipalId = delegation.delegatedBy
+      const frameTaint = agent.executionFrame.frameTaint
+      if (frameTaint.labels.length > 0) {
+        this.stats.crossChainChecks = (this.stats.crossChainChecks || 0) + 1
+        flowCheckResult = checkDataFlow({
+          inputTaint: frameTaint,
+          actionPrincipalId,
+          actionScope: approval.scopeRequired,
+          permits: agent.permits || [],
+          frame: agent.executionFrame
+        })
+        if (flowCheckResult.verdict === 'blocked') {
+          this.stats.crossChainBlocked = (this.stats.crossChainBlocked || 0) + 1
+          this.stats.totalDenied++
+          this.config.onCrossChainBlocked?.(approval.agentId, flowCheckResult)
+          return {
+            executed: false, requestId: approval.requestId,
+            denialReason: `Cross-chain blocked: ${flowCheckResult.reason}`,
+            decision: approval.decision, flowCheck: flowCheckResult
+          }
+        }
+        if (flowCheckResult.verdict === 'permitted') {
+          this.stats.crossChainPermitted = (this.stats.crossChainPermitted || 0) + 1
+        }
+      }
+    }
+
+    // Permit TOCTOU recheck (step 5.75)
+    if (flowCheckResult?.verdict === 'permitted' && flowCheckResult.permitId) {
+      const permit = (agent.permits || []).find(p => p.permitId === flowCheckResult!.permitId)
+      if (!permit || permit.revoked || new Date(permit.expiresAt) < new Date()) {
+        this.stats.totalDenied++
+        return {
+          executed: false, requestId: approval.requestId,
+          denialReason: `Cross-chain permit ${flowCheckResult.permitId} revoked/expired between approval and execution`,
+          decision: approval.decision
+        }
+      }
+    }
+
+    // Execute
     approval.consumed = true
     this.usedRequestIds.set(approval.requestId, Date.now())
 
@@ -579,37 +653,64 @@ export class ProxyGateway {
 
     if (toolResult.success) { this.stats.totalExecuted++ } else { this.stats.totalToolErrors++ }
 
+    // Taint recording + SAO wrapping (step 6.5)
+    let sao: SignedAuthorityObject | undefined
+    if (this.config.enableCrossChainEnforcement && agent.executionFrame && toolResult.success) {
+      const taintLabel = createTaintLabel(delegation.delegatedBy, delegation.delegationId, delegation.delegationId, 'same-context-only')
+      agent.executionFrame = recordAccess(agent.executionFrame, taintLabel)
+      sao = createSAO(toolResult.result, taintLabel, this.config.gatewayPrivateKey, this.config.gatewayPublicKey)
+    }
+
+    // Receipt generation
     const receipt = createReceipt({
-      agentId: this.config.gatewayId,
-      delegationId: approval.delegationId,
-      delegation: delegation,
-      action: {
-        type: `gateway:${approval.tool}`,
-        target: JSON.stringify(approval.params),
-        scopeUsed: approval.scopeRequired,
-      },
-      result: {
-        status: toolResult.success ? 'success' as const : 'failure' as const,
-        summary: toolResult.success
-          ? `Executed ${approval.tool} successfully`
-          : `Executed ${approval.tool} with error: ${toolResult.error}`
-      },
-      delegationChain: [this.config.gatewayPublicKey],
-      privateKey: this.config.gatewayPrivateKey
+      agentId: this.config.gatewayId, delegationId: approval.delegationId, delegation,
+      action: { type: `gateway:${approval.tool}`, target: JSON.stringify(approval.params), scopeUsed: approval.scopeRequired },
+      result: { status: toolResult.success ? 'success' as const : 'failure' as const, summary: toolResult.success ? `Executed ${approval.tool} successfully` : `Executed ${approval.tool} with error: ${toolResult.error}` },
+      delegationChain: [this.config.gatewayPublicKey], privateKey: this.config.gatewayPrivateKey
     })
 
-    const policyReceipt = createPolicyReceipt({
-      intent: approval.intent,
-      decision: approval.decision,
-      receipt,
-      verifierPrivateKey: this.config.gatewayPrivateKey
-    })
+    const policyReceipt = createPolicyReceipt({ intent: approval.intent, decision: approval.decision, receipt, verifierPrivateKey: this.config.gatewayPrivateKey })
+
+    // Obligation fulfillment check (Module 20)
+    const obligationResolutions: ObligationResolution[] = []
+    if (this.config.enableObligationMonitoring && agent.obligations && toolResult.success) {
+      const receiptForCheck = { receiptId: receipt.receiptId, action: { type: receipt.action.type, scopeUsed: receipt.action.scopeUsed }, params: approval.params, timestamp: receipt.timestamp, toolError: undefined }
+      for (const obligation of agent.obligations) {
+        if (obligation.status !== 'pending') continue
+        const fulfillment = checkFulfillment(obligation.evidence, [receiptForCheck])
+        if (fulfillment.fulfilled) {
+          const resolution = resolveObligation({ obligation, receipts: [receiptForCheck], gatewayId: this.config.gatewayId, gatewayPrivateKey: this.config.gatewayPrivateKey })
+          obligationResolutions.push(resolution)
+          obligation.status = 'fulfilled'
+          this.stats.obligationsFulfilled = (this.stats.obligationsFulfilled || 0) + 1
+          this.config.onObligationResolved?.(resolution)
+        }
+      }
+    }
+
+    // Execution envelope (step 9)
+    let envelope: ExecutionEnvelope | undefined
+    if (this.config.produceEnvelope && toolResult.success) {
+      envelope = createExecutionEnvelope({
+        intent: approval.intent, decision: approval.decision, receipt: policyReceipt, delegation,
+        runId: approval.requestId, agentDid: `did:aps:${approval.agentId}`,
+        evaluatorDid: `did:aps:${this.config.gatewayPublicKey}`, revocationStatus: 'active',
+        chainDepth: delegation.currentDepth, evaluationMethod: 'deterministic',
+        signerPrivateKey: this.config.gatewayPrivateKey, signerPublicKey: this.config.gatewayPublicKey
+      })
+    }
 
     const proof: GatewayProof = { requestSignature: approval.intent.signature, decisionSignature: approval.decision.signature, receiptSignature: receipt.signature, policyReceipt }
-
     this.stats.pendingApprovals = Array.from(this.approvals.values()).filter(a => !a.consumed).length
 
-    return { executed: true, requestId: approval.requestId, result: toolResult.result, toolError: toolResult.success ? undefined : toolResult.error, proof, receipt, decision: approval.decision }
+    return {
+      executed: true, requestId: approval.requestId,
+      result: toolResult.result, toolError: toolResult.success ? undefined : toolResult.error,
+      proof, receipt, decision: approval.decision,
+      sao, flowCheck: flowCheckResult,
+      obligationResolutions: obligationResolutions.length > 0 ? obligationResolutions : undefined,
+      envelope
+    }
   }
 
   clearExpired(): number {
@@ -644,6 +745,15 @@ export class ProxyGateway {
     // Verify both signatures before storing (GPT review finding)
     if (!verifyCrossChainPermit(permit)) return false
     agent.permits.push(permit)
+    return true
+  }
+
+  revokePermit(agentId: string, permitId: string): boolean {
+    const agent = this.agents.get(agentId)
+    if (!agent || !agent.permits) return false
+    const permit = agent.permits.find(p => p.permitId === permitId)
+    if (!permit) return false
+    permit.revoked = true
     return true
   }
 

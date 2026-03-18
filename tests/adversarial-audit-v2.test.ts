@@ -109,10 +109,10 @@ describe('AUDIT V2 — Gateway Logic + Module Interaction + Different Attack Vec
   })
 
   // ═══ LOW: No gateway permit revocation API ═══
-  it('V2-LOW-1: Gateway has registerPermit but no revokePermit method', () => {
+  it('V2-LOW-1: Gateway has both registerPermit and revokePermit (RESOLVED)', () => {
     const { gw } = setup({ crossChain: true })
     assert.equal(typeof (gw as any).registerPermit, 'function')
-    assert.equal(typeof (gw as any).revokePermit, 'undefined', 'No revokePermit on gateway')
+    assert.equal(typeof (gw as any).revokePermit, 'function', 'revokePermit now exists')
   })
 
   // ═══ LOW: verifyFrameChain ignores epoch super-chain ═══
