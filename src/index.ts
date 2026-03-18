@@ -345,6 +345,7 @@ export {
   createSAO, verifySAO, isSAOExpired,
   createExecutionFrame, recordAccess, closeFrame,
   computeStepHash, verifyFrameChain,
+  isFrameExpired, rotateFrame,
   createCrossChainPermit, countersignPermit,
   verifyCrossChainPermit, revokePermit,
   checkDataFlow,

@@ -6,6 +6,7 @@ import {
   createSAO, verifySAO, isSAOExpired,
   createExecutionFrame, recordAccess, closeFrame,
   verifyFrameChain, computeStepHash,
+  isFrameExpired, rotateFrame,
   createCrossChainPermit, countersignPermit,
   verifyCrossChainPermit, revokePermit,
   checkDataFlow,
@@ -624,6 +625,69 @@ describe('Cross-Chain Data Flow Authorization', () => {
 
       // Chain heads must differ — proves step B's existence is embedded in the chain
       assert.notEqual(full.chainHead, skipped.chainHead)
+    })
+  })
+
+  describe('Frame TTL and Epoch Rotation (F-2 fix)', () => {
+    it('frame with ttl=0 never expires', () => {
+      const frame = createExecutionFrame('agent-1', { ttlMinutes: 0 })
+      assert.equal(isFrameExpired(frame), false)
+    })
+
+    it('frame with positive ttl expires after duration', () => {
+      const frame = createExecutionFrame('agent-1', { ttlMinutes: 1 })
+      const old = { ...frame, startedAt: new Date(Date.now() - 120_000).toISOString() }
+      assert.equal(isFrameExpired(old), true)
+    })
+
+    it('fresh frame with positive ttl is not expired', () => {
+      const frame = createExecutionFrame('agent-1', { ttlMinutes: 60 })
+      assert.equal(isFrameExpired(frame), false)
+    })
+
+    it('rotateFrame seals current and creates fresh with epoch+1', () => {
+      let frame = createExecutionFrame('agent-1', { ttlMinutes: 5 })
+      frame = recordAccess(frame, createTaintLabel('alice', 'c1', 'd1'))
+      const { sealed, fresh } = rotateFrame(frame)
+      assert.equal(sealed.active, false)
+      assert.ok(sealed.sealedAt)
+      assert.equal(fresh.active, true)
+      assert.equal(fresh.epoch, 1)
+      assert.equal(fresh.accessedContexts.length, 0)
+      assert.equal(fresh.previousFrameChainHead, frame.chainHead)
+    })
+
+    it('recordAccess throws on closed frame', () => {
+      const frame = closeFrame(createExecutionFrame('agent-1'))
+      assert.throws(() => recordAccess(frame, createTaintLabel('a', 'b', 'c')), /closed frame/)
+    })
+
+    it('rotated frame has clean taint — no cross-chain flag', () => {
+      let frame = createExecutionFrame('agent-1', { ttlMinutes: 5 })
+      frame = recordAccess(frame, createTaintLabel('alice', 'c1', 'd1'))
+      frame = recordAccess(frame, createTaintLabel('bob', 'c2', 'd2'))
+      assert.equal(frame.frameTaint.isCrossChain, true)
+      const { fresh } = rotateFrame(frame)
+      assert.equal(fresh.frameTaint.isCrossChain, false)
+      assert.equal(fresh.frameTaint.labels.length, 0)
+    })
+
+    it('epoch chain links frames via previousFrameChainHead', () => {
+      let f0 = createExecutionFrame('agent-1', { ttlMinutes: 5 })
+      f0 = recordAccess(f0, createTaintLabel('alice', 'c1', 'd1'))
+      const r1 = rotateFrame(f0)
+      let f1 = r1.fresh
+      f1 = recordAccess(f1, createTaintLabel('bob', 'c2', 'd2'))
+      const r2 = rotateFrame(f1)
+      assert.equal(r2.fresh.epoch, 2)
+      assert.equal(r2.fresh.previousFrameChainHead, f1.chainHead)
+      assert.equal(r1.fresh.previousFrameChainHead, f0.chainHead)
+    })
+
+    it('TTL inherits across rotations', () => {
+      const frame = createExecutionFrame('agent-1', { ttlMinutes: 15 })
+      const { fresh } = rotateFrame(frame)
+      assert.equal(fresh.ttlMinutes, 15)
     })
   })
 

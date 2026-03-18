@@ -31,7 +31,7 @@ import { createActionIntent, evaluateIntent, createPolicyReceipt, FloorValidator
 import { verifyDelegation, createReceipt, scopeAuthorizes, getRevocation } from './delegation.js'
 import { verifyPassport } from '../verification/verify.js'
 import { verifyAttestation } from './values.js'
-import { createTaintLabel, createSAO, createExecutionFrame, recordAccess, checkDataFlow, mergeTaints, verifyCrossChainPermit } from './cross-chain.js'
+import { createTaintLabel, createSAO, createExecutionFrame, recordAccess, checkDataFlow, mergeTaints, verifyCrossChainPermit, isFrameExpired, rotateFrame } from './cross-chain.js'
 import { checkFulfillment, resolveObligation } from './obligations.js'
 import { createExecutionEnvelope } from './execution-envelope.js'
 import type { Delegation, ActionReceipt, ValuesFloor, FloorAttestation } from '../types/passport.js'
@@ -120,7 +120,7 @@ export class ProxyGateway {
     const agentId = passport.passport.agentId
     this.agents.set(agentId, {
       passport, attestation, delegations: delegationMap,
-      executionFrame: this.config.enableCrossChainEnforcement ? createExecutionFrame(agentId) : undefined,
+      executionFrame: this.config.enableCrossChainEnforcement ? createExecutionFrame(agentId, { ttlMinutes: this.config.frameTTLMinutes ?? 0 }) : undefined,
       permits: this.config.enableCrossChainEnforcement ? [] : undefined,
       obligations: this.config.enableObligationMonitoring ? [] : undefined
     })
@@ -296,6 +296,15 @@ export class ProxyGateway {
     }
 
     // Step 5.5: Cross-chain data flow check (Module 18)
+    // First: auto-rotate frame if TTL expired (F-2 fix from 3-model review)
+    if (this.config.enableCrossChainEnforcement && agent.executionFrame) {
+      if (isFrameExpired(agent.executionFrame)) {
+        const { sealed, fresh } = rotateFrame(agent.executionFrame, { ttlMinutes: this.config.frameTTLMinutes ?? 0 })
+        this.config.onFrameRotated?.(request.agentId, sealed.frameId, fresh.frameId)
+        agent.executionFrame = fresh
+      }
+    }
+    // Now check cross-chain taint on the (possibly fresh) frame
     // If the agent's frame is tainted by a different principal than this
     // delegation's principal, block unless a valid permit exists.
     let flowCheckResult: import('../types/cross-chain.js').FlowCheckResult | undefined

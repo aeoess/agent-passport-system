@@ -184,7 +184,41 @@ export function recordAccess(frame: ExecutionFrame, taint: TaintLabel): Executio
  * Close an execution frame. No further accesses can be recorded.
  */
 export function closeFrame(frame: ExecutionFrame): ExecutionFrame {
-  return { ...frame, active: false }
+  return { ...frame, active: false, sealedAt: new Date().toISOString() }
+}
+
+/**
+ * Check if an execution frame has expired based on its TTL.
+ * Returns true if the frame is older than its ttlMinutes.
+ * A ttlMinutes of 0 means no expiry.
+ */
+export function isFrameExpired(frame: ExecutionFrame): boolean {
+  if (frame.ttlMinutes <= 0) return false
+  const startedAt = new Date(frame.startedAt).getTime()
+  const now = Date.now()
+  return (now - startedAt) > frame.ttlMinutes * 60_000
+}
+
+/**
+ * Rotate an execution frame: seal the current one and create a fresh one.
+ * The new frame links to the old frame's chainHead, creating a super-chain
+ * across epochs. The old frame is returned sealed for archival.
+ *
+ * This solves the taint accumulation paralysis problem (F-2):
+ * long-running agents get clean frames periodically while maintaining
+ * a cryptographic audit trail linking all epochs.
+ */
+export function rotateFrame(frame: ExecutionFrame, opts?: { ttlMinutes?: number }): {
+  sealed: ExecutionFrame
+  fresh: ExecutionFrame
+} {
+  const sealed = closeFrame(frame)
+  const fresh = createExecutionFrame(frame.agentId, {
+    ttlMinutes: opts?.ttlMinutes ?? frame.ttlMinutes,
+    epoch: frame.epoch + 1,
+    previousFrameChainHead: frame.chainHead || undefined
+  })
+  return { sealed, fresh }
 }
 
 /**

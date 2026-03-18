@@ -142,6 +142,11 @@ export interface GatewayConfig {
   onObligationResolved?: (resolution: ObligationResolution) => void
   /** Callback: fires when cross-chain flow is blocked */
   onCrossChainBlocked?: (agentId: string, result: FlowCheckResult) => void
+  /** Frame TTL in minutes. When > 0, execution frames auto-rotate after this duration.
+   *  Prevents taint accumulation paralysis (F-2). Default: 0 (no TTL). */
+  frameTTLMinutes?: number
+  /** Callback: fires when a frame is auto-rotated due to TTL expiry */
+  onFrameRotated?: (agentId: string, sealedFrameId: string, newFrameId: string) => void
 }
 
 // ── Registered Agent ──
