@@ -346,12 +346,16 @@ export {
   createExecutionFrame, recordAccess, closeFrame,
   createCrossChainPermit, countersignPermit,
   verifyCrossChainPermit, revokePermit,
-  checkDataFlow
+  checkDataFlow,
+  deriveSAO,
+  createExecutionReceipt, verifyExecutionReceipt,
+  createCrossChainViolation
 } from './core/cross-chain.js'
 
 export type {
   TaintLabel, TaintUsage, TaintSet,
   SignedAuthorityObject, CrossChainPermit,
   ExecutionFrame, FlowCheckResult, FlowVerdict,
-  TaintTransformation, TransformationType
+  TaintTransformation, TransformationType,
+  ExecutionReceipt, CrossChainViolation
 } from './types/cross-chain.js'

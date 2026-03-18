@@ -169,3 +169,45 @@ export interface TaintTransformation {
   /** When the transformation was approved */
   approvedAt: string
 }
+
+
+// ── Execution Receipt (Mediated Execution Proof) ──
+// The gateway's signed proof that it performed all cross-chain
+// checks before execution. Answers Sanjeev's question about
+// resolve endpoint attestation: the receipt proves the gateway ran.
+
+export interface ExecutionReceipt {
+  receiptId: string
+  frameId: string
+  requestHash: string
+  tool: string
+  paramsHash: string
+  delegationId: string
+  taintPrincipals: string[]
+  taintSetHash: string
+  crossChainDetected: boolean
+  crossChainAuthorized: boolean
+  permitId?: string
+  policyVersion: string
+  nonce: string
+  timestamp: string
+  expiresAt: string
+  gatewayId: string
+  gatewaySignature: string
+}
+
+// ── Cross-Chain Violation ──
+// Structured, gateway-signed proof that a cross-chain violation
+// was detected and blocked. Audit artifact.
+
+export interface CrossChainViolation {
+  frameId: string
+  agentId: string
+  sourcePrincipalId: string
+  destinationPrincipalId: string
+  attemptedTool: string
+  attemptedScope: string
+  blockingLabels: TaintLabel[]
+  timestamp: string
+  gatewaySignature: string
+}

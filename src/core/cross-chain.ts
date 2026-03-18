@@ -19,7 +19,8 @@ import type {
   TaintLabel, TaintUsage, TaintSet,
   SignedAuthorityObject, CrossChainPermit,
   ExecutionFrame, FlowCheckResult, FlowVerdict,
-  TaintTransformation, TransformationType
+  TaintTransformation, TransformationType,
+  ExecutionReceipt, CrossChainViolation
 } from '../types/cross-chain.js'
 
 // ── Taint Labels ──
@@ -371,4 +372,158 @@ export function checkDataFlow(opts: {
     taintSet: effectiveTaint,
     checkedAt: now
   }
+}
+
+
+// ══════════════════════════════════════════════════════════════════
+// Derived SAO — Taint Union on Composed Data
+// ══════════════════════════════════════════════════════════════════
+
+/**
+ * Create a derived SAO from multiple source SAOs.
+ * The derived SAO inherits the union of all source taints.
+ * This ensures composed/summarized data can't launder its origins.
+ */
+export function deriveSAO(
+  data: unknown,
+  sourceSAOs: SignedAuthorityObject[],
+  monitorPrivateKey: string,
+  monitorPublicKey: string,
+  expiresInMinutes: number = 60
+): SignedAuthorityObject {
+  const allLabels = sourceSAOs.flatMap(s => [s.taint])
+  const mergedTaint = mergeTaints(...allLabels)
+
+  let earliestExpiry = Infinity
+  for (const s of sourceSAOs) {
+    const t = new Date(s.expiresAt).getTime()
+    if (t < earliestExpiry) earliestExpiry = t
+  }
+  const expiry = Math.min(earliestExpiry, Date.now() + expiresInMinutes * 60000)
+
+  const primaryLabel = sourceSAOs[0].taint
+  const derivedLabel = createTaintLabel(
+    mergedTaint.isCrossChain ? 'MULTI_PRINCIPAL' : primaryLabel.principalId,
+    primaryLabel.chainId,
+    primaryLabel.delegationId,
+    mergedTaint.isCrossChain ? 'export-with-permit' : primaryLabel.usage
+  )
+
+  const dataStr = typeof data === 'string' ? data : JSON.stringify(data)
+  const dataHash = createHash('sha256').update(dataStr).digest('hex')
+  const now = new Date()
+
+  const payload = canonicalize({
+    dataHash,
+    taint: derivedLabel,
+    monitorPublicKey,
+    createdAt: now.toISOString()
+  })
+
+  const monitorSignature = sign(payload, monitorPrivateKey)
+
+  return {
+    saoId: `sao-derived-${randomBytes(8).toString('hex')}`,
+    data,
+    taint: derivedLabel,
+    dataHash,
+    monitorSignature,
+    monitorPublicKey,
+    createdAt: now.toISOString(),
+    expiresAt: new Date(expiry).toISOString()
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// Execution Receipt — Mediated Execution Proof
+// Proves the gateway checked everything before executing.
+// Not TEE attestation. Software attestation. But independently
+// verifiable. This is what Sanjeev asked about.
+// ══════════════════════════════════════════════════════════════════
+
+export function createExecutionReceipt(opts: {
+  frame: ExecutionFrame
+  requestHash: string
+  tool: string
+  params: Record<string, unknown>
+  delegationId: string
+  policyVersion: string
+  flowResult: FlowCheckResult
+  gatewayId: string
+  gatewayPrivateKey: string
+  expiresInMinutes?: number
+}): ExecutionReceipt {
+  const now = new Date()
+  const expiry = new Date(now.getTime() + (opts.expiresInMinutes ?? 60) * 60000)
+  const paramsHash = createHash('sha256').update(canonicalize(opts.params)).digest('hex')
+  const principals = opts.frame.frameTaint.principals
+  const taintSetHash = createHash('sha256').update(principals.sort().join(',')).digest('hex')
+
+  const receipt: Omit<ExecutionReceipt, 'gatewaySignature'> = {
+    receiptId: `exreceipt-${randomBytes(8).toString('hex')}`,
+    frameId: opts.frame.frameId,
+    requestHash: opts.requestHash,
+    tool: opts.tool,
+    paramsHash,
+    delegationId: opts.delegationId,
+    taintPrincipals: principals,
+    taintSetHash,
+    crossChainDetected: opts.flowResult.verdict !== 'allowed',
+    crossChainAuthorized: opts.flowResult.verdict === 'permitted',
+    permitId: opts.flowResult.permitId,
+    policyVersion: opts.policyVersion,
+    nonce: randomBytes(16).toString('hex'),
+    timestamp: now.toISOString(),
+    expiresAt: expiry.toISOString(),
+    gatewayId: opts.gatewayId
+  }
+
+  const canonical = canonicalize(receipt)
+  const gatewaySignature = sign(canonical, opts.gatewayPrivateKey)
+  return { ...receipt, gatewaySignature }
+}
+
+/**
+ * Verify an execution receipt's gateway signature.
+ */
+export function verifyExecutionReceipt(
+  receipt: ExecutionReceipt,
+  gatewayPublicKey: string
+): { valid: boolean; expired: boolean; error?: string } {
+  const { gatewaySignature, ...payload } = receipt
+  const canonical = canonicalize(payload)
+  const sigValid = verify(canonical, gatewaySignature, gatewayPublicKey)
+
+  if (!sigValid) return { valid: false, expired: false, error: 'Invalid gateway signature' }
+  if (new Date(receipt.expiresAt) < new Date()) return { valid: false, expired: true, error: 'Receipt expired' }
+  return { valid: true, expired: false }
+}
+
+/**
+ * Create a signed violation report when cross-chain flow is blocked.
+ */
+export function createCrossChainViolation(opts: {
+  frame: ExecutionFrame
+  agentId: string
+  sourcePrincipalId: string
+  destinationPrincipalId: string
+  attemptedTool: string
+  attemptedScope: string
+  blockingLabels: TaintLabel[]
+  gatewayPrivateKey: string
+}): CrossChainViolation {
+  const violation: Omit<CrossChainViolation, 'gatewaySignature'> = {
+    frameId: opts.frame.frameId,
+    agentId: opts.agentId,
+    sourcePrincipalId: opts.sourcePrincipalId,
+    destinationPrincipalId: opts.destinationPrincipalId,
+    attemptedTool: opts.attemptedTool,
+    attemptedScope: opts.attemptedScope,
+    blockingLabels: opts.blockingLabels,
+    timestamp: new Date().toISOString()
+  }
+
+  const canonical = canonicalize(violation)
+  const gatewaySignature = sign(canonical, opts.gatewayPrivateKey)
+  return { ...violation, gatewaySignature }
 }

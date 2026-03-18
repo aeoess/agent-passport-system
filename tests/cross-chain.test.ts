@@ -6,7 +6,10 @@ import {
   createExecutionFrame, recordAccess, closeFrame,
   createCrossChainPermit, countersignPermit,
   verifyCrossChainPermit, revokePermit,
-  checkDataFlow
+  checkDataFlow,
+  deriveSAO,
+  createExecutionReceipt, verifyExecutionReceipt,
+  createCrossChainViolation
 } from '../src/index.js'
 
 // Two principals: Alice (file owner) and Bob (email sender)
@@ -327,6 +330,210 @@ describe('Cross-Chain Data Flow Authorization', () => {
       expect(frame.accessedContexts).toHaveLength(2)
       expect(frame.frameTaint.isCrossChain).toBe(true)
       expect(frame.frameTaint.principals).toHaveLength(2)
+    })
+  })
+
+  // ════════════════════════════════════════
+  // DERIVED SAO (taint union on composed data)
+  // ════════════════════════════════════════
+
+  describe('deriveSAO', () => {
+    it('should inherit taint from all source SAOs', () => {
+      const saoAlice = createSAO(
+        { from: 'alice-data' },
+        createTaintLabel('alice', 'chain-a', 'del-001'),
+        monitor.privateKey, monitor.publicKey
+      )
+      const saoBob = createSAO(
+        { from: 'bob-data' },
+        createTaintLabel('bob', 'chain-b', 'del-002'),
+        monitor.privateKey, monitor.publicKey
+      )
+
+      const derived = deriveSAO(
+        { combined: true },
+        [saoAlice, saoBob],
+        monitor.privateKey, monitor.publicKey
+      )
+
+      expect(derived.saoId).toContain('sao-derived-')
+      expect(derived.taint.principalId).toBe('MULTI_PRINCIPAL')
+      expect(derived.taint.usage).toBe('export-with-permit')
+      expect(verifySAO(derived)).toBe(true)
+    })
+
+    it('same-principal derivation keeps original context', () => {
+      const sao1 = createSAO(
+        { part: 1 },
+        createTaintLabel('alice', 'chain-a', 'del-001'),
+        monitor.privateKey, monitor.publicKey
+      )
+      const sao2 = createSAO(
+        { part: 2 },
+        createTaintLabel('alice', 'chain-a', 'del-001'),
+        monitor.privateKey, monitor.publicKey
+      )
+
+      const derived = deriveSAO(
+        { merged: true },
+        [sao1, sao2],
+        monitor.privateKey, monitor.publicKey
+      )
+
+      expect(derived.taint.principalId).toBe('alice')
+      expect(derived.taint.usage).toBe('same-context-only')
+    })
+  })
+
+
+  // ════════════════════════════════════════
+  // EXECUTION RECEIPT (mediated execution proof)
+  // ════════════════════════════════════════
+
+  describe('ExecutionReceipt', () => {
+    it('should create and verify a receipt for clean action', () => {
+      const frame = createExecutionFrame('agent-001')
+      const updatedFrame = recordAccess(frame, createTaintLabel('alice', 'chain-a', 'del-001'))
+
+      const flowResult = checkDataFlow({
+        inputTaint: updatedFrame.frameTaint,
+        actionPrincipalId: 'alice',
+        actionScope: 'data:read',
+        permits: []
+      })
+
+      const receipt = createExecutionReceipt({
+        frame: updatedFrame,
+        requestHash: 'req-abc123',
+        tool: 'database:read',
+        params: { table: 'users' },
+        delegationId: 'del-001',
+        policyVersion: '1.0.0',
+        flowResult,
+        gatewayId: 'gateway-001',
+        gatewayPrivateKey: monitor.privateKey
+      })
+
+      expect(receipt.receiptId).toContain('exreceipt-')
+      expect(receipt.crossChainDetected).toBe(false)
+      expect(receipt.crossChainAuthorized).toBe(false)
+      expect(receipt.taintPrincipals).toContain('alice')
+
+      const v = verifyExecutionReceipt(receipt, monitor.publicKey)
+      expect(v.valid).toBe(true)
+      expect(v.expired).toBe(false)
+    })
+
+    it('should reject receipt with wrong gateway key', () => {
+      const frame = createExecutionFrame('agent-001')
+      const updatedFrame = recordAccess(frame, createTaintLabel('alice', 'chain-a', 'del-001'))
+
+      const flowResult = checkDataFlow({
+        inputTaint: updatedFrame.frameTaint,
+        actionPrincipalId: 'alice',
+        actionScope: 'data:read',
+        permits: []
+      })
+
+      const receipt = createExecutionReceipt({
+        frame: updatedFrame,
+        requestHash: 'req-xyz',
+        tool: 'api:get',
+        params: {},
+        delegationId: 'del-001',
+        policyVersion: '1.0.0',
+        flowResult,
+        gatewayId: 'gateway-001',
+        gatewayPrivateKey: monitor.privateKey
+      })
+
+      const v = verifyExecutionReceipt(receipt, alice.publicKey)
+      expect(v.valid).toBe(false)
+      expect(v.error).toContain('Invalid')
+    })
+
+    it('should record cross-chain authorization in receipt', () => {
+      let frame = createExecutionFrame('agent-001')
+      frame = recordAccess(frame, createTaintLabel('alice', 'chain-a', 'del-001'))
+      frame = recordAccess(frame, createTaintLabel('bob', 'chain-b', 'del-002'))
+
+      const partial = createCrossChainPermit({
+        sourcePrincipalId: 'alice',
+        sourcePrincipalPublicKey: alice.publicKey,
+        sourceDataClasses: ['*'],
+        destPrincipalId: 'bob',
+        destPrincipalPublicKey: bob.publicKey,
+        destAllowedScopes: ['email:send'],
+        purpose: 'test',
+        sourcePrivateKey: alice.privateKey
+      })
+      const permit = countersignPermit(partial, bob.privateKey)
+
+      const flowResult = checkDataFlow({
+        inputTaint: frame.frameTaint,
+        actionPrincipalId: 'bob',
+        actionScope: 'email:send',
+        permits: [permit],
+        frame
+      })
+
+      const receipt = createExecutionReceipt({
+        frame,
+        requestHash: 'req-cross',
+        tool: 'email:send',
+        params: { to: 'cfo@company.com' },
+        delegationId: 'del-002',
+        policyVersion: '1.0.0',
+        flowResult,
+        gatewayId: 'gateway-001',
+        gatewayPrivateKey: monitor.privateKey
+      })
+
+      expect(receipt.crossChainDetected).toBe(true)
+      expect(receipt.crossChainAuthorized).toBe(true)
+      expect(receipt.permitId).toBe(permit.permitId)
+      expect(receipt.taintPrincipals).toContain('alice')
+      expect(receipt.taintPrincipals).toContain('bob')
+    })
+  })
+
+  // ════════════════════════════════════════
+  // CROSS-CHAIN VIOLATION (signed audit artifact)
+  // ════════════════════════════════════════
+
+  describe('CrossChainViolation', () => {
+    it('should produce signed violation report on blocked flow', () => {
+      let frame = createExecutionFrame('agent-001')
+      frame = recordAccess(frame, createTaintLabel('alice', 'chain-a', 'del-001'))
+      frame = recordAccess(frame, createTaintLabel('bob', 'chain-b', 'del-002'))
+
+      const flowResult = checkDataFlow({
+        inputTaint: frame.frameTaint,
+        actionPrincipalId: 'bob',
+        actionScope: 'email:send',
+        permits: [],
+        frame
+      })
+
+      expect(flowResult.verdict).toBe('blocked')
+
+      const violation = createCrossChainViolation({
+        frame,
+        agentId: 'agent-001',
+        sourcePrincipalId: 'alice',
+        destinationPrincipalId: 'bob',
+        attemptedTool: 'email:send',
+        attemptedScope: 'email:send',
+        blockingLabels: flowResult.blockingLabels!,
+        gatewayPrivateKey: monitor.privateKey
+      })
+
+      expect(violation.frameId).toBe(frame.frameId)
+      expect(violation.sourcePrincipalId).toBe('alice')
+      expect(violation.destinationPrincipalId).toBe('bob')
+      expect(violation.attemptedTool).toBe('email:send')
+      expect(violation.gatewaySignature).toBeTruthy()
+      expect(violation.blockingLabels.length).toBeGreaterThan(0)
     })
   })
 
