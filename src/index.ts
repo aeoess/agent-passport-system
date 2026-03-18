@@ -359,3 +359,21 @@ export type {
   TaintTransformation, TransformationType,
   ExecutionReceipt, CrossChainViolation
 } from './types/cross-chain.js'
+
+
+// ── E2E Encrypted Messaging (Module 19) ──
+
+export {
+  generateEncryptionKeypair,
+  createKeyAnnouncement, verifyKeyAnnouncement,
+  padToBlock, unpad,
+  encryptPayload, decryptPayload,
+  createEncryptedAgoraMessage, decryptAgoraMessage,
+  verifyOuterSignature
+} from './core/encrypted-messaging.js'
+
+export type {
+  EncryptionKeyAnnouncement, EncryptionKeypair,
+  EncryptedAgoraMessage, DecryptedPayload,
+  MessageValidation
+} from './types/encrypted-messaging.js'
