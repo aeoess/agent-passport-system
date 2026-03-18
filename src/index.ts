@@ -377,3 +377,32 @@ export type {
   EncryptedAgoraMessage, DecryptedPayload,
   MessageValidation
 } from './types/encrypted-messaging.js'
+
+
+// ── Cross-Engine Signed Execution Envelope (RFC implementation) ──
+
+export {
+  createExecutionEnvelope,
+  verifyExecutionEnvelope,
+  createMinimalEnvelope
+} from './core/execution-envelope.js'
+
+export type {
+  ExecutionEnvelope, EnvelopeVerification,
+  EvaluationMethod, EnvelopeVerdict, RevocationStatus
+} from './types/execution-envelope.js'
+
+// ── Obligations Model (Module 20) ──
+
+export {
+  createObligation, createObligationBundle, acceptObligationBundle,
+  checkFulfillment, resolveObligation, createFulfillmentReceipt,
+  scheduleNextRecurrence, validateObligationConstraints, validatePenaltySeverity
+} from './core/obligations.js'
+
+export type {
+  Obligation, ObligationAction, EvidenceRequirement,
+  PenaltySpec, RecurrenceSpec, ObligationBundle,
+  FulfillmentReceipt, ObligationResolution, ObligationOutcome,
+  ObligationStatus, ParamConstraint
+} from './types/obligations.js'
