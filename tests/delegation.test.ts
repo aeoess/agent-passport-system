@@ -389,3 +389,136 @@ describe('scopeAuthorizes', () => {
     assert.ok(!scopeAuthorizes([], 'code'))
   })
 })
+
+
+// ══════════════════════════════════════════════
+// V3-CRIT-1 REGRESSION: Hierarchical Scope Narrowing in subDelegate()
+// ══════════════════════════════════════════════
+// Previously: subDelegate() used Array.includes() for scope check (literal match only).
+// This meant ['*'] → ['data:read'] was REJECTED because '*'.includes('data:read') is false.
+// Fix: subDelegate() now uses scopeCovers() — same logic as gateway enforcement.
+
+describe('Hierarchical Scope Narrowing (V3-CRIT-1 fix)', () => {
+  beforeEach(() => clearStores())
+
+  // ── Authoring-path success cases ──
+
+  it('wildcard * narrows to specific scope', () => {
+    const root = createDelegation({ delegatedTo: agentA.publicKey, delegatedBy: human.publicKey,
+      scope: ['*'], spendLimit: 1000, maxDepth: 2, privateKey: human.privateKey })
+    const child = subDelegate({ parentDelegation: root, delegatedTo: agentB.publicKey,
+      scope: ['data:read'], privateKey: agentA.privateKey })
+    assert.deepEqual(child.scope, ['data:read'])
+  })
+
+  it('parent scope narrows to child via hierarchy (data → data:read)', () => {
+    const root = createDelegation({ delegatedTo: agentA.publicKey, delegatedBy: human.publicKey,
+      scope: ['data'], spendLimit: 1000, maxDepth: 2, privateKey: human.privateKey })
+    const child = subDelegate({ parentDelegation: root, delegatedTo: agentB.publicKey,
+      scope: ['data:read'], privateKey: agentA.privateKey })
+    assert.deepEqual(child.scope, ['data:read'])
+  })
+
+  it('glob wildcard narrows correctly (data:* → data:read)', () => {
+    const root = createDelegation({ delegatedTo: agentA.publicKey, delegatedBy: human.publicKey,
+      scope: ['data:*'], spendLimit: 1000, maxDepth: 2, privateKey: human.privateKey })
+    const child = subDelegate({ parentDelegation: root, delegatedTo: agentB.publicKey,
+      scope: ['data:read'], privateKey: agentA.privateKey })
+    assert.deepEqual(child.scope, ['data:read'])
+  })
+
+  it('glob wildcard narrows to sibling (data:* → data:write)', () => {
+    const root = createDelegation({ delegatedTo: agentA.publicKey, delegatedBy: human.publicKey,
+      scope: ['data:*'], spendLimit: 1000, maxDepth: 2, privateKey: human.privateKey })
+    const child = subDelegate({ parentDelegation: root, delegatedTo: agentB.publicKey,
+      scope: ['data:write'], privateKey: agentA.privateKey })
+    assert.deepEqual(child.scope, ['data:write'])
+  })
+
+  it('wildcard narrows to commerce scope', () => {
+    const root = createDelegation({ delegatedTo: agentA.publicKey, delegatedBy: human.publicKey,
+      scope: ['*'], spendLimit: 1000, maxDepth: 2, privateKey: human.privateKey })
+    const child = subDelegate({ parentDelegation: root, delegatedTo: agentB.publicKey,
+      scope: ['commerce:purchase'], privateKey: agentA.privateKey })
+    assert.deepEqual(child.scope, ['commerce:purchase'])
+  })
+
+  // ── Authoring-path rejection cases ──
+
+  it('[ADVERSARIAL] data:read cannot escalate to data:write', () => {
+    const root = createDelegation({ delegatedTo: agentA.publicKey, delegatedBy: human.publicKey,
+      scope: ['data:read'], spendLimit: 1000, maxDepth: 2, privateKey: human.privateKey })
+    assert.throws(() => subDelegate({ parentDelegation: root, delegatedTo: agentB.publicKey,
+      scope: ['data:write'], privateKey: agentA.privateKey }), /Scope violation/)
+  })
+
+  it('[ADVERSARIAL] data:* cannot escalate to commerce:purchase', () => {
+    const root = createDelegation({ delegatedTo: agentA.publicKey, delegatedBy: human.publicKey,
+      scope: ['data:*'], spendLimit: 1000, maxDepth: 2, privateKey: human.privateKey })
+    assert.throws(() => subDelegate({ parentDelegation: root, delegatedTo: agentB.publicKey,
+      scope: ['commerce:purchase'], privateKey: agentA.privateKey }), /Scope violation/)
+  })
+
+  it('[ADVERSARIAL] commerce cannot escalate to data:read', () => {
+    const root = createDelegation({ delegatedTo: agentA.publicKey, delegatedBy: human.publicKey,
+      scope: ['commerce'], spendLimit: 1000, maxDepth: 2, privateKey: human.privateKey })
+    assert.throws(() => subDelegate({ parentDelegation: root, delegatedTo: agentB.publicKey,
+      scope: ['data:read'], privateKey: agentA.privateKey }), /Scope violation/)
+  })
+
+  // ── Full chain construction ──
+
+  it('full chain: Human(*) → Manager(data:*) → Worker(data:read)', () => {
+    const manager = generateKeyPair()
+    const worker = generateKeyPair()
+    const root = createDelegation({ delegatedTo: agentA.publicKey, delegatedBy: human.publicKey,
+      scope: ['*'], spendLimit: 10000, maxDepth: 3, privateKey: human.privateKey })
+    const mid = subDelegate({ parentDelegation: root, delegatedTo: manager.publicKey,
+      scope: ['data:*'], privateKey: agentA.privateKey })
+    const leaf = subDelegate({ parentDelegation: mid, delegatedTo: worker.publicKey,
+      scope: ['data:read'], privateKey: manager.privateKey })
+    assert.deepEqual(leaf.scope, ['data:read'])
+    assert.equal(leaf.currentDepth, 2)
+  })
+})
+
+// ══════════════════════════════════════════════
+// PARITY: Authoring must accept exactly what enforcement accepts
+// ══════════════════════════════════════════════
+// This prevents authoring/enforcement drift from ever returning.
+
+describe('Authoring ↔ Enforcement Parity', () => {
+  const pairs: [string, string, boolean][] = [
+    // [parent, child, expected]
+    ['*', 'data:read', true],
+    ['*', 'commerce:purchase', true],
+    ['data', 'data:read', true],
+    ['data:*', 'data:read', true],
+    ['data:*', 'data:write', true],
+    ['data:read', 'data:read', true],    // exact match
+    ['data:read', 'data:write', false],   // sibling, not child
+    ['data:*', 'commerce:purchase', false],
+    ['commerce', 'data:read', false],
+    ['commerce:purchase', 'data:read', false],
+  ]
+
+  for (const [parent, child, expected] of pairs) {
+    it(`[${parent}] → [${child}]: authoring=${expected}, enforcement=${expected}`, () => {
+      clearStores()
+      const enforcementSays = scopeCovers(parent, child)
+      assert.equal(enforcementSays, expected, `enforcement mismatch for [${parent}] → [${child}]`)
+
+      const p = createDelegation({ delegatedTo: agentA.publicKey, delegatedBy: human.publicKey,
+        scope: [parent], spendLimit: 1000, maxDepth: 2, privateKey: human.privateKey })
+      let authoringSays: boolean
+      try {
+        subDelegate({ parentDelegation: p, delegatedTo: agentB.publicKey,
+          scope: [child], privateKey: agentA.privateKey })
+        authoringSays = true
+      } catch { authoringSays = false }
+
+      assert.equal(authoringSays, expected, `authoring mismatch for [${parent}] → [${child}]`)
+      assert.equal(authoringSays, enforcementSays, `PARITY BROKEN: authoring=${authoringSays} vs enforcement=${enforcementSays}`)
+    })
+  }
+})

@@ -113,7 +113,7 @@ export function subDelegate(opts: SubDelegateOptions): Delegation {
   }
 
   // Enforce scope narrowing
-  const invalidScopes = opts.scope.filter(s => !parent.scope.includes(s))
+  const invalidScopes = opts.scope.filter(s => !parent.scope.some(ps => scopeCovers(ps, s)))
   if (invalidScopes.length > 0) {
     throw new Error(
       `Scope violation: [${invalidScopes}] not in parent scope [${parent.scope}]`
@@ -448,7 +448,7 @@ export function createReceipt(opts: CreateReceiptOptions): ActionReceipt {
   }
 
   // Verify scope
-  if (!opts.delegation.scope.includes(opts.action.scopeUsed)) {
+  if (!scopeAuthorizes(opts.delegation.scope, opts.action.scopeUsed)) {
     throw new Error(
       `Scope '${opts.action.scopeUsed}' not in delegation [${opts.delegation.scope}]`
     )
