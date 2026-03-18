@@ -125,6 +125,14 @@ export interface ExecutionFrame {
   chainHead?: string
   /** Step counter — monotonic, proves no gaps */
   stepCount: number
+  /** Frame epoch number — monotonically increases on rotation */
+  epoch: number
+  /** TTL in minutes — frame expires after this duration (0 = no expiry) */
+  ttlMinutes: number
+  /** If this frame was sealed by rotation, the sealed timestamp */
+  sealedAt?: string
+  /** Previous frame's chainHead — links epochs into a super-chain */
+  previousFrameChainHead?: string
 }
 
 /** A causally-ordered execution step with hash chain linkage */

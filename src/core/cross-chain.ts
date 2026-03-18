@@ -127,7 +127,7 @@ export function isSAOExpired(sao: SignedAuthorityObject): boolean {
 /**
  * Create a new execution frame for tracking session-level taint.
  */
-export function createExecutionFrame(agentId: string): ExecutionFrame {
+export function createExecutionFrame(agentId: string, opts?: { ttlMinutes?: number; epoch?: number; previousFrameChainHead?: string }): ExecutionFrame {
   return {
     frameId: `frame-${randomBytes(8).toString('hex')}`,
     agentId,
@@ -136,7 +136,10 @@ export function createExecutionFrame(agentId: string): ExecutionFrame {
     startedAt: new Date().toISOString(),
     active: true,
     chainHead: '',
-    stepCount: 0
+    stepCount: 0,
+    epoch: opts?.epoch ?? 0,
+    ttlMinutes: opts?.ttlMinutes ?? 0,
+    previousFrameChainHead: opts?.previousFrameChainHead
   }
 }
 
