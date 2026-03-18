@@ -14,6 +14,7 @@ import type { ActionIntent, PolicyDecision, PolicyReceipt, PolicyValidator } fro
 import type { SignedAuthorityObject, FlowCheckResult, ExecutionFrame, CrossChainPermit } from './cross-chain.js'
 import type { Obligation, ObligationResolution } from './obligations.js'
 import type { ExecutionEnvelope } from './execution-envelope.js'
+import type { ScopedReputation, AuthorityTier, TierEscalation, EvidenceClass } from './reputation-authority.js'
 
 // ── Tool Executor ──
 // The gateway wraps any tool. This is the abstraction.
@@ -40,6 +41,8 @@ export interface ToolCallRequest {
   spend?: { amount: number; currency: string }
   /** Optional: human-readable context for audit */
   context?: string
+  /** Optional: evidence class for reputation update. Default: from GatewayConfig.defaultEvidenceClass */
+  evidenceClass?: EvidenceClass
 }
 
 export interface ToolCallResult {
@@ -67,6 +70,8 @@ export interface ToolCallResult {
   obligationResolutions?: ObligationResolution[]
   /** Execution envelope for cross-engine interop (if produceEnvelope enabled) */
   envelope?: ExecutionEnvelope
+  /** Tier escalation info (if reputation gating enabled and action was above tier) */
+  tierCheck?: TierEscalation | null
 }
 
 /** The complete cryptographic proof chain */
@@ -147,6 +152,19 @@ export interface GatewayConfig {
   frameTTLMinutes?: number
   /** Callback: fires when a frame is auto-rotated due to TTL expiry */
   onFrameRotated?: (agentId: string, sealedFrameId: string, newFrameId: string) => void
+  /** Enable reputation-gated authority (Module 10). When true, agent tier limits
+   *  spend-per-action and autonomy level even if delegation scope allows it.
+   *  Core invariant: effectiveAuthority = min(delegation, tier). Default: false */
+  enableReputationGating?: boolean
+  /** Evidence class to assign to gateway-executed actions for reputation updates.
+   *  Default: 'standard'. Override per-request via ToolCallRequest.evidenceClass. */
+  defaultEvidenceClass?: EvidenceClass
+  /** Callback: fires when an action is denied due to insufficient tier */
+  onTierDenied?: (agentId: string, escalation: TierEscalation) => void
+  /** Callback: fires when an agent's reputation is updated after execution */
+  onReputationUpdated?: (agentId: string, reputation: ScopedReputation, tier: AuthorityTier) => void
+  /** Callback: fires when an agent is automatically demoted */
+  onDemotion?: (agentId: string, fromTier: number, toTier: number, reason: string) => void
 }
 
 // ── Registered Agent ──
@@ -162,6 +180,10 @@ export interface RegisteredAgent {
   permits?: CrossChainPermit[]
   /** Pending obligations for this agent */
   obligations?: Obligation[]
+  /** Agent's current Bayesian reputation state (reputation-gated authority) */
+  reputation?: ScopedReputation
+  /** Agent's current authority tier computed from reputation */
+  authorityTier?: AuthorityTier
 }
 
 // ── Gateway Stats ──
@@ -185,4 +207,8 @@ export interface GatewayStats {
   obligationsRegistered?: number
   obligationsFulfilled?: number
   obligationsTerminated?: number
+  /** Reputation-gated authority stats */
+  tierDenials?: number
+  reputationUpdates?: number
+  demotions?: number
 }

@@ -34,11 +34,17 @@ import { verifyAttestation } from './values.js'
 import { createTaintLabel, createSAO, createExecutionFrame, recordAccess, checkDataFlow, mergeTaints, verifyCrossChainPermit, isFrameExpired, rotateFrame } from './cross-chain.js'
 import { checkFulfillment, resolveObligation } from './obligations.js'
 import { createExecutionEnvelope } from './execution-envelope.js'
+import {
+  computeEffectiveScore, createScopedReputation, resolveAuthorityTier,
+  checkTierForIntent, updateReputationFromResult, shouldDemote,
+  triggerDemotion, DEFAULT_TIERS
+} from './reputation-authority.js'
 import type { Delegation, ActionReceipt, ValuesFloor, FloorAttestation } from '../types/passport.js'
 import type { ActionIntent, PolicyDecision, PolicyReceipt, PolicyValidator, ValidationContext } from '../types/policy.js'
 import type { TaintLabel, TaintSet, CrossChainPermit, ExecutionFrame, SignedAuthorityObject } from '../types/cross-chain.js'
 import type { Obligation, ObligationResolution } from '../types/obligations.js'
 import type { ExecutionEnvelope } from '../types/execution-envelope.js'
+import type { ScopedReputation, AuthorityTier, TierEscalation, EvidenceClass, TierCheckContext } from '../types/reputation-authority.js'
 import type {
   ToolCallRequest, ToolCallResult, GatewayProof,
   GatewayApproval, ToolExecutor, GatewayConfig,
@@ -74,7 +80,10 @@ export class ProxyGateway {
     crossChainPermitted: 0,
     obligationsRegistered: 0,
     obligationsFulfilled: 0,
-    obligationsTerminated: 0
+    obligationsTerminated: 0,
+    tierDenials: 0,
+    reputationUpdates: 0,
+    demotions: 0
   }
 
   constructor(config: GatewayConfig, executor: ToolExecutor) {
@@ -118,11 +127,32 @@ export class ProxyGateway {
     }
 
     const agentId = passport.passport.agentId
+
+    // Initialize reputation + tier if reputation gating is enabled
+    let reputation: ScopedReputation | undefined
+    let authorityTier: AuthorityTier | undefined
+    if (this.config.enableReputationGating) {
+      reputation = createScopedReputation(passport.passport.publicKey, agentId, '*')
+      const score = computeEffectiveScore(reputation.mu, reputation.sigma)
+      const tierDef = resolveAuthorityTier(score, 0)
+      authorityTier = {
+        tier: tierDef.tier,
+        name: tierDef.name,
+        origin: 'earned' as const,
+        autonomyLevel: tierDef.autonomyLevel,
+        maxDelegationDepth: tierDef.maxDelegationDepth,
+        maxSpendPerAction: tierDef.maxSpendPerAction,
+        demotionCount: 0,
+      }
+    }
+
     this.agents.set(agentId, {
       passport, attestation, delegations: delegationMap,
       executionFrame: this.config.enableCrossChainEnforcement ? createExecutionFrame(agentId, { ttlMinutes: this.config.frameTTLMinutes ?? 0 }) : undefined,
       permits: this.config.enableCrossChainEnforcement ? [] : undefined,
-      obligations: this.config.enableObligationMonitoring ? [] : undefined
+      obligations: this.config.enableObligationMonitoring ? [] : undefined,
+      reputation,
+      authorityTier,
     })
     this.stats.activeAgents = this.agents.size
     return { registered: true }
@@ -282,6 +312,35 @@ export class ProxyGateway {
       const result: ToolCallResult = { executed: false, requestId: request.requestId, denialReason: decision.reason, decision }
       this.config.onToolCall?.(request, result)
       return result
+    }
+
+    // Step 4.5: Reputation-gated authority check (Module 10)
+    // Core invariant: effectiveAuthority = min(delegation, tier)
+    // Even if delegation allows $10,000 spend, a recruit (tier 0) gets $0.
+    let tierCheck: TierEscalation | null = null
+    if (this.config.enableReputationGating && agent.authorityTier && agent.reputation) {
+      const tierCtx: TierCheckContext = {
+        agentTier: agent.authorityTier,
+        effectiveScore: computeEffectiveScore(agent.reputation.mu, agent.reputation.sigma),
+      }
+      tierCheck = checkTierForIntent({
+        tierContext: tierCtx,
+        requestedSpend: request.spend?.amount,
+      })
+      if (tierCheck) {
+        // Tier insufficient — deny even though policy permitted
+        this.stats.totalDenied++;
+        (this.stats.tierDenials as number)++
+        this.usedRequestIds.set(request.requestId, Date.now())
+        const reason = `Tier ${tierCheck.currentTier} (${agent.authorityTier.name}) insufficient: ` +
+          (tierCheck.requestedSpend !== undefined
+            ? `spend $${tierCheck.requestedSpend} exceeds tier max $${agent.authorityTier.maxSpendPerAction}`
+            : `requires tier ${tierCheck.requiredTier}`)
+        const result: ToolCallResult = { executed: false, requestId: request.requestId, denialReason: reason, decision, tierCheck }
+        this.config.onTierDenied?.(request.agentId, tierCheck)
+        this.config.onToolCall?.(request, result)
+        return result
+      }
     }
 
     // Step 5: Revocation recheck (paranoid mode)
@@ -460,6 +519,56 @@ export class ProxyGateway {
       }
     }
 
+    // Step 8.7: Reputation update (Module 10)
+    // Update agent reputation based on execution outcome, then recompute tier.
+    if (this.config.enableReputationGating && agent.reputation && agent.authorityTier) {
+      const evidenceClass: EvidenceClass = request.evidenceClass ?? this.config.defaultEvidenceClass ?? 'standard'
+      const success = toolResult.success
+      agent.reputation = updateReputationFromResult(agent.reputation, success, evidenceClass);
+      (this.stats.reputationUpdates as number)++
+
+      // Recompute tier
+      const newScore = computeEffectiveScore(agent.reputation.mu, agent.reputation.sigma)
+      const newTierDef = resolveAuthorityTier(newScore, agent.authorityTier.demotionCount)
+
+      // Check for demotion
+      if (shouldDemote(newScore, agent.authorityTier.tier) && agent.authorityTier.tier > 0) {
+        const oldTier = agent.authorityTier.tier
+        const demotion = triggerDemotion({
+          agentId: request.agentId,
+          principalId: agent.passport.passport.publicKey,
+          scope: request.scopeRequired,
+          currentTier: agent.authorityTier.tier,
+          cause: 'behavioral',
+          reason: `Score ${newScore.toFixed(1)} below demotion threshold`,
+        })
+        agent.authorityTier = {
+          ...agent.authorityTier,
+          tier: demotion.toTier,
+          name: DEFAULT_TIERS[demotion.toTier]?.name ?? 'recruit',
+          autonomyLevel: DEFAULT_TIERS[demotion.toTier]?.autonomyLevel ?? (1 as any),
+          maxDelegationDepth: DEFAULT_TIERS[demotion.toTier]?.maxDelegationDepth ?? 0,
+          maxSpendPerAction: DEFAULT_TIERS[demotion.toTier]?.maxSpendPerAction ?? 0,
+          demotionCount: agent.authorityTier.demotionCount + 1,
+        };
+        (this.stats.demotions as number)++
+        this.config.onDemotion?.(request.agentId, oldTier, demotion.toTier, demotion.reason)
+      } else if (newTierDef.tier > agent.authorityTier.tier) {
+        // Promotion (automatic — formal promotion reviews are separate)
+        agent.authorityTier = {
+          ...agent.authorityTier,
+          tier: newTierDef.tier,
+          name: newTierDef.name,
+          autonomyLevel: newTierDef.autonomyLevel,
+          maxDelegationDepth: newTierDef.maxDelegationDepth,
+          maxSpendPerAction: newTierDef.maxSpendPerAction,
+          promotedAt: new Date().toISOString(),
+        }
+      }
+
+      this.config.onReputationUpdated?.(request.agentId, agent.reputation, agent.authorityTier)
+    }
+
     this.usedRequestIds.set(request.requestId, Date.now())
 
     // Step 9: Produce execution envelope for cross-engine interop (optional)
@@ -492,7 +601,8 @@ export class ProxyGateway {
       proof, receipt, decision,
       sao, flowCheck: flowCheckResult,
       obligationResolutions: obligationResolutions.length > 0 ? obligationResolutions : undefined,
-      envelope
+      envelope,
+      tierCheck
     }
 
     this.config.onToolCall?.(request, result)
@@ -660,6 +770,26 @@ export class ProxyGateway {
       }
     }
 
+    // Reputation-gated authority check (step 4.5 parity)
+    let tierCheck: TierEscalation | null = null
+    if (this.config.enableReputationGating && agent.authorityTier && agent.reputation) {
+      const tierCtx: TierCheckContext = {
+        agentTier: agent.authorityTier,
+        effectiveScore: computeEffectiveScore(agent.reputation.mu, agent.reputation.sigma),
+      }
+      tierCheck = checkTierForIntent({
+        tierContext: tierCtx,
+        requestedSpend: (approval as any).spend?.amount,
+      })
+      if (tierCheck) {
+        this.stats.totalDenied++;
+        (this.stats.tierDenials as number)++
+        const reason = `Tier ${tierCheck.currentTier} (${agent.authorityTier.name}) insufficient`
+        this.config.onTierDenied?.(approval.agentId, tierCheck)
+        return { executed: false, requestId: approval.requestId, denialReason: reason, decision: approval.decision, tierCheck }
+      }
+    }
+
     // Execute
     approval.consumed = true
     this.usedRequestIds.set(approval.requestId, Date.now())
@@ -705,6 +835,25 @@ export class ProxyGateway {
       }
     }
 
+    // Reputation update (step 8.7 parity)
+    if (this.config.enableReputationGating && agent.reputation && agent.authorityTier) {
+      const evidenceClass: EvidenceClass = (approval as any).evidenceClass ?? this.config.defaultEvidenceClass ?? 'standard'
+      agent.reputation = updateReputationFromResult(agent.reputation, toolResult.success, evidenceClass);
+      (this.stats.reputationUpdates as number)++
+      const newScore = computeEffectiveScore(agent.reputation.mu, agent.reputation.sigma)
+      const newTierDef = resolveAuthorityTier(newScore, agent.authorityTier.demotionCount)
+      if (shouldDemote(newScore, agent.authorityTier.tier) && agent.authorityTier.tier > 0) {
+        const oldTier = agent.authorityTier.tier
+        const demotion = triggerDemotion({ agentId: approval.agentId, principalId: agent.passport.passport.publicKey, scope: approval.scopeRequired, currentTier: agent.authorityTier.tier, cause: 'behavioral', reason: `Score ${newScore.toFixed(1)} below demotion threshold` })
+        agent.authorityTier = { ...agent.authorityTier, tier: demotion.toTier, name: DEFAULT_TIERS[demotion.toTier]?.name ?? 'recruit', autonomyLevel: DEFAULT_TIERS[demotion.toTier]?.autonomyLevel ?? (1 as any), maxDelegationDepth: DEFAULT_TIERS[demotion.toTier]?.maxDelegationDepth ?? 0, maxSpendPerAction: DEFAULT_TIERS[demotion.toTier]?.maxSpendPerAction ?? 0, demotionCount: agent.authorityTier.demotionCount + 1 };
+        (this.stats.demotions as number)++
+        this.config.onDemotion?.(approval.agentId, oldTier, demotion.toTier, demotion.reason)
+      } else if (newTierDef.tier > agent.authorityTier.tier) {
+        agent.authorityTier = { ...agent.authorityTier, tier: newTierDef.tier, name: newTierDef.name, autonomyLevel: newTierDef.autonomyLevel, maxDelegationDepth: newTierDef.maxDelegationDepth, maxSpendPerAction: newTierDef.maxSpendPerAction, promotedAt: new Date().toISOString() }
+      }
+      this.config.onReputationUpdated?.(approval.agentId, agent.reputation, agent.authorityTier)
+    }
+
     // Execution envelope (step 9)
     let envelope: ExecutionEnvelope | undefined
     if (this.config.produceEnvelope && toolResult.success) {
@@ -726,7 +875,8 @@ export class ProxyGateway {
       proof, receipt, decision: approval.decision,
       sao, flowCheck: flowCheckResult,
       obligationResolutions: obligationResolutions.length > 0 ? obligationResolutions : undefined,
-      envelope
+      envelope,
+      tierCheck
     }
   }
 
@@ -788,6 +938,33 @@ export class ProxyGateway {
 
   getAgentObligations(agentId: string): Obligation[] | undefined {
     return this.agents.get(agentId)?.obligations
+  }
+
+  /** Get agent's current Bayesian reputation state */
+  getAgentReputation(agentId: string): ScopedReputation | undefined {
+    return this.agents.get(agentId)?.reputation
+  }
+
+  /** Get agent's current authority tier */
+  getAgentTier(agentId: string): AuthorityTier | undefined {
+    return this.agents.get(agentId)?.authorityTier
+  }
+
+  /** Externally set agent reputation (for injection from external reputation systems) */
+  setAgentReputation(agentId: string, reputation: ScopedReputation): boolean {
+    const agent = this.agents.get(agentId)
+    if (!agent) return false
+    agent.reputation = reputation
+    // Recompute tier
+    const score = computeEffectiveScore(reputation.mu, reputation.sigma)
+    const tierDef = resolveAuthorityTier(score, agent.authorityTier?.demotionCount ?? 0)
+    agent.authorityTier = {
+      tier: tierDef.tier, name: tierDef.name, origin: 'earned' as const,
+      autonomyLevel: tierDef.autonomyLevel, maxDelegationDepth: tierDef.maxDelegationDepth,
+      maxSpendPerAction: tierDef.maxSpendPerAction,
+      demotionCount: agent.authorityTier?.demotionCount ?? 0,
+    }
+    return true
   }
 
   private findDelegation(agent: RegisteredAgent, request: ToolCallRequest): Delegation | null {
