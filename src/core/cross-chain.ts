@@ -127,7 +127,7 @@ export function isSAOExpired(sao: SignedAuthorityObject): boolean {
 /**
  * Create a new execution frame for tracking session-level taint.
  */
-export function createExecutionFrame(agentId: string, opts?: { ttlMinutes?: number; epoch?: number; previousFrameChainHead?: string }): ExecutionFrame {
+export function createExecutionFrame(agentId: string, opts?: { ttlMinutes?: number; epoch?: number; previousFrameChainHead?: string; residuePrincipals?: string[] }): ExecutionFrame {
   return {
     frameId: `frame-${randomBytes(8).toString('hex')}`,
     agentId,
@@ -139,7 +139,8 @@ export function createExecutionFrame(agentId: string, opts?: { ttlMinutes?: numb
     stepCount: 0,
     epoch: opts?.epoch ?? 0,
     ttlMinutes: opts?.ttlMinutes ?? 0,
-    previousFrameChainHead: opts?.previousFrameChainHead
+    previousFrameChainHead: opts?.previousFrameChainHead,
+    residuePrincipals: opts?.residuePrincipals ?? []
   }
 }
 
@@ -213,10 +214,19 @@ export function rotateFrame(frame: ExecutionFrame, opts?: { ttlMinutes?: number 
   fresh: ExecutionFrame
 } {
   const sealed = closeFrame(frame)
+  // Carry forward principal IDs from current frame + any existing residue
+  // This prevents the "clean window" attack (V2-MED-1):
+  // after rotation, the fresh frame still knows which principals
+  // the agent has interacted with, so cross-chain permits are still required.
+  const allPrincipals = [...new Set([
+    ...frame.frameTaint.principals,
+    ...frame.residuePrincipals
+  ])]
   const fresh = createExecutionFrame(frame.agentId, {
     ttlMinutes: opts?.ttlMinutes ?? frame.ttlMinutes,
     epoch: frame.epoch + 1,
-    previousFrameChainHead: frame.chainHead || undefined
+    previousFrameChainHead: frame.chainHead || undefined,
+    residuePrincipals: allPrincipals
   })
   return { sealed, fresh }
 }
@@ -238,6 +248,37 @@ export function verifyFrameChain(frame: ExecutionFrame): { valid: boolean; error
   }
   if (frame.stepCount !== frame.accessedContexts.length) {
     return { valid: false, error: `Step count mismatch: declared ${frame.stepCount}, actual ${frame.accessedContexts.length}` }
+  }
+  return { valid: true }
+}
+
+/**
+ * Verify the epoch super-chain across multiple frames.
+ * Each frame's previousFrameChainHead must match the prior frame's chainHead.
+ * Frames must be ordered by epoch (ascending).
+ */
+export function verifyEpochChain(frames: ExecutionFrame[]): { valid: boolean; error?: string } {
+  if (frames.length === 0) return { valid: true }
+  const sorted = [...frames].sort((a, b) => a.epoch - b.epoch)
+  for (let i = 1; i < sorted.length; i++) {
+    const prev = sorted[i - 1]
+    const curr = sorted[i]
+    if (curr.epoch !== prev.epoch + 1) {
+      return { valid: false, error: `Epoch gap: expected ${prev.epoch + 1}, got ${curr.epoch}` }
+    }
+    if ((curr.previousFrameChainHead || '') !== (prev.chainHead || '')) {
+      return { valid: false, error: `Epoch ${curr.epoch} link mismatch: expected chainHead "${prev.chainHead}", got previousFrameChainHead "${curr.previousFrameChainHead}"` }
+    }
+    // Also verify each frame's internal chain
+    const internalCheck = verifyFrameChain(prev)
+    if (!internalCheck.valid) {
+      return { valid: false, error: `Frame epoch ${prev.epoch} internal chain invalid: ${internalCheck.error}` }
+    }
+  }
+  // Verify the last frame's internal chain too
+  const lastCheck = verifyFrameChain(sorted[sorted.length - 1])
+  if (!lastCheck.valid) {
+    return { valid: false, error: `Frame epoch ${sorted[sorted.length - 1].epoch} internal chain invalid: ${lastCheck.error}` }
   }
   return { valid: true }
 }
@@ -412,7 +453,13 @@ export function checkDataFlow(opts: {
   }
 
   // Case 2: Foreign taint detected — check for permits
-  const foreignPrincipals = [...new Set(foreignLabels.map(l => l.principalId))]
+  // V2-MED-3 fix: expand MULTI_PRINCIPAL labels to their sourcePrincipals for permit matching
+  const foreignPrincipals = [...new Set(foreignLabels.flatMap(l => {
+    if (l.sourcePrincipals && l.sourcePrincipals.length > 0) {
+      return l.sourcePrincipals.filter(sp => sp !== opts.actionPrincipalId)
+    }
+    return [l.principalId]
+  }))]
 
   // For each foreign principal, look for a valid permit
   for (const foreignPrincipal of foreignPrincipals) {
@@ -487,12 +534,16 @@ export function deriveSAO(
   const expiry = Math.min(earliestExpiry, Date.now() + expiresInMinutes * 60000)
 
   const primaryLabel = sourceSAOs[0].taint
-  const derivedLabel = createTaintLabel(
-    mergedTaint.isCrossChain ? 'MULTI_PRINCIPAL' : primaryLabel.principalId,
-    primaryLabel.chainId,
-    primaryLabel.delegationId,
-    mergedTaint.isCrossChain ? 'export-with-permit' : primaryLabel.usage
-  )
+  const allPrincipalIds = [...new Set(sourceSAOs.map(s => s.taint.principalId))]
+  const derivedLabel: TaintLabel = {
+    principalId: mergedTaint.isCrossChain ? 'MULTI_PRINCIPAL' : primaryLabel.principalId,
+    chainId: primaryLabel.chainId,
+    delegationId: primaryLabel.delegationId,
+    usage: mergedTaint.isCrossChain ? 'export-with-permit' : primaryLabel.usage,
+    taintedAt: new Date().toISOString(),
+    // V2-MED-3 fix: preserve per-principal taint for permit matching
+    sourcePrincipals: mergedTaint.isCrossChain ? allPrincipalIds : undefined
+  }
 
   const dataStr = typeof data === 'string' ? data : JSON.stringify(data)
   const dataHash = createHash('sha256').update(dataStr).digest('hex')

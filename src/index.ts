@@ -346,6 +346,7 @@ export {
   createExecutionFrame, recordAccess, closeFrame,
   computeStepHash, verifyFrameChain,
   isFrameExpired, rotateFrame,
+  verifyEpochChain,
   createCrossChainPermit, countersignPermit,
   verifyCrossChainPermit, revokePermit,
   checkDataFlow,

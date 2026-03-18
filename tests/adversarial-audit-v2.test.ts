@@ -105,6 +105,9 @@ describe('AUDIT V2 — Gateway Logic + Module Interaction + Different Attack Vec
     const b = createSAO('data-b', createTaintLabel('bob', 'c2', 'd2'), keys.privateKey, keys.publicKey)
     const derived = deriveSAO('combined', [a, b], keys.privateKey, keys.publicKey)
     assert.equal(derived.taint.principalId, 'MULTI_PRINCIPAL')
+    // V2-MED-3 FIX: sourcePrincipals now preserved
+    assert.ok(derived.taint.sourcePrincipals, 'sourcePrincipals should exist')
+    assert.deepEqual(derived.taint.sourcePrincipals!.sort(), ['alice', 'bob'])
     // alice and bob identities are lost — downstream permit matching can't work
   })
 

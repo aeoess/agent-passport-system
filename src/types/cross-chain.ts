@@ -27,6 +27,9 @@ export interface TaintLabel {
   usage: TaintUsage
   /** When the taint was applied */
   taintedAt: string
+  /** For derived/multi-principal data: all contributing principal IDs.
+   *  Enables per-principal permit matching on derived SAOs. */
+  sourcePrincipals?: string[]
 }
 
 /** What the data owner permits */
@@ -133,6 +136,9 @@ export interface ExecutionFrame {
   sealedAt?: string
   /** Previous frame's chainHead — links epochs into a super-chain */
   previousFrameChainHead?: string
+  /** Principal IDs from previous epochs — survives rotation for cross-chain enforcement.
+   *  Prevents the "clean window" attack where rotation clears taint. */
+  residuePrincipals: string[]
 }
 
 /** A causally-ordered execution step with hash chain linkage */

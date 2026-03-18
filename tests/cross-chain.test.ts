@@ -7,6 +7,7 @@ import {
   createExecutionFrame, recordAccess, closeFrame,
   verifyFrameChain, computeStepHash,
   isFrameExpired, rotateFrame,
+  verifyEpochChain,
   createCrossChainPermit, countersignPermit,
   verifyCrossChainPermit, revokePermit,
   checkDataFlow,
@@ -688,6 +689,72 @@ describe('Cross-Chain Data Flow Authorization', () => {
       const frame = createExecutionFrame('agent-1', { ttlMinutes: 15 })
       const { fresh } = rotateFrame(frame)
       assert.equal(fresh.ttlMinutes, 15)
+    })
+
+    it('residue principals survive rotation (V2-MED-1 fix)', () => {
+      let frame = createExecutionFrame('agent-1', { ttlMinutes: 5 })
+      frame = recordAccess(frame, createTaintLabel('alice', 'c1', 'd1'))
+      frame = recordAccess(frame, createTaintLabel('bob', 'c2', 'd2'))
+      const { fresh } = rotateFrame(frame)
+      assert.deepEqual(fresh.residuePrincipals.sort(), ['alice', 'bob'])
+      assert.equal(fresh.frameTaint.labels.length, 0, 'labels cleared')
+      assert.equal(fresh.residuePrincipals.length, 2, 'principals preserved')
+    })
+
+    it('residue accumulates across multiple rotations', () => {
+      let f0 = createExecutionFrame('agent-1', { ttlMinutes: 5 })
+      f0 = recordAccess(f0, createTaintLabel('alice', 'c1', 'd1'))
+      const r1 = rotateFrame(f0)
+      let f1 = r1.fresh
+      f1 = recordAccess(f1, createTaintLabel('bob', 'c2', 'd2'))
+      const r2 = rotateFrame(f1)
+      assert.deepEqual(r2.fresh.residuePrincipals.sort(), ['alice', 'bob'])
+    })
+
+    it('residue deduplicates repeated principals', () => {
+      let f = createExecutionFrame('agent-1', { ttlMinutes: 5 })
+      f = recordAccess(f, createTaintLabel('alice', 'c1', 'd1'))
+      const r1 = rotateFrame(f)
+      let f1 = r1.fresh
+      f1 = recordAccess(f1, createTaintLabel('alice', 'c1', 'd2'))
+      const r2 = rotateFrame(f1)
+      assert.equal(r2.fresh.residuePrincipals.length, 1)
+      assert.equal(r2.fresh.residuePrincipals[0], 'alice')
+    })
+  })
+
+  describe('Epoch Chain Verification (V2-LOW-2 fix)', () => {
+    it('verifies valid epoch chain', () => {
+      let f0 = createExecutionFrame('agent-1', { ttlMinutes: 5 })
+      f0 = recordAccess(f0, createTaintLabel('alice', 'c1', 'd1'))
+      const r1 = rotateFrame(f0)
+      let f1 = r1.fresh
+      f1 = recordAccess(f1, createTaintLabel('bob', 'c2', 'd2'))
+      const r2 = rotateFrame(f1)
+      const result = verifyEpochChain([r1.sealed, r2.sealed, r2.fresh])
+      assert.equal(result.valid, true)
+    })
+
+    it('detects tampered epoch link', () => {
+      let f0 = createExecutionFrame('agent-1', { ttlMinutes: 5 })
+      f0 = recordAccess(f0, createTaintLabel('alice', 'c1', 'd1'))
+      const r1 = rotateFrame(f0)
+      const tampered = { ...r1.fresh, previousFrameChainHead: 'TAMPERED' }
+      const result = verifyEpochChain([r1.sealed, tampered])
+      assert.equal(result.valid, false)
+      assert.ok(result.error?.includes('link mismatch'))
+    })
+
+    it('detects epoch gap', () => {
+      const f0 = createExecutionFrame('agent-1', { epoch: 0 })
+      const f2 = createExecutionFrame('agent-1', { epoch: 2 })
+      const result = verifyEpochChain([f0, f2])
+      assert.equal(result.valid, false)
+      assert.ok(result.error?.includes('Epoch gap'))
+    })
+
+    it('empty chain is valid', () => {
+      assert.equal(verifyEpochChain([]).valid, true)
     })
   })
 

@@ -311,11 +311,20 @@ export class ProxyGateway {
     if (this.config.enableCrossChainEnforcement && agent.executionFrame) {
       const actionPrincipalId = delegation.delegatedBy
       const frameTaint = agent.executionFrame.frameTaint
-      // Only run check if frame has accumulated taint
-      if (frameTaint.labels.length > 0) {
+      const residue = agent.executionFrame.residuePrincipals || []
+      // Run check if frame has taint OR residue from previous epochs (V2-MED-1 fix)
+      if (frameTaint.labels.length > 0 || residue.length > 0) {
+        // Build effective taint: current labels + synthetic labels from residue
+        let effectiveLabels = [...frameTaint.labels]
+        for (const rp of residue) {
+          if (!frameTaint.principals.includes(rp)) {
+            effectiveLabels.push(createTaintLabel(rp, 'residue', 'residue', 'same-context-only'))
+          }
+        }
+        const effectiveTaint = mergeTaints(...effectiveLabels)
         this.stats.crossChainChecks = (this.stats.crossChainChecks || 0) + 1
         flowCheckResult = checkDataFlow({
-          inputTaint: frameTaint,
+          inputTaint: effectiveTaint,
           actionPrincipalId,
           actionScope: request.scopeRequired,
           permits: agent.permits || [],
@@ -605,10 +614,18 @@ export class ProxyGateway {
     if (this.config.enableCrossChainEnforcement && agent.executionFrame) {
       const actionPrincipalId = delegation.delegatedBy
       const frameTaint = agent.executionFrame.frameTaint
-      if (frameTaint.labels.length > 0) {
+      const residue = agent.executionFrame.residuePrincipals || []
+      if (frameTaint.labels.length > 0 || residue.length > 0) {
+        let effectiveLabels = [...frameTaint.labels]
+        for (const rp of residue) {
+          if (!frameTaint.principals.includes(rp)) {
+            effectiveLabels.push(createTaintLabel(rp, 'residue', 'residue', 'same-context-only'))
+          }
+        }
+        const effectiveTaint = mergeTaints(...effectiveLabels)
         this.stats.crossChainChecks = (this.stats.crossChainChecks || 0) + 1
         flowCheckResult = checkDataFlow({
-          inputTaint: frameTaint,
+          inputTaint: effectiveTaint,
           actionPrincipalId,
           actionScope: approval.scopeRequired,
           permits: agent.permits || [],
