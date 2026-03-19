@@ -40,6 +40,28 @@ Canonical form:
 
 Note: `"m"` is omitted (null value), keys sorted, no whitespace.
 
+## Delegation Canonical Form
+
+All delegations (root and subdelegation) sign the same field set.
+The `signature` field is excluded. Fields with `null`/`undefined` values are omitted.
+
+**Root delegation example** (spendLimit set):
+```
+{"createdAt":"2026-03-18T00:00:00.000Z","currentDepth":0,"delegatedBy":"abc123","delegatedTo":"def456","delegationId":"del_a1b2c3","expiresAt":"2026-03-19T00:00:00.000Z","maxDepth":2,"scope":["search","memory.read","memory.write","analysis"],"spendLimit":1000,"spentAmount":0}
+```
+
+**Subdelegation example** (same fields — `parentId` is NOT in the signed payload):
+```
+{"createdAt":"2026-03-18T01:00:00.000Z","currentDepth":1,"delegatedBy":"def456","delegatedTo":"ghi789","delegationId":"del_d4e5f6","expiresAt":"2026-03-19T00:00:00.000Z","maxDepth":2,"scope":["search","memory.read"],"spendLimit":500,"spentAmount":0}
+```
+
+**Key interop notes:**
+- `parentId` / `parent_id` is tracked in the chain registry, NOT in the signed object
+- If `spendLimit` is `undefined` (not set), it is **omitted entirely** from the canonical form
+- `spentAmount` defaults to `0` and IS included (it is not null/undefined)
+- `currentDepth` and `maxDepth` are always present (default `0` and `1` respectively)
+- Scope array elements are NOT sorted — order is preserved as provided
+
 ## Signing Flow
 
 ```
