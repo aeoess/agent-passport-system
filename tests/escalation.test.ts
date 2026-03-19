@@ -85,7 +85,7 @@ describe('Escalation Request & Activation', () => {
       expiresAt: future(86400000),
     })
 
-    const approvalSig = signRaw(canonicalize({ approve: grant.grantId }), human.privateKey)
+    const approvalSig = signRaw(canonicalize({ approve: grant.grantId, grantedTo: grant.grantedTo }), human.privateKey)
 
     const request = requestEscalation({
       grant, agentPrivateKey: agent.privateKey, agentPublicKey: agent.publicKey,
@@ -152,7 +152,7 @@ describe('Escalated Action Checks', () => {
       allowedActionClasses: ['tentative'],
       expiresAt: future(86400000),
     })
-    const approvalSig = signRaw(canonicalize({ approve: grant.grantId }), human.privateKey)
+    const approvalSig = signRaw(canonicalize({ approve: grant.grantId, grantedTo: grant.grantedTo }), human.privateKey)
     const request = requestEscalation({
       grant, agentPrivateKey: agent.privateKey, agentPublicKey: agent.publicKey,
       trigger: { type: 'human_authorized', evidence: 'test', humanApprovalSignature: approvalSig },
@@ -209,7 +209,7 @@ describe('Escalation Lifecycle', () => {
       ceiling: { scope: ['data:read'], maxSpend: 50, maxDurationMs: 60000 },
       expiresAt: future(86400000),
     })
-    const approvalSig = signRaw(canonicalize({ approve: grant.grantId }), human.privateKey)
+    const approvalSig = signRaw(canonicalize({ approve: grant.grantId, grantedTo: grant.grantedTo }), human.privateKey)
     const request = requestEscalation({
       grant, agentPrivateKey: agent.privateKey, agentPublicKey: agent.publicKey,
       trigger: { type: 'human_authorized', evidence: 'test', humanApprovalSignature: approvalSig },
@@ -236,7 +236,7 @@ describe('Escalation Lifecycle', () => {
       ceiling: { scope: ['data:read'], maxSpend: 50, maxDurationMs: 1 }, // 1ms TTL
       expiresAt: future(86400000),
     })
-    const approvalSig = signRaw(canonicalize({ approve: grant.grantId }), human.privateKey)
+    const approvalSig = signRaw(canonicalize({ approve: grant.grantId, grantedTo: grant.grantedTo }), human.privateKey)
     const request = requestEscalation({
       grant, agentPrivateKey: agent.privateKey, agentPublicKey: agent.publicKey,
       trigger: { type: 'human_authorized', evidence: 'test', humanApprovalSignature: approvalSig },

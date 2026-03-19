@@ -220,9 +220,20 @@ export function activateEscalation(opts: {
     throw new Error(`Trigger "${request.trigger.type}" not allowed`)
   }
 
-  // For human_authorized, verify the human signature exists
-  if (request.trigger.type === 'human_authorized' && !request.trigger.humanApprovalSignature) {
-    throw new Error('human_authorized trigger requires humanApprovalSignature')
+  // For human_authorized, verify the human signature cryptographically (V5-HIGH-3 fix)
+  if (request.trigger.type === 'human_authorized') {
+    if (!request.trigger.humanApprovalSignature) {
+      throw new Error('human_authorized trigger requires humanApprovalSignature')
+    }
+    // Verify the approval was actually signed by the granter
+    const approvalPayload = canonicalize({ approve: grant.grantId, grantedTo: grant.grantedTo })
+    let approvalValid = false
+    try {
+      approvalValid = verify(approvalPayload, request.trigger.humanApprovalSignature, grant.grantedBy)
+    } catch { approvalValid = false }
+    if (!approvalValid) {
+      throw new Error('human_authorized trigger has invalid approval signature — not signed by granter')
+    }
   }
 
   const expiresAt = new Date(Date.now() + grant.ceiling.maxDurationMs).toISOString()
