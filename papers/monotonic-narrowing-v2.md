@@ -423,7 +423,7 @@ All empirical results in this paper refer to SDK v1.16.1 (commit c1842eb, March 
 
 To reproduce the test results:
 
-    npm install agent-passport-system@1.16.0
+    npm install agent-passport-system@1.16.1
     npm test
     # Expected: 866 tests, 239 suites, 0 failures
     # Adversarial scenarios: tests/adversarial*.test.ts
@@ -511,7 +511,7 @@ We have presented monotonic narrowing as a unifying design principle for autonom
 
 The central claim of this paper is that these four invariants are not independent properties but compositional constraints with formal precedence relationships. Governance weakening is itself treated as a bounded exception, subject to exception attenuation. Escalation ceilings are subject to delegation attenuation. Disclosure bounds inherit from delegation scope. The framework is self-referential by design.
 
-The protocol is implemented as 35 modules with 866 tests, published as open-source TypeScript and Python SDKs with a 61-tool MCP server. All claims are reproducible: `npm install agent-passport-system@1.16.0 && npm test`. The ProxyGateway enforcement boundary mediates all privileged effects, providing strong guarantees under the reference monitor deployment model.
+The protocol is implemented as 35 modules with 866 tests, published as open-source TypeScript and Python SDKs with a 61-tool MCP server. All claims are reproducible: `npm install agent-passport-system@1.16.1 && npm test`. The ProxyGateway enforcement boundary mediates all privileged effects, providing strong guarantees under the reference monitor deployment model.
 
 This paper addresses authority bounding and verifiable provenance for autonomous AI agents. It does not claim to solve full agent alignment, prevent prompt injection, or provide runtime compromise resistance. We identify 10 open problems honestly, including 2 that are provably hard (collusion, workflow satisfiability) and 1 that is out of scope (runtime attestation). We present these limitations as contributions: knowing what cannot be solved at the protocol level is as valuable as knowing what can.
 
