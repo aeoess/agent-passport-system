@@ -25,7 +25,7 @@
 // ══════════════════════════════════════════════════════════════════
 
 import { v4 as uuidv4 } from 'uuid'
-import { verify } from '../crypto/keys.js'
+import { verify, sign as signData } from '../crypto/keys.js'
 import { canonicalize } from './canonical.js'
 import { createActionIntent, evaluateIntent, createPolicyReceipt, FloorValidatorV1 } from './policy.js'
 import { verifyDelegation, createReceipt, scopeAuthorizes, getRevocation } from './delegation.js'
@@ -38,6 +38,10 @@ import {
   verifyGovernanceArtifact, classifyGovernanceChange,
   loadGovernanceArtifact as loadGovArtifact
 } from './governance.js'
+import {
+  checkEscalatedAction, isEscalationActive, revokeEscalation,
+  type ActiveEscalation, type EscalationGrant, type ActionClass
+} from './escalation.js'
 import { DEFAULT_LOAD_POLICY } from '../types/governance.js'
 import type { GovernanceArtifact, GovernanceEnvelope, GovernanceLoadPolicy, GovernanceDiff } from '../types/governance.js'
 import {
@@ -94,7 +98,11 @@ export class ProxyGateway {
     demotions: 0,
     governanceUpdates: 0,
     governanceWeakeningBlocked: 0,
-    governanceStaleBlocks: 0
+    governanceStaleBlocks: 0,
+    escalationsActivated: 0,
+    escalationsUsed: 0,
+    escalationsExpired: 0,
+    escalationsDenied: 0
   }
 
   constructor(config: GatewayConfig, executor: ToolExecutor) {
@@ -166,6 +174,8 @@ export class ProxyGateway {
       authorityTier,
       governanceVersion: this.config.enableGovernanceEnforcement && this.config.governanceEnvelope
         ? this.config.governanceEnvelope.artifact.version : undefined,
+      escalationGrants: this.config.enableEscalation ? [] : undefined,
+      activeEscalations: this.config.enableEscalation ? [] : undefined,
     })
     this.stats.activeAgents = this.agents.size
     return { registered: true }
@@ -284,13 +294,55 @@ export class ProxyGateway {
     }
 
     // Step 2: Find and verify delegation
-    const delegation = this.findDelegation(agent, request)
+    let delegation = this.findDelegation(agent, request)
+    let viaEscalation = false
+    let usedEscalationId: string | undefined
+    let escalationDelegation: Delegation | undefined
+
     if (!delegation) {
-      this.stats.totalDenied++
-      return {
-        executed: false, requestId: request.requestId,
-        denialReason: `No valid delegation covers scope "${request.scopeRequired}" for tool "${request.tool}"`
+      // Step 2.1: Escalation fallback (Module 27 / INV-4)
+      // If no delegation covers this action, check for active escalation grants
+      if (this.config.enableEscalation && agent.activeEscalations) {
+        // Expire stale escalations first
+        this._expireAgentEscalations(agent)
+
+        const esc = agent.activeEscalations.find(e => {
+          if (!isEscalationActive(e)) return false
+          const grant = agent.escalationGrants?.find(g => g.grantId === e.grantId)
+          if (!grant) return false
+          const check = checkEscalatedAction({
+            escalation: e, grant,
+            action: request.scopeRequired,
+            actionClass: 'tentative', // default — gateway can only do tentative via escalation
+            spend: request.spend?.amount,
+          })
+          return check.permitted
+        })
+
+        if (esc) {
+          viaEscalation = true
+          usedEscalationId = esc.escalationId
+          // Track spend
+          if (request.spend) {
+            esc.spentDuringEscalation += request.spend.amount
+          }
+          this.stats.escalationsUsed = (this.stats.escalationsUsed ?? 0) + 1
+          this.config.onEscalationUsed?.(request.agentId, esc.escalationId, request.tool)
+          // Use the first delegation from agent's set as the base for intent creation
+          // (escalation extends beyond delegation scope, but we need a delegation for the 3-sig chain)
+          escalationDelegation = agent.delegations.values().next().value
+        }
       }
+
+      if (!viaEscalation) {
+        this.stats.totalDenied++
+        return {
+          executed: false, requestId: request.requestId,
+          denialReason: `No valid delegation covers scope "${request.scopeRequired}" for tool "${request.tool}"`
+        }
+      }
+      // Use escalation delegation as base
+      delegation = escalationDelegation!
     }
 
     const delegationStatus = verifyDelegation(delegation)
@@ -333,6 +385,16 @@ export class ProxyGateway {
 
     // Step 4: Evaluate intent against policy
     const validationCtx = this.buildValidationContext(agent, delegation)
+    // INV-4: Override scope for escalated actions — use escalation's effective scope
+    if (viaEscalation && usedEscalationId) {
+      const esc = agent.activeEscalations?.find(e => e.escalationId === usedEscalationId)
+      if (esc) {
+        validationCtx.delegation.scope = esc.effectiveScope
+        if (esc.effectiveSpendLimit !== undefined) {
+          validationCtx.delegation.spendLimit = esc.effectiveSpendLimit
+        }
+      }
+    }
     const decision = evaluateIntent({
       intent,
       evaluatorId: this.config.gatewayId,
@@ -498,10 +560,38 @@ export class ProxyGateway {
     }
 
     // Step 7: Generate receipt (GATEWAY signs, not agent)
-    const receipt = createReceipt({
-      agentId: this.config.gatewayId,
-      delegationId: delegation.delegationId,
-      delegation: delegation,
+    // For escalated actions, build receipt directly (base delegation's scope doesn't cover
+    // the escalated action — that's the whole point of escalation). The gateway IS the
+    // enforcement boundary and is authorized to sign receipts for escalated actions.
+    let receipt: ActionReceipt
+    if (viaEscalation && usedEscalationId) {
+      const receiptData: Omit<ActionReceipt, 'signature'> = {
+        receiptId: 'rcpt_' + uuidv4().slice(0, 12),
+        version: '1.1',
+        timestamp: new Date().toISOString(),
+        agentId: this.config.gatewayId,
+        delegationId: delegation.delegationId,
+        action: {
+          type: `gateway:${request.tool}`,
+          target: JSON.stringify(request.params),
+          scopeUsed: request.scopeRequired,
+          spend: request.spend
+        },
+        result: {
+          status: toolResult.success ? 'success' as const : 'failure' as const,
+          summary: toolResult.success
+            ? `Executed ${request.tool} via escalation ${usedEscalationId}`
+            : `Executed ${request.tool} via escalation with error: ${toolResult.error}`
+        },
+        delegationChain: [this.config.gatewayPublicKey],
+      }
+      const canonical = canonicalize(receiptData)
+      receipt = { ...receiptData, signature: signData(canonical, this.config.gatewayPrivateKey) }
+    } else {
+      receipt = createReceipt({
+        agentId: this.config.gatewayId,
+        delegationId: delegation.delegationId,
+        delegation: delegation,
       action: {
         type: `gateway:${request.tool}`,
         target: JSON.stringify(request.params),
@@ -517,6 +607,7 @@ export class ProxyGateway {
       delegationChain: [this.config.gatewayPublicKey],
       privateKey: this.config.gatewayPrivateKey
     })
+    }
 
     // Step 8: Create policy receipt (links all 3 signatures)
     const policyReceipt = createPolicyReceipt({
@@ -638,7 +729,9 @@ export class ProxyGateway {
       sao, flowCheck: flowCheckResult,
       obligationResolutions: obligationResolutions.length > 0 ? obligationResolutions : undefined,
       envelope,
-      tierCheck
+      tierCheck,
+      viaEscalation: viaEscalation || undefined,
+      escalationId: usedEscalationId,
     }
 
     this.config.onToolCall?.(request, result)
@@ -1090,6 +1183,61 @@ export class ProxyGateway {
   /** Get agent's attested governance version */
   getAgentGovernanceVersion(agentId: string): string | undefined {
     return this.agents.get(agentId)?.governanceVersion
+  }
+
+  // ── Escalation Enforcement (Module 27 / INV-4) ──
+
+  /** Add an escalation grant for an agent */
+  addEscalationGrant(agentId: string, grant: EscalationGrant): { added: boolean; error?: string } {
+    const agent = this.agents.get(agentId)
+    if (!agent) return { added: false, error: 'Agent not registered' }
+    if (!this.config.enableEscalation) return { added: false, error: 'Escalation not enabled' }
+    if (!agent.escalationGrants) agent.escalationGrants = []
+    agent.escalationGrants.push(grant)
+    return { added: true }
+  }
+
+  /** Activate an escalation for an agent (gateway validates and activates) */
+  activateAgentEscalation(agentId: string, escalation: ActiveEscalation): { activated: boolean; error?: string } {
+    const agent = this.agents.get(agentId)
+    if (!agent) return { activated: false, error: 'Agent not registered' }
+    if (!this.config.enableEscalation) return { activated: false, error: 'Escalation not enabled' }
+    if (!agent.activeEscalations) agent.activeEscalations = []
+
+    // Expire stale ones first
+    this._expireAgentEscalations(agent)
+
+    // Check max concurrent
+    const maxConcurrent = this.config.maxConcurrentEscalations ?? 1
+    const activeCount = agent.activeEscalations.filter(e => isEscalationActive(e)).length
+    if (activeCount >= maxConcurrent) {
+      this.stats.escalationsDenied = (this.stats.escalationsDenied ?? 0) + 1
+      return { activated: false, error: `Max concurrent escalations reached (${maxConcurrent})` }
+    }
+
+    agent.activeEscalations.push(escalation)
+    this.stats.escalationsActivated = (this.stats.escalationsActivated ?? 0) + 1
+    return { activated: true }
+  }
+
+  /** Get active escalations for an agent */
+  getAgentEscalations(agentId: string): ActiveEscalation[] {
+    const agent = this.agents.get(agentId)
+    if (!agent || !agent.activeEscalations) return []
+    this._expireAgentEscalations(agent)
+    return agent.activeEscalations.filter(e => isEscalationActive(e))
+  }
+
+  /** Expire stale escalations for an agent */
+  private _expireAgentEscalations(agent: RegisteredAgent): void {
+    if (!agent.activeEscalations) return
+    for (const esc of agent.activeEscalations) {
+      if (esc.status === 'active' && !isEscalationActive(esc)) {
+        esc.status = 'expired'
+        this.stats.escalationsExpired = (this.stats.escalationsExpired ?? 0) + 1
+        this.config.onEscalationExpired?.(agent.passport.passport.agentId, esc.escalationId)
+      }
+    }
   }
 
   private findDelegation(agent: RegisteredAgent, request: ToolCallRequest): Delegation | null {

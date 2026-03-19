@@ -16,6 +16,7 @@ import type { Obligation, ObligationResolution } from './obligations.js'
 import type { ExecutionEnvelope } from './execution-envelope.js'
 import type { ScopedReputation, AuthorityTier, TierEscalation, EvidenceClass } from './reputation-authority.js'
 import type { GovernanceArtifact, GovernanceEnvelope, GovernanceLoadPolicy, GovernanceChangeType, GovernanceDiff } from './governance.js'
+import type { ActiveEscalation, EscalationGrant } from '../core/escalation.js'
 
 // ── Tool Executor ──
 // The gateway wraps any tool. This is the abstraction.
@@ -73,6 +74,10 @@ export interface ToolCallResult {
   envelope?: ExecutionEnvelope
   /** Tier escalation info (if reputation gating enabled and action was above tier) */
   tierCheck?: TierEscalation | null
+  /** Whether this action was permitted via bounded escalation (Module 27 / INV-4) */
+  viaEscalation?: boolean
+  /** Escalation ID used (if viaEscalation is true) */
+  escalationId?: string
 }
 
 /** The complete cryptographic proof chain */
@@ -188,6 +193,16 @@ export interface GatewayConfig {
   onGovernanceWeakeningBlocked?: (artifact: GovernanceArtifact, reason: string) => void
   /** Callback: fires when an agent is blocked due to stale governance attestation */
   onGovernanceStaleBlock?: (agentId: string, agentVersion: string, currentVersion: string) => void
+  /** Enable bounded escalation enforcement (Module 27). When true, if delegation check
+   *  fails, gateway checks for active escalation grants before denying. Actions via
+   *  escalation carry a viaEscalation flag in the result. Default: false */
+  enableEscalation?: boolean
+  /** Maximum concurrent active escalations per agent. Default: 1 */
+  maxConcurrentEscalations?: number
+  /** Callback: fires when an action is permitted via escalation */
+  onEscalationUsed?: (agentId: string, escalationId: string, tool: string) => void
+  /** Callback: fires when an escalation expires */
+  onEscalationExpired?: (agentId: string, escalationId: string) => void
 }
 
 // ── Registered Agent ──
@@ -209,6 +224,10 @@ export interface RegisteredAgent {
   authorityTier?: AuthorityTier
   /** Governance artifact version this agent last attested to */
   governanceVersion?: string
+  /** Active escalation grants for this agent */
+  escalationGrants?: EscalationGrant[]
+  /** Currently active escalations */
+  activeEscalations?: ActiveEscalation[]
 }
 
 // ── Gateway Stats ──
@@ -240,4 +259,9 @@ export interface GatewayStats {
   governanceUpdates?: number
   governanceWeakeningBlocked?: number
   governanceStaleBlocks?: number
+  /** Escalation enforcement stats */
+  escalationsActivated?: number
+  escalationsUsed?: number
+  escalationsExpired?: number
+  escalationsDenied?: number
 }
