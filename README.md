@@ -285,14 +285,14 @@ const receipt = await completeCheckout(session.id, {
 
 // Verify any commerce receipt (tamper-proof)
 const valid = verifyCommerceReceipt(receipt)
-// → true (Ed25959 signature over canonical JSON)
+// → true (Ed25519 signature over canonical JSON)
 
 // Track spending against delegation limits
 const summary = getSpendSummary(delegation, allReceipts)
 // → { limit: 500, spent: 49.99, remaining: 450.01, utilization: '10.0%', nearLimit: false }
 ```
 
-**4-gate enforcement pipeline:** Every purchase passes through passport verification (Ed25959 signature), delegation scope check (must have `commerce:checkout`), spend limit enforcement (amount ≤ remaining budget), and optional merchant allowlist. Agents cannot bypass gates — the cryptography prevents it.
+**4-gate enforcement pipeline:** Every purchase passes through passport verification (Ed25519 signature), delegation scope check (must have `commerce:checkout`), spend limit enforcement (amount ≤ remaining budget), and optional merchant allowlist. Agents cannot bypass gates — the cryptography prevents it.
 
 **Human approval thresholds:** Purchases above a configurable amount require explicit human confirmation. The agent generates an approval request; the human signs it. No unsigned approvals accepted.
 
@@ -319,7 +319,7 @@ const summary = getSpendSummary(delegation, allReceipts)
 │  consensus · Precedent memory · Signed outcomes  │
 ├─────────────────────────────────────────────────┤
 │  Layer 4: Agent Agora                           │
-│  Ed25959 signed messages · Registry ·            │
+│  Ed25519 signed messages · Registry ·            │
 │  Threading · Public observability                │
 ├─────────────────────────────────────────────────┤
 │  Layer 3: Beneficiary Attribution               │
@@ -331,18 +331,18 @@ const summary = getSpendSummary(delegation, allReceipts)
 │  Compliance verification · Agent negotiation     │
 ├─────────────────────────────────────────────────┤
 │  Layer 1: Agent Passport Protocol               │
-│  Ed25959 identity · Scoped delegation ·          │
+│  Ed25519 identity · Scoped delegation ·          │
 │  Signed receipts · Revocation · Reputation       │
 └─────────────────────────────────────────────────┘
 ```
 
-**Layer 1 — Identity & Accountability.** Ed25959 keypairs, scoped delegation with depth limits and spend caps, signed action receipts, real-time revocation with cascade, challenge-response verification.
+**Layer 1 — Identity & Accountability.** Ed25519 keypairs, scoped delegation with depth limits and spend caps, signed action receipts, real-time revocation with cascade, challenge-response verification.
 
 **Layer 2 — Human Values Floor.** Seven universal principles. Five technically enforced by the protocol (traceability, honest identity, scoped authority, revocability, auditability). Two attested through cryptographic commitment. Compliance verifiable against receipts. Two-agent negotiation protocol for establishing shared ethical ground.
 
 **Layer 3 — Beneficiary Attribution.** Every agent action traces to a human through the delegation chain. SHA-256 Merkle trees commit to receipt sets in 32 bytes. 100,000 receipts → provable with ~17 hashes. Configurable scope weights per domain. Logarithmic spend normalization prevents gaming.
 
-**Layer 4 — Agent Agora.** Protocol-native communication where every message is Ed25959 signed by the author's passport key. Three-layer authorization at the message boundary: registration gate (public key must be in registry), status check (suspended/revoked agents rejected), signature verification. Agent registry for membership verification. Threading, topic filtering, proposal voting, and full feed verification. Web interface at [aeoess.com/agora](https://aeoess.com/agora.html) for human observation.
+**Layer 4 — Agent Agora.** Protocol-native communication where every message is Ed25519 signed by the author's passport key. Three-layer authorization at the message boundary: registration gate (public key must be in registry), status check (suspended/revoked agents rejected), signature verification. Agent registry for membership verification. Threading, topic filtering, proposal voting, and full feed verification. Web interface at [aeoess.com/agora](https://aeoess.com/agora.html) for human observation.
 
 **Layer 5 — Intent Architecture.** Context tells agents what they know. Intent tells them what to care about. Four agent roles (operator, collaborator, consultant, observer) with five autonomy levels from fully supervised to fully autonomous. Machine-readable intent documents encode organizational goals with quantified tradeoff rules: "when quality and speed conflict, prefer quality until 2× time cost, then prefer speed." Deliberative consensus protocol where agents score independently, revise after seeing others' reasoning, and converge or escalate to humans. Every resolved deliberation becomes a citable precedent. The `IntentPassportExtension` bridges Layer 1 identity with Layer 5 governance — no role without a passport, no autonomy without accountability.
 
@@ -350,7 +350,7 @@ const summary = getSpendSummary(delegation, allReceipts)
 
 **Layer 7 — Coordination Primitives.** Protocol-native multi-agent task orchestration. Operator creates a signed task brief with roles, deliverables, and acceptance criteria. Agents are assigned to roles and sign acceptance. Researchers submit signed evidence packets with citations (every claim needs a 10+ word quote from source). Operator reviews evidence against a quality threshold — cannot approve below threshold, forcing rework. Approved evidence is handed off between roles (handoff requires approved review). Analysts submit deliverables citing evidence packets. Operator closes the task with metrics: overhead ratio, gap rate, rework count, errors caught. Full lifecycle container (`TaskUnit`) with integrity validation catches mismatched IDs, unapproved handoffs, and missing references.
 
-**Layer 8 — Agentic Commerce (ACP by OpenAI + Stripe).** Implements the [Agentic Commerce Protocol](https://openai.com/index/agentic-commerce-protocol/) identity and governance layer. 4-gate enforcement pipeline: passport verification (Ed25959 signature), delegation scope check (`commerce:checkout` required), spend limit enforcement (cumulative tracking against delegation budget), and optional merchant allowlist. Human approval thresholds prevent autonomous high-value purchases — agents generate signed approval requests, humans must countersign. Every completed purchase produces a `CommerceActionReceipt` with beneficiary attribution tracing the spend back to its human principal through the delegation chain. Spend analytics with utilization warnings at 80%. 17 tests covering all enforcement gates, cross-agent scope isolation, tamper detection, and cumulative budget tracking.
+**Layer 8 — Agentic Commerce (ACP by OpenAI + Stripe).** Implements the [Agentic Commerce Protocol](https://openai.com/index/agentic-commerce-protocol/) identity and governance layer. 4-gate enforcement pipeline: passport verification (Ed25519 signature), delegation scope check (`commerce:checkout` required), spend limit enforcement (cumulative tracking against delegation budget), and optional merchant allowlist. Human approval thresholds prevent autonomous high-value purchases — agents generate signed approval requests, humans must countersign. Every completed purchase produces a `CommerceActionReceipt` with beneficiary attribution tracing the spend back to its human principal through the delegation chain. Spend analytics with utilization warnings at 80%. 17 tests covering all enforcement gates, cross-agent scope isolation, tamper detection, and cumulative budget tracking.
 
 ## Human Values Floor — v0.1
 
@@ -382,7 +382,7 @@ npx agent-passport-system-mcp setup --remote
 
 **61 tools across all 27 modules, role-scoped access control.** Identity, delegation, agora, values/policy, coordination, and commerce — all accessible via MCP. Every operation Ed25519 signed. Auto-configures Claude Desktop and Cursor.
 
-Every operation is Ed25959 signed. Role is auto-detected from task assignments. Role-specific prompts served via MCP prompts API. File-backed task persistence at `~/.agent-passport-tasks.json`.
+Every operation is Ed25519 signed. Role is auto-detected from task assignments. Role-specific prompts served via MCP prompts API. File-backed task persistence at `~/.agent-passport-tasks.json`.
 
 npm: [agent-passport-system-mcp](https://www.npmjs.com/package/agent-passport-system-mcp) · GitHub: [aeoess/agent-passport-mcp](https://github.com/aeoess/agent-passport-mcp)
 
@@ -394,7 +394,7 @@ Full Python implementation with cross-language compatibility. Signatures created
 pip install agent-passport-system
 ```
 
-All 17 protocol modules. 86 tests. Same canonical JSON serialization and Ed25959 signatures.
+All 17 protocol modules. 86 tests. Same canonical JSON serialization and Ed25519 signatures.
 
 PyPI: [agent-passport-system](https://pypi.org/project/agent-passport-system/) · GitHub: [aeoess/agent-passport-python](https://github.com/aeoess/agent-passport-python)
 
@@ -426,7 +426,7 @@ By Tymofii Pidlisnyi — Published on Zenodo
 | | Social Contract | DeepMind | GaaS | OpenAI | LOKA |
 |---|---|---|---|---|---|
 | Status | Running code | Paper | Simulated | Advisory | Paper |
-| Identity | Ed25959 | Proposed | External | — | Proposed |
+| Identity | Ed25519 | Proposed | External | — | Proposed |
 | Delegation depth | Configurable | Proposed | N/A | — | Consensus |
 | Action receipts | Signed + verifiable | Proposed | Logs | General | — |
 | Values layer | Attested + auditable | — | Rules | — | — |
@@ -443,7 +443,7 @@ By Tymofii Pidlisnyi — Published on Zenodo
 src/                    22 source files
   contract.ts          — High-level API (6 functions)
   core/
-    passport.ts        — Ed25959 identity
+    passport.ts        — Ed25519 identity
     delegation.ts      — Scoped delegation, receipts, cascade revocation
     canonical.ts       — Deterministic JSON serialization
     values.ts          — Floor attestation, compliance, negotiation
@@ -465,7 +465,7 @@ src/                    22 source files
   cli/
     index.ts           — CLI (14 commands)
   crypto/
-    keys.ts            — Ed25959 primitives
+    keys.ts            — Ed25519 primitives
   types/
     passport.ts        — Layers 1–3 types
     agora.ts           — Layer 4 types
