@@ -131,7 +131,7 @@ Any system consuming these envelopes should enforce at minimum:
 | `decision.verdict` | `PolicyDecision.verdict` (`permit`/`deny`/`narrow`) | `evaluateIntent()` |
 | `decision.evaluator_signature` | `PolicyDecision.signature` | `evaluateIntent()` |
 | `attestation.chain_signatures` | `PolicyReceipt.chain` (intent + decision + receipt) | `createPolicyReceipt()` |
-| `signature` | Ed25519 via `@noble/ed25519` | `sign()` |
+| `signature` | Ed25519 via `node:crypto` | `sign()` |
 
 ### Guardian (xsa520) — decision-artifact-centric model
 

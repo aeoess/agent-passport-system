@@ -62,6 +62,7 @@ export class ProxyGateway {
   private agents: Map<string, RegisteredAgent> = new Map()
   private approvals: Map<string, GatewayApproval> = new Map()
   private usedRequestIds: Map<string, number> = new Map() // requestId → timestamp (NW-001: TTL-based pruning)
+  private requestsSinceCleanup = 0 // V5-MED-4: auto-cleanup counter
   private agentLocks: Map<string, Promise<void>> = new Map() // Per-agent sequential execution (concurrency fix)
   private executor: ToolExecutor
   private stats: GatewayStats = {
@@ -229,6 +230,12 @@ export class ProxyGateway {
 
   private async _processToolCallInner(request: ToolCallRequest): Promise<ToolCallResult> {
     this.stats.totalRequests++
+
+    // V5-MED-4: Periodic auto-cleanup to prevent unbounded memory growth
+    if (++this.requestsSinceCleanup >= 100) {
+      this.clearExpired()
+      this.requestsSinceCleanup = 0
+    }
 
     // Step 0: Replay protection
     if (this.usedRequestIds.has(request.requestId)) {

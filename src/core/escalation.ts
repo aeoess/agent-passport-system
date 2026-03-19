@@ -93,6 +93,17 @@ export function createEscalationGrant(opts: {
   const now = new Date().toISOString()
   const grantId = 'esc_' + uuidv4().slice(0, 12)
 
+  // V5-MED-2: Basic validation at creation time
+  if (!ceiling.scope || ceiling.scope.length === 0) {
+    throw new Error('Escalation grant ceiling must have at least one scope')
+  }
+  if (ceiling.maxSpend < 0) {
+    throw new Error('Escalation grant ceiling maxSpend cannot be negative')
+  }
+  if (ceiling.maxDurationMs <= 0) {
+    throw new Error('Escalation grant ceiling maxDurationMs must be positive')
+  }
+
   const signable = canonicalize({
     grantId, delegationId, grantedTo, grantedBy,
     ceiling, allowedTriggers: allowedTriggers ?? ['human_authorized'],

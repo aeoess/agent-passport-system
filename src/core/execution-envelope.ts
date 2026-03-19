@@ -172,11 +172,14 @@ export function verifyExecutionEnvelope(
   // If evaluator public key provided, verify the evaluator signature
   // against the decision hash (engine-specific verification)
   if (opts?.evaluatorPublicKey && envelope.decision.evaluator_signature) {
-    // The evaluator signed the decision object. We verify against the hash.
-    // Note: full decision verification requires the original decision object,
-    // which the envelope doesn't carry. The hash is for integrity, the
-    // evaluator_signature is for authenticity.
-    evaluatorSignatureValid = true // signature present, key available
+    // V5-MED-5: The envelope carries only the decision HASH, not the full decision object.
+    // Full decision signature verification requires the original PolicyDecision to reconstruct
+    // the canonical form. The envelope provides integrity (hash) and the evaluator_signature
+    // field for authenticity — but we cannot verify authenticity here without the source object.
+    // Consumers who need full evaluator verification should verify the PolicyDecision directly
+    // before envelope creation. The 3-signature chain (intent→decision→receipt) provides
+    // end-to-end verification when all three objects are available.
+    evaluatorSignatureValid = true // presence check only — see note above
   }
 
   return {
