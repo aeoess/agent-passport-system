@@ -502,3 +502,17 @@ export type {
   EscalationGrant, EscalationRequest, ActiveEscalation,
   EscalationVerification, EscalationTriggerType, ActionClass,
 } from './core/escalation.js'
+
+
+// ── Oracle Witness Diversity (Module 28 — Gap 4) ──
+
+export {
+  createWitnessPool, createAttestation, verifyWitnessAttestation,
+  addAttestation, computeDiversityScore, evaluateWitnessConsensus,
+  wouldIncreaseDiversity,
+} from './core/oracle-witness.js'
+
+export type {
+  WitnessAttestation, WitnessPool, WitnessPoolConfig,
+  DiversityScore, WitnessConsensusResult,
+} from './types/oracle-witness.js'
