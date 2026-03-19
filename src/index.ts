@@ -464,3 +464,27 @@ export type {
   ReceiptBatch, ReceiptInclusionProof, ReceiptLedger,
   BatchVerification, BatchChainVerification,
 } from './core/receipt-ledger.js'
+
+
+// ── Precedent Control (Module 25) ──
+
+export {
+  createPrecedentLibrary, markAsNormative, verifyNormativePrecedent,
+  addToLibrary, checkAlignment, supersedePrecedent, analyzeDrift,
+} from './core/precedent.js'
+
+export type {
+  NormativePrecedent, PrecedentAlignment, PrecedentLibrary, DriftAnalysis,
+} from './core/precedent.js'
+
+
+// ── Delegation Re-anchoring (Module 26) ──
+
+export {
+  createDelegationRef, resolvePublicKey, reanchorDelegation,
+  verifyReanchoredDelegation, verifyWithRef, didCoversKey,
+} from './core/reanchor.js'
+
+export type {
+  DelegationRef, ReanchoredDelegation,
+} from './core/reanchor.js'
