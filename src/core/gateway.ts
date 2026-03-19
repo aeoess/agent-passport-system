@@ -34,13 +34,10 @@ import { verifyAttestation } from './values.js'
 import { createTaintLabel, createSAO, createExecutionFrame, recordAccess, checkDataFlow, mergeTaints, verifyCrossChainPermit, isFrameExpired, rotateFrame } from './cross-chain.js'
 import { checkFulfillment, resolveObligation } from './obligations.js'
 import { createExecutionEnvelope } from './execution-envelope.js'
+import { loadGovernanceArtifact as loadGovArtifact } from './governance.js'
 import {
-  verifyGovernanceArtifact, classifyGovernanceChange,
-  loadGovernanceArtifact as loadGovArtifact
-} from './governance.js'
-import {
-  checkEscalatedAction, isEscalationActive, revokeEscalation,
-  type ActiveEscalation, type EscalationGrant, type ActionClass
+  checkEscalatedAction, isEscalationActive,
+  type ActiveEscalation, type EscalationGrant
 } from './escalation.js'
 import { DEFAULT_LOAD_POLICY } from '../types/governance.js'
 import type { GovernanceArtifact, GovernanceEnvelope, GovernanceLoadPolicy, GovernanceDiff } from '../types/governance.js'

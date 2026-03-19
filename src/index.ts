@@ -232,7 +232,7 @@ export { ProxyGateway, createProxyGateway } from './core/gateway.js'
 export type {
   ToolCallRequest, ToolCallResult, GatewayProof,
   GatewayApproval, ToolExecutor, GatewayConfig,
-  RegisteredAgent, GatewayStats
+  RegisteredAgent, GatewayStats, ActionReversibility
 } from './types/gateway.js'
 
 // ── Layer 9: W3C DID & Verifiable Credentials Bridge ──
