@@ -2,7 +2,7 @@
 
 [![npm version](https://img.shields.io/npm/v/agent-passport-system)](https://www.npmjs.com/package/agent-passport-system)
 [![license](https://img.shields.io/npm/l/agent-passport-system)](https://github.com/aeoess/agent-passport-system/blob/main/LICENSE)
-[![tests](https://img.shields.io/badge/tests-595%20passing-brightgreen)](https://github.com/aeoess/agent-passport-system)
+[![tests](https://img.shields.io/badge/tests-785%20passing-brightgreen)](https://github.com/aeoess/agent-passport-system)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18749779.svg)](https://doi.org/10.5281/zenodo.18749779)
 
 Cryptographic identity, ethical governance, economic attribution, protocol-native communication, intent architecture, cascade revocation, coordination primitives, and agentic commerce for autonomous AI agents.
@@ -405,7 +405,7 @@ npm test
 # 785 tests across 43 files, 220 suites, 0 failures
 ```
 
-Includes 23 adversarial tests: Merkle tree tampering, attribution gaming resistance, compliance violations, floor negotiation attacks, wrong-key attestations.
+Includes 73 adversarial tests across 4 test files: Merkle tree tampering, attribution gaming resistance, compliance violations, floor negotiation attacks, wrong-key attestations, cross-chain confused deputy, taint laundering, permit bypass, causal chain manipulation.
 
 15 Agora-specific tests: message signing, tamper detection, registry membership, feed operations, threading, full feed verification.
 
@@ -434,13 +434,13 @@ By Tymofii Pidlisnyi — Published on Zenodo
 | Communication | Signed Agora | — | — | — | — |
 | Coordination | Task units + MCP server | — | — | — | — |
 | Commerce | ACP + 4-gate enforcement | — | — | — | — |
-| Tests | 595 (23 adversarial) | None | Limited | None | None |
+| Tests | 785 (73 adversarial) | None | Limited | None | None |
 | Dependencies | Node.js crypto + uuid | — | Multi-LLM | — | Consensus network |
 
 ## Structure
 
 ```
-src/                    22 source files
+src/                    32 source files
   contract.ts          — High-level API (6 functions)
   core/
     passport.ts        — Ed25519 identity
@@ -462,6 +462,19 @@ src/                    22 source files
     euaiact.ts         — EU AI Act compliance
     principal.ts       — Principal identity, endorsement, fleet
     reputation-authority.ts — Bayesian trust, tier authority, promotions
+    gateway.ts         — ProxyGateway enforcement boundary
+    cross-chain.ts     — Taint tracking, confused deputy prevention, SAOs
+    encrypted-messaging.ts — E2E encrypted Agora messages (X25519 + XSalsa20)
+    obligations.ts     — Duties on delegations, penalty severity narrowing
+    execution-envelope.ts — Cross-engine signed execution envelopes
+    intent-network.ts  — IntentCards, semantic matching, introductions
+    governance.ts      — Governance artifact provenance, weakening controls
+    identity.ts        — Key rotation with continuity proofs
+    receipt-ledger.ts  — Merkle-committed audit batches
+    feasibility.ts     — Preflight linting for delegations and tasks
+    precedent.ts       — Normative precedent library, drift detection
+    reanchor.ts        — Delegation re-anchoring to DIDs
+    escalation.ts      — Bounded escalation (4th attenuation invariant)
   cli/
     index.ts           — CLI (14 commands)
   crypto/
@@ -481,6 +494,9 @@ src/                    22 source files
     reputation-authority.ts — Reputation/tier types
 tests/                  43 test files, 785 tests (220 suites)
   adversarial.ts       — 23 adversarial cases
+  adversarial-paper.test.ts — 22 paper-linked attack scenarios
+  adversarial-causal-chain.test.ts — 18 causal chain attacks
+  adversarial-audit-v2.test.ts — 10 gateway audit attack vectors
   agora.test.ts        — 15 Agora tests
   contract.test.ts     — High-level API tests
   passport.test.ts     — v1.0 primitives
