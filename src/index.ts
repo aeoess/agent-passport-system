@@ -395,6 +395,23 @@ export type {
   EvaluationMethod, EnvelopeVerdict, RevocationStatus
 } from './types/execution-envelope.js'
 
+// ── Governance Artifact Provenance (Module 21) ──
+
+export {
+  hashContent,
+  createGovernanceArtifact, verifyGovernanceArtifact,
+  approveArtifact, verifyApproval,
+  createGovernanceEnvelope, loadGovernanceArtifact,
+  upgradeGovernanceArtifact,
+  DEFAULT_LOAD_POLICY,
+} from './core/governance.js'
+
+export type {
+  GovernanceArtifact, GovernanceApproval, GovernanceVerification,
+  GovernanceEnvelope, GovernanceLoadPolicy,
+} from './types/governance.js'
+
+
 // ── Obligations Model (Module 20) ──
 
 export {
