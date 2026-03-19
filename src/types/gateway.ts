@@ -15,6 +15,7 @@ import type { SignedAuthorityObject, FlowCheckResult, ExecutionFrame, CrossChain
 import type { Obligation, ObligationResolution } from './obligations.js'
 import type { ExecutionEnvelope } from './execution-envelope.js'
 import type { ScopedReputation, AuthorityTier, TierEscalation, EvidenceClass } from './reputation-authority.js'
+import type { GovernanceArtifact, GovernanceEnvelope, GovernanceLoadPolicy, GovernanceChangeType, GovernanceDiff } from './governance.js'
 
 // ── Tool Executor ──
 // The gateway wraps any tool. This is the abstraction.
@@ -172,6 +173,21 @@ export interface GatewayConfig {
   onReputationUpdated?: (agentId: string, reputation: ScopedReputation, tier: AuthorityTier) => void
   /** Callback: fires when an agent is automatically demoted */
   onDemotion?: (agentId: string, fromTier: number, toTier: number, reason: string) => void
+  /** Enable governance artifact enforcement (Module 21). When true, gateway verifies
+   *  governance artifact signatures and blocks agents with stale attestations after
+   *  governance updates. Weakening changes require higher-order authorization.
+   *  Core invariant: governance can only strengthen; weakening requires escalation. Default: false */
+  enableGovernanceEnforcement?: boolean
+  /** Current governance envelope (signed artifact + approvals). Set via updateGovernance(). */
+  governanceEnvelope?: GovernanceEnvelope
+  /** Load policy for governance artifacts. Default: DEFAULT_LOAD_POLICY */
+  governanceLoadPolicy?: GovernanceLoadPolicy
+  /** Callback: fires when governance is updated */
+  onGovernanceChange?: (diff: GovernanceDiff, artifact: GovernanceArtifact) => void
+  /** Callback: fires when a governance weakening is blocked */
+  onGovernanceWeakeningBlocked?: (artifact: GovernanceArtifact, reason: string) => void
+  /** Callback: fires when an agent is blocked due to stale governance attestation */
+  onGovernanceStaleBlock?: (agentId: string, agentVersion: string, currentVersion: string) => void
 }
 
 // ── Registered Agent ──
@@ -191,6 +207,8 @@ export interface RegisteredAgent {
   reputation?: ScopedReputation
   /** Agent's current authority tier computed from reputation */
   authorityTier?: AuthorityTier
+  /** Governance artifact version this agent last attested to */
+  governanceVersion?: string
 }
 
 // ── Gateway Stats ──
@@ -218,4 +236,8 @@ export interface GatewayStats {
   tierDenials?: number
   reputationUpdates?: number
   demotions?: number
+  /** Governance enforcement stats */
+  governanceUpdates?: number
+  governanceWeakeningBlocked?: number
+  governanceStaleBlocks?: number
 }

@@ -35,6 +35,12 @@ import { createTaintLabel, createSAO, createExecutionFrame, recordAccess, checkD
 import { checkFulfillment, resolveObligation } from './obligations.js'
 import { createExecutionEnvelope } from './execution-envelope.js'
 import {
+  verifyGovernanceArtifact, classifyGovernanceChange,
+  loadGovernanceArtifact as loadGovArtifact
+} from './governance.js'
+import { DEFAULT_LOAD_POLICY } from '../types/governance.js'
+import type { GovernanceArtifact, GovernanceEnvelope, GovernanceLoadPolicy, GovernanceDiff } from '../types/governance.js'
+import {
   computeEffectiveScore, createScopedReputation, resolveAuthorityTier,
   checkTierForIntent, updateReputationFromResult, shouldDemote,
   triggerDemotion, DEFAULT_TIERS
@@ -85,7 +91,10 @@ export class ProxyGateway {
     obligationsTerminated: 0,
     tierDenials: 0,
     reputationUpdates: 0,
-    demotions: 0
+    demotions: 0,
+    governanceUpdates: 0,
+    governanceWeakeningBlocked: 0,
+    governanceStaleBlocks: 0
   }
 
   constructor(config: GatewayConfig, executor: ToolExecutor) {
@@ -155,6 +164,8 @@ export class ProxyGateway {
       obligations: this.config.enableObligationMonitoring ? [] : undefined,
       reputation,
       authorityTier,
+      governanceVersion: this.config.enableGovernanceEnforcement && this.config.governanceEnvelope
+        ? this.config.governanceEnvelope.artifact.version : undefined,
     })
     this.stats.activeAgents = this.agents.size
     return { registered: true }
@@ -286,6 +297,23 @@ export class ProxyGateway {
     if (!delegationStatus.valid || delegationStatus.expired || delegationStatus.revoked) {
       this.stats.totalDenied++
       return { executed: false, requestId: request.requestId, denialReason: `Delegation ${delegation.delegationId} is no longer valid` }
+    }
+
+    // Step 2.5: Governance staleness check (Module 21 / INV-2)
+    // If governance enforcement is enabled and the agent's attested version doesn't
+    // match the current governance version, block the action until re-attestation.
+    if (this.config.enableGovernanceEnforcement && this.config.governanceEnvelope) {
+      const currentVersion = this.config.governanceEnvelope.artifact.version
+      const agentVersion = agent.governanceVersion
+      if (agentVersion !== currentVersion) {
+        this.stats.totalDenied++
+        this.stats.governanceStaleBlocks = (this.stats.governanceStaleBlocks ?? 0) + 1
+        this.config.onGovernanceStaleBlock?.(request.agentId, agentVersion ?? 'none', currentVersion)
+        return {
+          executed: false, requestId: request.requestId,
+          denialReason: `Governance stale: agent attested to v${agentVersion ?? 'none'}, current is v${currentVersion}. Re-attestation required.`
+        }
+      }
     }
 
     // Step 3: Create intent
@@ -728,6 +756,24 @@ export class ProxyGateway {
       }
     }
 
+    // Governance staleness recheck at execution time (Module 21 / INV-2)
+    // Even if the approval was granted under the old governance, execution
+    // must verify the agent's attestation is still current.
+    if (this.config.enableGovernanceEnforcement && this.config.governanceEnvelope) {
+      const currentVersion = this.config.governanceEnvelope.artifact.version
+      const agentVersion = agent.governanceVersion
+      if (agentVersion !== currentVersion) {
+        this.stats.totalDenied++
+        this.stats.governanceStaleBlocks = (this.stats.governanceStaleBlocks ?? 0) + 1
+        this.config.onGovernanceStaleBlock?.(approval.agentId, agentVersion ?? 'none', currentVersion)
+        return {
+          executed: false, requestId: approval.requestId,
+          denialReason: `Governance stale at execution: agent attested to v${agentVersion ?? 'none'}, current is v${currentVersion}`,
+          decision: approval.decision
+        }
+      }
+    }
+
     // Cross-chain data flow check (Module 18)
     let flowCheckResult: import('../types/cross-chain.js').FlowCheckResult | undefined
     if (this.config.enableCrossChainEnforcement && agent.executionFrame) {
@@ -974,6 +1020,76 @@ export class ProxyGateway {
       demotionCount: agent.authorityTier?.demotionCount ?? 0,
     }
     return true
+  }
+
+  // ── Governance Enforcement (Module 21 / INV-2) ──
+
+  /** Update the gateway's governance artifact. Enforces INV-2: governance can only
+   *  strengthen; weakening requires higher-order authorization (more approvals). */
+  updateGovernance(envelope: GovernanceEnvelope, previousArtifact?: GovernanceArtifact | null): {
+    accepted: boolean; error?: string; diff?: GovernanceDiff
+  } {
+    if (!this.config.enableGovernanceEnforcement) {
+      return { accepted: false, error: 'Governance enforcement not enabled' }
+    }
+
+    const policy = this.config.governanceLoadPolicy ?? DEFAULT_LOAD_POLICY
+    const verification = loadGovArtifact(envelope, policy, previousArtifact ?? this.config.governanceEnvelope?.artifact ?? null)
+
+    if (!verification.valid) {
+      // Check specifically for weakening block
+      if (!verification.weakeningApproved) {
+        this.stats.governanceWeakeningBlocked = (this.stats.governanceWeakeningBlocked ?? 0) + 1
+        this.config.onGovernanceWeakeningBlocked?.(envelope.artifact, verification.errors.join('; '))
+      }
+      return { accepted: false, error: verification.errors.join('; ') }
+    }
+
+    // Compute diff if we have a previous artifact
+    let diff: GovernanceDiff | undefined
+    if (this.config.governanceEnvelope) {
+      const prev = this.config.governanceEnvelope.artifact
+      // Extract principle IDs or item identifiers from content for diff
+      // Use additions/removals from the artifact metadata
+      diff = {
+        changeType: envelope.artifact.changeType,
+        additions: envelope.artifact.additions,
+        modifications: envelope.artifact.modifications,
+        removals: envelope.artifact.removals,
+        isWeakening: envelope.artifact.removals.length > 0,
+        isStrengthening: envelope.artifact.additions.length > 0 && envelope.artifact.removals.length === 0,
+      }
+    }
+
+    // Accept the update
+    this.config.governanceEnvelope = envelope
+    this.stats.governanceUpdates = (this.stats.governanceUpdates ?? 0) + 1
+    this.config.onGovernanceChange?.(diff ?? {
+      changeType: 'initial', additions: [], modifications: [], removals: [],
+      isWeakening: false, isStrengthening: false,
+    }, envelope.artifact)
+
+    return { accepted: true, diff }
+  }
+
+  /** Re-attest an agent to the current governance version after an update. */
+  reattestGovernance(agentId: string): { success: boolean; error?: string } {
+    const agent = this.agents.get(agentId)
+    if (!agent) return { success: false, error: 'Agent not registered' }
+    if (!this.config.enableGovernanceEnforcement) return { success: false, error: 'Governance enforcement not enabled' }
+    if (!this.config.governanceEnvelope) return { success: false, error: 'No governance artifact loaded' }
+    agent.governanceVersion = this.config.governanceEnvelope.artifact.version
+    return { success: true }
+  }
+
+  /** Get current governance artifact version */
+  getGovernanceVersion(): string | undefined {
+    return this.config.governanceEnvelope?.artifact.version
+  }
+
+  /** Get agent's attested governance version */
+  getAgentGovernanceVersion(agentId: string): string | undefined {
+    return this.agents.get(agentId)?.governanceVersion
   }
 
   private findDelegation(agent: RegisteredAgent, request: ToolCallRequest): Delegation | null {
