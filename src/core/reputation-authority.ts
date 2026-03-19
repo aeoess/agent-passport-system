@@ -37,6 +37,20 @@ export const INITIAL_SIGMA = MAX_SIGMA
 /** Points added to promotion threshold per demotion (cryptographic scarring) */
 export const SCARRING_PENALTY = 5
 
+// ── Temporal Decay ──
+
+/**
+ * Half-life for sigma recovery when an agent is inactive.
+ * After this many days without activity, sigma increases by half the remaining
+ * gap to MAX_SIGMA.  Concretely:
+ *
+ *   sigma_new = sigma + (MAX_SIGMA - sigma) * (1 - 0.5^(days / SIGMA_HALF_LIFE_DAYS))
+ *
+ * Default: 30 days half-life — a highly-active agent who goes quiet for
+ * a month should carry meaningfully more uncertainty.
+ */
+export const SIGMA_HALF_LIFE_DAYS = 30
+
 /** Default tier definitions with hysteresis */
 export const DEFAULT_TIERS: TierDefinition[] = [
   { tier: 0, name: 'recruit',    promoteAt: 0,  demoteAt: -1,  autonomyLevel: 1 as AutonomyLevel, maxDelegationDepth: 0, maxSpendPerAction: 0 },
@@ -585,5 +599,63 @@ export function updateReputationFromResult(
     sigma: Math.round(newSigma * 100) / 100,
     receiptCount: rep.receiptCount + 1,
     lastUpdatedAt: new Date().toISOString(),
+  }
+}
+
+// ── Temporal Sigma Decay ──
+
+/**
+ * Apply time-based uncertainty growth to a reputation state.
+ *
+ * Agents earn low sigma (high confidence) through a track record of
+ * successful actions.  But old evidence is less informative than recent
+ * evidence: a highly-trusted agent who has been inactive for months may
+ * have changed models, policies, or behaviour in ways the historical
+ * receipts cannot capture.
+ *
+ * This function implements exponential sigma recovery toward MAX_SIGMA:
+ *
+ *   gap   = MAX_SIGMA - sigma
+ *   decay = gap * (1 - 0.5^(inactiveDays / halfLifeDays))
+ *   sigma_new = sigma + decay
+ *
+ * Properties:
+ * - Idempotent: zero days of inactivity → no change.
+ * - Bounded: sigma never exceeds MAX_SIGMA.
+ * - Preserves mu: capability estimate is unchanged — only confidence drops.
+ * - Composable: call at query time by passing `now` minus `lastUpdatedAt`.
+ *
+ * Example (halfLife = 30 days):
+ *   sigma=5, inactive 30 days → sigma ≈ 15.0  (halfway to MAX_SIGMA=25)
+ *   sigma=5, inactive 60 days → sigma ≈ 20.0  (¾ of the way)
+ *   sigma=5, inactive 90 days → sigma ≈ 22.5  (⅞ of the way)
+ *
+ * @param rep          Current reputation state (read `lastUpdatedAt` from here).
+ * @param now          Current wall-clock time used to compute inactivity.
+ * @param halfLifeDays Days until sigma closes half the gap to MAX_SIGMA.
+ *                     Defaults to SIGMA_HALF_LIFE_DAYS (30 days).
+ * @returns            New reputation state with decayed sigma and updated
+ *                     `lastUpdatedAt` set to `now`.
+ */
+export function applyTemporalDecay(
+  rep: ScopedReputation,
+  now: Date = new Date(),
+  halfLifeDays: number = SIGMA_HALF_LIFE_DAYS
+): ScopedReputation {
+  const lastActive = new Date(rep.lastUpdatedAt)
+  const inactiveMs = now.getTime() - lastActive.getTime()
+
+  // Negative or zero gap → no change (clock skew / same-instant call)
+  if (inactiveMs <= 0) return rep
+
+  const inactiveDays = inactiveMs / (1000 * 60 * 60 * 24)
+  const gap = MAX_SIGMA - rep.sigma
+  const decay = gap * (1 - Math.pow(0.5, inactiveDays / halfLifeDays))
+  const newSigma = Math.min(MAX_SIGMA, rep.sigma + decay)
+
+  return {
+    ...rep,
+    sigma: Math.round(newSigma * 100) / 100,
+    lastUpdatedAt: now.toISOString(),
   }
 }

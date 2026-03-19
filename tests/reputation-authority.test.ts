@@ -6,7 +6,7 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 
 import {
-  DEFAULT_K, MAX_SIGMA, INITIAL_MU, INITIAL_SIGMA, SCARRING_PENALTY,
+  DEFAULT_K, MAX_SIGMA, INITIAL_MU, INITIAL_SIGMA, SCARRING_PENALTY, SIGMA_HALF_LIFE_DAYS,
   DEFAULT_TIERS, DEFAULT_PROMOTION_REQUIREMENTS,
   computeEffectiveScore, createScopedReputation,
   classifyEvidence, resolveAuthorityTier, shouldDemote,
@@ -15,7 +15,7 @@ import {
   meetsPromotionRequirements,
   createPromotionReview, validatePromotionReview,
   triggerDemotion, checkTierForIntent, advisoryTierPrecheck,
-  updateReputationFromResult, generateKeyPair
+  updateReputationFromResult, applyTemporalDecay, generateKeyPair
 } from '../src/index.js'
 
 import type {
@@ -711,5 +711,122 @@ describe('updateReputationFromResult', () => {
     const score = computeEffectiveScore(rep.mu, rep.sigma)
     assert.ok(score > 0, `Effective score should be positive: ${score}`)
     assert.equal(rep.receiptCount, 20)
+  })
+})
+
+// ══════════════════════════════════════
+// 10. Temporal Sigma Decay
+// ══════════════════════════════════════
+
+describe('applyTemporalDecay', () => {
+  // Helper: create a rep with low sigma (agent has track record)
+  function lowSigmaRep(sigma: number = 5): ReturnType<typeof createScopedReputation> {
+    const rep = createScopedReputation('p', 'a', 's')
+    return { ...rep, sigma }
+  }
+
+  // Helper: date N days in the future
+  function daysLater(rep: ReturnType<typeof createScopedReputation>, days: number): Date {
+    return new Date(new Date(rep.lastUpdatedAt).getTime() + days * 24 * 60 * 60 * 1000)
+  }
+
+  it('no change when now === lastUpdatedAt', () => {
+    const rep = lowSigmaRep(5)
+    const result = applyTemporalDecay(rep, new Date(rep.lastUpdatedAt))
+    assert.equal(result.sigma, 5)
+  })
+
+  it('no change for zero or negative elapsed time (clock skew guard)', () => {
+    const rep = lowSigmaRep(5)
+    const past = new Date(new Date(rep.lastUpdatedAt).getTime() - 1000)
+    const result = applyTemporalDecay(rep, past)
+    assert.equal(result.sigma, 5)
+  })
+
+  it('sigma increases after inactivity', () => {
+    const rep = lowSigmaRep(5)
+    const result = applyTemporalDecay(rep, daysLater(rep, 30))
+    assert.ok(result.sigma > 5, `sigma should grow: ${result.sigma}`)
+  })
+
+  it('one half-life: sigma closes half the gap to MAX_SIGMA', () => {
+    const rep = lowSigmaRep(5) // gap = MAX_SIGMA(25) - 5 = 20
+    const result = applyTemporalDecay(rep, daysLater(rep, SIGMA_HALF_LIFE_DAYS))
+    // expected: 5 + 20 * (1 - 0.5^1) = 5 + 10 = 15
+    assert.ok(Math.abs(result.sigma - 15) < 0.05, `expected ≈15, got ${result.sigma}`)
+  })
+
+  it('two half-lives: sigma closes ¾ of the gap', () => {
+    const rep = lowSigmaRep(5) // gap = 20
+    const result = applyTemporalDecay(rep, daysLater(rep, SIGMA_HALF_LIFE_DAYS * 2))
+    // expected: 5 + 20 * (1 - 0.5^2) = 5 + 15 = 20
+    assert.ok(Math.abs(result.sigma - 20) < 0.05, `expected ≈20, got ${result.sigma}`)
+  })
+
+  it('sigma never exceeds MAX_SIGMA regardless of elapsed time', () => {
+    const rep = lowSigmaRep(5)
+    const result = applyTemporalDecay(rep, daysLater(rep, 3650)) // 10 years
+    assert.ok(result.sigma <= MAX_SIGMA, `sigma must not exceed MAX_SIGMA: ${result.sigma}`)
+  })
+
+  it('does not change mu (capability estimate preserved)', () => {
+    const rep = { ...lowSigmaRep(5), mu: 72 }
+    const result = applyTemporalDecay(rep, daysLater(rep, 60))
+    assert.equal(result.mu, 72)
+  })
+
+  it('does not change receiptCount', () => {
+    const rep = { ...lowSigmaRep(5), receiptCount: 42 }
+    const result = applyTemporalDecay(rep, daysLater(rep, 30))
+    assert.equal(result.receiptCount, 42)
+  })
+
+  it('updates lastUpdatedAt to now', () => {
+    const rep = lowSigmaRep(5)
+    const now = daysLater(rep, 30)
+    const result = applyTemporalDecay(rep, now)
+    assert.equal(result.lastUpdatedAt, now.toISOString())
+  })
+
+  it('idempotent at MAX_SIGMA (already maximally uncertain)', () => {
+    const rep = lowSigmaRep(MAX_SIGMA) // gap = 0
+    const result = applyTemporalDecay(rep, daysLater(rep, 30))
+    assert.equal(result.sigma, MAX_SIGMA)
+  })
+
+  it('custom half-life shortens decay period', () => {
+    const rep = lowSigmaRep(5)
+    const halfDaysCustom = 7
+    const result = applyTemporalDecay(rep, daysLater(rep, halfDaysCustom), halfDaysCustom)
+    // One half-life → should be ≈ 15 (halfway to 25)
+    assert.ok(Math.abs(result.sigma - 15) < 0.05, `expected ≈15 with 7d half-life, got ${result.sigma}`)
+  })
+
+  it('effective score decreases after inactivity (decay reduces confidence)', () => {
+    const rep = lowSigmaRep(5)
+    const before = computeEffectiveScore(rep.mu, rep.sigma)
+    const decayed = applyTemporalDecay(rep, daysLater(rep, 30))
+    const after = computeEffectiveScore(decayed.mu, decayed.sigma)
+    assert.ok(after < before, `effective score should drop: before=${before}, after=${after}`)
+  })
+
+  it('scenario: active agent retains tier, then goes quiet and sigma climbs', () => {
+    let rep = createScopedReputation('p', 'agent', 'code')
+
+    // Build track record: 40 standard successes
+    for (let i = 0; i < 40; i++) {
+      rep = updateReputationFromResult(rep, true, 'standard')
+    }
+    const afterActive = computeEffectiveScore(rep.mu, rep.sigma)
+    assert.ok(afterActive >= 30, `Should reach operator tier: score=${afterActive}`)
+
+    // Agent goes silent for 60 days
+    const future = new Date(new Date(rep.lastUpdatedAt).getTime() + 60 * 24 * 60 * 60 * 1000)
+    const decayed = applyTemporalDecay(rep, future)
+
+    // Sigma should have grown; effective score should be lower
+    assert.ok(decayed.sigma > rep.sigma, `Sigma should increase after 60d silence`)
+    const afterDecay = computeEffectiveScore(decayed.mu, decayed.sigma)
+    assert.ok(afterDecay < afterActive, `Score should drop after decay: ${afterDecay} vs ${afterActive}`)
   })
 })

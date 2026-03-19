@@ -309,7 +309,9 @@ export {
   meetsPromotionRequirements,
   createPromotionReview, validatePromotionReview,
   triggerDemotion, checkTierForIntent, advisoryTierPrecheck,
-  updateReputationFromResult
+  updateReputationFromResult,
+  applyTemporalDecay,
+  SIGMA_HALF_LIFE_DAYS
 } from './core/reputation-authority.js'
 
 export type {
