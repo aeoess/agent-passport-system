@@ -529,3 +529,16 @@ export {
 export type {
   MessageAuditRecord, AuditVerification, MessageAuditLog,
 } from './core/messaging-audit.js'
+
+
+// ── Policy Conflict Detection (Module 30) ──
+
+export {
+  detectCycles, detectShadowedRules, detectContradictions,
+  detectUnreachableActions, analyzePolicyRules,
+} from './core/policy-conflict.js'
+
+export type {
+  PolicyRule, PolicyConflictReport, ShadowedRule,
+  PolicyContradiction,
+} from './core/policy-conflict.js'
