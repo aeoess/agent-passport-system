@@ -394,7 +394,7 @@ Full Python implementation with cross-language compatibility. Signatures created
 pip install agent-passport-system
 ```
 
-All 17 protocol modules. 86 tests. Same canonical JSON serialization and Ed25519 signatures.
+All 8 foundational layers plus Principal Identity. 86 tests. Same canonical JSON serialization and Ed25519 signatures. Extended modules (M10-M27) in progress.
 
 PyPI: [agent-passport-system](https://pypi.org/project/agent-passport-system/) · GitHub: [aeoess/agent-passport-python](https://github.com/aeoess/agent-passport-python)
 
