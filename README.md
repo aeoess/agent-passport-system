@@ -7,7 +7,7 @@
 
 Cryptographic identity, ethical governance, economic attribution, protocol-native communication, intent architecture, cascade revocation, coordination primitives, and agentic commerce for autonomous AI agents.
 
-**20 modules. 678 tests. Zero heavy dependencies. Running code. MCP server included.**
+**24 modules. 724 tests. Zero heavy dependencies. Running code. MCP server included.**
 
 > *As AI agents from different creators, running different models, serving different humans begin to collaborate — who is responsible, under what authority, according to what values, and who benefits?*
 
@@ -380,7 +380,7 @@ Or zero-install remote mode:
 npx agent-passport-system-mcp setup --remote
 ```
 
-**61 tools across all 20 modules, role-scoped access control.** Identity, delegation, agora, values/policy, coordination, and commerce — all accessible via MCP. Every operation Ed25959 signed. Auto-configures Claude Desktop and Cursor.
+**61 tools across all 24 modules, role-scoped access control.** Identity, delegation, agora, values/policy, coordination, and commerce — all accessible via MCP. Every operation Ed25959 signed. Auto-configures Claude Desktop and Cursor.
 
 Every operation is Ed25959 signed. Role is auto-detected from task assignments. Role-specific prompts served via MCP prompts API. File-backed task persistence at `~/.agent-passport-tasks.json`.
 
@@ -402,7 +402,7 @@ PyPI: [agent-passport-system](https://pypi.org/project/agent-passport-system/) �
 
 ```bash
 npm test
-# 678 tests across 36 files, 187 suites, 0 failures
+# 724 tests across 38 files, 198 suites, 0 failures
 ```
 
 Includes 23 adversarial tests: Merkle tree tampering, attribution gaming resistance, compliance violations, floor negotiation attacks, wrong-key attestations.
@@ -479,7 +479,7 @@ src/                    22 source files
     euaiact.ts         — EU AI Act types
     principal.ts       — Principal identity types
     reputation-authority.ts — Reputation/tier types
-tests/                  36 test files, 678 tests (187 suites)
+tests/                  38 test files, 724 tests (198 suites)
   adversarial.ts       — 23 adversarial cases
   agora.test.ts        — 15 Agora tests
   contract.test.ts     — High-level API tests
