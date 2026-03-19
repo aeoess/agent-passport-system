@@ -395,6 +395,17 @@ export type {
   EvaluationMethod, EnvelopeVerdict, RevocationStatus
 } from './types/execution-envelope.js'
 
+// ── Feasibility Linting (Module 24, Gap 7) ──
+
+export {
+  lintDelegation, lintTaskFeasibility,
+} from './core/feasibility.js'
+
+export type {
+  FeasibilitySeverity, FeasibilityIssue, FeasibilityResult,
+} from './types/feasibility.js'
+
+
 // ── Governance Artifact Provenance (Module 21) ──
 
 export {
