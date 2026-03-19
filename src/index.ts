@@ -438,3 +438,29 @@ export type {
   FulfillmentReceipt, ObligationResolution, ObligationOutcome,
   ObligationStatus, ParamConstraint
 } from './types/obligations.js'
+
+
+// ── Identity & Key Rotation (Module 22) ──
+
+export {
+  createIdentityDocument, rotateKey, emergencyRotate,
+  verifyRotation, verifyRotationLog,
+  resolveCurrentKey, wasKeyActive,
+} from './core/identity.js'
+
+export type {
+  IdentityDocument, KeyRotationEntry, RotationVerification,
+} from './types/identity.js'
+
+// ── Receipt Ledger — Merkle-Committed Audit (Module 23) ──
+
+export {
+  createReceiptLedger, addReceipt, commitBatch,
+  proveInclusion, verifyInclusion,
+  verifyBatch, verifyBatchChain,
+} from './core/receipt-ledger.js'
+
+export type {
+  ReceiptBatch, ReceiptInclusionProof, ReceiptLedger,
+  BatchVerification, BatchChainVerification,
+} from './core/receipt-ledger.js'
