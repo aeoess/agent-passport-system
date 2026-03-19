@@ -30,11 +30,11 @@ import {
   createFeed, appendToFeed, createRegistry, registerAgent,
   loadFloor, attestFloor,
   createPrincipalIdentity, endorseAgent, verifyEndorsement,
-} from 'agent-passport-system';
+} from '../src/index.js';
 
 import type {
   KeyPair, Delegation, ActionReceipt, ValidationContext, SocialContractAgent,
-} from 'agent-passport-system';
+} from '../src/index.js';
 
 // Helpers
 function createAgent(name: string): SocialContractAgent {

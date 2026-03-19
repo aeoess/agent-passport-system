@@ -6,8 +6,8 @@
  */
 import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { generateKeyPair, createDelegation, subDelegate, verifyDelegation, cascadeRevoke, clearStores, scopeCovers, getDescendants } from 'agent-passport-system';
-import type { KeyPair, Delegation } from 'agent-passport-system';
+import { generateKeyPair, createDelegation, subDelegate, verifyDelegation, cascadeRevoke, clearStores, scopeCovers, getDescendants } from '../src/index.js';
+import type { KeyPair, Delegation } from '../src/index.js';
 
 const ALL_SCOPES = ['code_execution','data_analysis','commerce','commerce:purchase','commerce:purchase:supplies','commerce:purchase:equipment','communication','communication:email','communication:slack','file_management','file_management:read','file_management:write','git_operations','git_operations:commit','git_operations:push'];
 
