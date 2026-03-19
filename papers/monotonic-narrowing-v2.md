@@ -42,7 +42,7 @@ The protocol targets five security objectives:
 
 ### 2.2 Trusted Computing Base
 
-The protocol assumes: Ed25519 signature correctness (via @noble/ed25519), SHA-256 for Merkle trees, correct scope subset checking, secure private key storage mediated by a trusted signing service, a trusted time source, and the ProxyGateway as enforcement point in the strong deployment model.
+The protocol assumes: Ed25519 signature correctness (via Node.js native `crypto` module), SHA-256 for Merkle trees, correct scope subset checking, secure private key storage mediated by a trusted signing service, a trusted time source, and the ProxyGateway as enforcement point in the strong deployment model.
 
 ### 2.3 Attacker Classes
 
@@ -218,6 +218,8 @@ The viewer sees a proof for a specific receipt without learning anything about o
 
 **Limitations.** Current selective disclosure is per-receipt (reveal or hide an entire receipt), not per-field within a receipt. BBS+ signatures would enable attribute-level selective disclosure but are not implemented. The fundamental tension between full auditability and data minimization is acknowledged but not resolved. Encrypted messaging bypasses the gateway entirely; the audit bridge provides metadata-level visibility but not content-level enforcement.
 
+We note that INV-3 is the least mature of the four invariants in terms of implementation depth. The principle (disclosure should monotonically narrow) is sound and applies regardless of mechanism. Merkle trees are the v1 implementation; BBS+ or ZK-SNARKs would be a v2 mechanism enforcing the same principle with stronger privacy properties. We include INV-3 because the governance framework requires a disclosure invariant to be complete — without it, the other three invariants produce audit records that leak arbitrary information, undermining the protocol's utility in regulated environments where data minimization is legally required.
+
 ### 3.5 INV-4: Exception Attenuation
 
 **Informal statement.** When an agent needs temporary authority beyond its normal delegation, that authority is bounded by a pre-committed ceiling, enforced by a hard time-to-live, and auditable through a distinct flag. Escalation is a controlled expansion, not an open bypass.
@@ -264,17 +266,61 @@ This function runs only when the normal delegation check (Step 2) fails. The gat
 
 ### 3.6 Invariant Composition
 
-The four invariants are not merely parallel constraints. They compose.
+The four invariants are not merely parallel constraints. They compose through five formally tested relationships, two identified interactions requiring future work, and one self-referential property.
 
-**INV-2 takes precedence over INV-4.** When governance is updated, all agents' attestations become stale. The governance staleness check (Step 2.5) runs before the escalation fallback (Step 2.1) in the processing pipeline, and independently in the `executeApproval` path. An agent with an active escalation grant that would normally cover an action is still blocked if its governance attestation is stale. This means governance weakening cannot be circumvented by acquiring an escalation grant first. We test this composition directly in `integration-invariants.test.ts` (COMPOSITION test).
+#### 3.6.1 Tested Composition Relationships
 
-**INV-1 bounds INV-4.** An escalation grant's ceiling scope must be a subset of the granter's delegation scope. This is verified at grant creation by `verifyEscalationGrant()`. Escalation cannot create authority that the granting principal does not already possess. Exception attenuation is itself subject to delegation attenuation.
+**C1: INV-2 takes precedence over INV-4 (governance blocks escalation).** When governance is updated, all agents' attestations become stale. The governance staleness check (Step 2.5) runs before the escalation fallback (Step 2.1) in the processing pipeline, and independently in the `executeApproval` path. An agent with an active escalation grant that would normally cover an action is still blocked if its governance attestation is stale. This means governance weakening cannot be circumvented by acquiring an escalation grant first.
 
-**INV-1 feeds INV-3.** Merkle proofs reference delegation chains. A receipt's attribution trace runs from the executing agent through the delegation chain to the human principal. Disclosure of a receipt necessarily discloses the delegation path that authorized it, but nothing about other delegation paths.
+This composition is enforced by the ProxyGateway's processing order. A different enforcement engine that checks escalation before governance would violate C1. We specify this as a requirement: any conforming enforcement engine MUST evaluate governance staleness before escalation fallback. The invariant holds because of the specified processing order, not because of an inherent algebraic property. We test this composition directly in `integration-invariants.test.ts`.
 
-**Governance weakening as bounded exception.** Policy weakening is itself an exception to INV-2's monotonic strengthening requirement. It is handled by requiring higher-order authorization (multiple approvals), which is the governance-domain analog of the pre-committed ceiling in INV-4. The framework treats its own governance rules as subject to the same attenuation principles it enforces on agents.
+**C2: INV-1 bounds INV-4 (delegation caps escalation ceiling).** An escalation grant's ceiling scope must be a subset of the granter's delegation scope. This is verified at grant creation by `verifyEscalationGrant()`. Escalation cannot create authority that the granting principal does not already possess. Exception attenuation is itself subject to delegation attenuation.
 
-This self-referential property is the paper's central claim: the four invariants form a mutually reinforcing lattice, not a disconnected set of rules.
+**C3: INV-1 feeds INV-3 (delegation chains anchor disclosure).** Merkle proofs reference delegation chains. A receipt's attribution trace runs from the executing agent through the delegation chain to the human principal. Disclosure of a receipt necessarily discloses the delegation path that authorized it, but nothing about other delegation paths.
+
+**C4: INV-1 anchors INV-2 (delegation scope bounds governance authority).** Only agents with delegation scope covering governance operations can submit governance artifact updates. The governance update function verifies the issuer against `allowedIssuers` in the load policy, and these issuers must themselves hold valid delegations. Governance cannot be modified by agents outside the delegation tree.
+
+**C5: INV-4 is bounded by INV-2 AND INV-1 simultaneously.** An escalation grant is constrained from above (ceiling scope ⊆ granter's delegation, via C2) and constrained from below (governance staleness blocks execution, via C1). The grant exists in the intersection of what the delegation tree permits and what the governance configuration allows.
+
+#### 3.6.2 Identified but Untested Interactions
+
+Two composition relationships were identified during hostile review but are not yet tested:
+
+**INV-3 × INV-1 (disclosure after revocation).** When a delegation is revoked (INV-1), receipts previously disclosed under that delegation chain remain valid as historical records but their attribution trace now points to a revoked chain. The current implementation does not invalidate prior disclosures on revocation. Whether this is correct behavior (the receipt DID happen under valid authority at the time) or a gap (the verifier should see the current revocation status) is an open design question.
+
+**INV-3 × INV-2 (disclosure under governance evolution).** Receipts generated under governance version N may be verified under governance version N+1. If the governance was strengthened, actions that were permitted under the old governance might not be permitted under the new. The receipt remains valid (the action was authorized at the time), but a verifier applying current governance to a historical receipt will see a mismatch. The paper does not currently specify how governance versioning interacts with receipt verification across time.
+
+#### 3.6.3 The Self-Referential Property
+
+The composition relationships reveal a deeper structural property: the framework applies the same formal mechanism to its own governance rules that it applies to agent actions.
+
+Policy weakening is an exception to INV-2's monotonic strengthening requirement. It is handled by requiring higher-order authorization (multiple approvals with configurable thresholds). This is structurally identical to INV-4's bounded escalation mechanism: both define a pre-committed ceiling, both require higher-order authorization to activate, both produce audit records of the exception, and both are irreversible once activated.
+
+The parallel structure:
+
+    INV-4 (runtime escalation):
+      agent requests authority beyond delegation
+      → requires pre-committed grant + human approval
+      → bounded by ceiling scope and TTL
+      → audit flag: viaEscalation = true
+
+    INV-2 (governance weakening):
+      operator requests policy change that weakens governance
+      → requires multi-party approval above threshold
+      → bounded by removal threshold > weakening threshold
+      → audit flag: changeType = "weakening"
+
+Both use the same pattern: exception to a monotonic rule, gated by higher-order authorization, bounded by a pre-committed ceiling, producing a distinct audit record. The framework's governance update mechanism is itself an instance of bounded exception attenuation.
+
+#### 3.6.4 Terminology and Limitations
+
+We use "compositional constraints" rather than "lattice" because the composition relationships are directional precedence constraints (C1: governance before escalation) and bounding constraints (C2: delegation caps escalation), not algebraic join/meet operations. A formal lattice would require defining a partial order with supremum and infimum for every pair of invariants, which we have not done.
+
+The composition is enforced by the ProxyGateway's processing pipeline order, not by an inherent mathematical property of the invariants themselves. A conforming enforcement engine must implement the specified processing order to preserve C1 and C5. This is an architectural requirement, not an algebraic guarantee.
+
+**Fixed-point vulnerability.** The self-referential property creates a potential fixed-point problem: if the governance update mechanism itself has a bug, the broken mechanism gates its own repair. The specified escape hatch is root principal access: the human principal with direct gateway access can override the governance check as an out-of-band recovery mechanism. This is analogous to a constitutional amendment process that, if deadlocked, falls back to the sovereign authority that created the constitution.
+
+This self-referential property is the paper's central claim: the four invariants form a compositional constraint graph with tested precedence relationships and a shared authorization pattern, not a disconnected set of rules.
 
 
 ## 4. Architecture
@@ -461,7 +507,7 @@ E2E encrypted messaging (Module 19) bypasses the gateway entirely by design. The
 
 We have presented monotonic narrowing as a unifying design principle for autonomous AI agent governance, instantiated through four attenuation invariants: delegation attenuation (authority narrows across chains), governance attenuation (policy can only strengthen), disclosure attenuation (audit views reveal minimum necessary data), and exception attenuation (temporary escalation is bounded and time-limited).
 
-The central claim of this paper is that these four invariants are not independent properties but a mutually reinforcing lattice. Governance weakening is itself treated as a bounded exception, subject to exception attenuation. Escalation ceilings are subject to delegation attenuation. Disclosure bounds inherit from delegation scope. The framework is self-referential by design.
+The central claim of this paper is that these four invariants are not independent properties but compositional constraints with formal precedence relationships. Governance weakening is itself treated as a bounded exception, subject to exception attenuation. Escalation ceilings are subject to delegation attenuation. Disclosure bounds inherit from delegation scope. The framework is self-referential by design.
 
 The protocol is implemented as 35 modules with 866 tests, published as open-source TypeScript and Python SDKs with a 61-tool MCP server. All claims are reproducible: `npm install agent-passport-system@1.16.0 && npm test`. The ProxyGateway enforcement boundary mediates all privileged effects, providing strong guarantees under the reference monitor deployment model.
 
