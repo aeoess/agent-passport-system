@@ -18,6 +18,12 @@ import type { ScopedReputation, AuthorityTier, TierEscalation, EvidenceClass } f
 import type { GovernanceArtifact, GovernanceEnvelope, GovernanceLoadPolicy, GovernanceChangeType, GovernanceDiff } from './governance.js'
 import type { ActiveEscalation, EscalationGrant } from '../core/escalation.js'
 
+// ── Action Reversibility (Gap 3 taxonomy) ──
+// Actions are classified by how recoverable they are after execution.
+// Delegations can restrict agents to only tentative/compensable actions.
+
+export type ActionReversibility = 'tentative' | 'compensable' | 'irreversible'
+
 // ── Tool Executor ──
 // The gateway wraps any tool. This is the abstraction.
 // Could be an MCP tool, an HTTP API, a function call, anything.
@@ -45,6 +51,8 @@ export interface ToolCallRequest {
   context?: string
   /** Optional: evidence class for reputation update. Default: from GatewayConfig.defaultEvidenceClass */
   evidenceClass?: EvidenceClass
+  /** Optional: declared reversibility class of this action (Gap 3 taxonomy) */
+  reversibility?: ActionReversibility
 }
 
 export interface ToolCallResult {
@@ -78,6 +86,8 @@ export interface ToolCallResult {
   viaEscalation?: boolean
   /** Escalation ID used (if viaEscalation is true) */
   escalationId?: string
+  /** Reversibility class of the executed action */
+  reversibility?: ActionReversibility
 }
 
 /** The complete cryptographic proof chain */
@@ -199,6 +209,12 @@ export interface GatewayConfig {
   enableEscalation?: boolean
   /** Maximum concurrent active escalations per agent. Default: 1 */
   maxConcurrentEscalations?: number
+  /** Maximum reversibility class allowed by this gateway (Gap 3 taxonomy).
+   *  'tentative' = only tentative actions allowed
+   *  'compensable' = tentative + compensable allowed
+   *  'irreversible' = all actions allowed (default)
+   *  Actions exceeding this class are denied. */
+  maxReversibility?: ActionReversibility
   /** Callback: fires when an action is permitted via escalation */
   onEscalationUsed?: (agentId: string, escalationId: string, tool: string) => void
   /** Callback: fires when an escalation expires */
@@ -264,4 +280,6 @@ export interface GatewayStats {
   escalationsUsed?: number
   escalationsExpired?: number
   escalationsDenied?: number
+  /** Reversibility enforcement stats */
+  reversibilityDenied?: number
 }

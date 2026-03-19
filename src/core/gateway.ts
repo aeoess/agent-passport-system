@@ -102,7 +102,8 @@ export class ProxyGateway {
     escalationsActivated: 0,
     escalationsUsed: 0,
     escalationsExpired: 0,
-    escalationsDenied: 0
+    escalationsDenied: 0,
+    reversibilityDenied: 0
   }
 
   constructor(config: GatewayConfig, executor: ToolExecutor) {
@@ -364,6 +365,21 @@ export class ProxyGateway {
         return {
           executed: false, requestId: request.requestId,
           denialReason: `Governance stale: agent attested to v${agentVersion ?? 'none'}, current is v${currentVersion}. Re-attestation required.`
+        }
+      }
+    }
+
+    // Step 2.6: Reversibility check (Gap 3 taxonomy)
+    if (this.config.maxReversibility && request.reversibility) {
+      const RANK: Record<string, number> = { tentative: 0, compensable: 1, irreversible: 2 }
+      const maxRank = RANK[this.config.maxReversibility] ?? 2
+      const actionRank = RANK[request.reversibility] ?? 2
+      if (actionRank > maxRank) {
+        this.stats.totalDenied++
+        this.stats.reversibilityDenied = (this.stats.reversibilityDenied ?? 0) + 1
+        return {
+          executed: false, requestId: request.requestId,
+          denialReason: `Action reversibility "${request.reversibility}" exceeds gateway max "${this.config.maxReversibility}"`
         }
       }
     }
@@ -732,6 +748,7 @@ export class ProxyGateway {
       tierCheck,
       viaEscalation: viaEscalation || undefined,
       escalationId: usedEscalationId,
+      reversibility: request.reversibility,
     }
 
     this.config.onToolCall?.(request, result)
