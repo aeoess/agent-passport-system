@@ -72,6 +72,38 @@ We define the protocol state as:
 
 where I is the set of agent identities (Ed25519 key pairs), D is the set of active delegations, R is the revocation set, G is the set of governance artifacts (signed, versioned policy documents), P is the set of policy records (three-signature chains), E is the evidence and receipt log, M is the message feed, and X is the set of active escalations.
 
+### 3.1.1 State Transitions
+
+Seven transitions operate on state S. Each transition has preconditions that must hold for the transition to fire, and postconditions that describe the resulting state.
+
+**CREATE_IDENTITY(name, owner, beneficiary) → S'.**
+Precondition: name is unique in I. Owner holds a valid Ed25519 key pair.
+Postcondition: generates key pair (pk, sk), creates signed passport, adds identity to I. The passport binds pk to the agent's metadata.
+
+**DELEGATE(from, to, scope, spendLimit, maxDepth) → S'.**
+Precondition: from has an active delegation d_parent with scope ⊇ requested scope, spendLimit ≥ requested spendLimit, and depth > 0.
+Postcondition: creates delegation d_new where d_new.scope ⊆ d_parent.scope, d_new.spendLimit ≤ d_parent.spendLimit, d_new.depth < d_parent.depth. Adds to D, updates L. This is the INV-1 enforcement point at the SDK layer.
+
+**REVOKE(delegationId, issuerKey) → S'.**
+Precondition: delegationId exists in D. issuerKey matches the delegation's issuer.
+Postcondition: adds delegationId and all transitive descendants to R. This is irreversible: once an id enters R, no subsequent transition removes it. Updates D (marks inactive), updates L.
+
+**UPDATE_GOVERNANCE(artifact, approvals) → S'.**
+Precondition: artifact is signed by a recognized issuer. If artifact weakens existing governance in G, |approvals| ≥ threshold_weakening.
+Postcondition: adds artifact to G. All agents' governance attestation versions become stale if the version changed. This is the INV-2 enforcement point.
+
+**DECLARE_AND_EVALUATE(agentId, action, scope) → S'.**
+Precondition: agentId has active identity in I. Agent holds a valid delegation covering scope.
+Postcondition: creates signed ActionIntent (signature 1), evaluates against floor and delegation via FloorValidatorV1 producing PolicyDecision (signature 2). Adds partial record to P.
+
+**EXECUTE_AND_RECORD(intentId, toolResult) → S'.**
+Precondition: intentId has PolicyDecision with verdict "allow" in P. Delegation not revoked (recheck). Governance not stale (recheck).
+Postcondition: gateway executes tool, generates signed receipt (signature 3). Completes the record in P. Appends to E. Optionally appends to M.
+
+**ACTIVATE_ESCALATION(grantId, trigger, humanApproval) → S'.**
+Precondition: grant exists with grantId. trigger matches grant's allowedTriggers. If trigger is human_authorized, humanApproval signature verifies against granter's public key. Grant's ceiling.scope ⊆ granter's delegation scope.
+Postcondition: creates active escalation x in X with TTL. x.effectiveScope ⊆ grant.ceiling.scope. This is the INV-4 enforcement point.
+
 ### 3.2 INV-1: Delegation Attenuation
 
 **Informal statement.** Authority can only decrease at each delegation transfer. No agent can possess more authority than explicitly granted by the chain of principals above it.
@@ -93,6 +125,18 @@ Additionally, revocation is monotonic: once delegation identifier id enters R, i
 - Step 7 (receipt): the gateway generates the receipt, not the agent. The agent never touches the signature. Receipt scope is bound to the delegation scope that authorized the action.
 
 The SDK enforces INV-1 in `subDelegate()` and `createReceipt()` using `scopeCovers()`, ensuring that the authoring layer matches the enforcement layer (verified by 10 authoring-enforcement parity tests).
+
+**Pseudocode: scopeAuthorizes (hierarchical scope matching).**
+
+    function scopeAuthorizes(delegationScope, requestedScope):
+      for each scope s in delegationScope:
+        if s == "*": return true                    // wildcard covers everything
+        if s == requestedScope: return true          // exact match
+        if requestedScope starts with s + ":":       // hierarchical: "data" covers "data:read"
+          return true
+      return false
+
+This function is called at both the SDK layer (subDelegate, createReceipt) and the gateway layer (Step 2), ensuring the authoring and enforcement layers cannot diverge. The V3-CRIT-1 bug fix (March 2026) replaced literal `Array.includes()` with `scopeCovers()` at every callsite after adversarial review discovered the divergence.
 
 **Evidence.** 35 delegation tests, 23 adversarial scenarios (including scope escalation, replay, impersonation), 9 hierarchical scope narrowing tests, 10 authoring-enforcement parity tests. Gateway replay protection via TTL-based Map pruning (NW-001 fix). Key rotation with identity continuity (Module 22) ensures INV-1 survives key compromise.
 
@@ -122,6 +166,26 @@ Strengthening (adding principles) requires no additional approval. Weakening (mo
 - Step 2.5 (governance staleness check): before any action, the gateway verifies that the agent's attested governance version matches the current version. If governance has been updated since the agent's last attestation, the action is blocked until the agent re-attests via `reattestGovernance()`.
 - Execution-time recheck: the same staleness check runs in the two-phase `executeApproval` path, catching governance updates that occur between approval and execution.
 - Policy conflict detection (Module 30): `detectPolicyConflicts()` identifies circular dependencies, unreachable actions, and shadowed rules in policy sets before they enter enforcement.
+
+**Pseudocode: updateGovernance (differential authorization).**
+
+    function updateGovernance(newArtifact, approvals):
+      verify(newArtifact.signature, newArtifact.issuerPublicKey)
+      if issuer not in loadPolicy.allowedIssuers: REJECT("unknown issuer")
+      
+      diff = classifyChange(currentArtifact, newArtifact)
+      if diff.hasRemovals:
+        if |approvals| < threshold_removal: REJECT("removal requires N approvals")
+      else if diff.hasWeakenings:
+        if |approvals| < threshold_weakening: REJECT("weakening requires approval")
+      // else: strengthening — no additional approval needed
+      
+      currentArtifact = newArtifact
+      currentVersion = newArtifact.version
+      stats.governanceUpdates++
+      for each agent in registeredAgents:
+        if agent.governanceVersion != currentVersion:
+          agent.governanceStale = true    // blocks until re-attestation
 
 **Evidence.** 14 gateway-governance tests including: strengthening accepted, weakening blocked, weakening accepted with approvals, removal requires higher threshold, unknown issuer rejected, stale governance blocks both processToolCall and executeApproval paths, version tracking across updates. Module 30 adds 13 policy conflict detection tests.
 
@@ -179,6 +243,20 @@ The escalation grant is itself subject to INV-1: its ceiling scope must be a sub
 - Max concurrent escalations: configurable limit (default 1) prevents accumulation of parallel authority expansions.
 - Reversibility taxonomy: actions are classified as tentative, compensable, or irreversible. The gateway can enforce a `maxReversibility` ceiling that limits which action classes are permitted, even via escalation.
 - Oracle witness diversity (Module 28): when external verification is needed, `computeWitnessDiversity()` scores the independence of witness sources. Three APIs from the same cloud provider count as one effective witness.
+
+**Pseudocode: checkEscalatedAction (bounded exception fallback).**
+
+    function checkEscalatedAction(agent, requestedScope, spend):
+      for each escalation x in agent.activeEscalations:
+        if not isEscalationActive(x): continue       // TTL expired
+        if not scopeAuthorizes(x.effectiveScope, requestedScope): continue
+        if spend and x.spentSoFar + spend > x.ceiling.maxSpend: continue
+        // Found valid escalation
+        x.spentSoFar += spend
+        return { authorized: true, escalationId: x.id, viaEscalation: true }
+      return { authorized: false }
+
+This function runs only when the normal delegation check (Step 2) fails. The gateway never checks escalation first — delegation is always the primary authorization path. Escalation is a fallback, not a shortcut.
 
 **Evidence.** 11 gateway-escalation tests including: normal delegation bypass, escalation fallback, expired TTL denial, scope mismatch, max concurrent enforcement, revocation, spend tracking across calls. Module 27 has its own unit tests for grant creation, activation, and verification. Module 28 has 19 oracle witness diversity tests. 3 reversibility tests in the integration invariant suite.
 
@@ -260,6 +338,20 @@ The implementation is validated by 866 tests across 239 suites in 49 test files.
 **INV-4 tests (escalation, oracle, reputation):** 11 gateway-escalation tests (fallback, TTL expiry, scope check, spend tracking, max concurrent, revocation), 19 oracle witness diversity tests, 9 reputation-gated authority tests, 3 reversibility enforcement tests.
 
 **Integration tests:** 8 integration invariant tests mapping directly to Section 3 claims (INV-1 scope narrowing, INV-2 governance weakening, INV-3 Merkle disclosure, INV-4 escalation TTL, COMPOSITION governance > escalation, 3 reversibility tests). 4 stress tests verifying all 6 gateway features simultaneously. 14 cross-layer integration wiring tests.
+
+### 5.1.1 Representative Adversarial Scenarios
+
+We describe four scenarios from the adversarial suite that exercise the invariant boundaries. Each scenario tests a specific attack vector against the gateway enforcement boundary.
+
+**Scenario A: Hierarchical scope escalation (INV-1).** Agent C holds delegation with scope `["data:read"]` sub-delegated from B, who holds `["data"]` from principal A. C submits a tool call with `scopeRequired: "data:write"`. The gateway's `scopeAuthorizes()` check at Step 2 rejects: `"data:read"` does not cover `"data:write"`. C then attempts to forge a new delegation with broadened scope and submits again. The gateway rejects at Step 1: the forged delegation's signature does not verify against B's public key. **Expected result: both attempts denied. Observed: denied.** This scenario was the source of the V3-CRIT-1 bug: prior to the fix, the SDK's `subDelegate()` used literal string matching (`Array.includes()`) which would have accepted `"data:write"` if the parent scope included the exact string. The gateway's `scopeAuthorizes()` correctly rejected it. The fix aligned both layers.
+
+**Scenario B: Governance downgrade bypass via escalation (COMPOSITION).** Agent has an active escalation grant covering `["admin:*"]`. Governance is updated (floor principle removed). The agent's governance attestation becomes stale. Agent attempts an admin action using the escalation grant. The gateway checks governance staleness (Step 2.5) BEFORE checking escalation (Step 2.1). **Expected result: denied due to stale governance, even though escalation would cover the scope. Observed: denied.** This is the composition test: INV-2 takes precedence over INV-4 in the pipeline.
+
+**Scenario C: Replay attack on two-phase execution.** Agent receives approval for a tool call (Phase 1). Agent submits the same approval ID twice for execution (Phase 2). The gateway marks the approval as `consumed: true` after the first execution. The second submission is rejected at Step 0: approval already consumed. **Expected result: second execution denied. Observed: denied.** The TTL-based Map pruning (NW-001 fix) also prevents accumulation of stale request IDs in long-running gateways.
+
+**Scenario D: Escalation TTL expiry mid-action (INV-4).** Agent has an escalation grant with 60-second TTL. At T=0, escalation activates. At T=55, agent submits a tool call. Gateway checks `isEscalationActive()`: TTL not expired, action proceeds. At T=65, agent submits another tool call. Gateway checks: TTL expired, `_expireAgentEscalations()` cleans the grant. Action denied, falls through to normal delegation check, which also fails. **Expected result: first action succeeds via escalation, second denied. Observed: correct.**
+
+Two additional scenarios in the adversarial suite document **expected failures** — cases where the protocol deliberately does not mitigate the attack: (1) a Class 3 attacker with access to the agent's private key can forge valid signatures (out of scope per Section 2.3), and (2) two agents sharing a principal's context window can coordinate without using protocol channels (Lampson's covert channel, provably unsolvable per Section 7.2). These expected failures are documented as known limitations, not bugs.
 
 ### 5.2 AIVSS Risk Mapping
 
