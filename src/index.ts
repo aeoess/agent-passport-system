@@ -402,13 +402,14 @@ export {
   createGovernanceArtifact, verifyGovernanceArtifact,
   approveArtifact, verifyApproval,
   createGovernanceEnvelope, loadGovernanceArtifact,
-  upgradeGovernanceArtifact,
+  upgradeGovernanceArtifact, classifyGovernanceChange,
   DEFAULT_LOAD_POLICY,
 } from './core/governance.js'
 
 export type {
   GovernanceArtifact, GovernanceApproval, GovernanceVerification,
   GovernanceEnvelope, GovernanceLoadPolicy,
+  GovernanceChangeType, GovernanceDiff,
 } from './types/governance.js'
 
 

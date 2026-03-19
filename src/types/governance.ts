@@ -1,5 +1,20 @@
 // Governance Artifact Provenance — Types
 // Module 21: Sign, version, and verify governance artifacts (floor.yaml, policies, configs)
+// Gap 8B: Monotonic governance — weakening requires higher approval thresholds
+
+// Change classification for governance updates
+// Monotonic governance: strengthening is normal, weakening requires escalation
+export type GovernanceChangeType = 'strengthening' | 'neutral' | 'weakening' | 'mixed' | 'initial'
+
+// Diff result from comparing two governance artifacts
+export interface GovernanceDiff {
+  changeType: GovernanceChangeType
+  additions: string[]       // new items added
+  modifications: string[]   // changed items
+  removals: string[]        // items removed (governance weakening)
+  isWeakening: boolean      // true if any removals or enforcement downgrades
+  isStrengthening: boolean  // true if only additions or enforcement upgrades
+}
 
 export interface GovernanceArtifact {
   artifactId: string
@@ -15,6 +30,11 @@ export interface GovernanceArtifact {
   breaking: boolean                  // requires re-attestation?
   supersedes: string | null          // artifactId this replaces
   rollbackAllowed: boolean
+  // Gap 8B: Change classification — monotonic governance
+  changeType: GovernanceChangeType   // how this version relates to previous
+  additions: string[]                // new principles/rules added
+  modifications: string[]            // changed principles/rules
+  removals: string[]                 // removed principles/rules (triggers higher threshold)
   metadata: Record<string, unknown>  // extensible
   createdAt: string
   signature: string                  // Ed25519 over canonical form (excludes signature + content)
@@ -41,6 +61,7 @@ export interface GovernanceVerification {
   chainValid: boolean          // version chain is consistent
   notExpired: boolean
   approvalsValid: boolean      // all approval signatures valid
+  weakeningApproved: boolean   // weakening changes have sufficient approvals
 }
 
 export interface GovernanceLoadPolicy {
@@ -49,6 +70,10 @@ export interface GovernanceLoadPolicy {
   allowedIssuers: string[]         // empty = any issuer
   allowExpired: boolean            // default false
   allowBreakingWithoutApproval: boolean  // default false
+  // Gap 8B: Differential thresholds for governance weakening
+  requireApprovalsForWeakening: number   // min approvals for weakening changes (default: 1)
+  requireApprovalsForRemoval: number     // min approvals for removals (default: 2)
+  blockWeakeningWithoutApproval: boolean // hard-block weakening with 0 approvals (default: true)
 }
 
 export const DEFAULT_LOAD_POLICY: GovernanceLoadPolicy = {
@@ -57,4 +82,7 @@ export const DEFAULT_LOAD_POLICY: GovernanceLoadPolicy = {
   allowedIssuers: [],
   allowExpired: false,
   allowBreakingWithoutApproval: false,
+  requireApprovalsForWeakening: 1,
+  requireApprovalsForRemoval: 2,
+  blockWeakeningWithoutApproval: true,
 }

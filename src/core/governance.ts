@@ -1,6 +1,7 @@
 // Governance Artifact Provenance — Module 21
 // Sign, version, and verify governance artifacts
 // Treats governance files as supply-chain artifacts, not config files
+// Gap 8B: Monotonic governance — weakening requires higher approval thresholds
 
 import { v4 as uuidv4 } from 'uuid'
 import { sign, verify } from '../crypto/keys.js'
@@ -8,7 +9,8 @@ import { canonicalize } from './canonical.js'
 import { createHash } from 'crypto'
 import type {
   GovernanceArtifact, GovernanceApproval, GovernanceVerification,
-  GovernanceEnvelope, GovernanceLoadPolicy, DEFAULT_LOAD_POLICY
+  GovernanceEnvelope, GovernanceLoadPolicy, GovernanceChangeType,
+  GovernanceDiff,
 } from '../types/governance.js'
 
 export { DEFAULT_LOAD_POLICY } from '../types/governance.js'
@@ -38,6 +40,11 @@ export interface CreateArtifactOptions {
   previousArtifactId?: string | null
   supersedes?: string | null
   rollbackAllowed?: boolean
+  // Gap 8B: Change classification
+  changeType?: GovernanceChangeType
+  additions?: string[]
+  modifications?: string[]
+  removals?: string[]
   metadata?: Record<string, unknown>
 }
 
@@ -59,6 +66,10 @@ export function createGovernanceArtifact(opts: CreateArtifactOptions): Governanc
     breaking: opts.breaking ?? false,
     supersedes: opts.supersedes ?? null,
     rollbackAllowed: opts.rollbackAllowed ?? true,
+    changeType: opts.changeType ?? (opts.previousVersion ? 'neutral' : 'initial'),
+    additions: opts.additions ?? [],
+    modifications: opts.modifications ?? [],
+    removals: opts.removals ?? [],
     metadata: opts.metadata ?? {},
     createdAt: now,
   }
@@ -126,6 +137,7 @@ export function verifyGovernanceArtifact(
     chainValid,
     notExpired,
     approvalsValid: true, // checked separately in envelope verification
+    weakeningApproved: true, // checked separately in load policy
   }
 }
 
@@ -227,6 +239,25 @@ export function loadGovernanceArtifact(
     }
   }
 
+  // 7. Policy: weakening changes need higher approval threshold (Gap 8B)
+  let weakeningApproved = true
+  const isWeakening = artifact.changeType === 'weakening' || artifact.changeType === 'mixed'
+  const hasRemovals = artifact.removals.length > 0
+
+  if (isWeakening && policy.blockWeakeningWithoutApproval) {
+    const validApprovals = approvals.filter(a => verifyApproval(a, artifact))
+    const required = hasRemovals
+      ? policy.requireApprovalsForRemoval
+      : policy.requireApprovalsForWeakening
+    if (validApprovals.length < required) {
+      weakeningApproved = false
+      const reason = hasRemovals ? 'Removal' : 'Weakening'
+      errors.push(
+        `${reason} requires ${required} approvals, found ${validApprovals.length} valid`
+      )
+    }
+  }
+
   return {
     valid: errors.length === 0,
     errors,
@@ -235,6 +266,51 @@ export function loadGovernanceArtifact(
     chainValid: baseVerification.chainValid,
     notExpired: baseVerification.notExpired,
     approvalsValid,
+    weakeningApproved,
+  }
+}
+
+// ══════════════════════════════════════
+// CLASSIFY GOVERNANCE CHANGE (Gap 8B)
+// ══════════════════════════════════════
+
+/**
+ * Compare two sets of items (e.g., principle IDs) and classify the change.
+ * Items are compared by string identity.
+ */
+export function classifyGovernanceChange(
+  previousItems: string[],
+  currentItems: string[]
+): GovernanceDiff {
+  const prevSet = new Set(previousItems)
+  const currSet = new Set(currentItems)
+
+  const additions = currentItems.filter(i => !prevSet.has(i))
+  const removals = previousItems.filter(i => !currSet.has(i))
+  // Items present in both — could be modified (caller determines)
+  const common = previousItems.filter(i => currSet.has(i))
+
+  const hasAdditions = additions.length > 0
+  const hasRemovals = removals.length > 0
+
+  let changeType: GovernanceChangeType
+  if (hasAdditions && hasRemovals) {
+    changeType = 'mixed'
+  } else if (hasRemovals) {
+    changeType = 'weakening'
+  } else if (hasAdditions) {
+    changeType = 'strengthening'
+  } else {
+    changeType = 'neutral'
+  }
+
+  return {
+    changeType,
+    additions,
+    modifications: common, // caller can refine (e.g., compare enforcement modes)
+    removals,
+    isWeakening: hasRemovals,
+    isStrengthening: hasAdditions && !hasRemovals,
   }
 }
 
@@ -246,6 +322,10 @@ export function upgradeGovernanceArtifact(
   previous: GovernanceArtifact,
   opts: Omit<CreateArtifactOptions, 'previousVersion' | 'previousArtifactId' | 'artifactType'> & {
     breaking?: boolean
+    changeType?: GovernanceChangeType
+    additions?: string[]
+    modifications?: string[]
+    removals?: string[]
   }
 ): GovernanceArtifact {
   return createGovernanceArtifact({
@@ -255,5 +335,9 @@ export function upgradeGovernanceArtifact(
     previousArtifactId: previous.artifactId,
     supersedes: previous.artifactId,
     breaking: opts.breaking ?? false,
+    changeType: opts.changeType ?? 'neutral',
+    additions: opts.additions ?? [],
+    modifications: opts.modifications ?? [],
+    removals: opts.removals ?? [],
   })
 }

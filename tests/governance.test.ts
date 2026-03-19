@@ -5,7 +5,7 @@ import {
   createGovernanceArtifact, verifyGovernanceArtifact,
   approveArtifact, verifyApproval,
   createGovernanceEnvelope, loadGovernanceArtifact,
-  upgradeGovernanceArtifact, hashContent,
+  upgradeGovernanceArtifact, hashContent, classifyGovernanceChange,
   DEFAULT_LOAD_POLICY,
 } from '../src/core/governance.js'
 import type { GovernanceLoadPolicy } from '../src/types/governance.js'
@@ -260,6 +260,167 @@ describe('Governance Artifact Provenance', () => {
       const result = verifyGovernanceArtifact(v2, v1)
       assert.equal(result.valid, true)
       assert.equal(result.chainValid, true)
+    })
+  })
+
+  // ══════════════════════════════════════
+  // Gap 8B: Monotonic Governance — Weakening Controls
+  // ══════════════════════════════════════
+
+  describe('classifyGovernanceChange', () => {
+    it('detects strengthening (additions only)', () => {
+      const diff = classifyGovernanceChange(
+        ['F-001', 'F-002'],
+        ['F-001', 'F-002', 'F-003']
+      )
+      assert.equal(diff.changeType, 'strengthening')
+      assert.deepEqual(diff.additions, ['F-003'])
+      assert.deepEqual(diff.removals, [])
+      assert.equal(diff.isStrengthening, true)
+      assert.equal(diff.isWeakening, false)
+    })
+
+    it('detects weakening (removals)', () => {
+      const diff = classifyGovernanceChange(
+        ['F-001', 'F-002', 'F-003'],
+        ['F-001', 'F-002']
+      )
+      assert.equal(diff.changeType, 'weakening')
+      assert.deepEqual(diff.removals, ['F-003'])
+      assert.deepEqual(diff.additions, [])
+      assert.equal(diff.isWeakening, true)
+      assert.equal(diff.isStrengthening, false)
+    })
+
+    it('detects mixed (additions + removals)', () => {
+      const diff = classifyGovernanceChange(
+        ['F-001', 'F-002'],
+        ['F-001', 'F-003']
+      )
+      assert.equal(diff.changeType, 'mixed')
+      assert.deepEqual(diff.additions, ['F-003'])
+      assert.deepEqual(diff.removals, ['F-002'])
+      assert.equal(diff.isWeakening, true)
+      assert.equal(diff.isStrengthening, false)
+    })
+
+    it('detects neutral (no changes)', () => {
+      const diff = classifyGovernanceChange(
+        ['F-001', 'F-002'],
+        ['F-001', 'F-002']
+      )
+      assert.equal(diff.changeType, 'neutral')
+      assert.deepEqual(diff.additions, [])
+      assert.deepEqual(diff.removals, [])
+    })
+  })
+
+  describe('weakening controls (policy enforcement)', () => {
+    it('blocks weakening without approval', () => {
+      const v1 = createGovernanceArtifact({
+        artifactType: 'floor', version: '1.0.0', content: FLOOR_CONTENT,
+        issuerPrivateKey: issuer.privateKey, issuerPublicKey: issuer.publicKey,
+      })
+      const v2 = upgradeGovernanceArtifact(v1, {
+        version: '2.0.0', content: 'weakened',
+        issuerPrivateKey: issuer.privateKey, issuerPublicKey: issuer.publicKey,
+        changeType: 'weakening', removals: ['F-002'],
+      })
+      const envelope = createGovernanceEnvelope(v2)
+      const result = loadGovernanceArtifact(envelope, DEFAULT_LOAD_POLICY, v1)
+      assert.equal(result.valid, false)
+      assert.equal(result.weakeningApproved, false)
+      assert.ok(result.errors.some(e => e.includes('Removal requires')))
+    })
+
+    it('allows weakening with sufficient approvals for removal', () => {
+      const v1 = createGovernanceArtifact({
+        artifactType: 'floor', version: '1.0.0', content: FLOOR_CONTENT,
+        issuerPrivateKey: issuer.privateKey, issuerPublicKey: issuer.publicKey,
+      })
+      const v2 = upgradeGovernanceArtifact(v1, {
+        version: '2.0.0', content: 'weakened',
+        issuerPrivateKey: issuer.privateKey, issuerPublicKey: issuer.publicKey,
+        changeType: 'weakening', removals: ['F-002'],
+      })
+      // DEFAULT_LOAD_POLICY requires 2 approvals for removal
+      const a1 = approveArtifact(v2, approver1.privateKey, approver1.publicKey)
+      const a2 = approveArtifact(v2, approver2.privateKey, approver2.publicKey)
+      const envelope = createGovernanceEnvelope(v2, [a1, a2])
+      const result = loadGovernanceArtifact(envelope, DEFAULT_LOAD_POLICY, v1)
+      assert.equal(result.valid, true)
+      assert.equal(result.weakeningApproved, true)
+    })
+
+    it('requires fewer approvals for weakening without removal', () => {
+      const v1 = createGovernanceArtifact({
+        artifactType: 'floor', version: '1.0.0', content: FLOOR_CONTENT,
+        issuerPrivateKey: issuer.privateKey, issuerPublicKey: issuer.publicKey,
+      })
+      const v2 = upgradeGovernanceArtifact(v1, {
+        version: '2.0.0', content: 'softened enforcement',
+        issuerPrivateKey: issuer.privateKey, issuerPublicKey: issuer.publicKey,
+        changeType: 'weakening', modifications: ['F-001'],
+      })
+      // DEFAULT_LOAD_POLICY: requireApprovalsForWeakening = 1 (less than removal = 2)
+      const a1 = approveArtifact(v2, approver1.privateKey, approver1.publicKey)
+      const envelope = createGovernanceEnvelope(v2, [a1])
+      const result = loadGovernanceArtifact(envelope, DEFAULT_LOAD_POLICY, v1)
+      assert.equal(result.valid, true)
+      assert.equal(result.weakeningApproved, true)
+    })
+
+    it('allows strengthening without extra approvals', () => {
+      const v1 = createGovernanceArtifact({
+        artifactType: 'floor', version: '1.0.0', content: FLOOR_CONTENT,
+        issuerPrivateKey: issuer.privateKey, issuerPublicKey: issuer.publicKey,
+      })
+      const v2 = upgradeGovernanceArtifact(v1, {
+        version: '2.0.0', content: FLOOR_CONTENT + '\nF-003: new principle',
+        issuerPrivateKey: issuer.privateKey, issuerPublicKey: issuer.publicKey,
+        changeType: 'strengthening', additions: ['F-003'],
+      })
+      const envelope = createGovernanceEnvelope(v2)
+      const result = loadGovernanceArtifact(envelope, DEFAULT_LOAD_POLICY, v1)
+      assert.equal(result.valid, true)
+      assert.equal(result.weakeningApproved, true)
+    })
+
+    it('stores change classification in artifact', () => {
+      const v1 = createGovernanceArtifact({
+        artifactType: 'floor', version: '1.0.0', content: FLOOR_CONTENT,
+        issuerPrivateKey: issuer.privateKey, issuerPublicKey: issuer.publicKey,
+      })
+      assert.equal(v1.changeType, 'initial')
+      assert.deepEqual(v1.additions, [])
+      assert.deepEqual(v1.removals, [])
+
+      const v2 = upgradeGovernanceArtifact(v1, {
+        version: '2.0.0', content: 'new',
+        issuerPrivateKey: issuer.privateKey, issuerPublicKey: issuer.publicKey,
+        changeType: 'weakening', removals: ['F-007'], modifications: ['F-006'],
+      })
+      assert.equal(v2.changeType, 'weakening')
+      assert.deepEqual(v2.removals, ['F-007'])
+      assert.deepEqual(v2.modifications, ['F-006'])
+    })
+
+    it('mixed change requires removal-level approvals', () => {
+      const v1 = createGovernanceArtifact({
+        artifactType: 'floor', version: '1.0.0', content: FLOOR_CONTENT,
+        issuerPrivateKey: issuer.privateKey, issuerPublicKey: issuer.publicKey,
+      })
+      const v2 = upgradeGovernanceArtifact(v1, {
+        version: '2.0.0', content: 'mixed',
+        issuerPrivateKey: issuer.privateKey, issuerPublicKey: issuer.publicKey,
+        changeType: 'mixed', additions: ['F-008'], removals: ['F-002'],
+      })
+      // 1 approval — insufficient for removal (needs 2)
+      const a1 = approveArtifact(v2, approver1.privateKey, approver1.publicKey)
+      const envelope = createGovernanceEnvelope(v2, [a1])
+      const result = loadGovernanceArtifact(envelope, DEFAULT_LOAD_POLICY, v1)
+      assert.equal(result.valid, false)
+      assert.ok(result.errors.some(e => e.includes('Removal requires 2')))
     })
   })
 })
