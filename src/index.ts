@@ -488,3 +488,17 @@ export {
 export type {
   DelegationRef, ReanchoredDelegation,
 } from './core/reanchor.js'
+
+
+// ── Bounded Escalation (Module 27 — Fourth Attenuation Invariant) ──
+
+export {
+  createEscalationGrant, verifyEscalationGrant,
+  requestEscalation, activateEscalation,
+  checkEscalatedAction, revokeEscalation, isEscalationActive,
+} from './core/escalation.js'
+
+export type {
+  EscalationGrant, EscalationRequest, ActiveEscalation,
+  EscalationVerification, EscalationTriggerType, ActionClass,
+} from './core/escalation.js'
