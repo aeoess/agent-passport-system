@@ -12,7 +12,7 @@ As large language model (LLM) agents gain the ability to take real-world actions
 
 We show that these four invariants are not independent properties but mutually reinforcing: governance weakening is itself treated as a bounded exception, subject to exception attenuation. The framework is self-referential by design. The protocol provides Ed25519 cryptographic identity, scoped delegation chains with cascade revocation, Merkle-tree beneficiary attribution, signed agent communication, a three-signature policy chain, coordination primitives, governance artifact provenance, bounded escalation, and agentic commerce gates.
 
-We specify the protocol using formally stated invariants over an abstract state model, enforce them through a gateway that serves as an external reference monitor (with enforcement maturity varying across invariants), and validate the implementation with 866 unit and adversarial tests across 35 protocol modules. We do not claim machine-checked proof of implementation correctness. The system is implemented in TypeScript (866 tests, 239 suites) and Python (86 tests), published as open-source SDKs with a 61-tool MCP server. We map the protocol against the OWASP AIVSS risk taxonomy with honest coverage assessment (5 strong, 3 partial, 2 weak), present adversarial evaluation scenarios including expected failures, and identify 10 remaining open problems. All empirical results refer to SDK v1.16.0 (commit af78ef9). The protocol is under active development; the live test suite may differ from the frozen artifact evaluated here.
+We specify the protocol using formally stated invariants over an abstract state model, enforce them through a gateway that serves as an external reference monitor (with enforcement maturity varying across invariants), and validate the implementation with 866 unit and adversarial tests across 35 protocol modules. We do not claim machine-checked proof of implementation correctness. The system is implemented in TypeScript (866 tests, 239 suites) and Python (86 tests), published as open-source SDKs with a 61-tool MCP server. We map the protocol against the OWASP AIVSS risk taxonomy with honest coverage assessment (5 strong, 3 partial, 2 weak), present adversarial evaluation scenarios including expected failures, and identify 10 remaining open problems. All empirical results refer to SDK v1.16.1 (commit NEW_HASH). The protocol is under active development; the live test suite may differ from the frozen artifact evaluated here.
 
 ## 1. Introduction
 
@@ -333,7 +333,7 @@ The protocol is implemented as 35 TypeScript modules organized by governance dom
 
 **INV-1 (Delegation Attenuation):** passport.ts (identity creation, Ed25519 key pairs), delegation.ts (scope narrowing, cascade revocation, sub-delegation), canonical.ts (deterministic JSON serialization for cross-language signature compatibility), identity.ts (key rotation with DID continuity), reanchor.ts (delegation re-anchoring after key rotation), cross-chain.ts (taint tracking for cross-principal data flow), a2a.ts (agent-to-agent protocol bridge), did.ts (W3C DID document generation), vc.ts (Verifiable Credentials bridge).
 
-**INV-2 (Governance Attenuation):** values.ts (7 principles F-001 through F-008, attestation, compliance), governance.ts (signed versioned artifacts, content-hash integrity, weakening detection), policy.ts (3-signature chain, FloorValidatorV1, graduated enforcement), euaiact.ts (EU AI Act compliance mapping), policy-conflict.ts (circular dependency detection, shadowed rules, unreachable actions).
+**INV-2 (Governance Attenuation):** values.ts (8 principles F-001 through F-008, attestation, compliance), governance.ts (signed versioned artifacts, content-hash integrity, weakening detection), policy.ts (3-signature chain, FloorValidatorV1, graduated enforcement), euaiact.ts (EU AI Act compliance mapping), policy-conflict.ts (circular dependency detection, shadowed rules, unreachable actions).
 
 **INV-3 (Disclosure Attenuation):** attribution.ts (Merkle tree construction, proof generation, beneficiary tracing), receipt-ledger.ts (Merkle-chained receipt batches), encrypted-messaging.ts (X25519 + XSalsa20-Poly1305 E2E encryption), messaging-audit.ts (audit records without content disclosure).
 
@@ -419,7 +419,7 @@ The Nexus-Guard project built a cross-protocol bridge between the Agent Identity
 
 ### 5.4 Reproducibility
 
-All empirical results in this paper refer to SDK v1.16.0 (commit af78ef9, March 2026), comprising 35 modules and 866 tests. The protocol is under active development; the live test suite may differ from the frozen artifact evaluated here.
+All empirical results in this paper refer to SDK v1.16.1 (commit NEW_HASH, March 2026), comprising 35 modules and 866 tests. The protocol is under active development; the live test suite may differ from the frozen artifact evaluated here.
 
 To reproduce the test results:
 
@@ -542,7 +542,7 @@ The invariants presented here are amenable to standardization. INV-1 (delegation
 
 | Artifact | Location |
 |----------|----------|
-| TypeScript SDK | npm: agent-passport-system v1.16.0 |
+| TypeScript SDK | npm: agent-passport-system v1.16.1 |
 | Python SDK | PyPI: agent-passport-system v0.4.0 |
 | MCP Server | npm: agent-passport-system-mcp v2.8.6 |
 | Source Code | github.com/aeoess/agent-passport-system |
@@ -550,7 +550,7 @@ The invariants presented here are amenable to standardization. INV-1 (delegation
 | Website | aeoess.com |
 | LLM Docs | aeoess.com/llms-full.txt |
 | Remote MCP | mcp.aeoess.com/sse |
-| Frozen Commit | af78ef9 |
+| Frozen Commit | NEW_HASH |
 
 ## Appendix B: Invariant-to-Test Mapping
 
