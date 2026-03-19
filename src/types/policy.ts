@@ -62,6 +62,10 @@ export interface PolicyDecision {
   evaluatedAt: string
   expiresAt: string         // decision is time-limited
   signature: string         // signed by the evaluator
+  // Graduated enforcement (optional — populated by FloorValidatorV1)
+  auditFindings?: PrincipleEvaluation[]  // V5-MED-1: removes as-any cast in context.ts
+  warnings?: PrincipleEvaluation[]       // V5-MED-1: removes as-any cast in context.ts
+  enforcement?: Record<string, unknown>  // enforcement summary from graduated evaluation
 }
 
 // ── Policy Receipt ──

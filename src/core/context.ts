@@ -234,8 +234,8 @@ export class AgentContext {
       intent,
       decision,
       constraints: decision.constraints,
-      auditFindings: (decision as any).auditFindings?.length,
-      warnings: (decision as any).warnings?.length,
+      auditFindings: decision.auditFindings?.length,
+      warnings: decision.warnings?.length,
       reason: decision.reason
     }
 
@@ -244,10 +244,10 @@ export class AgentContext {
     if (decision.verdict === 'deny') {
       this.config.onDenied?.(decision, intent)
     }
-    if ((decision as any).auditFindings?.length > 0) {
+    if (decision.auditFindings && decision.auditFindings.length > 0) {
       this.config.onAuditFinding?.(decision)
     }
-    if ((decision as any).warnings?.length > 0) {
+    if (decision.warnings && decision.warnings.length > 0) {
       this.config.onWarning?.(decision)
     }
 

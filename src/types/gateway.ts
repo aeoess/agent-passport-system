@@ -105,6 +105,10 @@ export interface GatewayApproval {
   nonce: string
   /** Whether this approval has been consumed (executed) */
   consumed: boolean
+  /** Spend from original request (V5-MED-1: removes as-any cast) */
+  spend?: { amount: number; currency: string }
+  /** Evidence class from original request (V5-MED-1: removes as-any cast) */
+  evidenceClass?: EvidenceClass
 }
 
 // ── Tool Executor Interface ──
@@ -133,6 +137,9 @@ export interface GatewayConfig {
   /** Whether to recheck revocation at execution time (after approval).
    *  Default: true. This is the paranoid mode GPT recommended. */
   recheckRevocationOnExecute?: boolean
+  /** TTL for used request IDs in milliseconds. Default: 3,600,000 (1 hour).
+   *  After this period, old request IDs are pruned to prevent unbounded memory growth. (NW-001) */
+  requestIdTTLMs?: number
   /** Callback: fires on every tool call (permitted or denied) */
   onToolCall?: (request: ToolCallRequest, result: ToolCallResult) => void
   /** Callback: fires when a suspicious pattern is detected */

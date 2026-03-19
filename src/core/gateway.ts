@@ -45,6 +45,7 @@ import type { TaintLabel, TaintSet, CrossChainPermit, ExecutionFrame, SignedAuth
 import type { Obligation, ObligationResolution } from '../types/obligations.js'
 import type { ExecutionEnvelope } from '../types/execution-envelope.js'
 import type { ScopedReputation, AuthorityTier, TierEscalation, EvidenceClass, TierCheckContext } from '../types/reputation-authority.js'
+import type { AutonomyLevel } from '../types/intent.js'
 import type {
   ToolCallRequest, ToolCallResult, GatewayProof,
   GatewayApproval, ToolExecutor, GatewayConfig,
@@ -92,7 +93,7 @@ export class ProxyGateway {
       approvalTTLSeconds: config.approvalTTLSeconds ?? 30,
       maxPendingPerAgent: config.maxPendingPerAgent ?? 10,
       recheckRevocationOnExecute: config.recheckRevocationOnExecute ?? true,
-      requestIdTTLMs: (config as any).requestIdTTLMs ?? 3_600_000, // 1 hour default (NW-001)
+      requestIdTTLMs: config.requestIdTTLMs ?? 3_600_000, // 1 hour default (NW-001)
       ...config
     }
     this.validator = config.validator || new FloorValidatorV1()
@@ -553,7 +554,7 @@ export class ProxyGateway {
           ...agent.authorityTier,
           tier: demotion.toTier,
           name: DEFAULT_TIERS[demotion.toTier]?.name ?? 'recruit',
-          autonomyLevel: DEFAULT_TIERS[demotion.toTier]?.autonomyLevel ?? (1 as any),
+          autonomyLevel: DEFAULT_TIERS[demotion.toTier]?.autonomyLevel ?? (1 as AutonomyLevel),
           maxDelegationDepth: DEFAULT_TIERS[demotion.toTier]?.maxDelegationDepth ?? 0,
           maxSpendPerAction: DEFAULT_TIERS[demotion.toTier]?.maxSpendPerAction ?? 0,
           demotionCount: agent.authorityTier.demotionCount + 1,
@@ -670,7 +671,8 @@ export class ProxyGateway {
       approvalId: uuidv4(), requestId: request.requestId, agentId: request.agentId,
       tool: request.tool, params: request.params, scopeRequired: request.scopeRequired,
       delegationId: delegation.delegationId, intent, decision,
-      expiresAt: new Date(Date.now() + ttlMs).toISOString(), nonce, consumed: false
+      expiresAt: new Date(Date.now() + ttlMs).toISOString(), nonce, consumed: false,
+      spend: request.spend, evidenceClass: request.evidenceClass, // V5-MED-1: carry through from request
     }
 
     this.approvals.set(approval.approvalId, approval)
@@ -786,7 +788,7 @@ export class ProxyGateway {
       }
       tierCheck = checkTierForIntent({
         tierContext: tierCtx,
-        requestedSpend: (approval as any).spend?.amount,
+        requestedSpend: approval.spend?.amount,
       })
       if (tierCheck) {
         this.stats.totalDenied++;
@@ -844,7 +846,7 @@ export class ProxyGateway {
 
     // Reputation update (step 8.7 parity)
     if (this.config.enableReputationGating && agent.reputation && agent.authorityTier) {
-      const evidenceClass: EvidenceClass = (approval as any).evidenceClass ?? this.config.defaultEvidenceClass ?? 'standard'
+      const evidenceClass: EvidenceClass = approval.evidenceClass ?? this.config.defaultEvidenceClass ?? 'standard'
       agent.reputation = updateReputationFromResult(agent.reputation, toolResult.success, evidenceClass);
       (this.stats.reputationUpdates as number)++
       const newScore = computeEffectiveScore(agent.reputation.mu, agent.reputation.sigma)
@@ -852,7 +854,7 @@ export class ProxyGateway {
       if (shouldDemote(newScore, agent.authorityTier.tier) && agent.authorityTier.tier > 0) {
         const oldTier = agent.authorityTier.tier
         const demotion = triggerDemotion({ agentId: approval.agentId, principalId: agent.passport.passport.publicKey, scope: approval.scopeRequired, currentTier: agent.authorityTier.tier, cause: 'behavioral', reason: `Score ${newScore.toFixed(1)} below demotion threshold` })
-        agent.authorityTier = { ...agent.authorityTier, tier: demotion.toTier, name: DEFAULT_TIERS[demotion.toTier]?.name ?? 'recruit', autonomyLevel: DEFAULT_TIERS[demotion.toTier]?.autonomyLevel ?? (1 as any), maxDelegationDepth: DEFAULT_TIERS[demotion.toTier]?.maxDelegationDepth ?? 0, maxSpendPerAction: DEFAULT_TIERS[demotion.toTier]?.maxSpendPerAction ?? 0, demotionCount: agent.authorityTier.demotionCount + 1 };
+        agent.authorityTier = { ...agent.authorityTier, tier: demotion.toTier, name: DEFAULT_TIERS[demotion.toTier]?.name ?? 'recruit', autonomyLevel: DEFAULT_TIERS[demotion.toTier]?.autonomyLevel ?? (1 as AutonomyLevel), maxDelegationDepth: DEFAULT_TIERS[demotion.toTier]?.maxDelegationDepth ?? 0, maxSpendPerAction: DEFAULT_TIERS[demotion.toTier]?.maxSpendPerAction ?? 0, demotionCount: agent.authorityTier.demotionCount + 1 };
         (this.stats.demotions as number)++
         this.config.onDemotion?.(approval.agentId, oldTier, demotion.toTier, demotion.reason)
       } else if (newTierDef.tier > agent.authorityTier.tier) {

@@ -97,7 +97,7 @@ export function evaluateIntent(opts: {
   // Run the validator
   const result = opts.validator.evaluate(
     // Pass unsigned intent to validator (it doesn't need the signature)
-    { ...opts.intent, signature: undefined } as any,
+    { ...opts.intent, signature: undefined } as Omit<ActionIntent, 'signature'> & { signature: undefined },
     opts.validationContext
   )
 
