@@ -8,11 +8,11 @@ March 2026
 
 ### Abstract
 
-As large language model (LLM) agents gain the ability to take real-world actions on behalf of humans, the question of how to bound their authority becomes urgent. We present the Agent Passport System, an open protocol that generalizes capability attenuation into a unified design law for autonomous AI governance. The protocol instantiates four attenuation invariants across distinct governance domains: (1) delegation attenuation, where authority narrows monotonically across delegation chains; (2) governance attenuation, where policy artifacts can only strengthen and weakening requires higher-order authorization; (3) disclosure attenuation, where audit views reveal only the minimum necessary subset of committed data; and (4) exception attenuation, where temporary escalation is bounded by pre-committed ceilings with hard time-to-live.
+As large language model (LLM) agents gain the ability to take real-world actions on behalf of humans, the question of how to bound their authority becomes urgent. We present the Agent Passport System, an open protocol that generalizes capability attenuation into a unified design law for autonomous AI governance. The protocol instantiates four attenuation invariants across distinct governance domains — with full cryptographic enforcement for delegation and governance attenuation, Merkle-based selective disclosure for disclosure attenuation, and a conservative human-authorized v1 form for exception attenuation: (1) delegation attenuation, where authority narrows monotonically across delegation chains; (2) governance attenuation, where policy artifacts can only strengthen and weakening requires higher-order authorization; (3) disclosure attenuation, where audit views reveal only the minimum necessary subset of committed data; and (4) exception attenuation, where temporary escalation is bounded by pre-committed ceilings with hard time-to-live.
 
 We show that these four invariants are not independent properties but mutually reinforcing: governance weakening is itself treated as a bounded exception, subject to exception attenuation. The framework is self-referential by design. The protocol provides Ed25519 cryptographic identity, scoped delegation chains with cascade revocation, Merkle-tree beneficiary attribution, signed agent communication, a three-signature policy chain, coordination primitives, governance artifact provenance, bounded escalation, and agentic commerce gates.
 
-We specify the protocol using formally stated invariants over an abstract state model, enforce them through a gateway that serves as an external reference monitor, and validate the implementation with 866 unit and adversarial tests across 35 protocol modules. We do not claim machine-checked proof of implementation correctness. The system is implemented in TypeScript (866 tests, 239 suites) and Python (86 tests), published as open-source SDKs with a 61-tool MCP server. We map the protocol against the OWASP AIVSS risk taxonomy with honest coverage assessment (5 strong, 3 partial, 2 weak), present adversarial evaluation scenarios including expected failures, and identify 10 remaining open problems. All empirical results refer to SDK v1.16.0 (commit af78ef9). The protocol is under active development; the live test suite may differ from the frozen artifact evaluated here.
+We specify the protocol using formally stated invariants over an abstract state model, enforce them through a gateway that serves as an external reference monitor (with enforcement maturity varying across invariants), and validate the implementation with 866 unit and adversarial tests across 35 protocol modules. We do not claim machine-checked proof of implementation correctness. The system is implemented in TypeScript (866 tests, 239 suites) and Python (86 tests), published as open-source SDKs with a 61-tool MCP server. We map the protocol against the OWASP AIVSS risk taxonomy with honest coverage assessment (5 strong, 3 partial, 2 weak), present adversarial evaluation scenarios including expected failures, and identify 10 remaining open problems. All empirical results refer to SDK v1.16.0 (commit af78ef9). The protocol is under active development; the live test suite may differ from the frozen artifact evaluated here.
 
 ## 1. Introduction
 
@@ -282,13 +282,15 @@ This composition is enforced by the ProxyGateway's processing order. A different
 
 **C5: INV-4 is bounded by INV-2 AND INV-1 simultaneously.** An escalation grant is constrained from above (ceiling scope ⊆ granter's delegation, via C2) and constrained from below (governance staleness blocks execution, via C1). The grant exists in the intersection of what the delegation tree permits and what the governance configuration allows.
 
+The composition claims in C1 and C5 are realized concretely by the gateway pipeline ordering defined in Section 4.4. Enforcement requires that the ProxyGateway implement a hard-coded sequence where `isGovernanceStale()` must be called before `checkEscalatedAction()`, and this sequence must be transactionally atomic to prevent Time-of-Check to Time-of-Use (TOCTOU) exploits between governance verification and escalation evaluation.
+
 #### 3.6.2 Identified but Untested Interactions
 
 Two composition relationships were identified during hostile review but are not yet tested:
 
-**INV-3 × INV-1 (disclosure after revocation).** When a delegation is revoked (INV-1), receipts previously disclosed under that delegation chain remain valid as historical records but their attribution trace now points to a revoked chain. The current implementation does not invalidate prior disclosures on revocation. Whether this is correct behavior (the receipt DID happen under valid authority at the time) or a gap (the verifier should see the current revocation status) is an open design question.
+**INV-3 × INV-1 (disclosure after revocation).** When a delegation is revoked (INV-1), receipts previously disclosed under that delegation chain remain valid as historical records but their attribution trace now points to a revoked chain. The current implementation does not invalidate prior disclosures on revocation. Whether this is correct behavior (the receipt DID happen under valid authority at the time) or a gap (the verifier should see the current revocation status) is a genuinely open design question — the answer depends on whether the protocol treats receipts as historical facts or live claims, and different deployment contexts may require different answers.
 
-**INV-3 × INV-2 (disclosure under governance evolution).** Receipts generated under governance version N may be verified under governance version N+1. If the governance was strengthened, actions that were permitted under the old governance might not be permitted under the new. The receipt remains valid (the action was authorized at the time), but a verifier applying current governance to a historical receipt will see a mismatch. The paper does not currently specify how governance versioning interacts with receipt verification across time.
+**INV-3 × INV-2 (disclosure under governance evolution).** Receipts generated under governance version N may be verified under governance version N+1. If the governance was strengthened, actions that were permitted under the old governance might not be permitted under the new. The receipt remains valid (the action was authorized at the time), but a verifier applying current governance to a historical receipt will see a mismatch. This interaction is untested because the governance versioning semantics for receipt verification have not been specified — the protocol currently treats receipts as immutable records of past actions without cross-referencing the governance version under which they were generated.
 
 #### 3.6.3 The Self-Referential Property
 
@@ -389,7 +391,7 @@ The implementation is validated by 866 tests across 239 suites in 49 test files.
 
 We describe four scenarios from the adversarial suite that exercise the invariant boundaries. Each scenario tests a specific attack vector against the gateway enforcement boundary.
 
-**Scenario A: Hierarchical scope escalation (INV-1).** Agent C holds delegation with scope `["data:read"]` sub-delegated from B, who holds `["data"]` from principal A. C submits a tool call with `scopeRequired: "data:write"`. The gateway's `scopeAuthorizes()` check at Step 2 rejects: `"data:read"` does not cover `"data:write"`. C then attempts to forge a new delegation with broadened scope and submits again. The gateway rejects at Step 1: the forged delegation's signature does not verify against B's public key. **Expected result: both attempts denied. Observed: denied.** This scenario was the source of the V3-CRIT-1 bug: prior to the fix, the SDK's `subDelegate()` used literal string matching (`Array.includes()`) which would have accepted `"data:write"` if the parent scope included the exact string. The gateway's `scopeAuthorizes()` correctly rejected it. The fix aligned both layers.
+**Scenario A: Hierarchical scope escalation (INV-1).** Agent C holds delegation with scope `["data:read"]` sub-delegated from B, who holds `["data"]` from principal A. C submits a tool call with `scopeRequired: "data:write"`. The gateway's `scopeAuthorizes()` check at Step 2 rejects: `"data:read"` does not cover `"data:write"`. C then attempts to forge a new delegation with broadened scope and submits again. The gateway rejects at Step 1: the forged delegation's signature does not verify against B's public key. **Expected result: both attempts denied. Observed: denied at Step 1 or Step 2. Even if the agent attempts the two-phase approval/executeApproval bypass path, the attack is blocked by parity checks in `_executeApprovalInner` which independently verifies scope authorization.** This scenario was the source of the V3-CRIT-1 bug: prior to the fix, the SDK's `subDelegate()` used literal string matching (`Array.includes()`) which would have accepted `"data:write"` if the parent scope included the exact string. The gateway's `scopeAuthorizes()` correctly rejected it. The fix aligned both layers.
 
 **Scenario B: Governance downgrade bypass via escalation (COMPOSITION).** Agent has an active escalation grant covering `["admin:*"]`. Governance is updated (floor principle removed). The agent's governance attestation becomes stale. Agent attempts an admin action using the escalation grant. The gateway checks governance staleness (Step 2.5) BEFORE checking escalation (Step 2.1). **Expected result: denied due to stale governance, even though escalation would cover the scope. Observed: denied.** This is the composition test: INV-2 takes precedence over INV-4 in the pipeline.
 
@@ -515,6 +517,8 @@ This paper addresses authority bounding and verifiable provenance for autonomous
 
 The protocol's strongest contribution may be architectural: by separating the deterministic enforcement boundary (cryptographic scope checking, signature verification, revocation cascade) from the advisory evaluation layer (LLM-based policy judgment), the system provides a clear security perimeter that does not depend on LLM reliability for its core invariants.
 
+The invariants presented here are amenable to standardization. INV-1 (delegation attenuation) independently converges with the IETF DAAP draft (draft-mishra-oauth-agent-grants-01). INV-2 (governance attenuation) maps to W3C zcap-spec's capability attenuation model. A protocol-agnostic conformance test suite (Appendix C) would enable independent implementations to verify interoperability. We consider IETF Internet-Draft as a natural next step after peer review.
+
 
 ## References
 
@@ -559,3 +563,71 @@ The protocol's strongest contribution may be architectural: by separating the de
 | Composition | integration-invariants.test.ts, stress-all-features.test.ts | 12 |
 | Gateway (cross-cutting) | gateway.test.ts | 30 |
 | Cross-layer | integration-wiring.test.ts, integration-modules.test.ts | 25 |
+
+
+## Appendix C: Conformance Test Vectors
+
+The following protocol-agnostic test vectors define expected behavior for any conforming implementation. Inputs and outputs are JSON. No SDK dependency is required.
+
+**Vector 1 — INV-1 Success (hierarchical scope narrowing):**
+
+    Input:  { "parentScope": ["data"], "childScope": ["data:read"] }
+    Action: createDelegation(parent → child)
+    Expect: SUCCESS — "data" covers "data:read"
+
+**Vector 2 — INV-1 Failure (scope widening attempt):**
+
+    Input:  { "parentScope": ["data:read"], "childScope": ["data"] }
+    Action: createDelegation(parent → child)
+    Expect: FAILURE — "data:read" does not cover "data"
+
+**Vector 3 — INV-1 Wildcard (root authority):**
+
+    Input:  { "parentScope": ["*"], "childScope": ["admin:delete"] }
+    Action: createDelegation(parent → child)
+    Expect: SUCCESS — "*" covers everything
+
+**Vector 4 — INV-2 Strengthening (adding principles):**
+
+    Input:  { "v1Floor": ["F-001"], "v2Floor": ["F-001", "F-002"], "approvals": 0 }
+    Action: updateGovernance(v1 → v2)
+    Expect: SUCCESS — strengthening requires no approvals
+
+**Vector 5 — INV-2 Weakening blocked (removing principles):**
+
+    Input:  { "v1Floor": ["F-001", "F-002"], "v2Floor": ["F-001"], "approvals": 0 }
+    Action: updateGovernance(v1 → v2)
+    Expect: FAILURE — removal requires approvals >= threshold_removal
+
+**Vector 6 — INV-3 Selective disclosure (Merkle proof):**
+
+    Input:  { "receipts": ["hash_A", "hash_B", "hash_C"], "disclose": "hash_B" }
+    Action: generateMerkleProof(receipts, hash_B)
+    Expect: { "proof": [...], "root": "..." } where verifyMerkleProof(proof, root) = true
+            AND proof does NOT contain hash_A or hash_C
+
+**Vector 7 — INV-4 Escalation within ceiling:**
+
+    Input:  { "grantCeiling": ["admin:*"], "requestedScope": "admin:read", "ttlMs": 60000, "elapsed": 30000 }
+    Action: checkEscalatedAction(grant, request)
+    Expect: SUCCESS — scope covered, TTL not expired
+
+**Vector 8 — INV-4 Escalation TTL expired:**
+
+    Input:  { "grantCeiling": ["admin:*"], "requestedScope": "admin:read", "ttlMs": 60000, "elapsed": 90000 }
+    Action: checkEscalatedAction(grant, request)
+    Expect: FAILURE — TTL expired
+
+**Vector 9 — Composition C1 (governance blocks escalation):**
+
+    Input:  { "agentGovernanceVersion": "1.0", "currentGovernanceVersion": "2.0", "activeEscalation": true, "escalationCoversScope": true }
+    Action: processToolCall(request)
+    Expect: FAILURE — governance stale, even though escalation would cover scope
+
+**Vector 10 — Canonical serialization determinism:**
+
+    Input:  { "b": 2, "a": 1, "c": null }
+    Action: canonicalize(input)
+    Expect: '{"a":1,"b":2,"c":null}' — keys sorted, null preserved, no whitespace
+
+A future standards-oriented artifact for this work is a complete conformance suite expressed as implementation-neutral JSON test vectors with Ed25519 test key pairs and pre-computed signatures.
