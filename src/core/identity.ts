@@ -5,7 +5,7 @@
 // Emergency rotation uses a pre-committed recovery key when the old key is compromised.
 
 import { v4 as uuidv4 } from 'uuid'
-import { sign, verify } from '../crypto/keys.js'
+import { sign, verify, publicKeyFromPrivate } from '../crypto/keys.js'
 import { canonicalize } from './canonical.js'
 import type {
   IdentityDocument, KeyRotationEntry, RotationVerification,
@@ -94,6 +94,12 @@ export function emergencyRotate(opts: {
   const { identity, recoveryPrivateKey, newKeyPair } = opts
   const now = new Date().toISOString()
   const rotationId = 'rot_' + uuidv4().slice(0, 12)
+
+  // V5-MED-3: Validate recovery key is in the pre-committed recovery key list
+  const recoveryPublicKey = publicKeyFromPrivate(recoveryPrivateKey)
+  if (!identity.recoveryKeys.includes(recoveryPublicKey)) {
+    throw new Error('Recovery key is not in the identity\'s pre-committed recovery key list')
+  }
 
   const continuityPayload = canonicalize({
     rotationId,

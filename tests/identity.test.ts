@@ -1,8 +1,7 @@
 // Identity & Key Rotation Tests (Module 22)
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { generateKeyPair, verify as verifySignature } from '../src/crypto/keys.js'
-import { canonicalize } from '../src/core/canonical.js'
+import { generateKeyPair } from '../src/crypto/keys.js'
 import {
   createIdentityDocument, rotateKey, emergencyRotate,
   verifyRotation, verifyRotationLog,
@@ -125,15 +124,10 @@ describe('Emergency Rotation', () => {
     const wrongRecovery = generateKeyPair()
     const newKp = generateKeyPair()
     const doc = createIdentityDocument({ publicKey: original.publicKey, recoveryKeys: [realRecovery.publicKey] })
-    const result = emergencyRotate({ identity: doc, recoveryPrivateKey: wrongRecovery.privateKey, newKeyPair: newKp })
-    const entry = result.rotationEntry
-    const recoveryKeyUsed = doc.recoveryKeys.some(rk => {
-      try {
-        const payload = canonicalize({ rotationId: entry.rotationId, oldPublicKey: entry.oldPublicKey, newPublicKey: entry.newPublicKey, reason: entry.reason, rotatedAt: entry.rotatedAt })
-        return verifySignature(payload, entry.continuitySignature, rk)
-      } catch { return false }
-    })
-    assert.equal(recoveryKeyUsed, false)
+    // V5-MED-3 fix: now throws instead of silently creating bad rotation
+    assert.throws(() => {
+      emergencyRotate({ identity: doc, recoveryPrivateKey: wrongRecovery.privateKey, newKeyPair: newKp })
+    }, /not in the identity/)
   })
 })
 
