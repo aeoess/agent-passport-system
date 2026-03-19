@@ -42,7 +42,7 @@ The protocol targets five security objectives:
 
 ### 2.2 Trusted Computing Base
 
-The protocol assumes: Ed25519 signature correctness (via Node.js native `crypto` module), SHA-256 for Merkle trees, correct scope subset checking, secure private key storage mediated by a trusted signing service, a trusted time source, and the ProxyGateway as enforcement point in the strong deployment model.
+The protocol assumes: Ed25519 signature correctness (via Node.js native `crypto` module), SHA-256 for Merkle trees, deterministic canonical JSON serialization, correct scope subset checking, secure private key storage mediated by a trusted signing service, a trusted time source, and the ProxyGateway as enforcement point in the strong deployment model.
 
 ### 2.3 Attacker Classes
 
@@ -120,9 +120,9 @@ Postcondition: creates active escalation x in X with TTL. x.effectiveScope ⊆ g
 Additionally, revocation is monotonic: once delegation identifier id enters R, it remains in R for all subsequent states. Cascade revocation propagates: if d_i is in R, then for all descendants d_j (j > i), d_j is also in R.
 
 **Enforcement mechanism.** The ProxyGateway enforces INV-1 at three points:
-- Step 2 (delegation check): `scopeAuthorizes(delegation.scope, request.scopeRequired)` must return true. The `scopeAuthorizes` function implements hierarchical matching where `data` covers `data:read` and `*` covers everything.
-- Step 5 (revocation recheck): at execution time, the gateway re-verifies that the delegation has not been revoked between approval and execution (TOCTOU mitigation).
-- Step 7 (receipt): the gateway generates the receipt, not the agent. The agent never touches the signature. Receipt scope is bound to the delegation scope that authorized the action.
+- Step 3 (delegation check): `scopeAuthorizes(delegation.scope, request.scopeRequired)` must return true. The `scopeAuthorizes` function implements hierarchical matching where `data` covers `data:read` and `*` covers everything.
+- Step 6 (revocation recheck): at execution time, the gateway re-verifies that the delegation has not been revoked between approval and execution (TOCTOU mitigation).
+- Step 8 (receipt): the gateway generates the receipt, not the agent. The agent never touches the signature. Receipt scope is bound to the delegation scope that authorized the action.
 
 The SDK enforces INV-1 in `subDelegate()` and `createReceipt()` using `scopeCovers()`, ensuring that the authoring layer matches the enforcement layer (verified by 10 authoring-enforcement parity tests).
 
@@ -136,7 +136,7 @@ The SDK enforces INV-1 in `subDelegate()` and `createReceipt()` using `scopeCove
           return true
       return false
 
-This function is called at both the SDK layer (subDelegate, createReceipt) and the gateway layer (Step 2), ensuring the authoring and enforcement layers cannot diverge. The V3-CRIT-1 bug fix (March 2026) replaced literal `Array.includes()` with `scopeCovers()` at every callsite after adversarial review discovered the divergence.
+This function is called at both the SDK layer (subDelegate, createReceipt) and the gateway layer (Step 3), ensuring the authoring and enforcement layers cannot diverge. The V3-CRIT-1 bug fix (March 2026) replaced literal `Array.includes()` with `scopeCovers()` at every callsite after adversarial review discovered the divergence.
 
 **Evidence.** 35 delegation tests, 23 adversarial scenarios (including scope escalation, replay, impersonation), 9 hierarchical scope narrowing tests, 10 authoring-enforcement parity tests. Gateway replay protection via TTL-based Map pruning (NW-001 fix). Key rotation with identity continuity (Module 22) ensures INV-1 survives key compromise.
 
@@ -163,7 +163,7 @@ Strengthening (adding principles) requires no additional approval. Weakening (mo
 
 **Enforcement mechanism.** The ProxyGateway enforces INV-2 through:
 - `updateGovernance()`: validates the new artifact via `loadGovernanceArtifact()` with differential approval thresholds. Strengthening updates are accepted with zero additional approvals. Weakening updates without sufficient approvals are rejected. The gateway tracks `governanceWeakeningBlocked` in stats.
-- Step 2.5 (governance staleness check): before any action, the gateway verifies that the agent's attested governance version matches the current version. If governance has been updated since the agent's last attestation, the action is blocked until the agent re-attests via `reattestGovernance()`.
+- Step 2 (governance staleness check): before any action, the gateway verifies that the agent's attested governance version matches the current version. If governance has been updated since the agent's last attestation, the action is blocked until the agent re-attests via `reattestGovernance()`.
 - Execution-time recheck: the same staleness check runs in the two-phase `executeApproval` path, catching governance updates that occur between approval and execution.
 - Policy conflict detection (Module 30): `detectPolicyConflicts()` identifies circular dependencies, unreachable actions, and shadowed rules in policy sets before they enter enforcement.
 
@@ -237,7 +237,7 @@ We note that INV-3 is the least mature of the four invariants in terms of implem
 The escalation grant is itself subject to INV-1: its ceiling scope must be a subset of the granter's delegation scope. Escalation does not create new authority; it temporarily re-routes pre-committed authority through a bounded channel.
 
 **Enforcement mechanism.** The ProxyGateway enforces INV-4 through:
-- Step 2.1 (escalation fallback): when the normal delegation check fails, the gateway checks `agent.activeEscalations` for a valid grant covering the requested action via `checkEscalatedAction()`. If found, the action proceeds with `viaEscalation: true` on the result.
+- Step 3.1 (escalation fallback): when the normal delegation check fails, the gateway checks `agent.activeEscalations` for a valid grant covering the requested action via `checkEscalatedAction()`. If found, the action proceeds with `viaEscalation: true` on the result.
 - TTL enforcement: `isEscalationActive()` checks both status and temporal validity. Expired escalations are automatically cleaned via `_expireAgentEscalations()`.
 - Scope check: `checkEscalatedAction()` verifies the requested action is within the escalation's effective scope using `scopeAuthorizes()`.
 - Spend tracking: each escalated action increments `spentDuringEscalation`. Actions exceeding the remaining budget are denied.
@@ -258,7 +258,7 @@ The escalation grant is itself subject to INV-1: its ceiling scope must be a sub
         return { authorized: true, escalationId: x.id, viaEscalation: true }
       return { authorized: false }
 
-This function runs only when the normal delegation check (Step 2) fails. The gateway never checks escalation first — delegation is always the primary authorization path. Escalation is a fallback, not a shortcut.
+This function runs only when the normal delegation check (Step 3) fails. The gateway never checks escalation first — delegation is always the primary authorization path. Escalation is a fallback, not a shortcut.
 
 **Evidence.** 11 gateway-escalation tests including: normal delegation bypass, escalation fallback, expired TTL denial, scope mismatch, max concurrent enforcement, revocation, spend tracking across calls. Module 27 has its own unit tests for grant creation, activation, and verification. Module 28 has 19 oracle witness diversity tests. 3 reversibility tests in the integration invariant suite.
 
@@ -270,9 +270,9 @@ The four invariants are not merely parallel constraints. They compose through fi
 
 #### 3.6.1 Tested Composition Relationships
 
-**C1: INV-2 takes precedence over INV-4 (governance blocks escalation).** When governance is updated, all agents' attestations become stale. The governance staleness check (Step 2.5) runs before the escalation fallback (Step 2.1) in the processing pipeline, and independently in the `executeApproval` path. An agent with an active escalation grant that would normally cover an action is still blocked if its governance attestation is stale. This means governance weakening cannot be circumvented by acquiring an escalation grant first.
+**C1: INV-2 takes precedence over INV-4 (governance blocks escalation).** When governance is updated, all agents' attestations become stale. The governance staleness check (Step 2) runs before both the delegation check (Step 3) and the escalation fallback (Step 3.1) in the processing pipeline, and independently in the `executeApproval` path. An agent with an active escalation grant that would normally cover an action is still blocked if its governance attestation is stale. This means governance weakening cannot be circumvented by acquiring an escalation grant first.
 
-This composition is enforced by the ProxyGateway's processing order. A different enforcement engine that checks escalation before governance would violate C1. We specify this as a requirement: any conforming enforcement engine MUST evaluate governance staleness before escalation fallback. The invariant holds because of the specified processing order, not because of an inherent algebraic property. We test this composition directly in `integration-invariants.test.ts`.
+This composition is enforced by the ProxyGateway's processing order. A different enforcement engine that checks escalation before governance would violate C1. We specify this as a requirement: any conforming enforcement engine MUST evaluate governance staleness before delegation or escalation checks. The invariant holds because of the specified processing order, not because of an inherent algebraic property. We test this composition directly in `integration-invariants.test.ts`.
 
 **C2: INV-1 bounds INV-4 (delegation caps escalation ceiling).** An escalation grant's ceiling scope must be a subset of the granter's delegation scope. This is verified at grant creation by `verifyEscalationGrant()`. Escalation cannot create authority that the granting principal does not already possess. Exception attenuation is itself subject to delegation attenuation.
 
@@ -282,7 +282,7 @@ This composition is enforced by the ProxyGateway's processing order. A different
 
 **C5: INV-4 is bounded by INV-2 AND INV-1 simultaneously.** An escalation grant is constrained from above (ceiling scope ⊆ granter's delegation, via C2) and constrained from below (governance staleness blocks execution, via C1). The grant exists in the intersection of what the delegation tree permits and what the governance configuration allows.
 
-The composition claims in C1 and C5 are realized concretely by the gateway pipeline ordering defined in Section 4.4. Enforcement requires that the ProxyGateway implement a hard-coded sequence where `isGovernanceStale()` must be called before `checkEscalatedAction()`, and this sequence must be transactionally atomic to prevent Time-of-Check to Time-of-Use (TOCTOU) exploits between governance verification and escalation evaluation.
+The composition claims in C1 and C5 are realized concretely by the gateway pipeline ordering defined in Section 4.4. Enforcement requires that the ProxyGateway implement a hard-coded sequence where governance staleness (Step 2) is checked before delegation (Step 3) and escalation fallback (Step 3.1), and this sequence must be transactionally atomic to prevent Time-of-Check to Time-of-Use (TOCTOU) exploits between governance verification and escalation evaluation.
 
 #### 3.6.2 Identified but Untested Interactions
 
@@ -322,7 +322,7 @@ The composition is enforced by the ProxyGateway's processing pipeline order, not
 
 **Fixed-point vulnerability.** The self-referential property creates a potential fixed-point problem: if the governance update mechanism itself has a bug, the broken mechanism gates its own repair. The specified escape hatch is root principal access: the human principal with direct gateway access can override the governance check as an out-of-band recovery mechanism. This is analogous to a constitutional amendment process that, if deadlocked, falls back to the sovereign authority that created the constitution.
 
-This self-referential property is the paper's central claim: the four invariants form a compositional constraint graph with tested precedence relationships and a shared authorization pattern, not a disconnected set of rules.
+This self-referential composition property is a central claim of the paper: the four invariants form a compositional constraint graph with tested precedence relationships and a shared authorization pattern, not a disconnected set of rules.
 
 
 ## 4. Architecture
@@ -366,7 +366,7 @@ No execution receipt can exist without a corresponding intent and decision. This
 
 The gateway processes each tool call through a sequential pipeline of enforcement checks:
 
-Step 0: Replay protection (request ID uniqueness). Step 1: Signature verification (agent's Ed25519 signature over canonical request). Step 2: Delegation check (scope authorization via `scopeAuthorizes()`). Step 2.1: Escalation fallback (INV-4, if delegation fails). Step 2.5: Governance staleness check (INV-2). Step 2.6: Reversibility check (action class within gateway maximum). Step 3: Intent creation. Step 4: Policy evaluation (with INV-4 scope override for escalated actions). Step 4.5: Reputation tier check (effectiveAuthority = min(delegation, tier)). Step 5: Revocation recheck at execution time. Step 6: Tool execution. Step 6.5: Taint tracking and SAO wrapping (cross-chain). Step 7: Receipt generation. Step 8: Policy receipt creation. Step 8.5: Obligation fulfillment check. Step 8.7: Reputation update.
+Step 0: Replay protection (request ID uniqueness). Step 1: Signature verification (agent's Ed25519 signature over canonical request). Step 2: Governance staleness check (INV-2, blocks both delegation and escalation paths). Step 3: Delegation check (scope authorization via `scopeAuthorizes()`, includes reversibility constraint on action class). Step 3.1: Escalation fallback (INV-4, if delegation fails; also checks reversibility). Step 4: Intent creation. Step 5: Policy evaluation (with INV-4 scope override for escalated actions). Step 5.5: Reputation tier check (effectiveAuthority = min(delegation, tier)). Step 6: Revocation recheck at execution time. Step 7: Tool execution. Step 7.5: Taint tracking and SAO wrapping (cross-chain). Step 8: Receipt generation. Step 9: Policy receipt creation. Step 9.5: Obligation fulfillment check. Step 9.7: Reputation update.
 
 All six gateway features (governance, escalation, cross-chain, obligations, reputation, reversibility) operate simultaneously without conflict, verified by a dedicated stress test suite.
 
@@ -391,9 +391,9 @@ The implementation is validated by 866 tests across 239 suites in 49 test files.
 
 We describe four scenarios from the adversarial suite that exercise the invariant boundaries. Each scenario tests a specific attack vector against the gateway enforcement boundary.
 
-**Scenario A: Hierarchical scope escalation (INV-1).** Agent C holds delegation with scope `["data:read"]` sub-delegated from B, who holds `["data"]` from principal A. C submits a tool call with `scopeRequired: "data:write"`. The gateway's `scopeAuthorizes()` check at Step 2 rejects: `"data:read"` does not cover `"data:write"`. C then attempts to forge a new delegation with broadened scope and submits again. The gateway rejects at Step 1: the forged delegation's signature does not verify against B's public key. **Expected result: both attempts denied. Observed: denied at Step 1 or Step 2. Even if the agent attempts the two-phase approval/executeApproval bypass path, the attack is blocked by parity checks in `_executeApprovalInner` which independently verifies scope authorization.** This scenario was the source of the V3-CRIT-1 bug: prior to the fix, the SDK's `subDelegate()` used literal string matching (`Array.includes()`) which would have accepted `"data:write"` if the parent scope included the exact string. The gateway's `scopeAuthorizes()` correctly rejected it. The fix aligned both layers.
+**Scenario A: Hierarchical scope escalation (INV-1).** Agent C holds delegation with scope `["data:read"]` sub-delegated from B, who holds `["data"]` from principal A. C submits a tool call with `scopeRequired: "data:write"`. The gateway's `scopeAuthorizes()` check at Step 3 rejects: `"data:read"` does not cover `"data:write"`. C then attempts to forge a new delegation with broadened scope and submits again. The gateway rejects at Step 1: the forged delegation's signature does not verify against B's public key. **Expected result: both attempts denied. Observed: denied at Step 1 or Step 3. Even if the agent attempts the two-phase approval/executeApproval bypass path, the attack is blocked by parity checks in `_executeApprovalInner` which independently verifies scope authorization.** This scenario was the source of the V3-CRIT-1 bug: prior to the fix, the SDK's `subDelegate()` used literal string matching (`Array.includes()`) which would have accepted `"data:write"` if the parent scope included the exact string. The gateway's `scopeAuthorizes()` correctly rejected it. The fix aligned both layers.
 
-**Scenario B: Governance downgrade bypass via escalation (COMPOSITION).** Agent has an active escalation grant covering `["admin:*"]`. Governance is updated (floor principle removed). The agent's governance attestation becomes stale. Agent attempts an admin action using the escalation grant. The gateway checks governance staleness (Step 2.5) BEFORE checking escalation (Step 2.1). **Expected result: denied due to stale governance, even though escalation would cover the scope. Observed: denied.** This is the composition test: INV-2 takes precedence over INV-4 in the pipeline.
+**Scenario B: Governance downgrade bypass via escalation (COMPOSITION).** Agent has an active escalation grant covering `["admin:*"]`. Governance is updated (floor principle removed). The agent's governance attestation becomes stale. Agent attempts an admin action using the escalation grant. The gateway checks governance staleness (Step 2) BEFORE checking delegation (Step 3) or escalation (Step 3.1). **Expected result: denied due to stale governance, even though escalation would cover the scope. Observed: denied.** This is the composition test: INV-2 takes precedence over INV-4 in the pipeline.
 
 **Scenario C: Replay attack on two-phase execution.** Agent receives approval for a tool call (Phase 1). Agent submits the same approval ID twice for execution (Phase 2). The gateway marks the approval as `consumed: true` after the first execution. The second submission is rejected at Step 0: approval already consumed. **Expected result: second execution denied. Observed: denied.** The TTL-based Map pruning (NW-001 fix) also prevents accumulation of stale request IDs in long-running gateways.
 
@@ -415,7 +415,7 @@ We map the protocol against the OWASP AI Vulnerability Scoring System (AIVSS) ri
 
 Independent developers have implemented complementary layers that interoperate with the protocol, providing evidence of architectural generality:
 
-The Nexus-Guard project built a cross-protocol bridge between the Agent Identity Protocol (AIP) and APS, with all four resolution directions working (AIP→APS, APS→AIP identity and delegation). The xsa520/Guardian project proposed a pre-execution evidence ledger that maps to the protocol's 3-signature chain, with the evidence attestation serving as a potential 4th signature. The sunilp/GovernancePlugin adapter for Google's Agent Development Kit (ADK) implements APS delegation checking within ADK's PolicyEvaluator interface. These integrations were built by independent parties without coordination on implementation details, suggesting the protocol's invariants are robust across different architectural contexts.
+The Nexus-Guard project built a cross-protocol bridge between the Agent Identity Protocol (AIP) and APS, with all four resolution directions working (AIP→APS, APS→AIP identity and delegation). The xsa520/Guardian project proposed a pre-execution evidence ledger that maps to the protocol's 3-signature chain, with the evidence attestation serving as a potential 4th signature. The sunilp/GovernancePlugin adapter for Google's Agent Development Kit (ADK) implements APS delegation checking within ADK's PolicyEvaluator interface. These integrations were developed independently of the core APS implementation, providing preliminary evidence of architectural portability, though they do not yet constitute a formal conformance suite.
 
 ### 5.4 Reproducibility
 
@@ -457,7 +457,7 @@ OpenID Federation 1.0 provides a trust chain model where entities inherit trust 
 
 ### 6.6 AI Agent Governance
 
-DeepMind's "Intelligent Delegation" paper (2026) proposes a capability-based approach to agent oversight. The LOKA Protocol targets open autonomous agent networks. OpenAI's governance practices describe internal oversight mechanisms. The BSA (Business Software Alliance) submitted recommendations to NIST that align with our architecture. None of these provide a complete protocol stack with cryptographic enforcement, formal invariants, and tested implementation. The closest competitor in the open-source space is the Open Agent Identity Protocol (AIP), with which we have a working cross-protocol bridge.
+DeepMind's "Intelligent Delegation" paper (2026) proposes a capability-based approach to agent oversight. The LOKA Protocol targets open autonomous agent networks. OpenAI's governance practices describe internal oversight mechanisms. The BSA (Business Software Alliance) submitted recommendations to NIST that align with our architecture. To our knowledge, none of these provide a complete protocol stack with cryptographic enforcement, formal invariants, and tested implementation. The closest competitor in the open-source space is the Open Agent Identity Protocol (AIP), with which we have a working cross-protocol bridge.
 
 
 ## 7. Open Problems and Extensions
@@ -515,7 +515,7 @@ The protocol is implemented as 35 modules with 866 tests, published as open-sour
 
 This paper addresses authority bounding and verifiable provenance for autonomous AI agents. It does not claim to solve full agent alignment, prevent prompt injection, or provide runtime compromise resistance. We identify 10 open problems honestly, including 2 that are provably hard (collusion, workflow satisfiability) and 1 that is out of scope (runtime attestation). We present these limitations as contributions: knowing what cannot be solved at the protocol level is as valuable as knowing what can.
 
-The protocol's strongest contribution may be architectural: by separating the deterministic enforcement boundary (cryptographic scope checking, signature verification, revocation cascade) from the advisory evaluation layer (LLM-based policy judgment), the system provides a clear security perimeter that does not depend on LLM reliability for its core invariants.
+One of the protocol's strongest contributions is architectural: by separating the deterministic enforcement boundary (cryptographic scope checking, signature verification, revocation cascade) from the advisory evaluation layer (LLM-based policy judgment), the system provides a clear security perimeter that does not depend on LLM reliability for its core invariants.
 
 The invariants presented here are amenable to standardization. INV-1 (delegation attenuation) independently converges with the IETF DAAP draft (draft-mishra-oauth-agent-grants-01). INV-2 (governance attenuation) maps to W3C zcap-spec's capability attenuation model. A protocol-agnostic conformance test suite (Appendix C) would enable independent implementations to verify interoperability. We consider IETF Internet-Draft as a natural next step after peer review.
 
@@ -604,7 +604,7 @@ The following protocol-agnostic test vectors define expected behavior for any co
     Input:  { "receipts": ["hash_A", "hash_B", "hash_C"], "disclose": "hash_B" }
     Action: generateMerkleProof(receipts, hash_B)
     Expect: { "proof": [...], "root": "..." } where verifyMerkleProof(proof, root) = true
-            AND proof does NOT contain hash_A or hash_C
+            AND proof reveals only the sibling hashes required for verification, not the full receipt set
 
 **Vector 7 — INV-4 Escalation within ceiling:**
 
