@@ -516,3 +516,16 @@ export type {
   WitnessAttestation, WitnessPool, WitnessPoolConfig,
   DiversityScore, WitnessConsensusResult,
 } from './types/oracle-witness.js'
+
+
+// ── Encrypted Messaging Audit Bridge (Module 29) ──
+
+export {
+  createMessageAuditLog, createAuditRecord, verifyAuditRecord,
+  appendToAuditLog, queryBySender, queryCrossChainMessages,
+  totalBytesBySender,
+} from './core/messaging-audit.js'
+
+export type {
+  MessageAuditRecord, AuditVerification, MessageAuditLog,
+} from './core/messaging-audit.js'
