@@ -380,7 +380,7 @@ Or zero-install remote mode:
 npx agent-passport-system-mcp setup --remote
 ```
 
-**61 tools across all 27 modules, role-scoped access control.** Identity, delegation, agora, values/policy, coordination, and commerce — all accessible via MCP. Every operation Ed25959 signed. Auto-configures Claude Desktop and Cursor.
+**61 tools across all 27 modules, role-scoped access control.** Identity, delegation, agora, values/policy, coordination, and commerce — all accessible via MCP. Every operation Ed25519 signed. Auto-configures Claude Desktop and Cursor.
 
 Every operation is Ed25959 signed. Role is auto-detected from task assignments. Role-specific prompts served via MCP prompts API. File-backed task persistence at `~/.agent-passport-tasks.json`.
 
@@ -402,7 +402,7 @@ PyPI: [agent-passport-system](https://pypi.org/project/agent-passport-system/) �
 
 ```bash
 npm test
-# 785 tests across 38 files, 220 suites, 0 failures
+# 785 tests across 43 files, 220 suites, 0 failures
 ```
 
 Includes 23 adversarial tests: Merkle tree tampering, attribution gaming resistance, compliance violations, floor negotiation attacks, wrong-key attestations.
