@@ -12,7 +12,7 @@
 import { v4 as uuidv4 } from 'uuid'
 import { sign, verify } from '../crypto/keys.js'
 import { canonicalize } from './canonical.js'
-import { createActionIntent, verifyActionIntent, verifyPolicyDecision } from './policy.js'
+import { verifyActionIntent, verifyPolicyDecision } from './policy.js'
 import type { ActionIntent, PolicyDecision, PolicyVerdict } from '../types/policy.js'
 import type {
   ContentHash, ContentHashAlgorithm, EvaluationMethod,

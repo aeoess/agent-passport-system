@@ -11,7 +11,7 @@
 // formalize the decomposition.
 // ══════════════════════════════════════════════════════════════════
 
-import type { ActionIntent, PolicyDecision, PolicyVerdict } from './policy.js'
+import type { PolicyVerdict } from './policy.js'
 import type { EvaluationMethod } from './execution-envelope.js'
 
 // Re-export so consumers can get it from either place
