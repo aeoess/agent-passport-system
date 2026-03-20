@@ -44,6 +44,7 @@ export interface Delegation {
   delegatedTo: string
   delegatedBy: string
   scope: string[]
+  scopeInterpretation?: 'exact' | 'glob' | 'hierarchical'  // Module 37: how scope matching works
   expiresAt: string
   spendLimit?: number
   spentAmount?: number

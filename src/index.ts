@@ -561,3 +561,22 @@ export type {
   DataAccessReceipt, AccessMethod, TermsComplianceResult,
   SourceReceiptVerification, AccessReceiptVerification,
 } from './types/data-source.js'
+
+
+// ══════════════════════════════════════
+// MODULE 37 — Decision Semantics & Cross-Engine Interop
+// ══════════════════════════════════════
+
+export {
+  computeContentHash, verifyContentHash,
+  createContentAddressableIntent,
+  classifyEvaluationMethod, decomposeDecision,
+  createDecisionArtifact, verifyDecisionArtifact,
+  getEffectiveScopeInterpretation,
+} from './core/decision-semantics.js'
+
+export type {
+  ScopeInterpretation,
+  ContentHash, ContentHashAlgorithm,
+  DecisionSemantics, DecisionArtifact, DecisionArtifactVerification,
+} from './types/decision-semantics.js'

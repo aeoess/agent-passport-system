@@ -12,6 +12,7 @@
 // ══════════════════════════════════════════════════════════════════
 
 import type { EnforcementMode } from './passport.js'
+import type { ContentHash, EvaluationMethod } from './decision-semantics.js'
 
 // ── Action Intent ──
 // Before executing, the agent declares intent. This is the request.
@@ -31,6 +32,7 @@ export interface ActionIntent {
     }
   }
   context?: string          // optional: why the agent wants to do this
+  contentHash?: ContentHash // Module 37: content-addressable hash of unsigned intent
   createdAt: string
   signature: string         // signed by the requesting agent
 }
@@ -55,6 +57,7 @@ export interface PolicyDecision {
   evaluatorId: string       // who evaluated (agent or system)
   evaluatorPublicKey: string
   verdict: PolicyVerdict
+  evaluationMethod?: EvaluationMethod  // Module 37: deterministic | model_dependent | hybrid
   principlesEvaluated: PrincipleEvaluation[]
   constraints?: string[]    // if verdict is 'narrow', what constraints apply
   reason: string            // human-readable explanation
@@ -126,6 +129,7 @@ export interface ValidationContext {
 
 export interface PolicyEvaluationResult {
   verdict: PolicyVerdict
+  evaluationMethod?: EvaluationMethod  // Module 37: how the verdict was computed
   principlesEvaluated: PrincipleEvaluation[]
   constraints?: string[]
   reason: string

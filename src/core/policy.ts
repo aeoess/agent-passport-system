@@ -111,6 +111,7 @@ export function evaluateIntent(opts: {
     evaluatorId: opts.evaluatorId,
     evaluatorPublicKey: opts.evaluatorPublicKey,
     verdict: result.verdict,
+    evaluationMethod: result.evaluationMethod,  // Module 37: how the verdict was computed
     principlesEvaluated: result.principlesEvaluated,
     constraints: result.constraints,
     reason: result.reason,
@@ -315,6 +316,7 @@ export class FloorValidatorV1 implements PolicyValidator {
 
     return {
       verdict: dominated,
+      evaluationMethod: 'deterministic' as const,  // Module 37: V1 checks are all reproducible
       principlesEvaluated: evals,
       constraints: constraints.length > 0 ? constraints : undefined,
       reason: reasons.length > 0

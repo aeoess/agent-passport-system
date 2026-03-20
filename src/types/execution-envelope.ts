@@ -9,7 +9,7 @@
 // existing 3-signature chain.
 // ══════════════════════════════════════════════════════════════════
 
-export type EvaluationMethod = 'deterministic' | 'probabilistic'
+export type EvaluationMethod = 'deterministic' | 'probabilistic' | 'model_dependent' | 'hybrid'
 export type EnvelopeVerdict = 'permit' | 'deny' | 'narrow' | 'audit'
 export type RevocationStatus = 'active' | 'revoked'
 

@@ -49,6 +49,7 @@ export interface CreateDelegationOptions {
   delegatedTo: string       // public key of delegate
   delegatedBy: string       // public key of delegator
   scope: string[]
+  scopeInterpretation?: 'exact' | 'glob' | 'hierarchical'  // Module 37
   spendLimit?: number
   maxDepth?: number
   currentDepth?: number
@@ -66,6 +67,7 @@ export function createDelegation(opts: CreateDelegationOptions): Delegation {
     delegatedTo: opts.delegatedTo,
     delegatedBy: opts.delegatedBy,
     scope: opts.scope,
+    ...(opts.scopeInterpretation && { scopeInterpretation: opts.scopeInterpretation }),
     expiresAt: expiry.toISOString(),
     spendLimit: opts.spendLimit,
     spentAmount: 0,
@@ -132,6 +134,7 @@ export function subDelegate(opts: SubDelegateOptions): Delegation {
     delegatedTo: opts.delegatedTo,
     delegatedBy: parent.delegatedTo, // the current delegate becomes delegator
     scope: opts.scope,
+    scopeInterpretation: parent.scopeInterpretation,  // Module 37: inherit from parent
     spendLimit: opts.spendLimit || parentRemaining,
     maxDepth: parent.maxDepth,
     currentDepth: parent.currentDepth + 1,
