@@ -7,7 +7,7 @@
 
 Cryptographic identity, ethical governance, economic attribution, data source registration, protocol-native communication, intent architecture, cascade revocation, coordination primitives, and agentic commerce for autonomous AI agents.
 
-**36 modules. 891 tests. Zero heavy dependencies. Running code. MCP server included.**
+**36 modules. 894 tests. Zero heavy dependencies. Running code. MCP server included.**
 
 > *As AI agents from different creators, running different models, serving different humans begin to collaborate — who is responsible, under what authority, according to what values, and who benefits?*
 
@@ -402,7 +402,7 @@ PyPI: [agent-passport-system](https://pypi.org/project/agent-passport-system/) �
 
 ```bash
 npm test
-# 891 tests across 43 files, 245 suites, 0 failures
+# 894 tests across 43 files, 245 suites, 0 failures
 ```
 
 Includes 50 adversarial tests across 4 test files: Merkle tree tampering, attribution gaming resistance, compliance violations, floor negotiation attacks, wrong-key attestations, cross-chain confused deputy, taint laundering, permit bypass, causal chain manipulation.
@@ -498,7 +498,7 @@ src/                    32 source files
     reputation-authority.ts — Reputation/tier types
     cross-chain.ts     — Cross-chain taint/SAO types
     data-source.ts     — Data source/access receipt types
-tests/                  51 test files, 891 tests (245 suites)
+tests/                  51 test files, 894 tests (245 suites)
   adversarial.ts       — 50 adversarial cases
   adversarial-paper.test.ts — 22 paper-linked attack scenarios
   adversarial-causal-chain.test.ts — 18 causal chain attacks
