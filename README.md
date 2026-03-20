@@ -5,7 +5,7 @@
 [![tests](https://img.shields.io/badge/tests-862%20passing-brightgreen)](https://github.com/aeoess/agent-passport-system)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18749779.svg)](https://doi.org/10.5281/zenodo.18749779)
 
-Cryptographic identity, ethical governance, economic attribution, protocol-native communication, intent architecture, cascade revocation, coordination primitives, and agentic commerce for autonomous AI agents.
+Cryptographic identity, ethical governance, economic attribution, data source registration, protocol-native communication, intent architecture, cascade revocation, coordination primitives, and agentic commerce for autonomous AI agents.
 
 **36 modules. 891 tests. Zero heavy dependencies. Running code. MCP server included.**
 
@@ -475,6 +475,10 @@ src/                    32 source files
     precedent.ts       — Normative precedent library, drift detection
     reanchor.ts        — Delegation re-anchoring to DIDs
     escalation.ts      — Bounded escalation (4th attenuation invariant)
+    oracle-witness.ts  — Oracle witness diversity (Shannon entropy Sybil resistance)
+    messaging-audit.ts — Encrypted messaging audit bridge
+    policy-conflict.ts — Policy conflict detection (DFS cycle/deadlock)
+    data-source.ts     — Data source registration & access receipts (Module 36A)
   cli/
     index.ts           — CLI (14 commands)
   crypto/
@@ -492,6 +496,8 @@ src/                    32 source files
     euaiact.ts         — EU AI Act types
     principal.ts       — Principal identity types
     reputation-authority.ts — Reputation/tier types
+    cross-chain.ts     — Cross-chain taint/SAO types
+    data-source.ts     — Data source/access receipt types
 tests/                  51 test files, 891 tests (245 suites)
   adversarial.ts       — 50 adversarial cases
   adversarial-paper.test.ts — 22 paper-linked attack scenarios
@@ -509,6 +515,7 @@ tests/                  51 test files, 891 tests (245 suites)
   cascade.test.ts      — Chain registry, cascade revocation, batch
   coordination.test.ts — Task briefs, evidence, review, handoff, lifecycle
   commerce.test.ts     — ACP checkout, 4-gate preflight, spend tracking
+  data-source.test.ts  — Source registration, access receipts, terms compliance
 values/
   floor.yaml           — Human Values Floor manifest
 papers/
