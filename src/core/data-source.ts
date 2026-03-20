@@ -7,7 +7,7 @@
 // Receipts are trustworthy to the degree that you trust the gateway operator.
 
 import { v4 as uuidv4 } from 'uuid'
-import { sign, verify } from '../crypto/keys.js'
+import { sign, verify, publicKeyFromPrivate } from '../crypto/keys.js'
 import { canonicalize } from './canonical.js'
 import { buildMerkleRoot, generateMerkleProof, verifyMerkleProof } from './attribution.js'
 import type { MerkleProof } from '../types/passport.js'
@@ -119,7 +119,9 @@ export function verifySourceReceipt(receipt: SourceReceipt): SourceReceiptVerifi
   const errors: string[] = []
 
   // Signature check
-  const { signature, revokedAt, revocationReason, expiresAt, ...signable } = receipt
+  // expiresAt is part of the signed payload — adding it post-creation breaks the signature.
+  // Only revokedAt/revocationReason are mutable after creation (revocation is a state change).
+  const { signature, revokedAt, revocationReason, ...signable } = receipt
   const canonical = canonicalize(signable)
   let signatureValid = false
   try {
@@ -164,6 +166,11 @@ export function revokeSourceReceipt(opts: {
   reason?: string
   revokerPrivateKey: string
 }): SourceReceipt {
+  // Verify revoker is the original signer
+  const revokerPublicKey = publicKeyFromPrivate(opts.revokerPrivateKey)
+  if (revokerPublicKey !== opts.receipt.issuedBy) {
+    throw new Error('Revocation denied: revoker key does not match receipt signer')
+  }
   // Revocation is a state mutation, not a re-sign.
   // The original signature remains valid for the original registration.
   // revokedAt is set to mark the source as inactive for future access.
@@ -207,7 +214,7 @@ export function recordDataAccess(opts: {
     accessScope: opts.accessScope,
     accessMethod: opts.accessMethod,
     declaredPurpose: opts.declaredPurpose,
-    termsAtAccessTime: { ...opts.sourceReceipt.dataTerms },
+    termsAtAccessTime: JSON.parse(JSON.stringify(opts.sourceReceipt.dataTerms)),
     timestamp: now,
     gatewayId: opts.gatewayId,
     gatewayPublicKey: opts.gatewayPublicKey,

@@ -127,6 +127,21 @@ describe('Module 36A: Source Registration', () => {
     assert.ok(!v.valid)
     assert.ok(!v.notExpired)
   })
+
+  it('Test 5b: verifySourceReceipt — injecting expiresAt post-creation breaks signature', async () => {
+    const owner = await generateKeyPair()
+    const receipt = registerSelfAttestedSource({
+      ownerPrincipalId: 'p1', ownerPublicKey: owner.publicKey,
+      ownerPrivateKey: owner.privateKey,
+      contentCommitment: sha256('data'), contentType: 'document',
+      contentDescriptor: 'test', dataTerms: makeTerms(),
+    })
+    // Attacker tries to add expiresAt to make receipt appear expired
+    const injected = { ...receipt, expiresAt: '2020-01-01T00:00:00Z' }
+    const v = verifySourceReceipt(injected)
+    // Signature MUST break — expiresAt is part of signed payload
+    assert.ok(!v.signatureValid, 'expiresAt injection must invalidate signature')
+  })
 })
 
 // ══════════════════════════════════════
@@ -166,6 +181,22 @@ describe('Module 36A: Source Lifecycle', () => {
     // Signature was computed on original fields (excl revokedAt)
     // So the base receipt signature should still be valid
     assert.equal(revoked.signature, receipt.signature)
+  })
+
+  it('Test 7b: revokeSourceReceipt — rejects revocation by wrong key', async () => {
+    const owner = await generateKeyPair()
+    const attacker = await generateKeyPair()
+    const receipt = registerSelfAttestedSource({
+      ownerPrincipalId: 'p1', ownerPublicKey: owner.publicKey,
+      ownerPrivateKey: owner.privateKey,
+      contentCommitment: sha256('data'), contentType: 'document',
+      contentDescriptor: 'test', dataTerms: makeTerms(),
+    })
+    assert.throws(() => {
+      revokeSourceReceipt({
+        receipt, reason: 'hijack', revokerPrivateKey: attacker.privateKey,
+      })
+    }, /revoker key does not match/)
   })
 
   it('Test 8: gateway_observed with default terms frozen into receipt', async () => {
@@ -415,6 +446,34 @@ describe('Module 36A: Data Access Receipts', () => {
     // Mutating original source terms should NOT change the snapshot
     src.dataTerms.requireAttribution = true
     assert.equal(access.termsAtAccessTime.requireAttribution, false)
+  })
+
+  it('Test 19b: termsAtAccessTime deep clone — nested compensation survives mutation', async () => {
+    const owner = await generateKeyPair()
+    const gw = await generateKeyPair()
+    const agent = await generateKeyPair()
+    const src = registerSelfAttestedSource({
+      ownerPrincipalId: 'p1', ownerPublicKey: owner.publicKey,
+      ownerPrivateKey: owner.privateKey,
+      contentCommitment: sha256('d'), contentType: 'document',
+      contentDescriptor: 't',
+      dataTerms: makeTerms({ compensation: { type: 'per_access', amount: 5, currency: 'USD' } }),
+    })
+    const access = recordDataAccess({
+      sourceReceipt: src, dataHash: sha256('d'),
+      agentId: 'a1', agentPublicKey: agent.publicKey,
+      principalId: 'p1', executionFrameId: 'f1',
+      accessScope: 'data:read', accessMethod: 'file_read',
+      declaredPurpose: 'read',
+      gatewayId: 'gw1', gatewayPublicKey: gw.publicKey,
+      gatewayPrivateKey: gw.privateKey,
+    })
+    // Mutate the nested compensation object on the source
+    const comp = src.dataTerms.compensation as { type: string; amount: number; currency: string }
+    comp.amount = 999
+    // Snapshot must be unaffected (deep clone, not shallow spread)
+    const snapComp = access.termsAtAccessTime.compensation as { type: string; amount: number; currency: string }
+    assert.equal(snapComp.amount, 5, 'Deep clone must protect nested compensation object')
   })
 })
 
