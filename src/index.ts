@@ -542,3 +542,22 @@ export type {
   PolicyRule, PolicyConflictReport, ShadowedRule,
   PolicyContradiction,
 } from './core/policy-conflict.js'
+
+
+// ── Data Source Registration & Access Receipts (Module 36A) ──
+
+export {
+  registerSelfAttestedSource, registerCustodianAttestedSource,
+  registerGatewayObservedSource, verifySourceReceipt, revokeSourceReceipt,
+  recordDataAccess, verifyDataAccessReceipt,
+  checkTermsCompliance, composeTerms,
+  buildDataAccessMerkleRoot, proveDataAccessInclusion,
+  verifyDataAccessInclusionProof, addDataAccessToLedger,
+} from './core/data-source.js'
+
+export type {
+  SourceReceipt, SourceMode, DataContentType,
+  DataTerms, DataPurpose, CompensationModel, DerivativePolicy, AuditVisibility,
+  DataAccessReceipt, AccessMethod, TermsComplianceResult,
+  SourceReceiptVerification, AccessReceiptVerification,
+} from './types/data-source.js'
