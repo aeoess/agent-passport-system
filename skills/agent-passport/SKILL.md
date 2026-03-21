@@ -1,6 +1,6 @@
 ---
 name: agent-passport-system
-description: Cryptographic identity, trust, delegation, governance, and commerce for AI agents. 17 modules, 534 tests, 61 MCP tools. Use this skill whenever the user wants to create agent identity, delegate authority between agents, coordinate multi-agent tasks, set up agent-to-agent trust, enforce values compliance, track contributions with Merkle proofs, run agentic commerce with spend limits, find people via Intent Network, or register agents in the public Agora. Also use when discussing agent accountability, multi-agent orchestration, or when the user mentions Agent Passport, AEOESS, or agent social contract.
+description: Cryptographic identity, trust, delegation, governance, and commerce for AI agents. 36 modules, 969 tests, 72 MCP tools. Includes v2 constitutional governance extensions (delegation versioning, outcome registration, anomaly detection, emergency pathways, migration, attestation). Use this skill whenever the user wants to create agent identity, delegate authority between agents, coordinate multi-agent tasks, set up agent-to-agent trust, enforce values compliance, track contributions with Merkle proofs, run agentic commerce with spend limits, find people via Intent Network, register agents in the public Agora, or use v2 governance features like three-way outcome reporting, policy contexts with mandatory sunsets, or fork-and-sunset migration. Also use when discussing agent accountability, multi-agent orchestration, or when the user mentions Agent Passport, AEOESS, or agent social contract.
 metadata:
   clawdbot:
     emoji: "🔑"
@@ -25,7 +25,7 @@ metadata:
 
 # Agent Passport System
 
-Cryptographic identity, delegation, governance, coordination, and commerce for AI agents. 17 protocol modules, 534 tests, 61 MCP tools. Remote MCP at mcp.aeoess.com/sse. Intent Network at api.aeoess.com. The Agent Social Contract.
+Cryptographic identity, delegation, governance, coordination, and commerce for AI agents. 36 protocol modules, 969 tests, 72 MCP tools. Includes v2 constitutional governance: delegation versioning, three-way outcome reporting, anomaly detection, emergency pathways, fork-and-sunset migration, contextual attestation. Remote MCP at mcp.aeoess.com/sse. Intent Network at api.aeoess.com. The Agent Social Contract.
 
 Use this skill when you need to:
 
@@ -122,7 +122,7 @@ npx agent-passport audit --floor values/floor.yaml
 
 Merkle proofs: 100,000 receipts provable with ~17 hashes. Audit checks each principle.
 
-## MCP Server — 61 Tools
+## MCP Server — 72 Tools
 
 For MCP-compatible agents (Claude Desktop, Cursor, Windsurf):
 
@@ -143,6 +143,7 @@ Tools by layer:
 - **Commerce (3):** commerce_preflight, get_commerce_spend, request_human_approval
 - **Comms (5):** send_message, check_messages, broadcast, list_agents, list_tasks
 - **Context (2):** create_agent_context, execute_with_context
+- **v2 Governance (11):** create_policy_context, create_v2_delegation, supersede_v2_delegation, create_outcome_record, add_principal_report, define_emergency_pathway, activate_emergency, create_attestation, request_migration, create_artifact_provenance, check_anomaly
 
 MCP agents can register in the public Agora with `register_agora_public` (requires `GITHUB_TOKEN` environment variable with `public_repo` scope — only needed for this one operation, not for core protocol features).
 
@@ -211,7 +212,7 @@ Full API reference: https://aeoess.com/llms/api.txt
 
 ## Human Values Floor
 
-7 universal principles in `values/floor.yaml`:
+8 universal principles in `values/floor.yaml`:
 
 - F-001: Traceability (mandatory, technical enforcement)
 - F-002: Honest Identity (mandatory, technical)
@@ -220,6 +221,7 @@ Full API reference: https://aeoess.com/llms/api.txt
 - F-005: Auditability (mandatory, technical)
 - F-006: Non-Deception (strong consideration, reputation-based)
 - F-007: Proportionality (strong consideration, reputation-based)
+- F-008: Critical Thinking (strong consideration, audit-mode)
 
 Extensions narrow but never widen the floor.
 
@@ -227,10 +229,11 @@ Extensions narrow but never widen the floor.
 
 - **Crypto**: Ed25519 signatures + SHA-256 Merkle trees. No blockchain.
 - **Dependencies**: Zero heavy deps. Node.js crypto + uuid only.
-- **Tests**: 534 tests, 152 suites, 28 test files, 23 adversarial scenarios.
-- **MCP**: 61 tools across 17 modules.
+- **Tests**: 969 tests, 264 suites, 51 test files, 23 adversarial scenarios.
+- **MCP**: 72 tools across 36 modules.
+- **v2 Constitutional Governance**: Delegation versioning, three-way outcome reporting, anomaly detection, emergency pathways, fork-and-sunset migration, contextual attestation, artifact provenance, reputation decay.
 - **Remote MCP**: `https://mcp.aeoess.com/sse` (no install, connect via SSE)
-- **New in v1.13**: Intent Network (agent-to-agent matching via api.aeoess.com), ProxyGateway (enforcement boundary with replay protection), Principal Identity (DID/VC, A2A, EU AI Act).
+- **New in v2**: PolicyContext with mandatory sunsets, scope expansion with independent review, upward-only uncertainty, adjudicator independence, migration non-self-expansion.
 - **License**: Apache-2.0
 - **npm SDK**: https://www.npmjs.com/package/agent-passport-system
 - **npm MCP**: https://www.npmjs.com/package/agent-passport-system-mcp
