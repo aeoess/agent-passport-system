@@ -2,7 +2,8 @@
 ## Version 0.1.0 · Draft · March 2026
 
 **Status:** Draft for public comment
-**Authors:** Tymofii Pidlisnyi (AEOESS), Lev Filimonov (The Agent Times)
+**Developed by:** The Agent Times in partnership with AEOESS
+**Authors:** Tymofii Pidlisnyi (AEOESS / The Agent Times), Lev Filimonov (The Agent Times)
 **Repository:** github.com/aeoess/agent-passport-system
 **License:** Apache-2.0
 
@@ -10,9 +11,13 @@
 
 ## Disclosure
 
-The lead author of this specification, Tymofii Pidlisnyi, is the founder of AEOESS
-(the protocol providing the cryptographic infrastructure layer) and serves as
-Editor-in-Chief of The Agent Times (the first publication to implement this standard).
+AMCS is developed by The Agent Times in partnership with AEOESS. The Agent Times
+owns the editorial layer: the ethics engine, the code of conduct, the confidence
+labeling system, and the reference implementation. AEOESS provides the cryptographic
+infrastructure layer: Ed25519 signing, agent passports, delegation chains.
+
+The lead author, Tymofii Pidlisnyi, serves as Editor-in-Chief of The Agent Times
+and founder of AEOESS.
 
 This dual role is disclosed here and throughout all materials referencing AMCS. The
 specification criteria are public, technically auditable, and designed to be met by
