@@ -178,3 +178,54 @@ export interface DecayConfig {
   domain_decay_overrides: Record<string, number>
   policy_version: string
 }
+
+
+// ── Migration ──
+export interface MigrationRequest {
+  id: string
+  source_agent: string
+  source_delegation: string
+  limitation: string
+  requested_scope_change: string
+  justification: string
+  agent_signature: string
+  policy_context: PolicyContext
+  status: 'pending' | 'approved' | 'denied'
+  approver_response: string | null
+  approver_signature: string | null
+  created_at: string
+}
+
+export interface MigrationRecord {
+  id: string
+  source_agent: string
+  source_delegation: string
+  target_agent: string
+  target_delegation: string
+  state_hash: string
+  state_size: number
+  reputation_inheritance: ReputationInheritance
+  migration_factor: number
+  probation_duration: string
+  probation_ends_at: string
+  probation_active: boolean
+  justification: string
+  request_ref: string
+  approver: string
+  approver_signature: string
+  source_signature: string
+  target_signature: string
+  policy_context: PolicyContext
+  assurance_class: AssuranceClass
+  created_at: string
+  status: 'active' | 'probation_complete' | 'rolled_back'
+}
+
+// ── Attestation Quality ──
+export interface AttestationQuality {
+  has_context: boolean
+  has_factors: boolean
+  has_alternatives: boolean
+  confidence_calibrated: boolean
+  quality_score: number
+}
