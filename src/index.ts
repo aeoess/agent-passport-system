@@ -580,3 +580,11 @@ export type {
   ContentHash, ContentHashAlgorithm,
   DecisionSemantics, DecisionArtifact, DecisionArtifactVerification,
 } from './types/decision-semantics.js'
+
+
+
+// ══════════════════════════════════════
+// v2: Constitutional Governance Extensions
+// ══════════════════════════════════════
+
+export * from './v2/index.js'
