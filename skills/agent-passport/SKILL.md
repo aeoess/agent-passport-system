@@ -1,6 +1,6 @@
 ---
 name: agent-passport-system
-description: Cryptographic identity, trust, delegation, governance, and commerce for AI agents. 36 modules, 969 tests, 72 MCP tools. Includes v2 constitutional governance extensions (delegation versioning, outcome registration, anomaly detection, emergency pathways, migration, attestation). Use this skill whenever the user wants to create agent identity, delegate authority between agents, coordinate multi-agent tasks, set up agent-to-agent trust, enforce values compliance, track contributions with Merkle proofs, run agentic commerce with spend limits, find people via Intent Network, register agents in the public Agora, or use v2 governance features like three-way outcome reporting, policy contexts with mandatory sunsets, or fork-and-sunset migration. Also use when discussing agent accountability, multi-agent orchestration, or when the user mentions Agent Passport, AEOESS, or agent social contract.
+description: Cryptographic identity, trust, delegation, governance, and commerce for AI agents. 37 modules, 969 tests, 72 MCP tools. Includes v2 constitutional governance extensions (delegation versioning, outcome registration, anomaly detection, emergency pathways, migration, attestation). Use this skill whenever the user wants to create agent identity, delegate authority between agents, coordinate multi-agent tasks, set up agent-to-agent trust, enforce values compliance, track contributions with Merkle proofs, run agentic commerce with spend limits, find people via Intent Network, register agents in the public Agora, or use v2 governance features like three-way outcome reporting, policy contexts with mandatory sunsets, or fork-and-sunset migration. Also use when discussing agent accountability, multi-agent orchestration, or when the user mentions Agent Passport, AEOESS, or agent social contract.
 metadata:
   clawdbot:
     emoji: "🔑"
@@ -230,7 +230,7 @@ Extensions narrow but never widen the floor.
 - **Crypto**: Ed25519 signatures + SHA-256 Merkle trees. No blockchain.
 - **Dependencies**: Zero heavy deps. Node.js crypto + uuid only.
 - **Tests**: 969 tests, 264 suites, 51 test files, 23 adversarial scenarios.
-- **MCP**: 72 tools across 36 modules.
+- **MCP**: 72 tools across 37 modules.
 - **v2 Constitutional Governance**: Delegation versioning, three-way outcome reporting, anomaly detection, emergency pathways, fork-and-sunset migration, contextual attestation, artifact provenance, reputation decay.
 - **Remote MCP**: `https://mcp.aeoess.com/sse` (no install, connect via SSE)
 - **New in v2**: PolicyContext with mandatory sunsets, scope expansion with independent review, upward-only uncertainty, adjudicator independence, migration non-self-expansion.
