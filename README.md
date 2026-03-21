@@ -529,6 +529,7 @@ papers/
 - Collaboration with IETF DAAP draft author (draft-mishra-oauth-agent-grants-01) on delegation spec
 - Listed on [MCP Registry](https://registry.modelcontextprotocol.io)
 - Endorsed by Garry Tan (CEO, Y Combinator)
+- [AMCS — AI-Native Media Credentialing Standard](https://aeoess.com/amcs.html) published, with The Agent Times as reference implementation
 
 ## Authorship
 
