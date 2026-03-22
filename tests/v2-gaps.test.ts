@@ -668,3 +668,130 @@ describe('v2 Composite Workflow Audit', () => {
     assert.equal(flags.length, 0, 'Solo agent = no pipeline')
   })
 })
+
+
+// ═══════════════════════════════════════
+// GOVERNANCE DRIFT (Regulatory Capture)
+// ═══════════════════════════════════════
+
+import {
+  recordGovernanceChange, analyzeCumulativeDrift,
+  getGovernanceDriftFlags, reviewGovernanceDriftFlag,
+  clearGovernanceDriftStores,
+  type ChangeDirection,
+} from '../src/v2/index.js'
+
+describe('v2 Governance Drift Tracking', () => {
+  beforeEach(() => clearGovernanceDriftStores())
+
+  it('detects cumulative weakening trend', () => {
+    // Agent submits 5 "minor clarifications" that all weaken controls
+    for (let i = 0; i < 5; i++) {
+      recordGovernanceChange({
+        id: `change-w-${i}`, agent_id: 'agent-capture',
+        artifact_type: 'floor_principle',
+        change_description: `Clarify principle F-00${i + 1} language`,
+        direction: 'weakening' as ChangeDirection,
+        magnitude: 0.15, approved: true,
+        timestamp: new Date(Date.now() + i * 86400000).toISOString(),
+      })
+    }
+    const analysis = analyzeCumulativeDrift('agent-capture')
+    assert.ok(analysis.flagged, 'Should flag cumulative weakening')
+    assert.equal(analysis.weakening_count, 5)
+    assert.equal(analysis.strengthening_count, 0)
+    assert.ok(analysis.cumulative_drift_score < -0.5, `Drift score should be very negative, got ${analysis.cumulative_drift_score}`)
+    assert.equal(analysis.longest_weakening_streak, 5)
+    const flags = getGovernanceDriftFlags('agent-capture')
+    assert.ok(flags.length > 0, 'Should have drift flag')
+  })
+
+  it('no flag for balanced governance changes', () => {
+    // Mix of strengthening and weakening — net neutral
+    const directions: ChangeDirection[] = ['strengthening', 'weakening', 'strengthening', 'weakening', 'neutral']
+    for (let i = 0; i < directions.length; i++) {
+      recordGovernanceChange({
+        id: `change-bal-${i}`, agent_id: 'agent-balanced',
+        artifact_type: 'approval_threshold',
+        change_description: `Adjust threshold ${i}`,
+        direction: directions[i],
+        magnitude: 0.2, approved: true,
+        timestamp: new Date(Date.now() + i * 86400000).toISOString(),
+      })
+    }
+    const analysis = analyzeCumulativeDrift('agent-balanced')
+    assert.ok(!analysis.flagged, 'Balanced changes should not flag')
+    assert.equal(analysis.weakening_count, 2)
+    assert.equal(analysis.strengthening_count, 2)
+  })
+
+  it('detects weakening streak of 3+', () => {
+    // 1 strengthening, then 3 consecutive weakening
+    recordGovernanceChange({
+      id: 'str-1', agent_id: 'agent-streak',
+      artifact_type: 'delegation_policy', change_description: 'Tighten scope limits',
+      direction: 'strengthening', magnitude: 0.3, approved: true,
+      timestamp: new Date(Date.now()).toISOString(),
+    })
+    for (let i = 0; i < 3; i++) {
+      recordGovernanceChange({
+        id: `weak-${i}`, agent_id: 'agent-streak',
+        artifact_type: 'delegation_policy',
+        change_description: `Relax scope constraint ${i}`,
+        direction: 'weakening', magnitude: 0.15, approved: true,
+        timestamp: new Date(Date.now() + (i + 1) * 86400000).toISOString(),
+      })
+    }
+    const analysis = analyzeCumulativeDrift('agent-streak')
+    assert.ok(analysis.flagged, 'Streak of 3 weakening should flag')
+    assert.equal(analysis.longest_weakening_streak, 3)
+  })
+
+  it('no flag with insufficient history', () => {
+    recordGovernanceChange({
+      id: 'single', agent_id: 'agent-new',
+      artifact_type: 'floor_principle', change_description: 'Minor wording',
+      direction: 'weakening', magnitude: 0.5, approved: true,
+      timestamp: new Date().toISOString(),
+    })
+    const analysis = analyzeCumulativeDrift('agent-new')
+    assert.ok(!analysis.flagged, 'Single change should not trigger flag — need minimum 3')
+    assert.equal(analysis.total_changes, 1)
+  })
+
+  it('reviews governance drift flag', () => {
+    for (let i = 0; i < 4; i++) {
+      recordGovernanceChange({
+        id: `rev-${i}`, agent_id: 'agent-review',
+        artifact_type: 'floor_principle',
+        change_description: `Simplify principle ${i}`,
+        direction: 'weakening', magnitude: 0.2, approved: true,
+        timestamp: new Date(Date.now() + i * 1000).toISOString(),
+      })
+    }
+    analyzeCumulativeDrift('agent-review')
+    const flags = getGovernanceDriftFlags('agent-review')
+    assert.ok(flags.length > 0)
+    const reviewed = reviewGovernanceDriftFlag(flags[0].id, 'justified: planned simplification effort')
+    assert.ok(reviewed)
+    assert.equal(reviewed!.reviewed, true)
+    assert.equal(reviewed!.review_outcome, 'justified: planned simplification effort')
+  })
+
+  it('strengthening-only agent has positive drift score', () => {
+    for (let i = 0; i < 4; i++) {
+      recordGovernanceChange({
+        id: `strong-${i}`, agent_id: 'agent-strong',
+        artifact_type: 'approval_threshold',
+        change_description: `Raise threshold ${i}`,
+        direction: 'strengthening', magnitude: 0.25, approved: true,
+        timestamp: new Date(Date.now() + i * 1000).toISOString(),
+      })
+    }
+    const analysis = analyzeCumulativeDrift('agent-strong')
+    assert.ok(!analysis.flagged, 'Strengthening agent should not flag')
+    assert.ok(analysis.cumulative_drift_score > 0, `Score should be positive, got ${analysis.cumulative_drift_score}`)
+    assert.equal(analysis.weakening_count, 0)
+    assert.equal(analysis.strengthening_count, 4)
+  })
+})

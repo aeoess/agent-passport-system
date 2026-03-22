@@ -146,3 +146,16 @@ export {
   getCompositeFlags, isAgentInLaunderingPipeline,
   clearCompositeAuditStores,
 } from './composite-audit.js'
+
+
+// v2 Governance Drift Tracking (Regulatory Capture)
+export {
+  recordGovernanceChange, getGovernanceChanges,
+  analyzeCumulativeDrift,
+  getGovernanceDriftFlags, reviewGovernanceDriftFlag,
+  clearGovernanceDriftStores,
+} from './governance-drift.js'
+export type {
+  ChangeDirection, GovernanceChangeRecord,
+  CumulativeDriftAnalysis, GovernanceDriftFlag,
+} from './governance-drift.js'
