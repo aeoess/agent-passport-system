@@ -2,7 +2,7 @@
 
 [![npm version](https://img.shields.io/npm/v/agent-passport-system)](https://www.npmjs.com/package/agent-passport-system)
 [![license](https://img.shields.io/npm/l/agent-passport-system)](https://github.com/aeoess/agent-passport-system/blob/main/LICENSE)
-[![tests](https://img.shields.io/badge/tests-862%20passing-brightgreen)](https://github.com/aeoess/agent-passport-system)
+[![tests](https://img.shields.io/badge/tests-969%20passing-brightgreen)](https://github.com/aeoess/agent-passport-system)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18749779.svg)](https://doi.org/10.5281/zenodo.18749779)
 
 Cryptographic identity, ethical governance, economic attribution, data source registration, protocol-native communication, intent architecture, cascade revocation, coordination primitives, and agentic commerce for autonomous AI agents.
@@ -394,7 +394,7 @@ Full Python implementation with cross-language compatibility. Signatures created
 pip install agent-passport-system
 ```
 
-All 8 foundational layers plus Principal Identity. 86 tests. Same canonical JSON serialization and Ed25519 signatures. Extended modules (M10-M27) in progress.
+All 8 foundational layers plus Principal Identity. 86 tests. Same canonical JSON serialization and Ed25519 signatures. Extended modules in progress.
 
 PyPI: [agent-passport-system](https://pypi.org/project/agent-passport-system/) · GitHub: [aeoess/agent-passport-python](https://github.com/aeoess/agent-passport-python)
 
@@ -402,7 +402,7 @@ PyPI: [agent-passport-system](https://pypi.org/project/agent-passport-system/) �
 
 ```bash
 npm test
-# 969 tests across 43 files, 264 suites, 0 failures
+# 969 tests across 54 files, 264 suites, 0 failures
 ```
 
 Includes 50 adversarial tests across 4 test files: Merkle tree tampering, attribution gaming resistance, compliance violations, floor negotiation attacks, wrong-key attestations, cross-chain confused deputy, taint laundering, permit bypass, causal chain manipulation.
@@ -434,7 +434,7 @@ By Tymofii Pidlisnyi — Published on Zenodo
 | Communication | Signed Agora | — | — | — | — |
 | Coordination | Task units + MCP server | — | — | — | — |
 | Commerce | ACP + 4-gate enforcement | — | — | — | — |
-| Tests | 862 (50 adversarial) | None | Limited | None | None |
+| Tests | 969 (50 adversarial) | None | Limited | None | None |
 | Dependencies | Node.js crypto + uuid | — | Multi-LLM | — | Consensus network |
 
 ## Structure
