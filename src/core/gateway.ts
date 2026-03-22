@@ -46,7 +46,7 @@ import {
   checkTierForIntent, updateReputationFromResult, shouldDemote,
   triggerDemotion, DEFAULT_TIERS
 } from './reputation-authority.js'
-import type { Delegation, ActionReceipt, ValuesFloor, FloorAttestation } from '../types/passport.js'
+import type { Delegation, ActionReceipt, ValuesFloor, FloorAttestation, FloorPrinciple } from '../types/passport.js'
 import type { ActionIntent, PolicyDecision, PolicyReceipt, PolicyValidator, ValidationContext } from '../types/policy.js'
 import type { TaintLabel, TaintSet, CrossChainPermit, ExecutionFrame, SignedAuthorityObject } from '../types/cross-chain.js'
 import type { Obligation, ObligationResolution } from '../types/obligations.js'
@@ -1272,7 +1272,7 @@ export class ProxyGateway {
   private buildValidationContext(agent: RegisteredAgent, delegation: Delegation): ValidationContext {
     return {
       floorVersion: agent.attestation.floorVersion,
-      floorPrinciples: this.config.floor.floor.map((p: any) => ({
+      floorPrinciples: this.config.floor.floor.map((p: FloorPrinciple) => ({
         id: p.id, name: p.name,
         enforcement: { mode: p.enforcement?.mode, technical: p.enforcement?.technical, mechanism: p.enforcement?.mechanism || 'unknown' },
         weight: p.weight || 'mandatory'
