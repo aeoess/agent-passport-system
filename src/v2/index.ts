@@ -227,3 +227,66 @@ export type {
   AffectedParty, ComplaintEvent, AppealPathway,
   ComplaintStatus, ChallengeType,
 } from './affected-party.js'
+
+
+// v2 Semantic Scoping (Section 4 — runtime enforcement)
+export {
+  defineSemanticScope, checkSemanticCompliance, getScopeViolations,
+  clearSemanticScopingStores,
+} from './semantic-scoping.js'
+export type { SemanticConstraint, SemanticScope, ScopeViolation } from './semantic-scoping.js'
+
+// v2 Blind Evaluation (5.9 — Values Floor as Cover defense)
+export {
+  createBlindEvaluation, submitBlind, getBlindSubmission,
+  evaluateBlind, revealIdentities, clearBlindEvaluationStores,
+} from './blind-evaluation.js'
+export type { BlindSubmission, BlindEvaluation } from './blind-evaluation.js'
+
+// v2 Cascade Correlation (Section 7 — temporal convergence)
+export {
+  recordOutputDependency, detectFeedbackLoops,
+  computeCorrelationMetrics, getDependenciesForAgent,
+  getDetectedLoops, clearCascadeCorrelationStores,
+} from './cascade-correlation.js'
+export type { OutputDependency, FeedbackLoop, CorrelationMetrics } from './cascade-correlation.js'
+
+// v2 Cross-Chain Audit (Section 7 — inter-chain monitoring)
+export {
+  recordCrossChainFlow, auditCrossChainFlows,
+  detectUnauthorizedBridging, clearCrossChainAuditStores,
+} from './cross-chain-audit.js'
+export type { CrossChainFlow, FlowAuditResult } from './cross-chain-audit.js'
+
+// v2 Externality Accounting (Section 7 — shared resource governance)
+export {
+  registerSharedResource, recordExternality,
+  computeExternalityBudget, getResourceUtilization,
+  isOverBudget, clearExternalityStores,
+} from './externality.js'
+export type { SharedResource, ExternalityRecord } from './externality.js'
+
+// v2 Separation of Powers (Section 9.1)
+export {
+  assignBranch, getAgentBranches, checkSeparation,
+  preventBranchConflict, getBranchMembers,
+  clearSeparationOfPowersStores,
+} from './separation-of-powers.js'
+export type { BranchAssignment, PowerConflict } from './separation-of-powers.js'
+export type { GovernanceBranch } from './separation-of-powers.js'
+
+// v2 Constitutional Amendment (Section 9.11)
+export {
+  proposeAmendment, voteOnAmendment, checkSupermajority,
+  ratifyAmendment, requiresHumanRatification,
+  getAmendmentHistory, clearAmendmentStores,
+} from './amendment.js'
+export type { Amendment, AmendmentStatus } from './amendment.js'
+
+// v2 Policy Profiles (Section 9.14)
+export {
+  createProfile, attachProfile, getProfilesForTarget,
+  checkProfileCompliance, detachProfile,
+  listActiveProfiles, getProfile, clearPolicyProfileStores,
+} from './policy-profiles.js'
+export type { ProfileConstraint, PolicyProfile, ProfileAttachment } from './policy-profiles.js'
