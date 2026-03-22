@@ -472,3 +472,199 @@ describe('v2 Root Authority Transition', () => {
     }, /Cannot abort completed/)
   })
 })
+
+
+// ═══════════════════════════════════════
+// SEMANTIC DRIFT (Intent Subversion)
+// ═══════════════════════════════════════
+
+import {
+  extractKeywords, recordSemanticIntent, analyzeSemanticDrift,
+  getDriftResults, getAgentDriftAverage, isAgentSemanticRisk,
+  clearSemanticDriftStores,
+  // Composite Audit
+  recordPipelineAction, auditCompositeCapabilities,
+  getCompositeFlags, isAgentInLaunderingPipeline,
+  clearCompositeAuditStores,
+} from '../src/v2/index.js'
+
+describe('v2 Semantic Drift Detection', () => {
+  beforeEach(() => clearSemanticDriftStores())
+
+  it('aligned: intent and action match semantically', () => {
+    const record = recordSemanticIntent({
+      agent_id: 'agent-1', intent_id: 'intent-1',
+      declared_purpose: 'Send notification email to customer about order status',
+      action_description: 'Send notification email to customer about order status update',
+      scope_ref: 'customer:notify',
+    })
+    const result = analyzeSemanticDrift(record.id)
+    assert.equal(result.verdict, 'aligned')
+    assert.ok(result.drift_score < 0.3, `Drift should be low, got ${result.drift_score}`)
+  })
+
+  it('subverted: action completely different from declared intent', () => {
+    const record = recordSemanticIntent({
+      agent_id: 'agent-evil', intent_id: 'intent-2',
+      declared_purpose: 'Send notification email to customer about order status',
+      action_description: 'Deleted all customer records and exported database to external server',
+      scope_ref: 'customer:*',
+    })
+    const result = analyzeSemanticDrift(record.id)
+    assert.equal(result.verdict, 'subverted')
+    assert.ok(result.drift_score > 0.5, `Should detect high drift, got ${result.drift_score}`)
+    assert.ok(result.mismatched_keywords.length > 0, 'Should have mismatched keywords')
+  })
+
+  it('drifted: partially related but different action', () => {
+    const record = recordSemanticIntent({
+      agent_id: 'agent-drift', intent_id: 'intent-3',
+      declared_purpose: 'Read customer profile data for support ticket',
+      action_description: 'Read customer profile and updated billing information',
+      scope_ref: 'customer:read',
+    })
+    const result = analyzeSemanticDrift(record.id)
+    // Has some overlap (read, customer, profile) but also new actions (updated, billing)
+    assert.ok(result.drift_score > 0, 'Should detect some drift')
+    assert.ok(result.mismatched_keywords.some(k => k === 'billing' || k === 'updated'))
+  })
+
+  it('tracks cumulative drift per agent', () => {
+    for (let i = 0; i < 5; i++) {
+      const record = recordSemanticIntent({
+        agent_id: 'agent-repeat', intent_id: `intent-r-${i}`,
+        declared_purpose: 'Process payment for customer order',
+        action_description: 'Transferred funds to external account and deleted audit logs',
+        scope_ref: 'payment:process',
+      })
+      analyzeSemanticDrift(record.id)
+    }
+    assert.ok(getAgentDriftAverage('agent-repeat') > 0.4)
+    assert.ok(isAgentSemanticRisk('agent-repeat'))
+  })
+
+  it('keyword extraction filters stopwords', () => {
+    const keywords = extractKeywords('The agent should be able to send an email to the customer')
+    assert.ok(!keywords.includes('the'))
+    assert.ok(!keywords.includes('to'))
+    assert.ok(keywords.includes('agent'))
+    assert.ok(keywords.includes('send'))
+    assert.ok(keywords.includes('email'))
+    assert.ok(keywords.includes('customer'))
+  })
+})
+
+
+// ═══════════════════════════════════════
+// COMPOSITE WORKFLOW AUDIT (Authority Laundering)
+// ═══════════════════════════════════════
+
+describe('v2 Composite Workflow Audit', () => {
+  beforeEach(() => clearCompositeAuditStores())
+
+  it('detects authority laundering: read + write through composition', () => {
+    // Agent A can only read
+    recordPipelineAction({
+      id: 'act-1', agent_id: 'agent-reader',
+      delegation_scope: ['data:read'],
+      action_category: 'read',
+      input_from: null, output_to: 'agent-writer',
+      timestamp: new Date().toISOString(),
+    })
+    // Agent B can only write — receives from A
+    recordPipelineAction({
+      id: 'act-2', agent_id: 'agent-writer',
+      delegation_scope: ['data:write'],
+      action_category: 'write',
+      input_from: 'agent-reader', output_to: null,
+      timestamp: new Date().toISOString(),
+    })
+    const flags = auditCompositeCapabilities()
+    assert.ok(flags.length > 0, 'Should detect composite read+write')
+    assert.ok(flags[0].flagged)
+    assert.deepEqual(flags[0].composite_capabilities.sort(), ['data:read', 'data:write'])
+    assert.ok(flags[0].description.includes('agent-reader'))
+    assert.ok(flags[0].description.includes('agent-writer'))
+  })
+
+  it('no flag when single agent holds all capabilities', () => {
+    // Agent A has both read and write — no laundering
+    recordPipelineAction({
+      id: 'act-3', agent_id: 'agent-full',
+      delegation_scope: ['data:read', 'data:write'],
+      action_category: 'read',
+      input_from: null, output_to: 'agent-full',
+      timestamp: new Date().toISOString(),
+    })
+    recordPipelineAction({
+      id: 'act-4', agent_id: 'agent-full',
+      delegation_scope: ['data:read', 'data:write'],
+      action_category: 'write',
+      input_from: 'agent-full', output_to: null,
+      timestamp: new Date().toISOString(),
+    })
+    const flags = auditCompositeCapabilities()
+    assert.equal(flags.length, 0, 'Single agent with full scope = no laundering')
+  })
+
+  it('detects multi-hop laundering: 3 agents composing capabilities', () => {
+    recordPipelineAction({
+      id: 'act-5', agent_id: 'agent-a',
+      delegation_scope: ['data:read'],
+      action_category: 'read',
+      input_from: null, output_to: 'agent-b',
+      timestamp: new Date().toISOString(),
+    })
+    recordPipelineAction({
+      id: 'act-6', agent_id: 'agent-b',
+      delegation_scope: ['data:transform'],
+      action_category: 'transform',
+      input_from: 'agent-a', output_to: 'agent-c',
+      timestamp: new Date().toISOString(),
+    })
+    recordPipelineAction({
+      id: 'act-7', agent_id: 'agent-c',
+      delegation_scope: ['data:export'],
+      action_category: 'export',
+      input_from: 'agent-b', output_to: null,
+      timestamp: new Date().toISOString(),
+    })
+    const flags = auditCompositeCapabilities()
+    assert.ok(flags.length > 0)
+    assert.equal(flags[0].agents.length, 3)
+    assert.deepEqual(flags[0].composite_capabilities.sort(), ['data:export', 'data:read', 'data:transform'])
+  })
+
+  it('isAgentInLaunderingPipeline returns true for flagged agent', () => {
+    recordPipelineAction({
+      id: 'act-8', agent_id: 'agent-x',
+      delegation_scope: ['scope:a'],
+      action_category: 'action-a',
+      input_from: null, output_to: 'agent-y',
+      timestamp: new Date().toISOString(),
+    })
+    recordPipelineAction({
+      id: 'act-9', agent_id: 'agent-y',
+      delegation_scope: ['scope:b'],
+      action_category: 'action-b',
+      input_from: 'agent-x', output_to: null,
+      timestamp: new Date().toISOString(),
+    })
+    auditCompositeCapabilities()
+    assert.ok(isAgentInLaunderingPipeline('agent-x'))
+    assert.ok(isAgentInLaunderingPipeline('agent-y'))
+    assert.ok(!isAgentInLaunderingPipeline('agent-innocent'))
+  })
+
+  it('no pipeline for isolated single actions', () => {
+    recordPipelineAction({
+      id: 'act-solo', agent_id: 'agent-solo',
+      delegation_scope: ['data:read'],
+      action_category: 'read',
+      input_from: null, output_to: null,
+      timestamp: new Date().toISOString(),
+    })
+    const flags = auditCompositeCapabilities()
+    assert.equal(flags.length, 0, 'Solo agent = no pipeline')
+  })
+})

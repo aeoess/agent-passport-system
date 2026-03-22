@@ -19,6 +19,8 @@ export type {
   EffectDeclaration, EffectVerification, EffectPattern,
   AgentActionSummary, SystemMetrics, EmergencePatternType, EmergenceFlag,
   GovernancePhase, AuthorityTransitionPlan,
+  SemanticIntentRecord, SemanticDriftResult,
+  PipelineAction, CompositeCapability,
 } from './types.js'
 
 // v2 Bridge (crypto adapter, type converters, core functions)
@@ -128,3 +130,19 @@ export {
   getTransitionPlan, getAllTransitionPlans,
   getApprovalStatus, clearRootTransitionStores,
 } from './root-transition.js'
+
+
+// v2 Semantic Drift Detection (Intent Subversion)
+export {
+  extractKeywords, recordSemanticIntent, analyzeSemanticDrift,
+  getDriftResults, getAgentDriftAverage, isAgentSemanticRisk,
+  getSemanticRecord, clearSemanticDriftStores,
+} from './semantic-drift.js'
+
+// v2 Composite Workflow Audit (Authority Laundering)
+export {
+  recordPipelineAction, getPipelineActions,
+  auditCompositeCapabilities,
+  getCompositeFlags, isAgentInLaunderingPipeline,
+  clearCompositeAuditStores,
+} from './composite-audit.js'

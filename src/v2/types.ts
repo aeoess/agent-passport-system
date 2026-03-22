@@ -360,3 +360,49 @@ export interface AuthorityTransitionPlan {
   created_at: string
   status: 'proposed' | 'approved' | 'executing' | 'completed' | 'aborted'
 }
+
+
+// ── Semantic Compliance / Intent Subversion ──
+export interface SemanticIntentRecord {
+  id: string
+  agent_id: string
+  intent_id: string
+  declared_purpose: string     // what the agent said it would do
+  declared_keywords: string[]  // extracted semantic markers
+  action_description: string   // what the agent actually did
+  action_keywords: string[]    // extracted semantic markers from action
+  scope_ref: string            // delegation scope that authorized it
+  timestamp: string
+}
+
+export interface SemanticDriftResult {
+  intent_id: string
+  agent_id: string
+  keyword_overlap: number      // 0-1 Jaccard similarity of keyword sets
+  purpose_action_similarity: number // 0-1 word overlap between purpose and action
+  drift_score: number          // 0-1 composite (higher = more drift)
+  verdict: 'aligned' | 'drifted' | 'subverted'
+  mismatched_keywords: string[] // action keywords absent from intent
+}
+
+// ── Authority Laundering / Composite Workflow Audit ──
+export interface PipelineAction {
+  id: string
+  agent_id: string
+  delegation_scope: string[]
+  action_category: string
+  input_from: string | null    // agent_id that provided input, null if original
+  output_to: string | null     // agent_id receiving output, null if terminal
+  timestamp: string
+}
+
+export interface CompositeCapability {
+  pipeline_id: string
+  agents: string[]
+  individual_scopes: Record<string, string[]>  // agent → their scope
+  composite_capabilities: string[]  // union of all scopes in pipeline
+  unauthorized_composites: string[] // capabilities achieved by composition that no single agent holds
+  flagged: boolean
+  description: string
+  created_at: string
+}
