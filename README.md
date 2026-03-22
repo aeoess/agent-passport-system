@@ -7,7 +7,7 @@
 
 Cryptographic identity, ethical governance, economic attribution, data source registration, protocol-native communication, intent architecture, cascade revocation, coordination primitives, and agentic commerce for autonomous AI agents.
 
-**37 modules. 1073 tests. Zero heavy dependencies. Running code. MCP server included.**
+**37 core modules + 30 v2 constitutional modules. 1073 tests. Zero heavy dependencies. Running code. MCP server included.**
 
 > *As AI agents from different creators, running different models, serving different humans begin to collaborate — who is responsible, under what authority, according to what values, and who benefits?*
 
@@ -365,6 +365,32 @@ const summary = getSpendSummary(delegation, allReceipts)
 | F-007 | Proportionality | 📝 Attested — reputation context |
 
 Full manifest: [`values/floor.yaml`](values/floor.yaml)
+
+## V2 Constitutional Framework (30 modules)
+
+Full constitutional governance for AI agent systems. Designed through cross-model adversarial review (Claude, GPT, Gemini attacking the protocol simultaneously). Every gap identified was implemented and tested.
+
+**Core governance (7):** v1↔v2 bridge, delegation versioning, outcome registration, anomaly detection, emergency pathways, fork-and-sunset migration, contextual attestation.
+
+**Attack defenses (9):** Approval fatigue detection, effect enforcement (declared vs actual outcomes), semantic drift detection, composite workflow audit (authority laundering), cascade correlation, inaction auditing, values override with justification review, governance drift tracking, emergence detection.
+
+**Structural safeguards (14):** Separation of powers, constitutional amendment, policy profiles, affected-party standing, circuit breakers, epistemic isolation, root authority transition, intent binding, effect sampling, output proportionality, blind evaluation, externality accounting, semantic scoping, cross-chain audit.
+
+```typescript
+import { separationOfPowers, circuitBreakers, approvalFatigue } from 'agent-passport-system'
+
+// Enforce branch separation
+const { assignToBranch, detectConflict } = separationOfPowers()
+assignToBranch('agent-alpha', 'executive')
+// detectConflict('agent-alpha', 'legislative') → true (blocked)
+
+// Auto-suspend on threshold breach
+const breaker = circuitBreakers.defineBreaker({
+  category: 'commerce', threshold: 5, window_seconds: 3600
+})
+```
+
+Source: [`src/v2/`](src/v2/) (30 modules) | Tests: `tests/v2-constitutional.test.ts`, `tests/v2-gaps.test.ts`, `tests/v2-constitutional-mini.test.ts`
 
 ## MCP Server
 
