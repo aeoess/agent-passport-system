@@ -8,7 +8,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { sign, verify } from '../crypto/keys.js'
 import { canonicalize } from '../core/canonical.js'
 
-import type { Delegation, ActionReceipt } from '../types/passport.js'
+import type { Delegation } from '../types/passport.js'
 import type {
   PolicyContext, V2Delegation, V2ScopeDefinition, V2DelegationStatus,
   AssuranceClass, ArtifactProvenance, RiskClass,

@@ -18,15 +18,14 @@
 //
 // That's it. Four functions. The rest is implementation detail.
 
-import { createPassport, signPassport } from './core/passport.js'
-import { generateKeyPair, sign, verify } from './crypto/keys.js'
+import { createPassport } from './core/passport.js'
+import { sign, verify } from './crypto/keys.js'
 import { verifyPassport } from './verification/verify.js'
-import { canonicalize } from './core/canonical.js'
 import { attestFloor, verifyAttestation, loadFloor, evaluateCompliance } from './core/values.js'
-import { createDelegation, createReceipt, verifyReceipt, verifyDelegation } from './core/delegation.js'
+import { createDelegation, createReceipt } from './core/delegation.js'
 import {
   hashReceipt, traceBeneficiary, computeAttribution,
-  buildMerkleRoot, generateMerkleProof, verifyMerkleProof
+  generateMerkleProof
 } from './core/attribution.js'
 import type {
   AgentPassport, SignedPassport, KeyPair, FloorAttestation,

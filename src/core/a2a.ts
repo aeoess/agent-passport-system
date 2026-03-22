@@ -5,7 +5,7 @@
 import { canonicalize } from './canonical.js'
 import { sign, verify } from '../crypto/keys.js'
 import { createDID, publicKeyFromDID } from './did.js'
-import type { AgentPassport, Delegation } from '../types/passport.js'
+import type { AgentPassport } from '../types/passport.js'
 import type { A2AAgentCard, A2AAgentSkill, A2ACapabilities } from '../types/a2a.js'
 
 /**

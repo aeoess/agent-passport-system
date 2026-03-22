@@ -6,7 +6,7 @@
 
 import { v4 as uuidv4 } from 'uuid'
 import { sign } from '../crypto/keys.js'
-import { signObject, verifyObject, hashObject, createPolicyContext, isPolicyContextActive, isPolicyContextInGrace } from './bridge.js'
+import { signObject, verifyObject, isPolicyContextActive, isPolicyContextInGrace } from './bridge.js'
 import type {
   PolicyContext, V2Delegation, V2ScopeDefinition, V2DelegationStatus, AssuranceClass,
 } from './types.js'
