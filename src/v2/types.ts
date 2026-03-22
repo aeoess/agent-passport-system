@@ -229,3 +229,134 @@ export interface AttestationQuality {
   confidence_calibrated: boolean
   quality_score: number
 }
+
+
+// ── Bureaucratic DDoS / Approval Fatigue ──
+export type ApprovalDecision = 'approved' | 'denied' | 'deferred' | 'escalated'
+
+export interface ApprovalRecord {
+  id: string
+  principal_id: string
+  agent_id: string
+  intent_id: string
+  decision: ApprovalDecision
+  decision_latency_ms: number
+  intent_complexity: number // 0-1, how complex the intent is
+  risk_class: RiskClass
+  timestamp: string
+}
+
+export interface FatigueMetrics {
+  principal_id: string
+  window_size: number // number of recent decisions analyzed
+  approval_rate: number // 0-1
+  avg_decision_latency_ms: number
+  min_decision_latency_ms: number
+  decisions_per_hour: number
+  trivial_before_critical_count: number // trivial approvals immediately before a critical one
+  rubber_stamp_score: number // 0-1 composite
+  flagged: boolean
+  computed_at: string
+}
+
+export type FatigueAnomalyType =
+  | 'rubber_stamping' // approval rate > threshold + fast decisions
+  | 'velocity_spike' // sudden increase in approval volume
+  | 'complexity_masking' // trivial intents clustered before critical ones
+  | 'latency_impossible' // decisions faster than human reading speed
+
+
+// ── Authorization-Effect Gap ──
+export interface EffectDeclaration {
+  id: string
+  intent_id: string
+  agent_id: string
+  expected_effects: string[]
+  acceptable_divergence: number // 0-1 threshold
+  verification_method: 'self_report' | 'principal_report' | 'oracle' | 'automated'
+  policy_context: PolicyContext
+  signature: string
+  created_at: string
+}
+
+export interface EffectVerification {
+  id: string
+  declaration_id: string
+  intent_id: string
+  agent_id: string
+  actual_effects: string[]
+  matched_effects: string[]
+  unmatched_declared: string[] // declared but didn't happen
+  undeclared_actual: string[] // happened but wasn't declared
+  divergence_score: number // 0-1
+  verdict: 'within_tolerance' | 'divergent' | 'blocked'
+  verifier: string
+  signature: string
+  created_at: string
+}
+
+export interface EffectPattern {
+  agent_id: string
+  pattern_type: 'systematic_underdeclare' | 'systematic_side_effect' | 'selective_omission'
+  frequency: number
+  examples: string[]
+  first_seen: string
+  last_seen: string
+}
+
+
+// ── Emergence / Aggregate Governance ──
+export interface AgentActionSummary {
+  agent_id: string
+  action_category: string
+  count: number
+  period: string
+}
+
+export interface SystemMetrics {
+  id: string
+  diversity_index: number // Shannon entropy of action distribution across agents
+  resource_velocity: number // rate of resource consumption across all agents
+  convergence_score: number // how similar agent behaviors are (0=diverse, 1=monoculture)
+  top_action_concentration: number // % of all actions from top action category
+  top_agent_concentration: number // % of all actions from top agent
+  agent_count: number
+  action_count: number
+  computed_at: string
+}
+
+export type EmergencePatternType =
+  | 'epistemic_monoculture' // agents converging on identical behaviors
+  | 'resource_depletion' // aggregate resource consumption unsustainable
+  | 'market_concentration' // few agents dominating action space
+  | 'cascade_correlation' // failures in one agent predict failures in others
+  | 'consent_gap' // aggregate outcome no principal individually authorized
+
+export interface EmergenceFlag {
+  id: string
+  pattern_type: EmergencePatternType
+  severity: RiskClass
+  description: string
+  affected_agents: string[]
+  metrics_snapshot: SystemMetrics
+  recommended_action: string
+  reviewed: boolean
+  review_outcome: string | null
+  created_at: string
+}
+
+// ── Root Authority Transition ──
+export type GovernancePhase = 'founding' | 'operational' | 'transitional' | 'democratic'
+
+export interface AuthorityTransitionPlan {
+  id: string
+  current_phase: GovernancePhase
+  target_phase: GovernancePhase
+  conditions: ConditionSet
+  required_signers: string[] // agents/principals who must approve
+  minimum_agent_count: number // quorum for democratic phase
+  transition_justification: string
+  sunset_root_after_transition: boolean
+  created_at: string
+  status: 'proposed' | 'approved' | 'executing' | 'completed' | 'aborted'
+}

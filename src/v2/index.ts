@@ -15,6 +15,10 @@ export type {
   MigrationRequest, MigrationRecord,
   AlternativeRejected, ContextualAttestation,
   TrustTier, DecayConfig, AttestationQuality,
+  ApprovalRecord, ApprovalDecision, FatigueMetrics, FatigueAnomalyType,
+  EffectDeclaration, EffectVerification, EffectPattern,
+  AgentActionSummary, SystemMetrics, EmergencePatternType, EmergenceFlag,
+  GovernancePhase, AuthorityTransitionPlan,
 } from './types.js'
 
 // v2 Bridge (crypto adapter, type converters, core functions)
@@ -86,3 +90,41 @@ export {
   getV2Attestation, getV2AttestationForAction,
   getV2AttestationsForAgent, clearV2AttestationStore,
 } from './attestation-v2.js'
+
+
+// v2 Approval Fatigue Detection (Bureaucratic DDoS)
+export {
+  recordApproval, getApprovalHistory,
+  checkImpossibleLatency, checkRubberStamping,
+  checkVelocitySpike, checkComplexityMasking,
+  computeFatigueMetrics,
+  getFatigueFlags, getUnreviewedFatigueFlags, reviewFatigueFlag,
+  clearApprovalFatigueStores,
+} from './approval-fatigue.js'
+export type { FatigueFlag } from './approval-fatigue.js'
+
+// v2 Effect Enforcement (Authorization-Effect Gap)
+export {
+  declareEffects, getDeclaration, getDeclarationsForAgent,
+  verifyEffects, getVerification, getVerificationsForAgent,
+  getAgentDivergenceAvg, isAgentBlockedByEffects,
+  getEffectPatterns, clearEffectStores,
+} from './effect-enforcement.js'
+
+// v2 Emergence Detection (Aggregate Governance)
+export {
+  recordAgentActivity, getActivitySummaries,
+  computeSystemMetrics, getMetricsHistory,
+  detectEmergence,
+  getEmergenceFlags, getUnreviewedEmergenceFlags,
+  reviewEmergenceFlag, clearEmergenceStores,
+} from './emergence.js'
+
+// v2 Root Authority Transition
+export {
+  getCurrentPhase, getPhaseHistory,
+  createTransitionPlan, approveTransition,
+  executeTransition, abortTransition,
+  getTransitionPlan, getAllTransitionPlans,
+  getApprovalStatus, clearRootTransitionStores,
+} from './root-transition.js'
