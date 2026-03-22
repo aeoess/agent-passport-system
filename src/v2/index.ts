@@ -159,3 +159,71 @@ export type {
   ChangeDirection, GovernanceChangeRecord,
   CumulativeDriftAnalysis, GovernanceDriftFlag,
 } from './governance-drift.js'
+
+
+// v2 Epistemic Isolation (Consensus Trap Defense)
+export {
+  createBarrier, submitToBarrier, isBarrierComplete,
+  getBarrierStatus, revealResults, getBarrier,
+  clearEpistemicIsolationStores,
+} from './epistemic-isolation.js'
+export type { SubmissionBarrier, BarrierSlot, BarrierResult } from './epistemic-isolation.js'
+
+// v2 Values Override (Values Floor Paradox Defense)
+export {
+  invokeValuesOverride, reviewOverride, getOverrideHistory,
+  getPendingOverrideReviews, getOverdueReviews, getAgentPenaltyCount,
+  clearValuesOverrideStores,
+} from './values-override.js'
+export type { ValuesOverride } from './values-override.js'
+
+// v2 Inaction Auditing (Proportionality Freeze Defense)
+export {
+  recordAvailableAction, recordInaction, recordConsequence,
+  analyzeInactionPattern, getInactionRecords,
+  clearInactionAuditStores,
+} from './inaction-audit.js'
+export type { AvailableAction, InactionRecord } from './inaction-audit.js'
+
+// v2 End-to-End Intent Binding (Distributed Responsibility Defense)
+export {
+  createIntentChain, extendChain, validateChainIntegrity,
+  getIntentChain, clearIntentBindingStores,
+} from './intent-binding.js'
+export type { ChainedIntent } from './intent-binding.js'
+
+// v2 Effect Sampling (Random Deep Auditing)
+export {
+  createSamplingPolicy, shouldSample, recordSample,
+  completeAudit, getSamplingStats, getPendingAudits,
+  setSamplingRng, clearEffectSamplingStores,
+} from './effect-sampling.js'
+export type { SamplingPolicy, AuditSample } from './effect-sampling.js'
+
+// v2 Output Proportionality (Truthful Deception Defense)
+export {
+  analyzeOutputProportionality, setSummaryRequirement,
+  getOutputRecords, getFlaggedOutputs,
+  clearOutputProportionalityStores,
+} from './output-proportionality.js'
+export type { OutputMetrics, SummaryRequirement } from './output-proportionality.js'
+
+// v2 Collective Circuit Breakers (Emergence Defense)
+export {
+  defineBreaker, evaluateBreaker, tripBreaker, resetBreaker,
+  isActionBlocked, getBreaker, getAllBreakers, getBlockedCategories,
+  clearCircuitBreakerStores,
+} from './circuit-breakers.js'
+export type { CircuitBreaker, BreakerState } from './circuit-breakers.js'
+
+// v2 Affected-Party Standing (Section 9.10)
+export {
+  registerAffectedParty, fileComplaint, resolveComplaint,
+  fileAppeal, resolveAppeal,
+  getComplaints, getAppeals, getAffectedParty,
+  clearAffectedPartyStores,
+} from './affected-party.js'
+export type {
+  AffectedParty, ComplaintEvent, AppealPathway,
+  ComplaintStatus, ChallengeType,
+} from './affected-party.js'
