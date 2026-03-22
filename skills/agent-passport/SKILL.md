@@ -9,7 +9,7 @@ metadata:
       env:
         - name: GITHUB_TOKEN
           optional: true
-          description: "Only needed for register_agora_public (public Agora registration via GitHub Issues). Not required for core identity, delegation, or coordination."
+          description: "Only needed for register_agora_public (AEOESS Agora registration via GitHub Issues). Not required for core identity, delegation, or coordination."
     network:
       - host: mcp.aeoess.com
         description: "Remote MCP server (optional — only if using remote mode instead of local npm install)"
