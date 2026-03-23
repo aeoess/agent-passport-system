@@ -6,7 +6,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { createHash } from 'node:crypto'
 import { generateKeyPair, sign, verify } from '../crypto/keys.js'
 import { canonicalize } from './canonical.js'
-import { createDID } from './did.js'
+import { createDID, publicKeyFromDID } from './did.js'
 import type { KeyPair, SignedPassport } from '../types/passport.js'
 import type {
   PrincipalIdentity, PrincipalEndorsement, PrincipalDisclosure,
@@ -217,7 +217,7 @@ export function verifyDisclosure(disclosure: PrincipalDisclosure): {
     const did = disclosure.revealedFields.did as string
     if (!did) return { valid: false, level: disclosure.level, error: 'No DID in disclosure' }
 
-    const publicKey = did.split(':')[2]
+    const publicKey = publicKeyFromDID(did)
     if (!publicKey) return { valid: false, level: disclosure.level, error: 'Invalid DID format' }
 
     const canonical = canonicalize(disclosure.revealedFields)
