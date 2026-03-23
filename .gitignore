@@ -9,3 +9,4 @@ dist/
 seed-agora.mjs
 .DS_Store
 *.tgz
+oatr/
