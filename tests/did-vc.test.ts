@@ -20,8 +20,8 @@ describe('W3C DID Method (did:aps)', () => {
       runtime: { platform: 'test', models: ['m'], toolsCount: 1, memoryType: 'none' }
     })
     const did = createDID(keyPair.publicKey)
-    assert.ok(did.startsWith('did:aps:'))
-    assert.equal(did, `did:aps:${keyPair.publicKey}`)
+    assert.ok(did.startsWith('did:aps:z'))
+    assert.equal(publicKeyFromDID(did), keyPair.publicKey)
   })
 
   it('extracts public key from DID', () => {
@@ -65,7 +65,8 @@ describe('W3C DID Method (did:aps)', () => {
       runtime: { platform: 'test', models: ['gpt-4'], toolsCount: 5, memoryType: 'persistent' }
     })
     const doc = passportToDIDDocument(signedPassport.passport)
-    assert.equal(doc.id, `did:aps:${keyPair.publicKey}`)
+    assert.ok(doc.id.startsWith('did:aps:z'))
+    assert.equal(publicKeyFromDID(doc.id), keyPair.publicKey)
     assert.ok(doc['@context'].includes('https://www.w3.org/ns/did/v1'))
     assert.equal(doc.verificationMethod.length, 1)
     assert.equal(doc.verificationMethod[0].type, 'Ed25519VerificationKey2020')
@@ -199,7 +200,7 @@ describe('W3C Verifiable Presentations', () => {
       agent.publicKey, agent.privateKey
     )
     const vp = await createPresentation([passportVC, delegationVC, attestVC], agent.privateKey, agent.publicKey)
-    assert.equal(vp.holder, `did:aps:${agent.publicKey}`)
+    assert.equal(publicKeyFromDID(vp.holder), agent.publicKey)
     assert.equal(vp.verifiableCredential.length, 3)
     const result = await verifyPresentation(vp)
     assert.ok(result.valid, `VP verification failed: ${result.error}`)
@@ -218,11 +219,11 @@ describe('W3C Verifiable Presentations', () => {
     const vc = await passportToVC(signedPassport.passport, agent.privateKey, agent.publicKey)
     // Attacker presents agent's VC under their own identity
     const vp = await createPresentation([vc], attacker.privateKey, attacker.publicKey)
-    assert.equal(vp.holder, `did:aps:${attacker.publicKey}`)
+    assert.equal(publicKeyFromDID(vp.holder), attacker.publicKey)
     // VCs verify fine (they're real), but holder doesn't match issuer
     const result = await verifyPresentation(vp)
     assert.ok(result.valid) // Presentation signature itself is valid
-    assert.notEqual(result.holderDID, `did:aps:${agent.publicKey}`)
+    assert.notEqual(publicKeyFromDID(result.holderDID), agent.publicKey)
   })
 })
 
@@ -256,7 +257,7 @@ describe('receiptToVC', () => {
     // VC structure checks
     assert.ok(vc.id.includes(receipt.receiptId))
     assert.ok(vc.type.includes('ActionReceiptCredential'))
-    assert.equal(vc.issuer, `did:aps:${agent.publicKey}`)
+    assert.equal(publicKeyFromDID(vc.issuer), agent.publicKey)
     assert.equal(vc.credentialSubject.receiptId, receipt.receiptId)
     assert.equal(vc.credentialSubject.status, 'success')
     assert.equal(vc.credentialSubject.actionType, 'execute')

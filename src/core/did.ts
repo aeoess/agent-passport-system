@@ -30,6 +30,17 @@ export function createDID(publicKey: string): string {
   if (!publicKey || publicKey.length !== 64) {
     throw new Error('Invalid Ed25519 public key: expected 64-char hex string')
   }
+  // WG canonical format: z-prefixed base58btc multibase (QSP-1 v0.1.1)
+  return `did:${DID_METHOD}:${hexToMultibase(publicKey)}`
+}
+
+/**
+ * Create a DID using raw hex encoding (legacy/alias format).
+ */
+export function createDIDHex(publicKey: string): string {
+  if (!publicKey || publicKey.length !== 64) {
+    throw new Error('Invalid Ed25519 public key: expected 64-char hex string')
+  }
   return `did:${DID_METHOD}:${publicKey}`
 }
 
@@ -41,7 +52,12 @@ export function publicKeyFromDID(did: string): string {
   if (parts.length !== 3 || parts[0] !== 'did' || parts[1] !== DID_METHOD) {
     throw new Error(`Invalid did:aps DID: ${did}`)
   }
-  return parts[2]
+  const identifier = parts[2]
+  // Handle both multibase (z-prefix) and hex formats
+  if (identifier.startsWith('z')) {
+    return multibaseToHex(identifier)
+  }
+  return identifier
 }
 
 /**
@@ -49,7 +65,7 @@ export function publicKeyFromDID(did: string): string {
  */
 export function isValidDID(did: string): boolean {
   try {
-    const key = publicKeyFromDID(did)
+    const key = publicKeyFromDID(did) // handles both hex and multibase
     return /^[0-9a-f]{64}$/i.test(key)
   } catch {
     return false
