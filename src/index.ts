@@ -614,3 +614,9 @@ export * from './core/data-settlement.js'
 
 export * from './core/data-enforcement.js'
 export * from './core/training-attribution.js'
+
+// ══════════════════════════════════════
+// Data Gateway (Composable: Gateway + Data Enforcement + Terms Acceptance)
+// ══════════════════════════════════════
+
+export * from './core/data-gateway.js'
