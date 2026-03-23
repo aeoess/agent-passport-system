@@ -11,7 +11,7 @@
  */
 
 import type {
-  ApprovalRecord, ApprovalDecision, FatigueMetrics,
+  ApprovalRecord, FatigueMetrics,
   FatigueAnomalyType, RiskClass,
 } from './types.js'
 

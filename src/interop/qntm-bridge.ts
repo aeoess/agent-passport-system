@@ -151,7 +151,7 @@ function cborDecodeMap(data: Uint8Array): Record<string, any> {
 }
 
 function cborEncodeMap(obj: Record<string, any>): Uint8Array {
-  const parts: Uint8Array[] = [];
+
 
   function encodeLength(major: number, len: number): Uint8Array {
     const m = major << 5;

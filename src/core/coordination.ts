@@ -5,9 +5,8 @@
 // Every operation is Ed25519 signed. Every handoff is verifiable.
 
 import { randomBytes } from 'node:crypto'
-import { sign, verify } from '../crypto/keys.js'
 import { canonicalize } from './canonical.js'
-import { createDelegation, verifyDelegation } from './delegation.js'
+import { sign, verify } from '../crypto/keys.js'
 import type {
   TaskBrief, TaskRoleSpec, DeliverableSpec,
   TaskAssignment, EvidencePacket, EvidenceClaim,

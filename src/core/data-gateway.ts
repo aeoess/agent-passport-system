@@ -10,10 +10,9 @@
 
 import {
   DataEnforcementGate, DataAccessRequest, DataAccessDecision,
-  DataEnforcementConfig,
 } from './data-enforcement.js'
 import { ContributionLedger, createContributionLedger } from './data-contribution.js'
-import { SourceReceipt, DataPurpose, AccessMethod } from '../types/data-source.js'
+import { SourceReceipt } from '../types/data-source.js'
 
 // ── Terms Acceptance Registry ──
 // Agents must explicitly accept DataTerms before accessing data.

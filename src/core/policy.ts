@@ -19,14 +19,13 @@ import { v4 as uuidv4 } from 'uuid'
 import { sign, verify } from '../crypto/keys.js'
 import { canonicalize } from './canonical.js'
 import { scopeAuthorizes } from './delegation.js'
-import { ENFORCEMENT_ESCALATION_ORDER } from '../types/passport.js'
 import type { EnforcementMode } from '../types/passport.js'
 import type {
   ActionIntent, PolicyDecision, PolicyReceipt,
   PolicyValidator, ValidationContext, PolicyEvaluationResult,
   PolicyVerdict, PrincipleEvaluation
 } from '../types/policy.js'
-import type { ActionReceipt, ValuesFloor } from '../types/passport.js'
+import type { ActionReceipt } from '../types/passport.js'
 
 // ══════════════════════════════════════
 // ACTION INTENT — Signature 1 of 3

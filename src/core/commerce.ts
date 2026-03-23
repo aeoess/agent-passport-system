@@ -18,10 +18,10 @@ import { sign, verify as ed25519Verify } from '../crypto/keys.js'
 import { canonicalize } from './canonical.js'
 import { verifyPassport } from '../verification/verify.js'
 import { scopeAuthorizes } from './delegation.js'
-import type { SignedPassport, ActionReceipt } from '../types/passport.js'
+import type { SignedPassport } from '../types/passport.js'
 import type {
   ACPCheckoutSession, ACPLineItem, ACPMoney, ACPAddress,
-  ACPOrderEvent, CommerceConfig, CommerceDelegation,
+  CommerceConfig, CommerceDelegation,
   CommercePreflightResult, CommercePreflightCheck,
   CommerceActionReceipt, HumanApprovalRequest,
 } from '../types/commerce.js'

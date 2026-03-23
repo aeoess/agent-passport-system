@@ -7,7 +7,7 @@
 import { v4 as uuidv4 } from 'uuid'
 import { signObject } from './bridge.js'
 import type {
-  PolicyContext, SemanticUncertainty, AssuranceClass,
+  PolicyContext, SemanticUncertainty,
   AlternativeRejected, ContextualAttestation, AttestationQuality,
 } from './types.js'
 

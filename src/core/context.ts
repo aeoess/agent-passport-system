@@ -26,8 +26,8 @@ import { createActionIntent, evaluateIntent, createPolicyReceipt, FloorValidator
 import { createReceipt, scopeAuthorizes } from './delegation.js'
 import { verifyAttestation } from './values.js'
 import type { SocialContractAgent } from '../contract.js'
-import type { ValuesFloor, FloorAttestation, Delegation, ActionReceipt } from '../types/passport.js'
-import type { ActionIntent, PolicyDecision, PolicyReceipt, PolicyValidator, ValidationContext } from '../types/policy.js'
+import type { ValuesFloor, Delegation, ActionReceipt } from '../types/passport.js'
+import type { ActionIntent, PolicyDecision, PolicyValidator, ValidationContext } from '../types/policy.js'
 import type {
   AgentContextConfig, AgentContextState,
   ExecuteRequest, ExecuteResult, CompletedAction,

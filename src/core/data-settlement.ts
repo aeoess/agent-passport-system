@@ -11,9 +11,6 @@
 
 import crypto from 'crypto'
 import {
-  DataAccessReceipt, DataTerms, CompensationModel,
-} from '../types/data-source.js'
-import {
   SettlementRecord, SettlementLineItem, SettlementPeriod,
   SettlementVerification, DataComplianceReport,
 } from '../types/data-contribution.js'

@@ -7,7 +7,6 @@
  * financial projections and don't contact anyone outside approved list."
  */
 
-import type { RiskClass } from './types.js'
 
 export interface SemanticConstraint {
   field: string

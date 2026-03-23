@@ -27,9 +27,9 @@ import { createInterface } from 'node:readline'
 import {
   joinSocialContract, verifySocialContract,
   delegate, recordWork, proveContributions, auditCompliance,
-  generateKeyPair, loadFloor, clearStores, verifyMerkleProof,
-  verifyPassport, verifyAttestation, verifyReceipt,
-  verifyAttributionReport, scopeAuthorizes,
+  generateKeyPair, loadFloor, verifyMerkleProof,
+  verifyPassport, verifyAttestation,
+  scopeAuthorizes,
   createAgoraMessage, verifyAgoraMessage,
   createFeed, appendToFeed, getThread, getByTopic, getTopics,
   createRegistry, registerAgent, verifyFeed
@@ -37,11 +37,10 @@ import {
 
 import type {
   SignedPassport, FloorAttestation,
-  ActionReceipt, Delegation, KeyPair, ValuesFloor,
+  ActionReceipt, Delegation, KeyPair,
   AgoraFeed, AgoraRegistry
 } from '../index.js'
 
-import type { SocialContractAgent } from '../contract.js'
 
 // ── Paths ──
 const DIR = '.passport'

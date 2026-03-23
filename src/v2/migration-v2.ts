@@ -7,7 +7,7 @@
 import { v4 as uuidv4 } from 'uuid'
 import { signObject, hashObject } from './bridge.js'
 import type {
-  PolicyContext, ReputationInheritance, AssuranceClass,
+  PolicyContext, ReputationInheritance,
 } from './types.js'
 import type { MigrationRequest, MigrationRecord } from './types.js'
 

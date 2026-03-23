@@ -3,7 +3,7 @@
 // Positions AEOESS as the trust/identity layer underneath A2A.
 
 import { canonicalize } from './canonical.js'
-import { sign, verify } from '../crypto/keys.js'
+import { sign } from '../crypto/keys.js'
 import { createDID, publicKeyFromDID } from './did.js'
 import type { AgentPassport } from '../types/passport.js'
 import type { A2AAgentCard, A2AAgentSkill, A2ACapabilities } from '../types/a2a.js'
@@ -89,15 +89,8 @@ export async function verifyAgentCard(card: A2AAgentCard): Promise<{
   }
 
   try {
-    const { did, passportSignature } = card.agentPassport
-    const publicKey = publicKeyFromDID(did)
-
-    // Reconstruct the signed content
-    const cardContent = {
-      did, agentName: card.name,
-      capabilities: card.skills?.map(s => s.id) || [],
-      url: card.url
-    }
+    const { did } = card.agentPassport
+    publicKeyFromDID(did) // validates DID format and key extraction
 
     // We can't fully verify without the exact timestamp, but we can
     // verify the DID format and key extraction work

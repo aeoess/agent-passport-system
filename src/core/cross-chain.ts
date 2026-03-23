@@ -18,8 +18,7 @@ import { canonicalize } from './canonical.js'
 import type {
   TaintLabel, TaintUsage, TaintSet,
   SignedAuthorityObject, CrossChainPermit,
-  ExecutionFrame, ExecutionStep, FlowCheckResult, FlowVerdict,
-  TaintTransformation, TransformationType,
+  ExecutionFrame, FlowCheckResult,
   ExecutionReceipt, CrossChainViolation
 } from '../types/cross-chain.js'
 

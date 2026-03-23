@@ -3,7 +3,7 @@
 // Catches 90% of impossible missions with 10% of the effort
 
 import type { Delegation } from '../types/passport.js'
-import type { TaskBrief, TaskRoleSpec } from '../types/coordination.js'
+import type { TaskRoleSpec } from '../types/coordination.js'
 import type { FeasibilityIssue, FeasibilityResult } from '../types/feasibility.js'
 import { scopeCovers } from './delegation.js'
 

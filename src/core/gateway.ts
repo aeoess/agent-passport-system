@@ -40,15 +40,15 @@ import {
   type ActiveEscalation, type EscalationGrant
 } from './escalation.js'
 import { DEFAULT_LOAD_POLICY } from '../types/governance.js'
-import type { GovernanceArtifact, GovernanceEnvelope, GovernanceLoadPolicy, GovernanceDiff } from '../types/governance.js'
+import type { GovernanceArtifact, GovernanceEnvelope, GovernanceDiff } from '../types/governance.js'
 import {
   computeEffectiveScore, createScopedReputation, resolveAuthorityTier,
   checkTierForIntent, updateReputationFromResult, shouldDemote,
   triggerDemotion, DEFAULT_TIERS
 } from './reputation-authority.js'
-import type { Delegation, ActionReceipt, ValuesFloor, FloorAttestation, FloorPrinciple } from '../types/passport.js'
-import type { ActionIntent, PolicyDecision, PolicyReceipt, PolicyValidator, ValidationContext } from '../types/policy.js'
-import type { TaintLabel, TaintSet, CrossChainPermit, ExecutionFrame, SignedAuthorityObject } from '../types/cross-chain.js'
+import type { Delegation, ActionReceipt, FloorAttestation, FloorPrinciple } from '../types/passport.js'
+import type { PolicyDecision, PolicyValidator, ValidationContext } from '../types/policy.js'
+import type { CrossChainPermit, ExecutionFrame, SignedAuthorityObject } from '../types/cross-chain.js'
 import type { Obligation, ObligationResolution } from '../types/obligations.js'
 import type { ExecutionEnvelope } from '../types/execution-envelope.js'
 import type { ScopedReputation, AuthorityTier, TierEscalation, EvidenceClass, TierCheckContext } from '../types/reputation-authority.js'
@@ -1173,7 +1173,6 @@ export class ProxyGateway {
     // Compute diff if we have a previous artifact
     let diff: GovernanceDiff | undefined
     if (this.config.governanceEnvelope) {
-      const prev = this.config.governanceEnvelope.artifact
       // Extract principle IDs or item identifiers from content for diff
       // Use additions/removals from the artifact metadata
       diff = {

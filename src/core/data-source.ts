@@ -12,8 +12,8 @@ import { canonicalize } from './canonical.js'
 import { buildMerkleRoot, generateMerkleProof, verifyMerkleProof } from './attribution.js'
 import type { MerkleProof } from '../types/passport.js'
 import type {
-  SourceReceipt, SourceMode, DataContentType, DataTerms, DataPurpose,
-  DataAccessReceipt, AccessMethod, CompensationModel,
+  SourceReceipt, DataContentType, DataTerms, DataPurpose,
+  DataAccessReceipt, AccessMethod,
   SourceReceiptVerification, AccessReceiptVerification, TermsComplianceResult,
   DerivativePolicy,
 } from '../types/data-source.js'

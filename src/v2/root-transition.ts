@@ -12,7 +12,7 @@
 
 import type {
   AuthorityTransitionPlan, GovernancePhase,
-  ConditionSet, PolicyContext,
+  ConditionSet,
 } from './types.js'
 import { evaluateConditions } from './bridge.js'
 
@@ -107,7 +107,6 @@ export function executeTransition(planId: string, context: Record<string, string
 
   // Execute
   plan.status = 'executing'
-  const previousPhase = currentPhase
   currentPhase = plan.target_phase
   plan.status = 'completed'
 

@@ -11,7 +11,7 @@
 
 import crypto from 'crypto'
 import {
-  DataAccessReceipt, DataTerms, SourceReceipt, DataPurpose, AccessMethod,
+  DataAccessReceipt, SourceReceipt, DataPurpose, AccessMethod,
 } from '../types/data-source.js'
 import {
   checkTermsCompliance, recordDataAccess, buildDataAccessMerkleRoot,

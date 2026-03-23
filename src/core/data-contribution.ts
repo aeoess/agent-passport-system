@@ -11,7 +11,7 @@
 
 import crypto from 'crypto'
 import {
-  DataAccessReceipt, DataTerms, CompensationModel, DataPurpose,
+  DataAccessReceipt, DataTerms,
 } from '../types/data-source.js'
 import {
   ContributionRecord, ContributionQuery, SourceMetrics,
@@ -87,7 +87,7 @@ export function recordContribution(
   receipt: DataAccessReceipt,
   sourceDescriptor: string = '',
 ): ContributionRecord {
-  const key = ledgerKey(receipt)
+  ledgerKey(receipt) // validate receipt structure
   const existing = Array.from(ledger.records.values()).find(
     r => r.sourceReceiptId === receipt.sourceReceiptId
       && r.agentId === receipt.agentId

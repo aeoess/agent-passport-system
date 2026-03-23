@@ -5,7 +5,7 @@
 // through an AgentContext is automatically policy-checked.
 // ══════════════════════════════════════════════════════════════════
 
-import type { EnforcementMode, ValuesFloor, FloorAttestation, Delegation, ActionReceipt } from './passport.js'
+import type { ValuesFloor, FloorAttestation, Delegation, ActionReceipt } from './passport.js'
 import type { ActionIntent, PolicyDecision, PolicyReceipt, PolicyValidator } from './policy.js'
 
 // ── Context Configuration ──

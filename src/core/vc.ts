@@ -4,12 +4,12 @@
 
 import { canonicalize } from './canonical.js'
 import { sign, verify, publicKeyFromPrivate } from '../crypto/keys.js'
-import { createDID, publicKeyFromDID, hexToMultibase } from './did.js'
+import { createDID, publicKeyFromDID } from './did.js'
 import type { AgentPassport, Delegation, ActionReceipt } from '../types/passport.js'
 import type {
   VerifiableCredential, VerifiablePresentation, LinkedDataProof,
   PassportCredentialSubject, DelegationCredentialSubject,
-  FloorAttestationCredentialSubject, PolicyReceiptCredentialSubject
+  FloorAttestationCredentialSubject
 } from '../types/did.js'
 
 // ── Constants ──

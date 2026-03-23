@@ -80,15 +80,6 @@ export function auditCompositeCapabilities(): CompositeCapability[] {
     const composite = [...allScopes]
 
     // Check: does the composite achieve something no single agent holds?
-    const unauthorized: string[] = []
-    for (const cap of composite) {
-      const anyoneHasIt = Object.values(individualScopes).some(
-        scopes => scopes.includes(cap)
-      )
-      // This individual capability exists — but does the *combination* matter?
-      // The real check: does any single agent hold ALL the composite capabilities?
-    }
-
     // The real authority laundering check: does ANY single agent hold
     // the full composite capability set? If not, the pipeline achieves
     // something no individual was authorized to do.
@@ -99,16 +90,6 @@ export function auditCompositeCapabilities(): CompositeCapability[] {
     })
 
     if (!anyoneHoldsAll && composite.length > 1) {
-      // Find which capabilities are only achieved through composition
-      for (const cap of composite) {
-        // Check if this cap combined with others creates unauthorized composite
-        const holders = Object.entries(individualScopes)
-          .filter(([_, scopes]) => scopes.includes(cap))
-          .map(([agent]) => agent)
-        // If the cap is held by an agent who doesn't hold everything else,
-        // it's part of the laundering
-      }
-
       const flag: CompositeCapability = {
         pipeline_id: pipelineId,
         agents,

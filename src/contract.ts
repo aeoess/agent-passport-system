@@ -19,7 +19,6 @@
 // That's it. Four functions. The rest is implementation detail.
 
 import { createPassport } from './core/passport.js'
-import { sign, verify } from './crypto/keys.js'
 import { verifyPassport } from './verification/verify.js'
 import { attestFloor, verifyAttestation, loadFloor, evaluateCompliance } from './core/values.js'
 import { createDelegation, createReceipt } from './core/delegation.js'
@@ -28,7 +27,7 @@ import {
   generateMerkleProof
 } from './core/attribution.js'
 import type {
-  AgentPassport, SignedPassport, KeyPair, FloorAttestation,
+  SignedPassport, KeyPair, FloorAttestation,
   ActionReceipt, Delegation, ValuesFloor, BeneficiaryInfo,
   MerkleProof, AttributionReport, ComplianceReport, BeneficiaryTrace
 } from './types/passport.js'

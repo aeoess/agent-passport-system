@@ -6,7 +6,7 @@
 
 import { canonicalize } from './canonical.js'
 import { sign, verify } from '../crypto/keys.js'
-import type { AgentPassport, Delegation } from '../types/passport.js'
+import type { AgentPassport } from '../types/passport.js'
 import type {
   DIDDocument, VerificationMethod, ServiceEndpoint,
   DIDResolutionResult

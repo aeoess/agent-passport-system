@@ -12,7 +12,7 @@
 
 import type {
   EffectDeclaration, EffectVerification, EffectPattern,
-  PolicyContext, RiskClass,
+  PolicyContext,
 } from './types.js'
 
 // ── Stores ──

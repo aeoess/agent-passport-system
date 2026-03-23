@@ -5,7 +5,6 @@
 // New delegations prefer DID references.
 
 import { verify } from '../crypto/keys.js'
-import { canonicalize } from './canonical.js'
 import type { IdentityDocument } from '../types/identity.js'
 
 // ══════════════════════════════════════

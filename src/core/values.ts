@@ -16,7 +16,7 @@ import { ENFORCEMENT_ESCALATION_ORDER } from '../types/passport.js'
 import type {
   ValuesFloor, FloorPrinciple, FloorAttestation,
   ComplianceCheck, ComplianceReport, SharedGround,
-  AgentPassport, ActionReceipt, SignedPassport,
+  AgentPassport, ActionReceipt,
   EnforcementMode
 } from '../types/passport.js'
 
@@ -279,9 +279,6 @@ export function evaluateCompliance(
     evaluatePrinciple(p, agentReceipts, delegations)
   )
 
-  const enforced = checks.filter(c => c.status === 'enforced').length
-  const attested = checks.filter(c => c.status === 'attested').length
-  const violations = checks.filter(c => c.status === 'violation').length
   const total = checks.length
 
   // We still compute a score because consumers need a number.

@@ -17,8 +17,6 @@ import { createActionIntent, evaluateIntent } from './policy.js'
 import { commercePreflight } from './commerce.js'
 import { createAgoraMessage, appendToFeed } from './agora.js'
 import { verifyDelegation, getRevocation, scopeAuthorizes } from './delegation.js'
-import { canonicalize } from './canonical.js'
-import { sign } from '../crypto/keys.js'
 import type { SignedPassport, ActionReceipt, Delegation } from '../types/passport.js'
 import type { ActionIntent, PolicyDecision, PolicyValidator, ValidationContext } from '../types/policy.js'
 import type {
@@ -26,7 +24,7 @@ import type {
   ACPMoney, CommercePreflightResult,
 } from '../types/commerce.js'
 import type { AgoraFeed, AgoraMessage, AgoraRegistry } from '../types/agora.js'
-import type { TaskBrief, EvidencePacket, ReviewDecision, TaskCompletion } from '../types/coordination.js'
+import type { TaskBrief, ReviewDecision, TaskCompletion } from '../types/coordination.js'
 
 // ══════════════════════════════════════
 // 1. COMMERCE → INTENT/POLICY

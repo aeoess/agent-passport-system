@@ -9,7 +9,6 @@
  * until all have submitted. An epistemic hygiene primitive.
  */
 
-import type { RiskClass } from './types.js'
 
 // ── Types (also add to types.ts) ──
 export interface SubmissionBarrier {

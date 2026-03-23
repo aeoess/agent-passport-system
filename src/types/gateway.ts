@@ -15,7 +15,7 @@ import type { SignedAuthorityObject, FlowCheckResult, ExecutionFrame, CrossChain
 import type { Obligation, ObligationResolution } from './obligations.js'
 import type { ExecutionEnvelope } from './execution-envelope.js'
 import type { ScopedReputation, AuthorityTier, TierEscalation, EvidenceClass } from './reputation-authority.js'
-import type { GovernanceArtifact, GovernanceEnvelope, GovernanceLoadPolicy, GovernanceChangeType, GovernanceDiff } from './governance.js'
+import type { GovernanceArtifact, GovernanceEnvelope, GovernanceLoadPolicy, GovernanceDiff } from './governance.js'
 import type { ActiveEscalation, EscalationGrant } from '../core/escalation.js'
 
 // ── Action Reversibility (Gap 3 taxonomy) ──

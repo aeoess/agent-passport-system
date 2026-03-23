@@ -1,6 +1,5 @@
 // Core Passport Operations — create, sign, update, expire
 
-import { v4 as uuidv4 } from 'uuid'
 import { generateKeyPair, sign } from '../crypto/keys.js'
 import { canonicalize } from './canonical.js'
 import type {

@@ -11,7 +11,7 @@ import { randomBytes } from 'node:crypto'
 import { sign, verify } from '../crypto/keys.js'
 import { canonicalize } from './canonical.js'
 import type {
-  ScopedReputation, AuthorityTier, TierDefinition,
+  ScopedReputation, TierDefinition,
   EvidenceClass, TaskClassification, EvidencePortfolio,
   PromotionRequirements, PromotionReview,
   RuntimeProfile, RuntimeChangeClass,
