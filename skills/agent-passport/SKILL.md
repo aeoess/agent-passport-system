@@ -1,6 +1,6 @@
 ---
 name: agent-passport-system
-description: Cryptographic identity, delegation, governance, and commerce protocol for AI agents. 37 core modules + 30 v2 constitutional modules, 1073 tests, 72 MCP tools. V2 Constitutional Framework includes 9 attack defenses (approval fatigue, effect enforcement, semantic drift, composite audit, cascade correlation, inaction audit, values override, governance drift, emergence detection), separation of powers, constitutional amendment, circuit breakers, affected-party standing, and root authority transition. Use this skill whenever the user wants to create agent identity, delegate authority between agents, coordinate multi-agent tasks, set up trust, enforce values compliance, track contributions with Merkle proofs, run agentic commerce with spend limits, find people via Intent Network, register agents in the Agora, or use v2 governance features like three-way outcome reporting, policy contexts with mandatory sunsets, fork-and-sunset migration, approval fatigue detection, separation of powers enforcement, or circuit breakers. Also use when discussing agent accountability, multi-agent orchestration, constitutional AI governance, or when the user mentions Agent Passport, AEOESS, or agent social contract.
+description: Cryptographic identity, delegation, governance, and commerce protocol for AI agents. 42 core modules + 30 v2 constitutional modules, 1178 tests, 83 MCP tools. V2 Constitutional Framework includes 9 attack defenses (approval fatigue, effect enforcement, semantic drift, composite audit, cascade correlation, inaction audit, values override, governance drift, emergence detection), separation of powers, constitutional amendment, circuit breakers, affected-party standing, and root authority transition. Use this skill whenever the user wants to create agent identity, delegate authority between agents, coordinate multi-agent tasks, set up trust, enforce values compliance, track contributions with Merkle proofs, run agentic commerce with spend limits, find people via Intent Network, register agents in the Agora, or use v2 governance features like three-way outcome reporting, policy contexts with mandatory sunsets, fork-and-sunset migration, approval fatigue detection, separation of powers enforcement, or circuit breakers. Also use when discussing agent accountability, multi-agent orchestration, constitutional AI governance, or when the user mentions Agent Passport, AEOESS, or agent social contract.
 metadata:
   clawdbot:
     emoji: "🔑"
@@ -25,7 +25,7 @@ metadata:
 
 # Agent Passport System
 
-Cryptographic identity, delegation, governance, coordination, and commerce for AI agents. 37 protocol modules, 1073 tests, 72 MCP tools. Includes v2 constitutional governance: delegation versioning, three-way outcome reporting, anomaly detection, emergency pathways, fork-and-sunset migration, contextual attestation, epistemic isolation, values override, inaction auditing, circuit breakers, affected-party standing, policy profiles, constitutional amendment, separation of powers. Remote MCP at mcp.aeoess.com/sse. Intent Network at api.aeoess.com. The Agent Social Contract.
+Cryptographic identity, delegation, governance, coordination, and commerce for AI agents. 42 protocol modules, 1178 tests, 83 MCP tools. Includes v2 constitutional governance: delegation versioning, three-way outcome reporting, anomaly detection, emergency pathways, fork-and-sunset migration, contextual attestation, epistemic isolation, values override, inaction auditing, circuit breakers, affected-party standing, policy profiles, constitutional amendment, separation of powers. Remote MCP at mcp.aeoess.com/sse. Intent Network at api.aeoess.com. The Agent Social Contract.
 
 Use this skill when you need to:
 
@@ -229,7 +229,7 @@ Extensions narrow but never widen the floor.
 
 - **Crypto**: Ed25519 signatures + SHA-256 Merkle trees. No blockchain.
 - **Dependencies**: Zero heavy deps. Node.js crypto + uuid only.
-- **Tests**: 1073 tests, 287 suites, 57 test files, 50 adversarial scenarios.
+- **Tests**: 1178 tests, 320 suites, 63 test files, 50 adversarial scenarios.
 - **MCP**: 72 tools across 37 modules.
 - **v2 Constitutional Governance**: Delegation versioning, three-way outcome reporting, anomaly detection, emergency pathways, fork-and-sunset migration, contextual attestation, artifact provenance, reputation decay.
 - **Remote MCP**: `https://mcp.aeoess.com/sse` (no install, connect via SSE)
