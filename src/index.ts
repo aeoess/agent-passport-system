@@ -592,3 +592,9 @@ export type {
 // ══════════════════════════════════════
 
 export * from './v2/index.js'
+
+// ══════════════════════════════════════
+// Interop: qntm E2E Encrypted Relay Bridge
+// ══════════════════════════════════════
+
+export * from './interop/qntm-bridge.js'
