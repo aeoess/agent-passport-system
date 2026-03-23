@@ -40,6 +40,30 @@ export async function generateEncryptionKeypair(): Promise<EncryptionKeypair> {
 }
 
 /**
+ * Derive X25519 encryption keypair deterministically from an Ed25519 identity key.
+ * Uses the birational equivalence (RFC 7748 §4.1) to map Ed25519 → X25519.
+ * This enables identity key reuse: same Ed25519 passport key serves as both
+ * signing key and encryption key derivation source.
+ *
+ * @param ed25519SeedHex - 32-byte Ed25519 private key seed (hex string)
+ * @returns X25519 keypair (base64) + derived Ed25519 public key (hex)
+ */
+export async function deriveEncryptionKeypair(ed25519SeedHex: string): Promise<EncryptionKeypair & { ed25519PublicKeyHex: string }> {
+  await ensureSodium()
+  const seed = sodium.from_hex(ed25519SeedHex)
+  // Derive Ed25519 keypair from seed (returns { publicKey: 32b, privateKey: 64b })
+  const edKeypair = sodium.crypto_sign_seed_keypair(seed)
+  // Convert Ed25519 → X25519 using birational map: u = (1 + y) / (1 - y) mod p
+  const x25519PublicKey = sodium.crypto_sign_ed25519_pk_to_curve25519(edKeypair.publicKey)
+  const x25519PrivateKey = sodium.crypto_sign_ed25519_sk_to_curve25519(edKeypair.privateKey)
+  return {
+    publicKey: sodium.to_base64(x25519PublicKey),
+    privateKey: sodium.to_base64(x25519PrivateKey),
+    ed25519PublicKeyHex: sodium.to_hex(edKeypair.publicKey)
+  }
+}
+
+/**
  * Create a Key Announcement: agent signs its X25519 public key
  * with its Ed25519 identity key and publishes it.
  */

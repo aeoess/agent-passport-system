@@ -367,7 +367,7 @@ export type {
 // ── E2E Encrypted Messaging (Module 19) ──
 
 export {
-  generateEncryptionKeypair,
+  generateEncryptionKeypair, deriveEncryptionKeypair,
   createKeyAnnouncement, verifyKeyAnnouncement,
   padToBlock, unpad,
   encryptPayload, decryptPayload,
