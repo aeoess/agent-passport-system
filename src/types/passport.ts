@@ -46,6 +46,8 @@ export interface Delegation {
   scope: string[]
   scopeInterpretation?: 'exact' | 'glob' | 'hierarchical'  // Module 37: how scope matching works
   expiresAt: string
+  /** Optional: delegation is not valid before this timestamp (replay mitigation) */
+  notBefore?: string
   spendLimit?: number
   spentAmount?: number
   maxDepth: number
@@ -90,6 +92,7 @@ export interface DelegationStatus {
   valid: boolean
   revoked: boolean
   expired: boolean
+  notYetValid: boolean
   depthExceeded: boolean
   revokedAt?: string
   errors: string[]

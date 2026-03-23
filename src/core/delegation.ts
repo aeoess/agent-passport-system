@@ -54,6 +54,8 @@ export interface CreateDelegationOptions {
   maxDepth?: number
   currentDepth?: number
   expiresInHours?: number
+  /** Optional: delegation not valid before this ISO timestamp (replay mitigation) */
+  notBefore?: string
   privateKey: string        // delegator's private key for signing
 }
 
@@ -73,7 +75,8 @@ export function createDelegation(opts: CreateDelegationOptions): Delegation {
     spentAmount: 0,
     maxDepth: opts.maxDepth ?? 1,
     currentDepth: opts.currentDepth ?? 0,
-    createdAt: now.toISOString()
+    createdAt: now.toISOString(),
+    notBefore: opts.notBefore ?? now.toISOString(),
   }
 
   const canonical = canonicalize(delegation)
@@ -172,6 +175,12 @@ export function verifyDelegation(delegation: Delegation): DelegationStatus {
   const expired = new Date(delegation.expiresAt) < new Date()
   if (expired) errors.push('Delegation expired')
 
+  // Check notBefore (timestamp freshness — B-8 security hardening)
+  const notYetValid = delegation.notBefore
+    ? new Date(delegation.notBefore) > new Date()
+    : false
+  if (notYetValid) errors.push(`Delegation not yet valid (notBefore: ${delegation.notBefore})`)
+
   // Check revocation
   const revocation = revocationRegistry.get(delegation.delegationId)
   const revoked = !!revocation
@@ -186,6 +195,7 @@ export function verifyDelegation(delegation: Delegation): DelegationStatus {
     valid: errors.length === 0,
     revoked,
     expired,
+    notYetValid,
     depthExceeded,
     revokedAt: revocation?.revokedAt,
     errors
@@ -350,7 +360,7 @@ export function validateChain(delegationIds: string[]): DelegationChainValidatio
         delegatedTo: 'unknown',
         depth: i,
         status: {
-          valid: false, revoked: false, expired: false,
+          valid: false, revoked: false, expired: false, notYetValid: false,
           depthExceeded: false, errors: ['Delegation not found in registry']
         }
       }

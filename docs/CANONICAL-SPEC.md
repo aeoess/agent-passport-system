@@ -1,83 +1,113 @@
-# Canonical Serialization Spec — Agent Passport System
+# APS Canonical JSON Serialization — Conformance Specification
 
-## Version: 1.0 (2026-02-27)
-## Status: Required for all cross-agent signature operations
+## Version: 1.0.0 (frozen)
+## Status: FROZEN — changes require major version bump + signature migration
 
-## Problem
+This document defines the canonical JSON serialization used by the Agent Passport
+System for all cryptographic operations (signing, verification, content hashing).
 
-Ed25519 signatures are over **exact bytes**. If two implementations serialize
-the same JSON object differently (key order, whitespace, null handling), 
-signatures produced by one cannot be verified by the other.
+## Algorithm
 
-This was discovered in the first coordination task (task-mm446e9v-980a2713)
-when PortalX2's Python `json.dumps()` produced different bytes than the 
-Node.js SDK's `canonicalize()`, making the analysis packet signature 
-non-verifiable from disk.
+1. Input is a JavaScript/TypeScript value
+2. `null` and `undefined` → JSON string `"null"`
+3. `Date` objects → JSON string representation (ISO 8601 via `JSON.stringify`)
+4. Primitives (string, number, boolean) → `JSON.stringify(value)`
+5. Arrays → `[element0,element1,...]` (recursive, preserves null elements as `"null"`)
+6. Objects → sorted keys alphabetically, null/undefined VALUES OMITTED
+   - `{a: 1, b: null}` canonicalizes as `{"a":1}` (b omitted)
+   - `{a: 1, b: null, c: [null, 2]}` → `{"a":1,"c":[null,2]}`
+7. No trailing commas, no whitespace between tokens
 
-## Canonical Form Rules
+## Null Asymmetry Rule (documented, intentional)
 
-All JSON objects MUST be serialized using these rules before signing:
+- Object keys with null/undefined values: **OMITTED**
+- Array elements with null/undefined: **PRESERVED as `null`**
 
-1. **Sort keys alphabetically** (Unicode code point order)
-2. **No whitespace** — no spaces after `:` or `,`
-3. **Omit null and undefined values** — keys with null/undefined are excluded
-4. **Recursive** — nested objects follow the same rules
-5. **Arrays preserve order** — array elements are canonicalized but not reordered
-6. **Strings use JSON escaping** — standard `JSON.stringify()` escaping
-7. **Numbers use JSON format** — no trailing zeros, no leading zeros except `0.x`
+This means `{a: 1, b: null}` and `{a: 1}` produce IDENTICAL canonical forms.
+This is a known design choice. Implementers MUST NOT rely on null-valued
+object keys for signature-relevant semantics.
 
-## Examples
+## Forbidden Values
 
-Input:
-```json
-{ "z": 1, "a": "hello", "m": null, "b": [3, 1, 2] }
-```
+The following values MUST NOT appear in any signed object:
 
-Canonical form:
-```
-{"a":"hello","b":[3,1,2],"z":1}
-```
+- `NaN` — not representable in JSON, serialization is implementation-defined
+- `Infinity` / `-Infinity` — not representable in JSON
+- `undefined` as a standalone value in arrays — use `null` instead
+- Numeric values outside IEEE 754 double precision safe integer range
+  (beyond ±2^53 - 1) — serialization varies across platforms
+- Strings containing unpaired Unicode surrogates (U+D800–U+DFFF)
 
-Note: `"m"` is omitted (null value), keys sorted, no whitespace.
+Implementations MUST reject these values before signing. Verification
+implementations MUST reject signatures over objects containing these values.
 
-## Delegation Canonical Form
+## Conformance Test Vectors
 
-All delegations (root and subdelegation) sign the same field set.
-The `signature` field is excluded. Fields with `null`/`undefined` values are omitted.
-
-**Root delegation example** (spendLimit set):
-```
-{"createdAt":"2026-03-18T00:00:00.000Z","currentDepth":0,"delegatedBy":"abc123","delegatedTo":"def456","delegationId":"del_a1b2c3","expiresAt":"2026-03-19T00:00:00.000Z","maxDepth":2,"scope":["search","memory.read","memory.write","analysis"],"spendLimit":1000,"spentAmount":0}
-```
-
-**Subdelegation example** (same fields — `parentId` is NOT in the signed payload):
-```
-{"createdAt":"2026-03-18T01:00:00.000Z","currentDepth":1,"delegatedBy":"def456","delegatedTo":"ghi789","delegationId":"del_d4e5f6","expiresAt":"2026-03-19T00:00:00.000Z","maxDepth":2,"scope":["search","memory.read"],"spendLimit":500,"spentAmount":0}
-```
-
-**Key interop notes:**
-- `parentId` / `parent_id` is tracked in the chain registry, NOT in the signed object
-- If `spendLimit` is `undefined` (not set), it is **omitted entirely** from the canonical form
-- `spentAmount` defaults to `0` and IS included (it is not null/undefined)
-- `currentDepth` and `maxDepth` are always present (default `0` and `1` respectively)
-- Scope array elements are NOT sorted — order is preserved as provided
-
-## Signing Flow
+Implementers MUST produce identical output for all vectors below.
 
 ```
-1. Construct your data object (e.g., evidence packet)
-2. Remove the "signature" field if present
-3. Canonicalize the remaining object
-4. Sign the canonical string as UTF-8 bytes with Ed25519
-5. Hex-encode the 64-byte signature
-6. Add "signature" field back to the object
+Input: null
+Output: "null"
+
+Input: undefined
+Output: "null"
+
+Input: true
+Output: "true"
+
+Input: 42
+Output: "42"
+
+Input: "hello"
+Output: "\"hello\""
+
+Input: [1, null, 3]
+Output: "[1,null,3]"
+
+Input: {a: 1, b: null}
+Output: "{\"a\":1}"
+
+Input: {b: 2, a: 1}
+Output: "{\"a\":1,\"b\":2}"
+
+Input: {a: 1, b: null, c: [null, 2]}
+Output: "{\"a\":1,\"c\":[null,2]}"
+
+Input: {z: {b: 2, a: 1}, a: 0}
+Output: "{\"a\":0,\"z\":{\"a\":1,\"b\":2}}"
+
+Input: []
+Output: "[]"
+
+Input: {}
+Output: "{}"
+
+Input: ""
+Output: "\"\""
+
+Input: 0
+Output: "0"
+
+Input: -1
+Output: "-1"
+
+Input: {a: 1, b: undefined, c: 3}
+Output: "{\"a\":1,\"c\":3}"
 ```
 
-## Verification Flow
+## Cross-Language Compatibility
 
-```
-1. Parse the JSON object
-2. Extract and remove the "signature" field
-3. Canonicalize the remaining object  
-4. Verify: Ed25519.verify(canonical_bytes, signature_bytes, public_key_bytes)
-```
+Three implementations are verified compatible as of v1.19.2:
+- TypeScript: `src/core/canonical.ts`
+- Python: `docs/canonical.py` + `agent-passport-python`
+- noble-curves runner: qntm interop vectors
+
+All implementations MUST pass the conformance vectors above.
+New implementations SHOULD run the full vector suite before
+claiming APS signature compatibility.
+
+## Versioning
+
+This canonicalization scheme is version 1.0.0. Any change to the
+algorithm requires a major version bump and a signature migration
+plan. The scheme is FROZEN — do not modify without committee approval.

@@ -522,3 +522,70 @@ describe('Authoring ↔ Enforcement Parity', () => {
     })
   }
 })
+
+
+// ══════════════════════════════════════════════════════════════════
+// B-8: Timestamp Freshness — notBefore validation
+// ══════════════════════════════════════════════════════════════════
+
+describe('Timestamp Freshness (B-8)', () => {
+  beforeEach(() => clearStores())
+
+  it('delegation with notBefore in the past is valid', () => {
+    const past = new Date(Date.now() - 60_000).toISOString()
+    const d = createDelegation({
+      delegatedTo: agentA.publicKey,
+      delegatedBy: human.publicKey,
+      scope: ['test'],
+      privateKey: human.privateKey,
+      notBefore: past,
+    })
+    const status = verifyDelegation(d)
+    assert.equal(status.valid, true)
+    assert.equal(status.notYetValid, false)
+  })
+
+  it('delegation with notBefore in the future is not yet valid', () => {
+    const future = new Date(Date.now() + 60_000).toISOString()
+    const d = createDelegation({
+      delegatedTo: agentA.publicKey,
+      delegatedBy: human.publicKey,
+      scope: ['test'],
+      privateKey: human.privateKey,
+      notBefore: future,
+    })
+    const status = verifyDelegation(d)
+    assert.equal(status.valid, false)
+    assert.equal(status.notYetValid, true)
+    assert.ok(status.errors.some(e => e.includes('not yet valid')))
+  })
+
+
+  it('delegation without notBefore defaults to creation time (always valid)', () => {
+    const d = createDelegation({
+      delegatedTo: agentA.publicKey,
+      delegatedBy: human.publicKey,
+      scope: ['test'],
+      privateKey: human.privateKey,
+    })
+    assert.ok(d.notBefore, 'notBefore should be set automatically')
+    const status = verifyDelegation(d)
+    assert.equal(status.valid, true)
+    assert.equal(status.notYetValid, false)
+  })
+
+  it('[ADVERSARIAL] captured delegation with future notBefore is rejected', () => {
+    const future = new Date(Date.now() + 3_600_000).toISOString() // 1 hour from now
+    const d = createDelegation({
+      delegatedTo: agentA.publicKey,
+      delegatedBy: human.publicKey,
+      scope: ['data:read'],
+      privateKey: human.privateKey,
+      notBefore: future,
+    })
+    // Attacker captures this delegation and tries to use it immediately
+    const status = verifyDelegation(d)
+    assert.equal(status.valid, false, 'Future delegation should be rejected')
+    assert.equal(status.notYetValid, true)
+  })
+})

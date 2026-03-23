@@ -224,10 +224,18 @@ export interface GatewayConfig {
 // ── Registered Agent ──
 // The gateway maintains a registry of agents it serves.
 
+/** Gateway agent role determines what actions an agent can perform.
+ *  - 'executor': Can submit tool calls for execution (default)
+ *  - 'evaluator': Can serve as policy evaluator for other agents' intents
+ *  - 'executor+evaluator': Both roles */
+export type GatewayAgentRole = 'executor' | 'evaluator' | 'executor+evaluator'
+
 export interface RegisteredAgent {
   passport: SignedPassport
   attestation: FloorAttestation
   delegations: Map<string, Delegation>
+  /** Agent's role in the gateway (default: 'executor') */
+  role: GatewayAgentRole
   /** Per-agent execution frame for taint tracking (cross-chain) */
   executionFrame?: ExecutionFrame
   /** Active cross-chain permits for this agent */

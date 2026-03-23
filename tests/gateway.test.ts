@@ -448,3 +448,79 @@ describe('ProxyGateway — Stats & Callbacks', () => {
     assert.match(suspicious[0], /[Rr]eplay/)
   })
 })
+
+
+// ══════════════════════════════════════════════════════════════════
+// B-9: Evaluator Trust — Gateway Agent Roles
+// ══════════════════════════════════════════════════════════════════
+
+describe('Evaluator Trust (B-9)', () => {
+  it('agent defaults to executor role', () => {
+    clearStores()
+    const gwKeys = generateKeyPair()
+    const gateway = createProxyGateway({
+      gatewayId: 'gw-role-test', gatewayPublicKey: gwKeys.publicKey,
+      gatewayPrivateKey: gwKeys.privateKey, floor,
+    }, makeToolExecutor())
+    const agent = joinSocialContract({
+      name: 'Executor Agent', mission: 'test', owner: 'tester',
+      capabilities: ['testing'], platform: 'test', models: ['test'], floor
+    })
+    const principal = joinSocialContract({
+      name: 'Principal', mission: 'test', owner: 'tester',
+      capabilities: ['testing'], platform: 'test', models: ['test'], floor
+    })
+    const delegation = delegate({ from: principal, toPublicKey: agent.publicKey, scope: ['data:read'] })
+    gateway.registerAgent(agent.passport, agent.attestation!, [delegation])
+    assert.equal(gateway.isRegisteredEvaluator(agent.agentId), false)
+  })
+
+  it('agent registered as evaluator is recognized', () => {
+    clearStores()
+    const gwKeys = generateKeyPair()
+    const gateway = createProxyGateway({
+      gatewayId: 'gw-eval-test', gatewayPublicKey: gwKeys.publicKey,
+      gatewayPrivateKey: gwKeys.privateKey, floor,
+    }, makeToolExecutor())
+    const agent = joinSocialContract({
+      name: 'Eval Agent', mission: 'evaluate', owner: 'tester',
+      capabilities: ['evaluation'], platform: 'test', models: ['test'], floor
+    })
+    const principal = joinSocialContract({
+      name: 'Principal', mission: 'test', owner: 'tester',
+      capabilities: ['testing'], platform: 'test', models: ['test'], floor
+    })
+    const delegation = delegate({ from: principal, toPublicKey: agent.publicKey, scope: ['evaluate:*'] })
+    gateway.registerAgent(agent.passport, agent.attestation!, [delegation], 'evaluator')
+    assert.equal(gateway.isRegisteredEvaluator(agent.agentId), true)
+  })
+
+  it('executor+evaluator role allows both', () => {
+    clearStores()
+    const gwKeys = generateKeyPair()
+    const gateway = createProxyGateway({
+      gatewayId: 'gw-dual-test', gatewayPublicKey: gwKeys.publicKey,
+      gatewayPrivateKey: gwKeys.privateKey, floor,
+    }, makeToolExecutor())
+    const agent = joinSocialContract({
+      name: 'Dual Agent', mission: 'dual', owner: 'tester',
+      capabilities: ['testing', 'evaluation'], platform: 'test', models: ['test'], floor
+    })
+    const principal = joinSocialContract({
+      name: 'Principal', mission: 'test', owner: 'tester',
+      capabilities: ['testing'], platform: 'test', models: ['test'], floor
+    })
+    const delegation = delegate({ from: principal, toPublicKey: agent.publicKey, scope: ['data:read', 'evaluate:*'] })
+    gateway.registerAgent(agent.passport, agent.attestation!, [delegation], 'executor+evaluator')
+    assert.equal(gateway.isRegisteredEvaluator(agent.agentId), true)
+  })
+
+  it('unregistered agent is not an evaluator', () => {
+    const gwKeys = generateKeyPair()
+    const gateway = createProxyGateway({
+      gatewayId: 'gw-unreg-test', gatewayPublicKey: gwKeys.publicKey,
+      gatewayPrivateKey: gwKeys.privateKey, floor,
+    }, makeToolExecutor())
+    assert.equal(gateway.isRegisteredEvaluator('nonexistent-agent'), false)
+  })
+})

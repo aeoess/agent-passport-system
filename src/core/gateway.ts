@@ -56,7 +56,7 @@ import type { AutonomyLevel } from '../types/intent.js'
 import type {
   ToolCallRequest, ToolCallResult, GatewayProof,
   GatewayApproval, ToolExecutor, GatewayConfig,
-  RegisteredAgent, GatewayStats
+  RegisteredAgent, GatewayStats, GatewayAgentRole
 } from '../types/gateway.js'
 
 
@@ -113,6 +113,15 @@ export class ProxyGateway {
     }
     this.validator = config.validator || new FloorValidatorV1()
     this.executor = executor
+
+    // B-1 security warning: all gateway state is in-memory
+    if (typeof console !== 'undefined') {
+      console.warn(
+        '[ProxyGateway] WARNING: All security state (revocations, registrations, replay protection) ' +
+        'is stored in-memory. Process restart will erase all security state. ' +
+        'NOT SAFE FOR PRODUCTION. Implement a persistent StorageBackend for production use.'
+      )
+    }
   }
 
   // ── Agent Registration ──
@@ -120,7 +129,8 @@ export class ProxyGateway {
   registerAgent(
     passport: RegisteredAgent['passport'],
     attestation: FloorAttestation,
-    delegations: Delegation[]
+    delegations: Delegation[],
+    role: GatewayAgentRole = 'executor'
   ): { registered: boolean; error?: string } {
     // Verify passport (SignedPassport wraps AgentPassport)
     const passportCheck = verifyPassport(passport)
@@ -165,6 +175,7 @@ export class ProxyGateway {
 
     this.agents.set(agentId, {
       passport, attestation, delegations: delegationMap,
+      role,
       executionFrame: this.config.enableCrossChainEnforcement ? createExecutionFrame(agentId, { ttlMinutes: this.config.frameTTLMinutes ?? 0 }) : undefined,
       permits: this.config.enableCrossChainEnforcement ? [] : undefined,
       obligations: this.config.enableObligationMonitoring ? [] : undefined,
@@ -177,6 +188,13 @@ export class ProxyGateway {
     })
     this.stats.activeAgents = this.agents.size
     return { registered: true }
+  }
+
+  /** Check if an agent is registered with evaluator role (B-9 security hardening) */
+  isRegisteredEvaluator(agentId: string): boolean {
+    const agent = this.agents.get(agentId)
+    if (!agent) return false
+    return agent.role === 'evaluator' || agent.role === 'executor+evaluator'
   }
 
   unregisterAgent(agentId: string): boolean {

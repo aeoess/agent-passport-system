@@ -27,6 +27,8 @@ export type {
 export { createPassport, signPassport, updatePassport, isExpired } from './core/passport.js'
 export { canonicalize } from './core/canonical.js'
 export { generateKeyPair, sign, verify, publicKeyFromPrivate } from './crypto/keys.js'
+export { InMemoryKeyStorage, EncryptedFileKeyStorage } from './crypto/key-storage.js'
+export type { KeyStorageBackend } from './crypto/key-storage.js'
 export { verifyPassport, createChallenge, verifyChallenge } from './verification/verify.js'
 export { applyReputationEvent, calculateOverallScore } from './verification/reputation.js'
 
@@ -232,7 +234,7 @@ export { ProxyGateway, createProxyGateway } from './core/gateway.js'
 export type {
   ToolCallRequest, ToolCallResult, GatewayProof,
   GatewayApproval, ToolExecutor, GatewayConfig,
-  RegisteredAgent, GatewayStats, ActionReversibility
+  RegisteredAgent, GatewayStats, ActionReversibility, GatewayAgentRole,
 } from './types/gateway.js'
 
 // ── Layer 9: W3C DID & Verifiable Credentials Bridge ──
