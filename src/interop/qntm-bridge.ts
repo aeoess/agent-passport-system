@@ -12,7 +12,6 @@
  */
 
 import * as crypto from 'crypto';
-// @ts-expect-error libsodium-wrappers has no default export in types but works at runtime
 import sodium from 'libsodium-wrappers';
 
 // ═══════════════════════════════════════
