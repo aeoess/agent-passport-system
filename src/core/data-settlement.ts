@@ -155,7 +155,7 @@ export function verifySettlement(record: SettlementRecord): SettlementVerificati
 // ── Generate Compliance Report ──
 // GDPR Article 30 / EU AI Act Article 10 / SOC 2
 
-export function generateComplianceReport(
+export function generateDataComplianceReport(
   ledger: ContributionLedger,
   period: SettlementPeriod,
   reportType: DataComplianceReport['reportType'],

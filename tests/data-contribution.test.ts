@@ -10,7 +10,7 @@ import {
 import {
   generateSettlement,
   verifySettlement,
-  generateComplianceReport,
+  generateDataComplianceReport,
 } from '../src/core/data-settlement.js'
 import type { DataAccessReceipt, DataTerms } from '../src/types/data-source.js'
 
@@ -253,7 +253,7 @@ describe('Data Compliance Report', () => {
     for (let i = 0; i < 25; i++) recordContribution(ledger, mockReceipt({ sourceReceiptId: 'ds_1' }), 'Customer DB')
     for (let i = 0; i < 10; i++) recordContribution(ledger, mockReceipt({ sourceReceiptId: 'ds_2', declaredPurpose: 'train', agentId: 'trainer' }), 'Training Set')
     const period = { startDate: '2026-01-01', endDate: '2026-03-31', periodLabel: '2026-Q1' }
-    const report = generateComplianceReport(ledger, period, 'gdpr_article30', 'priv_key')
+    const report = generateDataComplianceReport(ledger, period, 'gdpr_article30', 'priv_key')
     assert.ok(report.reportId.startsWith('dcpr_'))
     assert.strictEqual(report.reportType, 'gdpr_article30')
     assert.strictEqual(report.summary.totalDataAccesses, 35)
@@ -269,7 +269,7 @@ describe('Data Compliance Report', () => {
     recordContribution(ledger, mockReceipt({ agentId: 'a1', sourceReceiptId: 'x1' }), 'X')
     recordContribution(ledger, mockReceipt({ agentId: 'a2', sourceReceiptId: 'x2' }), 'Y')
     const period = { startDate: '2026-01-01', endDate: '2026-12-31', periodLabel: '2026' }
-    const report = generateComplianceReport(ledger, period, 'euai_article10', 'key', { agentId: 'a1' })
+    const report = generateDataComplianceReport(ledger, period, 'euai_article10', 'key', { agentId: 'a1' })
     assert.strictEqual(report.summary.totalDataAccesses, 1)
     assert.strictEqual(report.agentId, 'a1')
   })
@@ -278,7 +278,7 @@ describe('Data Compliance Report', () => {
     const ledger = createContributionLedger()
     recordContribution(ledger, mockReceipt({ termsAtAccessTime: TERMS_FREE, sourceReceiptId: 'free_ds' }), 'Free')
     const period = { startDate: '2026-01-01', endDate: '2026-12-31', periodLabel: '2026' }
-    const report = generateComplianceReport(ledger, period, 'general', 'key')
+    const report = generateDataComplianceReport(ledger, period, 'general', 'key')
     assert.strictEqual(report.summary.compensationSummary.total, 0)
   })
 })
