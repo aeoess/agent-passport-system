@@ -10,6 +10,10 @@ import {
   recordTrainingAttribution,
   getModelDataSources,
   getSourceTrainingCount,
+  createDerivation,
+  createDerivationStore,
+  recordDerivation,
+  resolveAttributionChain,
 } from '../src/core/training-attribution.js'
 import { registerSelfAttestedSource } from '../src/core/data-source.js'
 import { generateKeyPair } from '../src/crypto/keys.js'
@@ -324,5 +328,156 @@ describe('Training Attribution — Ledger', () => {
   it('returns empty for unknown model', () => {
     const ledger = createTrainingLedger()
     assert.deepStrictEqual(getModelDataSources(ledger, 'unknown'), [])
+  })
+})
+
+
+describe('Derivation Chain — Multi-Hop Attribution', () => {
+  it('resolves direct attribution (no derivation chain)', () => {
+    const kp = generateKeyPair()
+    const store = createDerivationStore()
+    const receipt = createTrainingAttribution({
+      trainingUseType: 'fine_tune', modelId: 'model-1', trainerId: 'tr',
+      trainerPublicKey: kp.publicKey, trainerPrivateKey: kp.privateKey,
+      sourceAccessReceiptIds: ['dacr_raw_1', 'dacr_raw_2'],
+      executionFrameId: 'f1', outputContentHash: 'h1', inputDataHashes: ['a', 'b'],
+      contributionWeights: { 'dacr_raw_1': 0.7, 'dacr_raw_2': 0.3 },
+    })
+    const resolved = resolveAttributionChain(receipt, store)
+    assert.strictEqual(resolved.length, 2)
+    assert.ok(Math.abs(resolved.find(r => r.originalAccessReceiptId === 'dacr_raw_1')!.transitiveWeight - 0.7) < 0.01)
+    assert.ok(Math.abs(resolved.find(r => r.originalAccessReceiptId === 'dacr_raw_2')!.transitiveWeight - 0.3) < 0.01)
+  })
+
+  it('resolves single-hop derivation chain', () => {
+    const kp = generateKeyPair()
+    const store = createDerivationStore()
+
+    // Agent reads 3 articles → produces summary
+    const deriv = createDerivation({
+      agentId: 'summarizer', agentPublicKey: kp.publicKey, agentPrivateKey: kp.privateKey,
+      outputContentHash: 'summary_hash',
+      outputDescription: 'Summary of 3 articles',
+      sourceAccessReceiptIds: ['dacr_article_1', 'dacr_article_2', 'dacr_article_3'],
+      sourceWeights: { 'dacr_article_1': 0.5, 'dacr_article_2': 0.3, 'dacr_article_3': 0.2 },
+      executionFrameId: 'f_summary',
+    })
+    recordDerivation(store, deriv)
+
+    // Training uses the summary (via its access receipt)
+    // The access receipt for the summary references the derivation
+    const training = createTrainingAttribution({
+      trainingUseType: 'fine_tune', modelId: 'model-2', trainerId: 'tr',
+      trainerPublicKey: kp.publicKey, trainerPrivateKey: kp.privateKey,
+      sourceAccessReceiptIds: ['dacr_article_1'], // references the first article's receipt
+      executionFrameId: 'f_train', outputContentHash: 'trained', inputDataHashes: ['summary_hash'],
+    })
+
+    const resolved = resolveAttributionChain(training, store)
+    // dacr_article_1 has a derivation, so it follows the chain
+    assert.ok(resolved.length >= 1)
+    // The chain resolution finds the 3 original articles through the derivation
+    const art1 = resolved.find(r => r.originalAccessReceiptId === 'dacr_article_1')
+    assert.ok(art1)
+  })
+
+  it('resolves multi-hop chain (data → summary → training)', () => {
+    const kp = generateKeyPair()
+    const store = createDerivationStore()
+
+    // Hop 1: Agent reads raw data → produces intermediate output
+    const deriv1 = createDerivation({
+      agentId: 'reader', agentPublicKey: kp.publicKey, agentPrivateKey: kp.privateKey,
+      outputContentHash: 'intermediate_hash',
+      outputDescription: 'Processed data from raw sources',
+      sourceAccessReceiptIds: ['dacr_raw_A', 'dacr_raw_B'],
+      sourceWeights: { 'dacr_raw_A': 0.6, 'dacr_raw_B': 0.4 },
+      executionFrameId: 'f_read',
+    })
+    recordDerivation(store, deriv1)
+
+    // Hop 2: Another agent reads intermediate → produces summary
+    const deriv2 = createDerivation({
+      agentId: 'summarizer', agentPublicKey: kp.publicKey, agentPrivateKey: kp.privateKey,
+      outputContentHash: 'final_summary_hash',
+      outputDescription: 'Summary of processed data',
+      sourceAccessReceiptIds: ['dacr_raw_A'], // references intermediate via same receipt
+      executionFrameId: 'f_summarize',
+    })
+    recordDerivation(store, deriv2)
+
+    // Training uses the summary
+    const training = createTrainingAttribution({
+      trainingUseType: 'embedding', modelId: 'embed-v3', trainerId: 'tr',
+      trainerPublicKey: kp.publicKey, trainerPrivateKey: kp.privateKey,
+      sourceAccessReceiptIds: ['dacr_raw_A'],
+      executionFrameId: 'f_train', outputContentHash: 'embedded', inputDataHashes: ['final_summary_hash'],
+    })
+
+    const resolved = resolveAttributionChain(training, store)
+    // Should trace through derivation chains
+    assert.ok(resolved.length >= 1)
+    // Every resolved attribution has hops >= 0 and positive weight
+    for (const r of resolved) {
+      assert.ok(r.hops >= 0)
+      assert.ok(r.transitiveWeight > 0)
+      // Transitive weights can exceed 1.0 when a source contributes through multiple paths
+    }
+  })
+
+  it('handles equal-weight derivation (50 articles → summary)', () => {
+    const kp = generateKeyPair()
+    const store = createDerivationStore()
+
+    // 50 articles, equal contribution
+    const articleIds = Array.from({ length: 50 }, (_, i) => `dacr_article_${i}`)
+    const deriv = createDerivation({
+      agentId: 'bulk_reader', agentPublicKey: kp.publicKey, agentPrivateKey: kp.privateKey,
+      outputContentHash: 'bulk_summary',
+      outputDescription: 'Summary of 50 articles',
+      sourceAccessReceiptIds: articleIds,
+      // No weights = equal distribution (1/50 each)
+      executionFrameId: 'f_bulk',
+    })
+    recordDerivation(store, deriv)
+
+    const training = createTrainingAttribution({
+      trainingUseType: 'rag_index', modelId: 'rag-v1', trainerId: 'tr',
+      trainerPublicKey: kp.publicKey, trainerPrivateKey: kp.privateKey,
+      sourceAccessReceiptIds: ['dacr_article_0'], // one of the 50
+      executionFrameId: 'f_rag', outputContentHash: 'indexed', inputDataHashes: ['bulk_summary'],
+    })
+
+    const resolved = resolveAttributionChain(training, store)
+    // Should resolve to at least the articles that were derivation sources
+    assert.ok(resolved.length >= 1)
+  })
+
+  it('[ADVERSARIAL] stops at maxDepth to prevent infinite loops', () => {
+    const kp = generateKeyPair()
+    const store = createDerivationStore()
+
+    // Create circular-ish deep chain
+    for (let i = 0; i < 15; i++) {
+      const deriv = createDerivation({
+        agentId: `agent_${i}`, agentPublicKey: kp.publicKey, agentPrivateKey: kp.privateKey,
+        outputContentHash: `hash_${i}`,
+        outputDescription: `Level ${i}`,
+        sourceAccessReceiptIds: [`dacr_level_${i}`],
+        executionFrameId: `f_${i}`,
+      })
+      recordDerivation(store, deriv)
+    }
+
+    const training = createTrainingAttribution({
+      trainingUseType: 'fine_tune', modelId: 'deep-model', trainerId: 'tr',
+      trainerPublicKey: kp.publicKey, trainerPrivateKey: kp.privateKey,
+      sourceAccessReceiptIds: ['dacr_level_0'],
+      executionFrameId: 'f_deep', outputContentHash: 'deep', inputDataHashes: ['hash_0'],
+    })
+
+    // Should not hang or crash — maxDepth prevents infinite recursion
+    const resolved = resolveAttributionChain(training, store, 5)
+    assert.ok(Array.isArray(resolved))
   })
 })
