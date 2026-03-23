@@ -11,6 +11,8 @@ import {
   computeKeyId,
   encryptForRelay,
   decryptFromRelay,
+  extractEnvelopeDid,
+  verifyEnvelopeDid,
 } from '../src/interop/qntm-bridge.js';
 import { generateKeyPair } from '../src/crypto/keys.js';
 
@@ -262,5 +264,100 @@ describe('qntm Bridge — High-Level API', () => {
       failed = true; // decryption error = expected
     }
     assert.ok(failed, 'Should fail with wrong invite token');
+  });
+});
+
+
+describe('qntm Bridge — DID Field (QSP-1 v0.1.1)', () => {
+  it('includes DID in encrypted envelope when provided', async () => {
+    const invite = decodeQntmInvite(TEST_INVITE_TOKEN);
+    const keys = deriveQntmKeys(invite);
+    const senderKeyId = new Uint8Array(16).fill(0x11);
+    const plaintext = new TextEncoder().encode('test with DID');
+    const testDid = 'did:aps:z3Bmy2y8WtbRXNBYayR64kYqXN1XRi6Hqch6FwKFxmSWH';
+
+    const envelope = await qntmEncrypt(plaintext, keys, senderKeyId, 0, testDid);
+    assert.strictEqual(envelope.did, testDid);
+
+    // Serialize and verify DID survives roundtrip
+    const b64 = serializeEnvelope(envelope);
+    const extractedDid = extractEnvelopeDid(b64);
+    assert.strictEqual(extractedDid, testDid);
+  });
+
+  it('omits DID when not provided', async () => {
+    const invite = decodeQntmInvite(TEST_INVITE_TOKEN);
+    const keys = deriveQntmKeys(invite);
+    const senderKeyId = new Uint8Array(16).fill(0x22);
+    const plaintext = new TextEncoder().encode('test without DID');
+
+    const envelope = await qntmEncrypt(plaintext, keys, senderKeyId, 0);
+    assert.strictEqual(envelope.did, undefined);
+
+    const b64 = serializeEnvelope(envelope);
+    const extractedDid = extractEnvelopeDid(b64);
+    assert.strictEqual(extractedDid, undefined);
+  });
+
+  it('encryptForRelay passes DID through to envelope', async () => {
+    const kp = generateKeyPair();
+    const testDid = 'did:aps:z6Mkge31dDNxE8uzUgPHez3ubePXBaoH7yYCJi1BmbDygfHf';
+    const payload = new TextEncoder().encode('payload with DID');
+
+    const relayMsg = await encryptForRelay(
+      payload, TEST_INVITE_TOKEN, Buffer.from(kp.publicKey, 'hex'), 0, testDid,
+    );
+
+    const extractedDid = extractEnvelopeDid(relayMsg.envelope_b64);
+    assert.strictEqual(extractedDid, testDid);
+  });
+
+  it('verifyEnvelopeDid returns true for matching key', async () => {
+    const kp = generateKeyPair();
+    const payload = new TextEncoder().encode('verify test');
+    const testDid = 'did:aps:' + kp.publicKey;
+
+    const relayMsg = await encryptForRelay(
+      payload, TEST_INVITE_TOKEN, Buffer.from(kp.publicKey, 'hex'), 0, testDid,
+    );
+
+    const valid = verifyEnvelopeDid(relayMsg.envelope_b64, kp.publicKey);
+    assert.strictEqual(valid, true);
+  });
+
+  it('[ADVERSARIAL] verifyEnvelopeDid returns false for wrong key', async () => {
+    const kp = generateKeyPair();
+    const wrongKp = generateKeyPair();
+    const payload = new TextEncoder().encode('wrong key test');
+
+    const relayMsg = await encryptForRelay(
+      payload, TEST_INVITE_TOKEN, Buffer.from(kp.publicKey, 'hex'), 0,
+    );
+
+    const valid = verifyEnvelopeDid(relayMsg.envelope_b64, wrongKp.publicKey);
+    assert.strictEqual(valid, false);
+  });
+
+  it('DID field is backwards compatible — decrypt works with or without DID', async () => {
+    const kp = generateKeyPair();
+    const original = 'backwards compatibility test';
+    const payload = new TextEncoder().encode(original);
+    const testDid = 'did:agentid:agent_test_001';
+
+    // Encrypt WITH DID
+    const withDid = await encryptForRelay(
+      payload, TEST_INVITE_TOKEN, Buffer.from(kp.publicKey, 'hex'), 0, testDid,
+    );
+
+    // Encrypt WITHOUT DID
+    const withoutDid = await encryptForRelay(
+      payload, TEST_INVITE_TOKEN, Buffer.from(kp.publicKey, 'hex'), 1,
+    );
+
+    // Both decrypt correctly
+    const d1 = await decryptFromRelay(withDid.envelope_b64, TEST_INVITE_TOKEN);
+    const d2 = await decryptFromRelay(withoutDid.envelope_b64, TEST_INVITE_TOKEN);
+    assert.strictEqual(new TextDecoder().decode(d1), original);
+    assert.strictEqual(new TextDecoder().decode(d2), original);
   });
 });

@@ -46,6 +46,7 @@ export interface QntmEnvelope {
   ct: Uint8Array;
   sig: Uint8Array;
   aad: Uint8Array;
+  did?: string; // Optional DID for identity verification (QSP-1 v0.1.1)
 }
 
 export interface QntmRelayMessage {
@@ -247,6 +248,7 @@ export async function qntmEncrypt(
   keys: QntmConversationKeys,
   senderKeyId: Uint8Array,
   seq: number,
+  did?: string,
 ): Promise<QntmEnvelope> {
   await sodium.ready;
 
@@ -268,6 +270,7 @@ export async function qntmEncrypt(
     ct: new Uint8Array(ct),
     sig: msgId, // msg_id serves as signature placeholder in symmetric mode
     aad,
+    ...(did ? { did } : {}),
   };
 }
 
@@ -285,7 +288,7 @@ export async function qntmDecrypt(
 
 /** Serialize a qntm envelope to base64 for relay transport */
 export function serializeEnvelope(envelope: QntmEnvelope): string {
-  const cborBytes = cborEncodeMap({
+  const map: Record<string, unknown> = {
     v: envelope.v,
     conv: envelope.conv,
     sender: envelope.sender,
@@ -295,7 +298,9 @@ export function serializeEnvelope(envelope: QntmEnvelope): string {
     ct: envelope.ct,
     sig: envelope.sig,
     aad: envelope.aad,
-  });
+  };
+  if (envelope.did) map.did = envelope.did;
+  const cborBytes = cborEncodeMap(map);
   return base64Encode(cborBytes);
 }
 
@@ -320,6 +325,7 @@ export function computeKeyId(publicKey: Uint8Array): Uint8Array {
  * @param inviteToken - Base64url-encoded qntm invite token
  * @param senderPublicKey - Ed25519 public key of the sender (for key ID)
  * @param seq - Message sequence number
+ * @param did - Optional DID to include in envelope (e.g., did:aps:z... or did:agentid:...)
  * @returns Relay-ready message payload
  */
 export async function encryptForRelay(
@@ -327,11 +333,12 @@ export async function encryptForRelay(
   inviteToken: string,
   senderPublicKey: Uint8Array,
   seq: number = 0,
+  did?: string,
 ): Promise<QntmRelayMessage> {
   const invite = decodeQntmInvite(inviteToken);
   const keys = deriveQntmKeys(invite);
   const keyId = computeKeyId(senderPublicKey);
-  const envelope = await qntmEncrypt(payload, keys, keyId, seq);
+  const envelope = await qntmEncrypt(payload, keys, keyId, seq, did);
   return buildRelayMessage(envelope);
 }
 
@@ -360,8 +367,38 @@ export async function decryptFromRelay(
     ct: new Uint8Array(decoded.ct),
     sig: new Uint8Array(decoded.sig),
     aad: new Uint8Array(decoded.aad),
+    ...(decoded.did ? { did: decoded.did } : {}),
   };
   return qntmDecrypt(envelope, keys);
+}
+
+/**
+ * Extract the DID from a serialized relay envelope (without decrypting).
+ * Returns undefined if no DID is present.
+ */
+export function extractEnvelopeDid(envelopeB64: string): string | undefined {
+  const cborBytes = new Uint8Array(Buffer.from(envelopeB64, 'base64'));
+  const decoded = cborDecodeMap(cborBytes);
+  return decoded.did || undefined;
+}
+
+/**
+ * Verify that a DID matches the sender key ID in an envelope.
+ * Resolves the DID to an Ed25519 public key, computes Trunc16(SHA-256(key)),
+ * and compares with the envelope's sender field.
+ *
+ * @param envelopeB64 - Base64 CBOR envelope
+ * @param publicKeyHex - Ed25519 public key hex resolved from the DID
+ * @returns true if the key matches the sender key ID
+ */
+export function verifyEnvelopeDid(envelopeB64: string, publicKeyHex: string): boolean {
+  const cborBytes = new Uint8Array(Buffer.from(envelopeB64, 'base64'));
+  const decoded = cborDecodeMap(cborBytes);
+  const senderKeyId = new Uint8Array(decoded.sender);
+  const keyFromDid = Buffer.from(publicKeyHex, 'hex');
+  const computedKeyId = computeKeyId(keyFromDid);
+  if (senderKeyId.length !== computedKeyId.length) return false;
+  return senderKeyId.every((b, i) => b === computedKeyId[i]);
 }
 
 /** Default relay URL */
