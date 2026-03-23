@@ -25,24 +25,43 @@ import type {
 // ══════════════════════════════════════
 
 /**
+ * Minimum required identity boundary fields per artifact type.
+ * The spec declares these minimums — artifacts can commit to more but not fewer.
+ */
+export const MINIMUM_IDENTITY_FIELDS: Record<string, string[]> = {
+  action_intent: ['agentId', 'agentPublicKey', 'action', 'delegationId', 'intentId'],
+  decision_artifact: ['artifactType', 'engine', 'intent', 'evaluation', 'semantics']
+}
+
+/**
  * Compute a content hash of an ActionIntent (unsigned fields only).
  * Uses SHA-256 of canonical JSON serialization.
  * Makes the intent content-addressable — reference by hash, not just signature.
+ *
+ * The identity boundary (sorted field names) is committed into the hash,
+ * making the artifact self-describing: any engine can verify which fields
+ * define identity without depending on external projection rules.
  */
 export async function computeContentHash(
   intent: Omit<ActionIntent, 'signature' | 'contentHash'>
 ): Promise<ContentHash> {
-  const canonical = canonicalize(intent)
+  // Extract sorted top-level field names — this IS the identity boundary
+  const identityBoundary = Object.keys(intent).sort()
+  // Hash includes both the content AND the boundary declaration
+  const hashInput = { _identityBoundary: identityBoundary, ...intent }
+  const canonical = canonicalize(hashInput)
   const hash = await sha256Hex(canonical)
   return {
     algorithm: 'sha256' as ContentHashAlgorithm,
     hash,
-    canonicalForm: 'canonical_json_sorted_keys'
+    canonicalForm: 'canonical_json_sorted_keys',
+    identityBoundary
   }
 }
 
 /**
  * Verify that a content hash matches the intent it claims to represent.
+ * If identityBoundary is present, verifies the boundary was committed into the hash.
  */
 export async function verifyContentHash(
   intent: ActionIntent
@@ -52,12 +71,29 @@ export async function verifyContentHash(
   }
   // Rebuild from unsigned fields (exclude signature and contentHash itself)
   const { signature, contentHash, ...unsigned } = intent
-  const canonical = canonicalize(unsigned)
+  // Re-include identity boundary in hash input (same as computeContentHash)
+  const identityBoundary = contentHash.identityBoundary ?? Object.keys(unsigned).sort()
+  const hashInput = { _identityBoundary: identityBoundary, ...unsigned }
+  const canonical = canonicalize(hashInput)
   const expected = await sha256Hex(canonical)
   if (expected !== intent.contentHash.hash) {
     return { valid: false, error: `Hash mismatch: expected ${expected}, got ${intent.contentHash.hash}` }
   }
   return { valid: true }
+}
+
+/**
+ * Validate that an identity boundary meets the spec minimum for its artifact type.
+ * The spec declares minimum required fields — the artifact can commit to more but not fewer.
+ */
+export function validateIdentityBoundary(
+  boundary: string[],
+  artifactType: string
+): { valid: boolean; missing: string[] } {
+  const minimum = MINIMUM_IDENTITY_FIELDS[artifactType]
+  if (!minimum) return { valid: true, missing: [] }  // unknown type = no minimum
+  const missing = minimum.filter(f => !boundary.includes(f))
+  return { valid: missing.length === 0, missing }
 }
 
 // ══════════════════════════════════════
@@ -273,7 +309,10 @@ export async function verifyDecisionArtifact(
   let contentHashValid = false
   if (artifact.intent.contentHash) {
     const { signature, contentHash, ...unsigned } = originalIntent
-    const expectedHash = await sha256Hex(canonicalize(unsigned))
+    // Re-include identity boundary in hash input (same as computeContentHash)
+    const identityBoundary = contentHash?.identityBoundary ?? Object.keys(unsigned).sort()
+    const hashInput = { _identityBoundary: identityBoundary, ...unsigned }
+    const expectedHash = await sha256Hex(canonicalize(hashInput))
     contentHashValid = expectedHash === artifact.intent.contentHash.hash
     if (!contentHashValid) {
       errors.push('Content hash mismatch')
@@ -340,7 +379,7 @@ export function getEffectiveScopeInterpretation(
 // SHA-256 HELPER
 // ══════════════════════════════════════
 
-async function sha256Hex(data: string): Promise<string> {
+export async function sha256Hex(data: string): Promise<string> {
   // Use Web Crypto API (available in Node.js 18+ and browsers)
   const encoder = new TextEncoder()
   const buffer = encoder.encode(data)

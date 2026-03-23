@@ -9,6 +9,7 @@ import {
   endorsePassport, verifyPassportEndorsement, hasPrincipalEndorsement
 } from '../src/core/principal.js'
 import { createPassport } from '../src/core/passport.js'
+import { generateKeyPair } from '../src/crypto/keys.js'
 
 describe('Principal Identity', () => {
   describe('createPrincipalIdentity', () => {
@@ -326,6 +327,61 @@ describe('Principal Identity', () => {
       const d1 = createDisclosure(p1, k1.privateKey, 'minimal')
       const d2 = createDisclosure(p2, k2.privateKey, 'minimal')
       assert.notEqual(d1.revealedFields.idHash, d2.revealedFields.idHash)
+    })
+  })
+
+  describe('Entity Binding (Corpo integration)', () => {
+    it('creates principal without entityBinding (backwards compatible)', () => {
+      const { principal } = createPrincipalIdentity({ displayName: 'No Entity' })
+      assert.equal(principal.entityBinding, undefined)
+    })
+
+    it('creates principal with entityBinding', () => {
+      const { principal } = createPrincipalIdentity({
+        displayName: 'Entity-Bound Principal',
+        metadata: {
+          entityBinding: {
+            entityId: 'corpo_ent_7f3a1234',
+            jurisdiction: 'WY',
+            entityType: 'dao_llc',
+            operatingAgreementHash: 'sha256:abc123def456',
+            verificationEndpoint: 'https://api.corpo.llc/api/v1/entities/corpo_ent_7f3a1234',
+            boundAt: '2026-03-23T00:00:00Z'
+          }
+        }
+      })
+      // entityBinding is on the type but stored via metadata for now
+      assert.ok(principal.metadata.entityBinding)
+      const binding = principal.metadata.entityBinding as any
+      assert.equal(binding.entityId, 'corpo_ent_7f3a1234')
+      assert.equal(binding.jurisdiction, 'WY')
+      assert.equal(binding.entityType, 'dao_llc')
+    })
+
+    it('endorsement works with entity-bound principal', () => {
+      const { principal, keyPair } = createPrincipalIdentity({
+        displayName: 'Entity Principal',
+        metadata: {
+          entityBinding: {
+            entityId: 'corpo_ent_test',
+            jurisdiction: 'WY',
+            entityType: 'dao_llc',
+            boundAt: '2026-03-23T00:00:00Z'
+          }
+        }
+      })
+      const agentKeys = generateKeyPair()
+      const endorsement = endorseAgent({
+        principal, principalPrivateKey: keyPair.privateKey,
+        agentId: 'agent-entity-test',
+        agentPublicKey: agentKeys.publicKey,
+        scope: ['hold_assets', 'enter_contracts'],
+        relationship: 'operator'
+      })
+      const verified = verifyEndorsement(endorsement)
+      assert.equal(verified.valid, true)
+      // Entity binding preserved in the principal that created the endorsement
+      assert.ok(principal.metadata.entityBinding)
     })
   })
 })

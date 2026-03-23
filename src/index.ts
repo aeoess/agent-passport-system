@@ -294,7 +294,8 @@ export {
 
 export type {
   PrincipalIdentity, PrincipalEndorsement, PrincipalDisclosure,
-  FleetRecord, FleetAgent, EndorsementVerification, DisclosureLevel
+  FleetRecord, FleetAgent, EndorsementVerification, DisclosureLevel,
+  EntityBinding,
 } from './types/principal.js'
 
 
@@ -573,6 +574,7 @@ export {
   classifyEvaluationMethod, decomposeDecision,
   createDecisionArtifact, verifyDecisionArtifact,
   getEffectiveScopeInterpretation,
+  validateIdentityBoundary, MINIMUM_IDENTITY_FIELDS,
 } from './core/decision-semantics.js'
 
 export type {

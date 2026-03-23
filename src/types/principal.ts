@@ -18,6 +18,22 @@ export interface PrincipalIdentity {
   disclosureLevel: DisclosureLevel
   createdAt: string
   metadata: Record<string, unknown>
+  /** Optional legal entity binding (e.g. Corpo Wyoming DAO LLC).
+   *  Root trust anchor: the entity establishes the maximum authority ceiling
+   *  that every downstream delegation narrows from. */
+  entityBinding?: EntityBinding
+}
+
+/** Legal entity binding — links a principal to a registered legal entity.
+ *  The entity proves the agent ecosystem has a legal counterparty
+ *  for contracts, regulated payments, and dispute resolution. */
+export interface EntityBinding {
+  entityId: string              // e.g. "corpo_ent_<uuid>"
+  jurisdiction: string          // e.g. "WY", "DE", "SG"
+  entityType?: string           // e.g. "dao_llc", "llc", "corp"
+  operatingAgreementHash?: string  // sha256 of governance doc
+  verificationEndpoint?: string    // e.g. "https://api.corpo.llc/api/v1/entities/{id}"
+  boundAt: string               // ISO timestamp of binding
 }
 
 /**

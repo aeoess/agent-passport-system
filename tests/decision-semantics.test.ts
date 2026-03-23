@@ -16,6 +16,7 @@ import {
   classifyEvaluationMethod, decomposeDecision,
   createDecisionArtifact, verifyDecisionArtifact,
   getEffectiveScopeInterpretation,
+  validateIdentityBoundary, sha256Hex,
 } from '../src/core/decision-semantics.js'
 import type { ValidationContext } from '../src/types/policy.js'
 
@@ -525,5 +526,78 @@ describe('Decision Artifact', () => {
     // Should have computed a content hash even though intent didn't have one
     assert.ok(artifact.intent.contentHash)
     assert.equal(artifact.intent.contentHash.hash.length, 64)
+  })
+})
+
+
+// ══════════════════════════════════════════════════════════════════
+// Identity Boundary — Portable Identity via Committed Boundaries
+// ══════════════════════════════════════════════════════════════════
+
+describe('Identity Boundary', () => {
+  it('content hash includes identityBoundary field', async () => {
+    const keys = generateKeyPair()
+    const intent = await createContentAddressableIntent({
+      agentId: 'agent-001', agentPublicKey: keys.publicKey,
+      delegationId: 'del-001', action: { type: 'test', target: 'x', scopeRequired: 'test' },
+      privateKey: keys.privateKey
+    })
+    assert.ok(intent.contentHash!.identityBoundary)
+    assert.ok(Array.isArray(intent.contentHash!.identityBoundary))
+    assert.ok(intent.contentHash!.identityBoundary!.length > 0)
+    // Boundary should be sorted
+    const boundary = intent.contentHash!.identityBoundary!
+    const sorted = [...boundary].sort()
+    assert.deepEqual(boundary, sorted)
+  })
+
+  it('boundary is committed — changing it changes the hash', async () => {
+    const keys = generateKeyPair()
+    const { canonicalize } = await import('../src/core/canonical.js')
+    const unsigned = {
+      intentId: 'intent_test', agentId: 'agent-001',
+      agentPublicKey: keys.publicKey, delegationId: 'del-001',
+      action: { type: 'test', target: 'x', scopeRequired: 'test' },
+      createdAt: '2026-01-01T00:00:00Z'
+    }
+    const hash1 = await computeContentHash(unsigned)
+    // Manually compute with a different boundary — should produce different hash
+    const fakeBoundary = ['agentId']  // subset of actual fields
+    const fakeInput = { _identityBoundary: fakeBoundary, ...unsigned }
+    const fakeHash = await sha256Hex(canonicalize(fakeInput))
+    // Different boundary = different hash (boundary is committed)
+    assert.notEqual(hash1.hash, fakeHash)
+  })
+
+  it('verifyContentHash succeeds with committed boundary', async () => {
+    const keys = generateKeyPair()
+    const intent = await createContentAddressableIntent({
+      agentId: 'agent-001', agentPublicKey: keys.publicKey,
+      delegationId: 'del-001', action: { type: 'test', target: 'x', scopeRequired: 'test' },
+      privateKey: keys.privateKey
+    })
+    const result = await verifyContentHash(intent)
+    assert.equal(result.valid, true)
+  })
+
+  it('validateIdentityBoundary passes for complete boundary', () => {
+    const boundary = ['action', 'agentId', 'agentPublicKey', 'delegationId', 'intentId', 'createdAt']
+    const result = validateIdentityBoundary(boundary, 'action_intent')
+    assert.equal(result.valid, true)
+    assert.equal(result.missing.length, 0)
+  })
+
+  it('validateIdentityBoundary fails when required fields missing', () => {
+    const boundary = ['agentId', 'action']  // missing agentPublicKey, delegationId, intentId
+    const result = validateIdentityBoundary(boundary, 'action_intent')
+    assert.equal(result.valid, false)
+    assert.ok(result.missing.includes('agentPublicKey'))
+    assert.ok(result.missing.includes('delegationId'))
+    assert.ok(result.missing.includes('intentId'))
+  })
+
+  it('validateIdentityBoundary passes for unknown artifact type', () => {
+    const result = validateIdentityBoundary(['anything'], 'unknown_type')
+    assert.equal(result.valid, true)
   })
 })

@@ -39,6 +39,11 @@ export interface ContentHash {
   algorithm: ContentHashAlgorithm
   hash: string              // hex-encoded hash
   canonicalForm: string     // serialization method used (e.g. 'canonical_json_sorted_keys')
+  /** Identity boundary: sorted list of top-level field names included in the hash.
+   *  Part of the committed content — changing the boundary changes the hash.
+   *  Enables portable identity: any engine can verify which fields define identity
+   *  without depending on external spec projection rules. */
+  identityBoundary?: string[]
 }
 
 // ── Decision Semantics ──
