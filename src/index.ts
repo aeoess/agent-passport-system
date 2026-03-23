@@ -607,3 +607,10 @@ export * from './interop/qntm-bridge.js'
 export * from './types/data-contribution.js'
 export * from './core/data-contribution.js'
 export * from './core/data-settlement.js'
+
+// ══════════════════════════════════════
+// Data Enforcement Gate + Training Attribution
+// ══════════════════════════════════════
+
+export * from './core/data-enforcement.js'
+export * from './core/training-attribution.js'
