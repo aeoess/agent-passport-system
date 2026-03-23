@@ -598,3 +598,12 @@ export * from './v2/index.js'
 // ══════════════════════════════════════
 
 export * from './interop/qntm-bridge.js'
+
+// ══════════════════════════════════════
+// Module 38: Data Contribution Ledger
+// Module 39: Data Settlement Protocol
+// ══════════════════════════════════════
+
+export * from './types/data-contribution.js'
+export * from './core/data-contribution.js'
+export * from './core/data-settlement.js'
