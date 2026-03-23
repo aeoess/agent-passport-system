@@ -2,12 +2,12 @@
 
 [![npm version](https://img.shields.io/npm/v/agent-passport-system)](https://www.npmjs.com/package/agent-passport-system)
 [![license](https://img.shields.io/npm/l/agent-passport-system)](https://github.com/aeoess/agent-passport-system/blob/main/LICENSE)
-[![tests](https://img.shields.io/badge/tests-1073%20passing-brightgreen)](https://github.com/aeoess/agent-passport-system)
+[![tests](https://img.shields.io/badge/tests-1081%20passing-brightgreen)](https://github.com/aeoess/agent-passport-system)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18749779.svg)](https://doi.org/10.5281/zenodo.18749779)
 
 Cryptographic identity, ethical governance, economic attribution, data source registration, protocol-native communication, intent architecture, cascade revocation, coordination primitives, and agentic commerce for autonomous AI agents.
 
-**37 core modules + 30 v2 constitutional modules. 1073 tests. Zero heavy dependencies. Running code. MCP server included.**
+**37 core modules + 32 v2 constitutional modules. 1081 tests. Zero heavy dependencies. Running code. MCP server included.**
 
 > *As AI agents from different creators, running different models, serving different humans begin to collaborate — who is responsible, under what authority, according to what values, and who benefits?*
 
@@ -327,7 +327,7 @@ const summary = getSpendSummary(delegation, allReceipts)
 │  O(log n) verification · Anti-gaming             │
 ├─────────────────────────────────────────────────┤
 │  Layer 2: Human Values Floor                    │
-│  7 principles · 5 enforced · Attestation ·       │
+│  8 principles · 5 enforced · Attestation ·       │
 │  Compliance verification · Agent negotiation     │
 ├─────────────────────────────────────────────────┤
 │  Layer 1: Agent Passport Protocol               │
@@ -338,7 +338,7 @@ const summary = getSpendSummary(delegation, allReceipts)
 
 **Layer 1 — Identity & Accountability.** Ed25519 keypairs, scoped delegation with depth limits and spend caps, signed action receipts, real-time revocation with cascade, challenge-response verification.
 
-**Layer 2 — Human Values Floor.** Seven universal principles. Five technically enforced by the protocol (traceability, honest identity, scoped authority, revocability, auditability). Two attested through cryptographic commitment. Compliance verifiable against receipts. Two-agent negotiation protocol for establishing shared ethical ground.
+**Layer 2 — Human Values Floor.** Eight universal principles. Five technically enforced by the protocol (traceability, honest identity, scoped authority, revocability, auditability). Two attested through cryptographic commitment. Compliance verifiable against receipts. Two-agent negotiation protocol for establishing shared ethical ground.
 
 **Layer 3 — Beneficiary Attribution.** Every agent action traces to a human through the delegation chain. SHA-256 Merkle trees commit to receipt sets in 32 bytes. 100,000 receipts → provable with ~17 hashes. Configurable scope weights per domain. Logarithmic spend normalization prevents gaming.
 
@@ -363,10 +363,11 @@ const summary = getSpendSummary(delegation, allReceipts)
 | F-005 | Auditability | 🔒 Technical — signed receipts |
 | F-006 | Non-Deception | 📝 Attested — reasoning-level |
 | F-007 | Proportionality | 📝 Attested — reputation context |
+| F-008 | Critical Thinking | 📝 Attested — hostile review posture |
 
 Full manifest: [`values/floor.yaml`](values/floor.yaml)
 
-## V2 Constitutional Framework (30 modules)
+## V2 Constitutional Framework (32 modules)
 
 Full constitutional governance for AI agent systems. Designed through cross-model adversarial review (Claude, GPT, Gemini attacking the protocol simultaneously). Every gap identified was implemented and tested.
 
@@ -390,7 +391,7 @@ const breaker = circuitBreakers.defineBreaker({
 })
 ```
 
-Source: [`src/v2/`](src/v2/) (30 modules) | Tests: `tests/v2-constitutional.test.ts`, `tests/v2-gaps.test.ts`, `tests/v2-constitutional-mini.test.ts`
+Source: [`src/v2/`](src/v2/) (32 modules) | Tests: `tests/v2-constitutional.test.ts`, `tests/v2-gaps.test.ts`, `tests/v2-constitutional-mini.test.ts`
 
 ## MCP Server
 
@@ -428,7 +429,7 @@ PyPI: [agent-passport-system](https://pypi.org/project/agent-passport-system/) �
 
 ```bash
 npm test
-# 1073 tests across 57 files, 287 suites, 0 failures
+# 1081 tests across 58 files, 288 suites, 0 failures
 ```
 
 Includes 50 adversarial tests across 4 test files: Merkle tree tampering, attribution gaming resistance, compliance violations, floor negotiation attacks, wrong-key attestations, cross-chain confused deputy, taint laundering, permit bypass, causal chain manipulation.
@@ -460,7 +461,7 @@ By Tymofii Pidlisnyi — Published on Zenodo
 | Communication | Signed Agora | — | — | — | — |
 | Coordination | Task units + MCP server | — | — | — | — |
 | Commerce | ACP + 4-gate enforcement | — | — | — | — |
-| Tests | 1073 (50 adversarial) | None | Limited | None | None |
+| Tests | 1081 (50 adversarial) | None | Limited | None | None |
 | Dependencies | Node.js crypto + uuid | — | Multi-LLM | — | Consensus network |
 
 ## Structure
@@ -524,7 +525,7 @@ src/                    32 source files
     reputation-authority.ts — Reputation/tier types
     cross-chain.ts     — Cross-chain taint/SAO types
     data-source.ts     — Data source/access receipt types
-tests/                  57 test files, 1073 tests (287 suites)
+tests/                  58 test files, 1081 tests (288 suites)
   adversarial.ts       — 50 adversarial cases
   adversarial-paper.test.ts — 22 paper-linked attack scenarios
   adversarial-causal-chain.test.ts — 18 causal chain attacks
@@ -542,6 +543,7 @@ tests/                  57 test files, 1073 tests (287 suites)
   coordination.test.ts — Task briefs, evidence, review, handoff, lifecycle
   commerce.test.ts     — ACP checkout, 4-gate preflight, spend tracking
   data-source.test.ts  — Source registration, access receipts, terms compliance
+  interop-vectors.test.ts — Ed25519→X25519 qntm compatibility (5 vectors)
 values/
   floor.yaml           — Human Values Floor manifest
 papers/
