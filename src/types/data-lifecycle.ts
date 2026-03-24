@@ -311,3 +311,65 @@ export interface AccessSnapshot {
   timestamp: string
   signature: string
 }
+
+
+// ══════════════════════════════════════════════════════════════════
+// Final Gaps: Rights Propagation, Purpose Drift, Re-identification
+// ══════════════════════════════════════════════════════════════════
+
+// ── Rights Propagation Semantics ──
+// When an artifact is derived, what happens to upstream rights?
+// Not just a boolean — a typed propagation rule.
+
+export type RightsPropagation =
+  | 'inherit_full'            // all upstream rights carry forward
+  | 'inherit_partial'         // some rights carry, specified in retainedRights
+  | 'inherit_by_class'        // rights depend on transform class
+  | 'extinguished'            // upstream rights do not propagate
+  | 'compensation_only'       // no usage rights, only compensation obligation
+  | 'attribution_only'        // must credit source, no other obligation
+  | 'explanation_only'        // must include in decision lineage, no other obligation
+
+export interface RightsPropagationRule {
+  /** How rights propagate by default */
+  defaultPropagation: RightsPropagation
+  /** Override by transform class (e.g. 'synthetic' → 'compensation_only') */
+  byTransformClass?: Record<string, RightsPropagation>
+  /** Specific rights retained when propagation is partial */
+  retainedRights?: string[]
+  /** Source-defined: what the source owner requires */
+  sourceRequirement?: string
+}
+
+// ── Purpose Drift Detection ──
+// Data accessed for one purpose drifts through workflows into another.
+// No single hop looks wrong. The aggregate drifts.
+
+export interface PurposeDriftCheck {
+  originalPurpose: string
+  currentPurpose: string
+  driftDetected: boolean
+  driftPath: string[]
+  severity: 'none' | 'minor' | 'major' | 'violation'
+  explanation: string
+}
+
+// ── Re-identification Risk Declaration ──
+// Transformed/synthetic data may still leak recoverable source identity.
+// "Synthetic" is not a clean safety state.
+
+export type ReidentificationRisk =
+  | 'none_declared'           // no known risk
+  | 'low'                     // statistical methods unlikely to recover source
+  | 'medium'                  // linkage attacks possible with auxiliary data
+  | 'high'                    // direct identifiers may be recoverable
+  | 'unknown'                 // risk not assessed
+  | 'mitigated'               // risk assessed and mitigations applied
+
+export interface ReidentificationDeclaration {
+  risk: ReidentificationRisk
+  assessmentMethod?: string
+  mitigationsApplied?: string[]
+  assessedAt: string
+  assessedBy: string
+}

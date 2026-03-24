@@ -546,3 +546,131 @@ export function verifyAccessSnapshot(
   const { signature, ...unsigned } = snapshot
   return verify(canonicalize(unsigned), signature, publicKey)
 }
+
+
+// ═══════════════════════════════════════
+// Rights Propagation
+// ═══════════════════════════════════════
+
+import type {
+  RightsPropagation, RightsPropagationRule,
+  PurposeDriftCheck, ReidentificationRisk, ReidentificationDeclaration,
+} from '../types/data-lifecycle.js'
+
+/** Default rights propagation rules by transform class */
+export const DEFAULT_RIGHTS_PROPAGATION: Record<string, RightsPropagation> = {
+  'copy': 'inherit_full',
+  'subset': 'inherit_full',
+  'summary': 'inherit_partial',
+  'embedding': 'compensation_only',
+  'aggregation': 'compensation_only',
+  'synthetic': 'compensation_only',
+  'model_training': 'compensation_only',
+  'fine_tune': 'compensation_only',
+  'rag_index': 'inherit_partial',
+  'decision_artifact': 'explanation_only',
+  'redacted': 'attribution_only',
+}
+
+/**
+ * Resolve rights propagation for a derivation.
+ * Uses source rules if provided, falls back to defaults by transform class.
+ */
+export function resolveRightsPropagation(
+  transformClass: string,
+  sourceRule?: RightsPropagationRule
+): RightsPropagation {
+  if (sourceRule) {
+    // Check transform-specific override
+    if (sourceRule.byTransformClass?.[transformClass]) {
+      return sourceRule.byTransformClass[transformClass]
+    }
+    return sourceRule.defaultPropagation
+  }
+  return DEFAULT_RIGHTS_PROPAGATION[transformClass] ?? 'inherit_partial'
+}
+
+// ═══════════════════════════════════════
+// Purpose Drift Detection
+// ═══════════════════════════════════════
+
+/**
+ * Detect purpose drift through a derivation chain.
+ * Compares original access purpose to current usage purpose.
+ * Same category = minor drift. Cross-category = major. Not permitted = violation.
+ */
+export function detectPurposeDrift(opts: {
+  originalPurpose: string
+  currentPurpose: string
+  intermediateSteps?: string[]
+  allowedPurposes: string[]
+}): PurposeDriftCheck {
+  const origCat = purposeCategory(opts.originalPurpose)
+  const currCat = purposeCategory(opts.currentPurpose)
+  const path = [opts.originalPurpose, ...(opts.intermediateSteps ?? []), opts.currentPurpose]
+
+  // Check if current purpose is even permitted
+  const permitted = isPurposePermitted(opts.currentPurpose, opts.allowedPurposes)
+
+  if (!permitted) {
+    return {
+      originalPurpose: opts.originalPurpose,
+      currentPurpose: opts.currentPurpose,
+      driftDetected: true, driftPath: path,
+      severity: 'violation',
+      explanation: `Purpose "${opts.currentPurpose}" not in allowed: [${opts.allowedPurposes.join(', ')}]`,
+    }
+  }
+
+  if (opts.originalPurpose === opts.currentPurpose) {
+    return {
+      originalPurpose: opts.originalPurpose,
+      currentPurpose: opts.currentPurpose,
+      driftDetected: false, driftPath: path,
+      severity: 'none',
+      explanation: 'Purpose unchanged',
+    }
+  }
+
+  if (origCat === currCat) {
+    return {
+      originalPurpose: opts.originalPurpose,
+      currentPurpose: opts.currentPurpose,
+      driftDetected: true, driftPath: path,
+      severity: 'minor',
+      explanation: `Same category "${origCat}" but sub-purpose changed: ${opts.originalPurpose} → ${opts.currentPurpose}`,
+    }
+  }
+
+  return {
+    originalPurpose: opts.originalPurpose,
+    currentPurpose: opts.currentPurpose,
+    driftDetected: true, driftPath: path,
+    severity: 'major',
+    explanation: `Cross-category drift: ${origCat} → ${currCat}`,
+  }
+}
+
+// ═══════════════════════════════════════
+// Re-identification Risk Declaration
+// ═══════════════════════════════════════
+
+/**
+ * Create a re-identification risk declaration for a derivation.
+ * Attached to synthetic or transformed data to declare
+ * whether source identity might be recoverable.
+ */
+export function declareReidentificationRisk(opts: {
+  risk: ReidentificationRisk
+  assessmentMethod?: string
+  mitigationsApplied?: string[]
+  assessedBy: string
+}): ReidentificationDeclaration {
+  return {
+    risk: opts.risk,
+    assessmentMethod: opts.assessmentMethod,
+    mitigationsApplied: opts.mitigationsApplied,
+    assessedAt: new Date().toISOString(),
+    assessedBy: opts.assessedBy,
+  }
+}

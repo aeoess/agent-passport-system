@@ -1150,3 +1150,141 @@ describe('Data Lifecycle — Access Snapshots', () => {
     assert.notEqual(snap1.termsHash, snap2.termsHash)
   })
 })
+
+// ═══════════════════════════════════════
+// Final Gaps Tests: Rights Propagation
+// ═══════════════════════════════════════
+
+import {
+  resolveRightsPropagation, DEFAULT_RIGHTS_PROPAGATION,
+  detectPurposeDrift,
+  declareReidentificationRisk,
+} from '../src/index.js'
+import type { RightsPropagationRule } from '../src/index.js'
+
+describe('Data Lifecycle — Rights Propagation', () => {
+  it('defaults: copy inherits full, embedding compensates only', () => {
+    assert.equal(DEFAULT_RIGHTS_PROPAGATION['copy'], 'inherit_full')
+    assert.equal(DEFAULT_RIGHTS_PROPAGATION['embedding'], 'compensation_only')
+    assert.equal(DEFAULT_RIGHTS_PROPAGATION['decision_artifact'], 'explanation_only')
+    assert.equal(DEFAULT_RIGHTS_PROPAGATION['redacted'], 'attribution_only')
+  })
+
+  it('resolves default propagation by transform class', () => {
+    assert.equal(resolveRightsPropagation('copy'), 'inherit_full')
+    assert.equal(resolveRightsPropagation('synthetic'), 'compensation_only')
+    assert.equal(resolveRightsPropagation('summary'), 'inherit_partial')
+  })
+
+  it('resolves unknown transform to inherit_partial', () => {
+    assert.equal(resolveRightsPropagation('custom_unknown'), 'inherit_partial')
+  })
+
+  it('source rule overrides defaults', () => {
+    const rule: RightsPropagationRule = {
+      defaultPropagation: 'extinguished',
+    }
+    assert.equal(resolveRightsPropagation('copy', rule), 'extinguished')
+  })
+
+  it('source rule with per-transform overrides', () => {
+    const rule: RightsPropagationRule = {
+      defaultPropagation: 'inherit_full',
+      byTransformClass: {
+        'synthetic': 'extinguished',
+        'embedding': 'attribution_only',
+      },
+    }
+    assert.equal(resolveRightsPropagation('synthetic', rule), 'extinguished')
+    assert.equal(resolveRightsPropagation('embedding', rule), 'attribution_only')
+    assert.equal(resolveRightsPropagation('copy', rule), 'inherit_full')
+  })
+})
+
+// ═══════════════════════════════════════
+// Final Gaps Tests: Purpose Drift
+// ═══════════════════════════════════════
+
+describe('Data Lifecycle — Purpose Drift Detection', () => {
+  it('no drift: same purpose', () => {
+    const result = detectPurposeDrift({
+      originalPurpose: 'research:academic',
+      currentPurpose: 'research:academic',
+      allowedPurposes: ['research:*'],
+    })
+    assert.equal(result.driftDetected, false)
+    assert.equal(result.severity, 'none')
+  })
+
+  it('minor drift: same category, different sub-purpose', () => {
+    const result = detectPurposeDrift({
+      originalPurpose: 'research:academic',
+      currentPurpose: 'research:commercial',
+      allowedPurposes: ['research:*'],
+    })
+    assert.equal(result.driftDetected, true)
+    assert.equal(result.severity, 'minor')
+    assert.ok(result.explanation.includes('Same category'))
+  })
+
+  it('major drift: cross-category', () => {
+    const result = detectPurposeDrift({
+      originalPurpose: 'research:academic',
+      currentPurpose: 'commerce',
+      allowedPurposes: ['research:*', 'commerce'],
+    })
+    assert.equal(result.driftDetected, true)
+    assert.equal(result.severity, 'major')
+    assert.ok(result.explanation.includes('Cross-category'))
+  })
+
+  it('violation: current purpose not in allowed', () => {
+    const result = detectPurposeDrift({
+      originalPurpose: 'research:academic',
+      currentPurpose: 'training:model',
+      allowedPurposes: ['research:academic'],
+    })
+    assert.equal(result.severity, 'violation')
+    assert.ok(result.explanation.includes('not in allowed'))
+  })
+
+  it('tracks intermediate steps in drift path', () => {
+    const result = detectPurposeDrift({
+      originalPurpose: 'research:academic',
+      currentPurpose: 'analytics:commercial',
+      intermediateSteps: ['research:commercial', 'analytics:internal'],
+      allowedPurposes: ['research:*', 'analytics:*'],
+    })
+    assert.equal(result.driftPath.length, 4)
+    assert.equal(result.severity, 'major')
+  })
+})
+
+// ═══════════════════════════════════════
+// Final Gaps Tests: Re-identification Risk
+// ═══════════════════════════════════════
+
+describe('Data Lifecycle — Re-identification Risk Declaration', () => {
+  it('creates a risk declaration', () => {
+    const decl = declareReidentificationRisk({
+      risk: 'medium',
+      assessmentMethod: 'k-anonymity analysis',
+      mitigationsApplied: ['differential_privacy_epsilon_1.0', 'generalization'],
+      assessedBy: 'privacy-audit-agent',
+    })
+    assert.equal(decl.risk, 'medium')
+    assert.equal(decl.assessmentMethod, 'k-anonymity analysis')
+    assert.equal(decl.mitigationsApplied!.length, 2)
+    assert.ok(decl.assessedAt)
+    assert.equal(decl.assessedBy, 'privacy-audit-agent')
+  })
+
+  it('supports all risk levels', () => {
+    const levels: Array<'none_declared' | 'low' | 'medium' | 'high' | 'unknown' | 'mitigated'> =
+      ['none_declared', 'low', 'medium', 'high', 'unknown', 'mitigated']
+    for (const risk of levels) {
+      const d = declareReidentificationRisk({ risk, assessedBy: 'test' })
+      assert.equal(d.risk, risk)
+    }
+  })
+})
