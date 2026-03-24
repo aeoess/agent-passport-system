@@ -41,11 +41,12 @@ export interface QntmEnvelope {
   sender: Uint8Array;
   seq: number;
   ts: number;
-  nonce: Uint8Array;
-  ct: Uint8Array;
-  sig: Uint8Array;
-  aad: Uint8Array;
-  did?: string; // Optional DID for identity verification (QSP-1 v0.1.1)
+  msg_id: Uint8Array;        // QSP-1: random 16-byte message ID (nonce derived from this)
+  ciphertext: Uint8Array;     // QSP-1 canonical (was 'ct')
+  sig: Uint8Array;            // QSP-1: Ed25519.Sign(privkey, ciphertext)
+  aad_hash: Uint8Array;       // QSP-1: SHA-256(conv_id)
+  did?: string;
+  expiry_ts?: number;         // QSP-1 v1.0-rc1: optional relay-level expiry (unix ms)
 }
 
 export interface QntmRelayMessage {
@@ -247,17 +248,26 @@ export async function qntmEncrypt(
   keys: QntmConversationKeys,
   senderKeyId: Uint8Array,
   seq: number,
+  senderPrivateKey?: Uint8Array,
   did?: string,
 ): Promise<QntmEnvelope> {
   await sodium.ready;
 
   const msgId = new Uint8Array(crypto.randomBytes(16));
   const nonce = deriveNonce(keys.nonceKey, msgId);
-  const aad = keys.convId;
+  const aadHash = new Uint8Array(crypto.createHash('sha256').update(keys.convId).digest());
 
   const ct = sodium.crypto_aead_xchacha20poly1305_ietf_encrypt(
-    plaintext, aad, null, nonce, keys.aeadKey,
+    plaintext, keys.convId, null, nonce, keys.aeadKey,
   );
+
+  const ciphertext = new Uint8Array(ct);
+
+  // Ed25519 signature over ciphertext (QSP-1 v1.0-rc1)
+  // Falls back to msg_id if no private key provided (symmetric-mode compat)
+  const sig = senderPrivateKey
+    ? sodium.crypto_sign_detached(ciphertext, senderPrivateKey)
+    : msgId;
 
   return {
     v: 1,
@@ -265,10 +275,10 @@ export async function qntmEncrypt(
     sender: senderKeyId,
     seq,
     ts: Date.now(),
-    nonce,
-    ct: new Uint8Array(ct),
-    sig: msgId, // msg_id serves as signature placeholder in symmetric mode
-    aad,
+    msg_id: msgId,
+    ciphertext,
+    sig: new Uint8Array(sig),
+    aad_hash: aadHash,
     ...(did ? { did } : {}),
   };
 }
@@ -279,13 +289,13 @@ export async function qntmDecrypt(
   keys: QntmConversationKeys,
 ): Promise<Uint8Array> {
   await sodium.ready;
-  const nonce = deriveNonce(keys.nonceKey, envelope.sig); // sig holds msg_id in symmetric mode
+  const nonce = deriveNonce(keys.nonceKey, envelope.msg_id);
   return sodium.crypto_aead_xchacha20poly1305_ietf_decrypt(
-    null, envelope.ct, envelope.aad, nonce, keys.aeadKey,
+    null, envelope.ciphertext, keys.convId, nonce, keys.aeadKey,
   );
 }
 
-/** Serialize a qntm envelope to base64 for relay transport */
+/** Serialize a qntm envelope to base64 for relay transport (QSP-1 v1.0 canonical names) */
 export function serializeEnvelope(envelope: QntmEnvelope): string {
   const map: Record<string, unknown> = {
     v: envelope.v,
@@ -293,12 +303,13 @@ export function serializeEnvelope(envelope: QntmEnvelope): string {
     sender: envelope.sender,
     seq: envelope.seq,
     ts: envelope.ts,
-    nonce: envelope.nonce,
-    ct: envelope.ct,
+    msg_id: envelope.msg_id,
+    ciphertext: envelope.ciphertext,
+    aad_hash: envelope.aad_hash,
     sig: envelope.sig,
-    aad: envelope.aad,
   };
   if (envelope.did) map.did = envelope.did;
+  if (envelope.expiry_ts) map.expiry_ts = envelope.expiry_ts;
   const cborBytes = cborEncodeMap(map);
   return base64Encode(cborBytes);
 }
@@ -333,11 +344,12 @@ export async function encryptForRelay(
   senderPublicKey: Uint8Array,
   seq: number = 0,
   did?: string,
+  senderPrivateKey?: Uint8Array,
 ): Promise<QntmRelayMessage> {
   const invite = decodeQntmInvite(inviteToken);
   const keys = deriveQntmKeys(invite);
   const keyId = computeKeyId(senderPublicKey);
-  const envelope = await qntmEncrypt(payload, keys, keyId, seq, did);
+  const envelope = await qntmEncrypt(payload, keys, keyId, seq, senderPrivateKey, did);
   return buildRelayMessage(envelope);
 }
 
@@ -356,16 +368,22 @@ export async function decryptFromRelay(
   const keys = deriveQntmKeys(invite);
   const cborBytes = new Uint8Array(Buffer.from(envelopeB64, 'base64'));
   const decoded = cborDecodeMap(cborBytes);
+
+  // QSP-1 v1.0: canonical field names with deprecated alias fallback
+  const msgId = decoded.msg_id || decoded.sig; // pre-v1.0 stored msg_id in sig field
+  const ciphertext = decoded.ciphertext || decoded.ct;
+  const aadHash = decoded.aad_hash || decoded.aad;
+
   const envelope: QntmEnvelope = {
     v: decoded.v,
     conv: new Uint8Array(decoded.conv),
     sender: new Uint8Array(decoded.sender),
     seq: decoded.seq,
     ts: decoded.ts,
-    nonce: new Uint8Array(decoded.nonce),
-    ct: new Uint8Array(decoded.ct),
+    msg_id: new Uint8Array(msgId),
+    ciphertext: new Uint8Array(ciphertext),
     sig: new Uint8Array(decoded.sig),
-    aad: new Uint8Array(decoded.aad),
+    aad_hash: new Uint8Array(aadHash),
     ...(decoded.did ? { did: decoded.did } : {}),
   };
   return qntmDecrypt(envelope, keys);

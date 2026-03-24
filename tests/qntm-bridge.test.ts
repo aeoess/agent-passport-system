@@ -102,7 +102,7 @@ describe('qntm Bridge — Encrypt/Decrypt Roundtrip', () => {
     const envelope = await qntmEncrypt(plaintext, keys, senderKeyId, 0);
     assert.strictEqual(envelope.v, 1);
     assert.strictEqual(toHex(envelope.conv), EXPECTED.convId);
-    assert.ok(envelope.ct.length > plaintext.length); // ciphertext has auth tag
+    assert.ok(envelope.ciphertext.length > plaintext.length); // ciphertext has auth tag
 
     const decrypted = await qntmDecrypt(envelope, keys);
     assert.strictEqual(new TextDecoder().decode(decrypted), 'Hello from APS via qntm relay!');
@@ -152,7 +152,7 @@ describe('qntm Bridge — Encrypt/Decrypt Roundtrip', () => {
 
     const envelope = await qntmEncrypt(plaintext, keys, senderKeyId, 3);
     // Flip a byte in ciphertext
-    envelope.ct[0] ^= 0xFF;
+    envelope.ciphertext[0] ^= 0xFF;
 
     await assert.rejects(
       () => qntmDecrypt(envelope, keys),
@@ -276,7 +276,7 @@ describe('qntm Bridge — DID Field (QSP-1 v0.1.1)', () => {
     const plaintext = new TextEncoder().encode('test with DID');
     const testDid = 'did:aps:z3Bmy2y8WtbRXNBYayR64kYqXN1XRi6Hqch6FwKFxmSWH';
 
-    const envelope = await qntmEncrypt(plaintext, keys, senderKeyId, 0, testDid);
+    const envelope = await qntmEncrypt(plaintext, keys, senderKeyId, 0, undefined, testDid);
     assert.strictEqual(envelope.did, testDid);
 
     // Serialize and verify DID survives roundtrip
