@@ -14,7 +14,7 @@ export interface PrincipalIdentity {
   publicKey: string           // Ed25519 public key (hex)
   domain?: string             // verifiable domain (e.g. "aeoess.com")
   jurisdiction?: string       // legal context (e.g. "US", "EU")
-  contactChannel?: string     // e.g. "telegram:@aeoess", "email:tima@aeoess.com"
+  contactChannel?: string     // e.g. "telegram:@aeoess", "email:signal@aeoess.com"
   disclosureLevel: DisclosureLevel
   createdAt: string
   metadata: Record<string, unknown>

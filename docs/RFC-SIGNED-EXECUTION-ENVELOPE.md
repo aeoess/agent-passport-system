@@ -1,7 +1,7 @@
 # RFC: Cross-Engine Signed Execution Envelope
 
 **Status:** Draft
-**Author:** Tymofii Pidlisnyi (tima@aeoess.com)
+**Author:** Tymofii Pidlisnyi (signal@aeoess.com)
 **Created:** 2026-03-17
 **SDK Reference:** `agent-passport-system` v1.13.0 (npm)
 
