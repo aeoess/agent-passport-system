@@ -626,3 +626,10 @@ export * from './core/training-attribution.js'
 // ══════════════════════════════════════
 
 export * from './core/data-gateway.js'
+
+// ══════════════════════════════════════
+// Decision Equivalence (Canonical Boundary Profiles + Comparison)
+// ══════════════════════════════════════
+
+export * from './types/decision-equivalence.js'
+export * from './core/decision-equivalence.js'
