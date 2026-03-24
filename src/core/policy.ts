@@ -280,7 +280,8 @@ export class FloorValidatorV1 implements PolicyValidator {
       principleId: 'F-006', principleName: 'Non-Deception',
       status: 'not_applicable',
       detail: 'Requires reasoning-level evaluation (v2+)',
-      enforcementMode: f006Mode
+      enforcementMode: f006Mode,
+      layer: 'trust'
     })
 
     // F-007: Proportionality — v1 can't check this technically
@@ -289,7 +290,8 @@ export class FloorValidatorV1 implements PolicyValidator {
       principleId: 'F-007', principleName: 'Proportionality',
       status: 'not_applicable',
       detail: 'Requires reputation context (v2+)',
-      enforcementMode: f007Mode
+      enforcementMode: f007Mode,
+      layer: 'trust'
     })
 
     // Check spend — if over limit, narrow instead of deny
@@ -340,12 +342,14 @@ export class FloorValidatorV1 implements PolicyValidator {
     if (!ctx.agentRegistered) {
       return {
         principleId: 'F-001', principleName: 'Traceability',
-        status: 'fail', detail: 'Agent not registered in protocol'
+        status: 'fail', detail: 'Agent not registered in protocol',
+        layer: 'structural'
       }
     }
     return {
       principleId: 'F-001', principleName: 'Traceability',
-      status: 'pass', detail: 'Agent registered and traceable'
+      status: 'pass', detail: 'Agent registered and traceable',
+      layer: 'structural'
     }
   }
 
@@ -353,12 +357,14 @@ export class FloorValidatorV1 implements PolicyValidator {
     if (!ctx.agentAttestationValid) {
       return {
         principleId: 'F-002', principleName: 'Honest Identity',
-        status: 'fail', detail: 'Agent attestation invalid or expired'
+        status: 'fail', detail: 'Agent attestation invalid or expired',
+        layer: 'structural'
       }
     }
     return {
       principleId: 'F-002', principleName: 'Honest Identity',
-      status: 'pass', detail: 'Attestation verified'
+      status: 'pass', detail: 'Attestation verified',
+      layer: 'structural'
     }
   }
 
@@ -370,12 +376,14 @@ export class FloorValidatorV1 implements PolicyValidator {
       return {
         principleId: 'F-003', principleName: 'Scoped Authority',
         status: 'fail',
-        detail: `Scope '${intent.action.scopeRequired}' not in delegation [${ctx.delegation.scope.join(', ')}]`
+        detail: `Scope '${intent.action.scopeRequired}' not in delegation [${ctx.delegation.scope.join(', ')}]`,
+        layer: 'structural'
       }
     }
     return {
       principleId: 'F-003', principleName: 'Scoped Authority',
-      status: 'pass', detail: `Scope '${intent.action.scopeRequired}' authorized`
+      status: 'pass', detail: `Scope '${intent.action.scopeRequired}' authorized`,
+      layer: 'structural'
     }
   }
 
@@ -383,12 +391,14 @@ export class FloorValidatorV1 implements PolicyValidator {
     if (ctx.delegation.revoked) {
       return {
         principleId: 'F-004', principleName: 'Revocability',
-        status: 'fail', detail: 'Delegation has been revoked'
+        status: 'fail', detail: 'Delegation has been revoked',
+        layer: 'structural'
       }
     }
     return {
       principleId: 'F-004', principleName: 'Revocability',
-      status: 'pass', detail: 'Delegation active'
+      status: 'pass', detail: 'Delegation active',
+      layer: 'structural'
     }
   }
 
@@ -403,12 +413,14 @@ export class FloorValidatorV1 implements PolicyValidator {
     if (reasons.length > 0) {
       return {
         principleId: 'F-005', principleName: 'Auditability',
-        status: 'fail', detail: reasons.join(', ')
+        status: 'fail', detail: reasons.join(', '),
+        layer: 'structural'
       }
     }
     return {
       principleId: 'F-005', principleName: 'Auditability',
-      status: 'pass', detail: 'Delegation valid and within depth limits'
+      status: 'pass', detail: 'Delegation valid and within depth limits',
+      layer: 'structural'
     }
   }
 

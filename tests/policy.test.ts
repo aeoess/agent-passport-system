@@ -576,3 +576,184 @@ describe('FloorValidatorV1 — Metadata', () => {
     assert.ok(decision.reason.includes('No spend budget remaining'))
   })
 })
+
+
+// ═══════════════════════════════════════
+// Finding Layer Tags (per xsa520 March 19 discussion on issue #3)
+// ═══════════════════════════════════════
+
+describe('PolicyDecision Finding Layer Tags', () => {
+  it('structural findings always present on permit', () => {
+    const agent = generateKeyPair()
+    const evaluator = generateKeyPair()
+
+    const intent = createActionIntent({
+      agentId: 'layer-tag-agent',
+      agentPublicKey: agent.publicKey,
+      delegationId: 'del-layer-test',
+      action: { type: 'analysis', target: 'doc', scopeRequired: 'analysis:run' },
+      privateKey: agent.privateKey,
+    })
+
+    const validator = new FloorValidatorV1()
+    const ctx: ValidationContext = {
+      floorVersion: '1.0',
+      floorPrinciples: [],
+      delegation: {
+        scope: ['analysis:run'],
+        expiresAt: new Date(Date.now() + 3600000).toISOString(),
+        revoked: false,
+        currentDepth: 1,
+        maxDepth: 3,
+      },
+      agentRegistered: true,
+      agentAttestationValid: true,
+    }
+
+    const decision = evaluateIntent({
+      intent, validator, validationContext: ctx,
+      evaluatorId: 'eval-layer',
+      evaluatorPublicKey: evaluator.publicKey,
+      evaluatorPrivateKey: evaluator.privateKey,
+    })
+
+    assert.equal(decision.verdict, 'permit')
+
+    // All structural findings must be present
+    const structural = decision.principlesEvaluated.filter(e => e.layer === 'structural')
+    assert.ok(structural.length >= 5, `Expected ≥5 structural findings, got ${structural.length}`)
+
+    // F-001 through F-005 must all be structural
+    for (const id of ['F-001', 'F-002', 'F-003', 'F-004', 'F-005']) {
+      const finding = decision.principlesEvaluated.find(e => e.principleId === id)
+      assert.ok(finding, `Missing finding ${id}`)
+      assert.equal(finding!.layer, 'structural', `${id} should be structural`)
+    }
+  })
+
+  it('trust findings present for F-006 and F-007', () => {
+    const agent = generateKeyPair()
+    const evaluator = generateKeyPair()
+
+    const intent = createActionIntent({
+      agentId: 'layer-tag-agent-2',
+      agentPublicKey: agent.publicKey,
+      delegationId: 'del-layer-2',
+      action: { type: 'analysis', target: 'doc', scopeRequired: 'analysis:run' },
+      privateKey: agent.privateKey,
+    })
+
+    const validator = new FloorValidatorV1()
+    const ctx: ValidationContext = {
+      floorVersion: '1.0',
+      floorPrinciples: [],
+      delegation: {
+        scope: ['analysis:run'],
+        expiresAt: new Date(Date.now() + 3600000).toISOString(),
+        revoked: false,
+        currentDepth: 1,
+        maxDepth: 3,
+      },
+      agentRegistered: true,
+      agentAttestationValid: true,
+    }
+
+    const decision = evaluateIntent({
+      intent, validator, validationContext: ctx,
+      evaluatorId: 'eval-layer-2',
+      evaluatorPublicKey: evaluator.publicKey,
+      evaluatorPrivateKey: evaluator.privateKey,
+    })
+
+    // F-006 and F-007 must be trust-layer
+    for (const id of ['F-006', 'F-007']) {
+      const finding = decision.principlesEvaluated.find(e => e.principleId === id)
+      assert.ok(finding, `Missing finding ${id}`)
+      assert.equal(finding!.layer, 'trust', `${id} should be trust-layer`)
+    }
+  })
+
+  it('structural findings are deterministic (same input → same tags)', () => {
+    const agent = generateKeyPair()
+    const evaluator = generateKeyPair()
+    const validator = new FloorValidatorV1()
+    const ctx: ValidationContext = {
+      floorVersion: '1.0',
+      floorPrinciples: [],
+      delegation: {
+        scope: ['code:run'],
+        expiresAt: new Date(Date.now() + 3600000).toISOString(),
+        revoked: false, currentDepth: 1, maxDepth: 3,
+      },
+      agentRegistered: true,
+      agentAttestationValid: true,
+    }
+
+    // Run twice with same input
+    const makeIntent = () => createActionIntent({
+      agentId: 'det-agent',
+      agentPublicKey: agent.publicKey,
+      delegationId: 'del-det',
+      action: { type: 'code', target: 'script', scopeRequired: 'code:run' },
+      privateKey: agent.privateKey,
+    })
+
+    const d1 = evaluateIntent({
+      intent: makeIntent(), validator, validationContext: ctx,
+      evaluatorId: 'e', evaluatorPublicKey: evaluator.publicKey, evaluatorPrivateKey: evaluator.privateKey,
+    })
+    const d2 = evaluateIntent({
+      intent: makeIntent(), validator, validationContext: ctx,
+      evaluatorId: 'e', evaluatorPublicKey: evaluator.publicKey, evaluatorPrivateKey: evaluator.privateKey,
+    })
+
+    const s1 = d1.principlesEvaluated.filter(e => e.layer === 'structural')
+    const s2 = d2.principlesEvaluated.filter(e => e.layer === 'structural')
+    assert.equal(s1.length, s2.length)
+    for (let i = 0; i < s1.length; i++) {
+      assert.equal(s1[i].principleId, s2[i].principleId)
+      assert.equal(s1[i].status, s2[i].status)
+      assert.equal(s1[i].layer, s2[i].layer)
+    }
+  })
+
+  it('structural findings present on deny too', () => {
+    const agent = generateKeyPair()
+    const evaluator = generateKeyPair()
+
+    const intent = createActionIntent({
+      agentId: 'deny-agent',
+      agentPublicKey: agent.publicKey,
+      delegationId: 'del-deny',
+      action: { type: 'code', target: 'script', scopeRequired: 'admin:delete' },
+      privateKey: agent.privateKey,
+    })
+
+    const validator = new FloorValidatorV1()
+    const ctx: ValidationContext = {
+      floorVersion: '1.0',
+      floorPrinciples: [],
+      delegation: {
+        scope: ['code:run'],  // does NOT include admin:delete
+        expiresAt: new Date(Date.now() + 3600000).toISOString(),
+        revoked: false, currentDepth: 1, maxDepth: 3,
+      },
+      agentRegistered: true,
+      agentAttestationValid: true,
+    }
+
+    const decision = evaluateIntent({
+      intent, validator, validationContext: ctx,
+      evaluatorId: 'e', evaluatorPublicKey: evaluator.publicKey, evaluatorPrivateKey: evaluator.privateKey,
+    })
+
+    assert.equal(decision.verdict, 'deny')
+    // Structural findings still present even on deny
+    const structural = decision.principlesEvaluated.filter(e => e.layer === 'structural')
+    assert.ok(structural.length >= 5)
+    // The scope check specifically must be structural and failed
+    const scopeCheck = decision.principlesEvaluated.find(e => e.principleId === 'F-003')
+    assert.equal(scopeCheck!.layer, 'structural')
+    assert.equal(scopeCheck!.status, 'fail')
+  })
+})

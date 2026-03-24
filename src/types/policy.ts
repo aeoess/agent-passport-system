@@ -49,6 +49,7 @@ export interface PrincipleEvaluation {
   status: 'pass' | 'fail' | 'not_applicable'
   detail: string
   enforcementMode?: EnforcementMode  // what happens when this fails
+  layer?: 'structural' | 'trust'     // structural = deterministic, trust = engine-specific
 }
 
 export interface PolicyDecision {

@@ -239,7 +239,7 @@ export type {
 
 // ── Layer 9: W3C DID & Verifiable Credentials Bridge ──
 export {
-  createDID, publicKeyFromDID, isValidDID,
+  createDID, createDIDHex, publicKeyFromDID, isValidDID,
   passportToDIDDocument, resolveDID,
   signWithDID, verifyWithDID,
   hexToMultibase, multibaseToHex
@@ -598,6 +598,12 @@ export * from './v2/index.js'
 // ══════════════════════════════════════
 
 export * from './interop/qntm-bridge.js'
+
+// ══════════════════════════════════════
+// Interop: agent.json Commerce Bridge
+// ══════════════════════════════════════
+
+export * from './interop/agent-json-bridge.js'
 
 // ══════════════════════════════════════
 // Module 38: Data Contribution Ledger
