@@ -601,3 +601,552 @@ describe('Data Lifecycle — End-to-End: Right to Explanation', () => {
     // the derivation receipt proves the synthetic data came from proprietary source
   })
 })
+
+// ═══════════════════════════════════════
+// Phase 2 Tests: Aggregation Controls
+// ═══════════════════════════════════════
+
+import {
+  checkAggregateConstraints,
+  isTransferPermitted,
+  computeGovernanceTaint,
+  fileDispute,
+  checkCombinationPermitted,
+  createAccessSnapshot,
+  verifyAccessSnapshot,
+} from '../src/index.js'
+import type { AggregateAccessLog, JurisdictionEnvelope, CombinationConstraint } from '../src/index.js'
+
+describe('Data Lifecycle — Aggregation Controls', () => {
+  it('permits access within window limits', () => {
+    const constraint = { maxAccessesPerWindow: 100, windowMs: 86400000 }
+    const log: AggregateAccessLog = {
+      sourceId: 's1', agentId: 'a1',
+      windowStartMs: Date.now() - 3600000,
+      accessCount: 50, recordCount: 50, lastAccessMs: Date.now() - 1000,
+    }
+    assert.equal(checkAggregateConstraints(constraint, log).permitted, true)
+  })
+
+  it('blocks access when window limit exceeded', () => {
+    const constraint = { maxAccessesPerWindow: 100, windowMs: 86400000 }
+    const log: AggregateAccessLog = {
+      sourceId: 's1', agentId: 'a1',
+      windowStartMs: Date.now() - 3600000,
+      accessCount: 100, recordCount: 100, lastAccessMs: Date.now() - 500,
+    }
+    const result = checkAggregateConstraints(constraint, log)
+    assert.equal(result.permitted, false)
+    assert.ok(result.reason?.includes('100/100'))
+  })
+
+  it('blocks burst access', () => {
+    const constraint = { burstLimit: 5 }
+    const log: AggregateAccessLog = {
+      sourceId: 's1', agentId: 'a1',
+      windowStartMs: Date.now() - 1000,
+      accessCount: 10, recordCount: 10, lastAccessMs: Date.now() - 100,
+    }
+    const result = checkAggregateConstraints(constraint, log)
+    assert.equal(result.permitted, false)
+    assert.ok(result.reason?.includes('Burst'))
+  })
+})
+
+// ═══════════════════════════════════════
+// Phase 2 Tests: Jurisdiction Transfer
+// ═══════════════════════════════════════
+
+describe('Data Lifecycle — Jurisdiction Envelope', () => {
+  it('permits transfer within same jurisdiction', () => {
+    const env: JurisdictionEnvelope = {
+      sourceJurisdiction: 'DE',
+      processingRestrictions: ['NO_CROSS_BORDER'],
+    }
+    assert.equal(isTransferPermitted(env, 'DE', 'research:academic').permitted, true)
+  })
+
+  it('blocks cross-border when NO_CROSS_BORDER set', () => {
+    const env: JurisdictionEnvelope = {
+      sourceJurisdiction: 'DE',
+      processingRestrictions: ['NO_CROSS_BORDER'],
+    }
+    const result = isTransferPermitted(env, 'US', 'research:academic')
+    assert.equal(result.permitted, false)
+    assert.ok(result.reason?.includes('NO_CROSS_BORDER'))
+  })
+
+  it('permits EU-to-EU when EU_ONLY set', () => {
+    const env: JurisdictionEnvelope = {
+      sourceJurisdiction: 'DE',
+      processingRestrictions: ['EU_ONLY'],
+    }
+    assert.equal(isTransferPermitted(env, 'FR', 'analytics:internal').permitted, true)
+  })
+
+  it('blocks EU-to-non-EU when EU_ONLY set', () => {
+    const env: JurisdictionEnvelope = {
+      sourceJurisdiction: 'DE',
+      processingRestrictions: ['EU_ONLY'],
+    }
+    const result = isTransferPermitted(env, 'CN', 'analytics:internal')
+    assert.equal(result.permitted, false)
+    assert.ok(result.reason?.includes('EU_ONLY'))
+  })
+
+  it('permits transfer to GDPR adequate country', () => {
+    const env: JurisdictionEnvelope = {
+      sourceJurisdiction: 'FR',
+      transferConstraints: ['GDPR_ADEQUATE_ONLY'],
+    }
+    assert.equal(isTransferPermitted(env, 'JP', 'commerce').permitted, true)
+    assert.equal(isTransferPermitted(env, 'UK', 'commerce').permitted, true)
+  })
+
+  it('blocks transfer to non-adequate country', () => {
+    const env: JurisdictionEnvelope = {
+      sourceJurisdiction: 'FR',
+      transferConstraints: ['GDPR_ADEQUATE_ONLY'],
+    }
+    const result = isTransferPermitted(env, 'CN', 'commerce')
+    assert.equal(result.permitted, false)
+    assert.ok(result.reason?.includes('adequacy'))
+  })
+
+  it('permits everything when no restrictions', () => {
+    const env: JurisdictionEnvelope = { sourceJurisdiction: 'US' }
+    assert.equal(isTransferPermitted(env, 'CN', 'commerce').permitted, true)
+  })
+})
+
+// ═══════════════════════════════════════
+// Phase 2 Tests: Governance Taint
+// ═══════════════════════════════════════
+
+describe('Data Lifecycle — Governance Taint', () => {
+  it('clean artifact with no restricted sources', () => {
+    const store = new Map<string, DerivationReceipt>()
+    const r = createDerivationReceipt({
+      derivativeId: 'clean-1', derivativeType: 'summary',
+      parentArtifacts: [{ artifactId: 'a1', artifactType: 'access_receipt', sourceId: 'public-data' }],
+      transformClass: 'summary', lineageConfidence: 'complete',
+      agentId: 'a1', privateKey: keys.privateKey,
+    })
+    store.set('clean-1', r)
+
+    const taint = computeGovernanceTaint('clean-1', store)
+    assert.equal(taint.taintLevel, 'clean')
+    assert.equal(taint.clearable, true)
+  })
+
+  it('restricted when source is revoked', () => {
+    const store = new Map<string, DerivationReceipt>()
+    const r = createDerivationReceipt({
+      derivativeId: 'tainted-1', derivativeType: 'embedding',
+      parentArtifacts: [{ artifactId: 'a1', artifactType: 'access_receipt', sourceId: 'revoked-data' }],
+      transformClass: 'embedding', lineageConfidence: 'complete',
+      agentId: 'a1', privateKey: keys.privateKey,
+    })
+    store.set('tainted-1', r)
+
+    const revokedSources = new Set(['revoked-data'])
+    const taint = computeGovernanceTaint('tainted-1', store, revokedSources)
+    assert.equal(taint.taintLevel, 'restricted')
+    assert.ok(taint.reason.includes('revoked'))
+  })
+
+  it('untraceable contamination when external boundary break', () => {
+    const store = new Map<string, DerivationReceipt>()
+    const r = createDerivationReceipt({
+      derivativeId: 'broken-1', derivativeType: 'rag_chunk',
+      parentArtifacts: [{ artifactId: 'ext-1', artifactType: 'source_registration' }],
+      transformClass: 'copy', lineageConfidence: 'broken_external',
+      externalBoundaryBreak: true, breakReason: 'Data re-imported',
+      agentId: 'a1', privateKey: keys.privateKey,
+    })
+    store.set('broken-1', r)
+
+    const taint = computeGovernanceTaint('broken-1', store)
+    assert.equal(taint.taintLevel, 'untraceable_contamination')
+    assert.equal(taint.clearable, false)
+  })
+})
+
+// ═══════════════════════════════════════
+// Phase 2 Tests: Dispute Records
+// ═══════════════════════════════════════
+
+describe('Data Lifecycle — Dispute Records', () => {
+  it('files a signed dispute', () => {
+    const dispute = fileDispute({
+      artifactId: 'receipt-123',
+      disputeType: 'unauthorized_access',
+      filedBy: 'source-owner-did',
+      evidence: ['access-receipt-hash', 'terms-snapshot-hash'],
+      privateKey: keys.privateKey,
+    })
+    assert.ok(dispute.disputeId.startsWith('dsp_'))
+    assert.equal(dispute.status, 'under_review')
+    assert.equal(dispute.disputeType, 'unauthorized_access')
+    assert.equal(dispute.evidence.length, 2)
+    assert.ok(dispute.signature)
+  })
+
+  it('supports all dispute types', () => {
+    const types: Array<'unauthorized_access' | 'terms_violation' | 'compensation_dispute' | 'revocation_dispute' | 'lineage_dispute'> = [
+      'unauthorized_access', 'terms_violation', 'compensation_dispute', 'revocation_dispute', 'lineage_dispute'
+    ]
+    for (const t of types) {
+      const d = fileDispute({ artifactId: 'a1', disputeType: t, filedBy: 'owner', evidence: [], privateKey: keys.privateKey })
+      assert.equal(d.disputeType, t)
+    }
+  })
+})
+
+// ═══════════════════════════════════════
+// Phase 2 Tests: Combination Constraints
+// ═══════════════════════════════════════
+
+describe('Data Lifecycle — Combination Constraints', () => {
+  it('permits combination when no constraints violated', () => {
+    const constraints: CombinationConstraint[] = [
+      { forbiddenSourceClasses: ['health'], reason: 'HIPAA', regulatoryBasis: 'HIPAA' }
+    ]
+    const result = checkCombinationPermitted(constraints, 'weather-data', ['weather'])
+    assert.equal(result.permitted, true)
+    assert.equal(result.violations.length, 0)
+  })
+
+  it('blocks forbidden source class combination', () => {
+    const constraints: CombinationConstraint[] = [
+      { forbiddenSourceClasses: ['health', 'biometric'], reason: 'HIPAA + geolocation = re-identification risk', regulatoryBasis: 'HIPAA' }
+    ]
+    const result = checkCombinationPermitted(constraints, 'geo-data', ['geolocation', 'health'])
+    assert.equal(result.permitted, false)
+    assert.ok(result.violations[0].includes('health'))
+    assert.ok(result.violations[0].includes('HIPAA'))
+  })
+
+  it('blocks forbidden specific source ID', () => {
+    const constraints: CombinationConstraint[] = [
+      { forbiddenSourceIds: ['competitor-dataset-X'], reason: 'Competitive exclusion' }
+    ]
+    const result = checkCombinationPermitted(constraints, 'competitor-dataset-X')
+    assert.equal(result.permitted, false)
+    assert.ok(result.violations[0].includes('competitor-dataset-X'))
+  })
+
+  it('handles multiple constraints', () => {
+    const constraints: CombinationConstraint[] = [
+      { forbiddenSourceClasses: ['children'], reason: 'COPPA', regulatoryBasis: 'COPPA' },
+      { forbiddenSourceClasses: ['behavioral_advertising'], reason: 'Children + ads = prohibited', regulatoryBasis: 'COPPA' },
+    ]
+    const result = checkCombinationPermitted(constraints, 'ad-network', ['behavioral_advertising'])
+    assert.equal(result.permitted, false)
+  })
+})
+
+// ═══════════════════════════════════════
+// Phase 2 Tests: Access Snapshots (anti-rug-pull)
+// ═══════════════════════════════════════
+
+describe('Data Lifecycle — Access Snapshots', () => {
+  it('creates an immutable signed access snapshot', () => {
+    const pin = pinTermsAtAccess({
+      termsVersion: '3.0', compensationRate: 0.01,
+      currency: 'USDC', allowedPurposes: ['research:*'],
+    })
+    const snap = createAccessSnapshot({
+      accessReceiptId: 'ar-001', sourceId: 'src-1',
+      pinnedTerms: pin,
+      jurisdiction: { sourceJurisdiction: 'DE', processingRestrictions: ['EU_ONLY'] },
+      combinationConstraints: [{ forbiddenSourceClasses: ['health'], reason: 'HIPAA' }],
+      privateKey: keys.privateKey,
+    })
+    assert.ok(snap.snapshotId.startsWith('snap_'))
+    assert.equal(snap.sourceId, 'src-1')
+    assert.equal(snap.pinnedTerms.termsVersion, '3.0')
+    assert.equal(snap.termsHash.length, 64) // SHA-256 hex
+    assert.ok(snap.jurisdiction?.processingRestrictions?.includes('EU_ONLY'))
+    assert.equal(snap.combinationConstraints?.length, 1)
+    assert.ok(snap.signature)
+  })
+
+  it('snapshot signature is verifiable', () => {
+    const pin = pinTermsAtAccess({
+      termsVersion: '1.0', compensationRate: 0.001,
+      currency: 'USDC', allowedPurposes: ['analytics:internal'],
+    })
+    const snap = createAccessSnapshot({
+      accessReceiptId: 'ar-002', sourceId: 'src-2',
+      pinnedTerms: pin, privateKey: keys.privateKey,
+    })
+    assert.equal(verifyAccessSnapshot(snap, keys.publicKey), true)
+  })
+
+  it('terms hash changes when terms change (anti-rug-pull proof)', () => {
+    const pin1 = pinTermsAtAccess({
+      termsVersion: '1.0', compensationRate: 0.001,
+      currency: 'USDC', allowedPurposes: ['research:*'],
+    })
+    const pin2 = pinTermsAtAccess({
+      termsVersion: '2.0', compensationRate: 0.01,
+      currency: 'USDC', allowedPurposes: ['research:academic'],
+    })
+    const snap1 = createAccessSnapshot({
+      accessReceiptId: 'ar-1', sourceId: 's1', pinnedTerms: pin1, privateKey: keys.privateKey,
+    })
+    const snap2 = createAccessSnapshot({
+      accessReceiptId: 'ar-2', sourceId: 's1', pinnedTerms: pin2, privateKey: keys.privateKey,
+    })
+    // Different terms → different hashes → provably different snapshots
+    assert.notEqual(snap1.termsHash, snap2.termsHash)
+  })
+})
+// ═══════════════════════════════════════
+// Phase 2 Tests: Jurisdiction Envelope
+// ═══════════════════════════════════════
+
+describe('Data Lifecycle — Jurisdiction Transfer', () => {
+  it('permits transfer within EU', () => {
+    const env: JurisdictionEnvelope = {
+      sourceJurisdiction: 'DE',
+      processingRestrictions: ['EU_ONLY'],
+    }
+    assert.equal(isTransferPermitted(env, 'FR', 'analytics:internal').permitted, true)
+  })
+
+  it('blocks transfer outside EU when EU_ONLY', () => {
+    const env: JurisdictionEnvelope = {
+      sourceJurisdiction: 'DE',
+      processingRestrictions: ['EU_ONLY'],
+    }
+    const result = isTransferPermitted(env, 'US', 'analytics:internal')
+    assert.equal(result.permitted, false)
+    assert.ok(result.reason?.includes('EU'))
+  })
+
+  it('blocks cross-border when NO_CROSS_BORDER', () => {
+    const env: JurisdictionEnvelope = {
+      sourceJurisdiction: 'JP',
+      processingRestrictions: ['NO_CROSS_BORDER'],
+    }
+    const result = isTransferPermitted(env, 'US', 'research:academic')
+    assert.equal(result.permitted, false)
+    assert.ok(result.reason?.includes('NO_CROSS_BORDER'))
+  })
+
+  it('permits same-country when NO_CROSS_BORDER', () => {
+    const env: JurisdictionEnvelope = {
+      sourceJurisdiction: 'JP',
+      processingRestrictions: ['NO_CROSS_BORDER'],
+    }
+    assert.equal(isTransferPermitted(env, 'JP', 'research:academic').permitted, true)
+  })
+
+  it('permits transfer to GDPR adequate country', () => {
+    const env: JurisdictionEnvelope = {
+      sourceJurisdiction: 'DE',
+      transferConstraints: ['GDPR_ADEQUATE_ONLY'],
+    }
+    assert.equal(isTransferPermitted(env, 'JP', 'analytics:internal').permitted, true)
+    assert.equal(isTransferPermitted(env, 'UK', 'analytics:internal').permitted, true)
+  })
+
+  it('blocks transfer to non-adequate country under GDPR', () => {
+    const env: JurisdictionEnvelope = {
+      sourceJurisdiction: 'DE',
+      transferConstraints: ['GDPR_ADEQUATE_ONLY'],
+    }
+    const result = isTransferPermitted(env, 'CN', 'analytics:internal')
+    assert.equal(result.permitted, false)
+    assert.ok(result.reason?.includes('adequacy'))
+  })
+
+  it('permits all when no restrictions', () => {
+    const env: JurisdictionEnvelope = { sourceJurisdiction: 'US' }
+    assert.equal(isTransferPermitted(env, 'CN', 'commerce').permitted, true)
+  })
+})
+
+// ═══════════════════════════════════════
+// Phase 2 Tests: Governance Taint
+// ═══════════════════════════════════════
+
+describe('Data Lifecycle — Governance Taint', () => {
+  it('clean: no restricted sources', () => {
+    const store = new Map<string, DerivationReceipt>()
+    const r = createDerivationReceipt({
+      derivativeId: 'clean-art', derivativeType: 'summary',
+      parentArtifacts: [{ artifactId: 'a1', artifactType: 'access_receipt', sourceId: 'safe-src' }],
+      transformClass: 'summary', lineageConfidence: 'complete',
+      agentId: 'a1', privateKey: keys.privateKey,
+    })
+    store.set('clean-art', r)
+    const taint = computeGovernanceTaint('clean-art', store)
+    assert.equal(taint.taintLevel, 'clean')
+    assert.equal(taint.clearable, true)
+  })
+
+  it('restricted: touches revoked source', () => {
+    const store = new Map<string, DerivationReceipt>()
+    const r = createDerivationReceipt({
+      derivativeId: 'tainted-art', derivativeType: 'embedding',
+      parentArtifacts: [{ artifactId: 'a1', artifactType: 'access_receipt', sourceId: 'revoked-src' }],
+      transformClass: 'embedding', lineageConfidence: 'complete',
+      agentId: 'a1', privateKey: keys.privateKey,
+    })
+    store.set('tainted-art', r)
+    const taint = computeGovernanceTaint('tainted-art', store, new Set(['revoked-src']))
+    assert.equal(taint.taintLevel, 'restricted')
+    assert.ok(taint.reason.includes('revoked'))
+  })
+
+  it('untraceable: external boundary break', () => {
+    const store = new Map<string, DerivationReceipt>()
+    const r = createDerivationReceipt({
+      derivativeId: 'ext-art', derivativeType: 'rag_chunk',
+      parentArtifacts: [{ artifactId: 'ext-1', artifactType: 'source_registration' }],
+      transformClass: 'copy', lineageConfidence: 'broken_external',
+      externalBoundaryBreak: true, breakReason: 'Re-imported',
+      agentId: 'a1', privateKey: keys.privateKey,
+    })
+    store.set('ext-art', r)
+    const taint = computeGovernanceTaint('ext-art', store)
+    assert.equal(taint.taintLevel, 'untraceable_contamination')
+    assert.equal(taint.clearable, false)
+  })
+})
+
+// ═══════════════════════════════════════
+// Phase 2 Tests: Dispute Records
+// ═══════════════════════════════════════
+
+describe('Data Lifecycle — Dispute Records', () => {
+  it('files a dispute with signature', () => {
+    const dispute = fileDispute({
+      artifactId: 'art-001',
+      disputeType: 'unauthorized_access',
+      filedBy: 'source-owner-001',
+      evidence: ['access-receipt-abc', 'terms-v2-not-accepted'],
+      privateKey: keys.privateKey,
+    })
+    assert.ok(dispute.disputeId.startsWith('dsp_'))
+    assert.equal(dispute.status, 'under_review')
+    assert.equal(dispute.disputeType, 'unauthorized_access')
+    assert.equal(dispute.evidence.length, 2)
+    assert.ok(dispute.signature)
+  })
+
+  it('supports all dispute types', () => {
+    const types: Array<'unauthorized_access' | 'terms_violation' | 'compensation_dispute' | 'revocation_dispute' | 'lineage_dispute'> =
+      ['unauthorized_access', 'terms_violation', 'compensation_dispute', 'revocation_dispute', 'lineage_dispute']
+    for (const t of types) {
+      const d = fileDispute({ artifactId: 'a', disputeType: t, filedBy: 'x', evidence: [], privateKey: keys.privateKey })
+      assert.equal(d.disputeType, t)
+    }
+  })
+})
+
+// ═══════════════════════════════════════
+// Phase 2 Tests: Combination Constraints
+// ═══════════════════════════════════════
+
+describe('Data Lifecycle — Combination Constraints', () => {
+  it('permits combination when no constraints violated', () => {
+    const constraints: CombinationConstraint[] = [
+      { forbiddenSourceClasses: ['health'], reason: 'HIPAA', regulatoryBasis: 'HIPAA' },
+    ]
+    const result = checkCombinationPermitted(constraints, 'weather-src', ['weather'])
+    assert.equal(result.permitted, true)
+    assert.equal(result.violations.length, 0)
+  })
+
+  it('blocks forbidden source class combination', () => {
+    const constraints: CombinationConstraint[] = [
+      { forbiddenSourceClasses: ['geolocation'], reason: 'Health + geo = re-identification risk', regulatoryBasis: 'HIPAA' },
+    ]
+    const result = checkCombinationPermitted(constraints, 'geo-src', ['geolocation'])
+    assert.equal(result.permitted, false)
+    assert.ok(result.violations[0].includes('geolocation'))
+    assert.ok(result.violations[0].includes('HIPAA'))
+  })
+
+  it('blocks forbidden source ID', () => {
+    const constraints: CombinationConstraint[] = [
+      { forbiddenSourceIds: ['competitor-dataset-001'], reason: 'Exclusivity clause' },
+    ]
+    const result = checkCombinationPermitted(constraints, 'competitor-dataset-001', [])
+    assert.equal(result.permitted, false)
+    assert.ok(result.violations[0].includes('competitor-dataset-001'))
+  })
+
+  it('multiple constraints checked', () => {
+    const constraints: CombinationConstraint[] = [
+      { forbiddenSourceClasses: ['children_behavioral'], reason: 'COPPA', regulatoryBasis: 'COPPA' },
+      { forbiddenSourceClasses: ['advertising'], reason: 'Children + ads = prohibited', regulatoryBasis: 'COPPA' },
+    ]
+    const result = checkCombinationPermitted(constraints, 'ad-network', ['advertising'])
+    assert.equal(result.permitted, false)
+    assert.equal(result.violations.length, 1)
+  })
+})
+
+// ═══════════════════════════════════════
+// Phase 2 Tests: Access Snapshots
+// ═══════════════════════════════════════
+
+describe('Data Lifecycle — Access Snapshots', () => {
+  it('creates signed immutable snapshot', () => {
+    const snap = createAccessSnapshot({
+      accessReceiptId: 'ar-001',
+      sourceId: 'src-001',
+      pinnedTerms: {
+        termsVersion: '3.0', pinnedAt: new Date().toISOString(),
+        compensationRate: 0.005, currency: 'USDC',
+        allowedPurposes: ['research:*', 'analytics:internal'],
+      },
+      jurisdiction: { sourceJurisdiction: 'DE', processingRestrictions: ['EU_ONLY'] },
+      combinationConstraints: [{ forbiddenSourceClasses: ['health'], reason: 'GDPR Art 9', regulatoryBasis: 'GDPR_Art9' }],
+      privateKey: keys.privateKey,
+    })
+    assert.ok(snap.snapshotId.startsWith('snap_'))
+    assert.equal(snap.sourceId, 'src-001')
+    assert.equal(snap.termsHash.length, 64) // SHA-256 hex
+    assert.equal(snap.pinnedTerms.compensationRate, 0.005)
+    assert.ok(snap.jurisdiction)
+    assert.equal(snap.combinationConstraints!.length, 1)
+    assert.ok(snap.signature)
+  })
+
+  it('snapshot signature is verifiable', () => {
+    const snap = createAccessSnapshot({
+      accessReceiptId: 'ar-002', sourceId: 'src-002',
+      pinnedTerms: {
+        termsVersion: '1.0', pinnedAt: new Date().toISOString(),
+        compensationRate: 0.001, currency: 'USDC', allowedPurposes: ['research:academic'],
+      },
+      privateKey: keys.privateKey,
+    })
+    assert.equal(verifyAccessSnapshot(snap, keys.publicKey), true)
+  })
+
+  it('terms hash changes when terms change (anti-rug-pull)', () => {
+    const terms1 = {
+      termsVersion: '1.0', pinnedAt: new Date().toISOString(),
+      compensationRate: 0.001, currency: 'USDC', allowedPurposes: ['research:*'],
+    }
+    const terms2 = {
+      termsVersion: '2.0', pinnedAt: new Date().toISOString(),
+      compensationRate: 0.01, currency: 'USDC', allowedPurposes: ['research:academic'],
+    }
+    const snap1 = createAccessSnapshot({
+      accessReceiptId: 'ar-1', sourceId: 's1', pinnedTerms: terms1, privateKey: keys.privateKey,
+    })
+    const snap2 = createAccessSnapshot({
+      accessReceiptId: 'ar-2', sourceId: 's1', pinnedTerms: terms2, privateKey: keys.privateKey,
+    })
+    // Different terms → different hashes → provably different access conditions
+    assert.notEqual(snap1.termsHash, snap2.termsHash)
+  })
+})

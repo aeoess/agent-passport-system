@@ -303,3 +303,246 @@ export function verifyDecisionLineageReceipt(
   const { signature, ...unsigned } = receipt
   return verify(canonicalize(unsigned), signature, publicKey)
 }
+
+
+// ═══════════════════════════════════════
+// Phase 2: Aggregation Controls
+// ═══════════════════════════════════════
+
+import type {
+  AggregateConstraint, AggregateAccessLog,
+  JurisdictionEnvelope, GovernanceTaint, TaintRecord,
+  DisputeStatus, DisputeRecord,
+  CombinationConstraint, AccessSnapshot,
+} from '../types/data-lifecycle.js'
+
+/**
+ * Check if an access would violate aggregate constraints.
+ * Uses a rolling window log per source+agent pair.
+ */
+export function checkAggregateConstraints(
+  constraint: AggregateConstraint,
+  log: AggregateAccessLog,
+  now: number = Date.now()
+): { permitted: boolean; reason?: string } {
+  // Check if we're still in the window
+  const windowEnd = log.windowStartMs + (constraint.windowMs ?? 86400000)
+  const inWindow = now < windowEnd && now >= log.windowStartMs
+
+  if (inWindow) {
+    if (constraint.maxAccessesPerWindow && log.accessCount >= constraint.maxAccessesPerWindow) {
+      return { permitted: false, reason: `Aggregate limit: ${log.accessCount}/${constraint.maxAccessesPerWindow} accesses in window` }
+    }
+    if (constraint.maxRecordsPerWindow && log.recordCount >= constraint.maxRecordsPerWindow) {
+      return { permitted: false, reason: `Record limit: ${log.recordCount}/${constraint.maxRecordsPerWindow} records in window` }
+    }
+  }
+
+  // Burst check (last 1s)
+  if (constraint.burstLimit) {
+    const timeSinceLast = now - log.lastAccessMs
+    if (timeSinceLast < 1000 && log.accessCount > constraint.burstLimit) {
+      return { permitted: false, reason: `Burst limit exceeded: ${constraint.burstLimit}/second` }
+    }
+  }
+
+  return { permitted: true }
+}
+
+// ═══════════════════════════════════════
+// Phase 2: Jurisdiction Transfer Check
+// ═══════════════════════════════════════
+
+/**
+ * Check if a data transfer is permitted under jurisdiction constraints.
+ * The protocol carries context, not legal logic.
+ */
+export function isTransferPermitted(
+  envelope: JurisdictionEnvelope,
+  targetJurisdiction: string,
+  purpose: string
+): { permitted: boolean; reason?: string } {
+  if (!envelope.sourceJurisdiction) return { permitted: true }
+
+  // Check processing restrictions
+  if (envelope.processingRestrictions?.includes('EU_ONLY')) {
+    const euCountries = ['AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR','HU','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK','SI','ES','SE']
+    if (!euCountries.includes(targetJurisdiction)) {
+      return { permitted: false, reason: `EU_ONLY restriction: ${targetJurisdiction} is not an EU member state` }
+    }
+  }
+
+  if (envelope.processingRestrictions?.includes('NO_CROSS_BORDER')) {
+    if (targetJurisdiction !== envelope.sourceJurisdiction) {
+      return { permitted: false, reason: `NO_CROSS_BORDER: cannot transfer from ${envelope.sourceJurisdiction} to ${targetJurisdiction}` }
+    }
+  }
+
+  // Check transfer constraints
+  if (envelope.transferConstraints?.includes('GDPR_ADEQUATE_ONLY')) {
+    const adequateCountries = ['AR','CA','GG','IL','IM','JP','JE','NZ','KR','CH','UY','UK','US']
+    const euPlus = ['AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR','HU','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK','SI','ES','SE']
+    const allAdequate = [...euPlus, ...adequateCountries]
+    if (!allAdequate.includes(targetJurisdiction)) {
+      return { permitted: false, reason: `GDPR_ADEQUATE_ONLY: ${targetJurisdiction} lacks adequacy decision` }
+    }
+  }
+
+  return { permitted: true }
+}
+
+// ═══════════════════════════════════════
+// Phase 2: Governance Taint
+// ═══════════════════════════════════════
+
+/**
+ * Compute the governance taint level for an artifact based on its
+ * derivation chain and source restrictions.
+ */
+export function computeGovernanceTaint(
+  artifactId: string,
+  receiptStore: Map<string, DerivationReceipt>,
+  revokedSources: Set<string> = new Set()
+): TaintRecord {
+  const lineage = resolveExtendedLineage(artifactId, receiptStore)
+  const touchedSources: string[] = []
+  let taint: GovernanceTaint = 'clean'
+
+  for (const receipt of lineage.chain) {
+    for (const parent of receipt.parentArtifacts) {
+      if (parent.sourceId) {
+        touchedSources.push(parent.sourceId)
+        if (revokedSources.has(parent.sourceId)) {
+          taint = 'restricted'
+        }
+      }
+    }
+    if (receipt.externalBoundaryBreak && taint === 'clean') {
+      taint = 'untraceable_contamination'
+    }
+  }
+
+  // Multiple distinct sources with restrictions = mixed
+  const uniqueSources = [...new Set(touchedSources)]
+  if (taint === 'clean' && uniqueSources.length > 1) {
+    taint = 'source_bound'
+  }
+  if (taint === 'restricted' && uniqueSources.length > 1) {
+    taint = 'mixed'
+  }
+
+  return {
+    artifactId,
+    taintLevel: taint,
+    sources: uniqueSources,
+    reason: taint === 'clean' ? 'No restricted data contact'
+      : taint === 'restricted' ? `Touches revoked source(s)`
+      : taint === 'untraceable_contamination' ? 'External boundary break — contamination possible'
+      : `Touches ${uniqueSources.length} source(s)`,
+    detectedAt: new Date().toISOString(),
+    clearable: taint !== 'untraceable_contamination',
+    clearCondition: taint === 'restricted' ? 'Clear revocation obligations' : undefined,
+  }
+}
+
+// ═══════════════════════════════════════
+// Phase 2: Dispute Records
+// ═══════════════════════════════════════
+
+/**
+ * File a dispute against a data artifact.
+ * The protocol records the dispute — resolution is external.
+ */
+export function fileDispute(opts: {
+  artifactId: string
+  disputeType: DisputeRecord['disputeType']
+  filedBy: string
+  evidence: string[]
+  privateKey: string
+}): DisputeRecord {
+  const record: Omit<DisputeRecord, 'signature'> = {
+    disputeId: 'dsp_' + randomBytes(12).toString('hex'),
+    artifactId: opts.artifactId,
+    disputeType: opts.disputeType,
+    status: 'under_review',
+    filedBy: opts.filedBy,
+    filedAt: new Date().toISOString(),
+    evidence: opts.evidence,
+  }
+  const sig = sign(canonicalize(record), opts.privateKey)
+  return { ...record, signature: sig }
+}
+
+// ═══════════════════════════════════════
+// Phase 2: Combination Constraints
+// ═══════════════════════════════════════
+
+/**
+ * Check if combining data from two sources is permitted.
+ * Prevents prohibited inferences (e.g. health + geolocation).
+ */
+export function checkCombinationPermitted(
+  sourceConstraints: CombinationConstraint[],
+  otherSourceId: string,
+  otherSourceClasses: string[] = []
+): { permitted: boolean; violations: string[] } {
+  const violations: string[] = []
+
+  for (const constraint of sourceConstraints) {
+    if (constraint.forbiddenSourceIds?.includes(otherSourceId)) {
+      violations.push(`Source ${otherSourceId} forbidden: ${constraint.reason}`)
+    }
+    for (const cls of otherSourceClasses) {
+      if (constraint.forbiddenSourceClasses?.includes(cls)) {
+        violations.push(`Source class "${cls}" forbidden: ${constraint.reason} (${constraint.regulatoryBasis ?? 'unspecified'})`)
+      }
+    }
+  }
+  return { permitted: violations.length === 0, violations }
+}
+
+// ═══════════════════════════════════════
+// Phase 2: Access Snapshots (anti-rug-pull)
+// ═══════════════════════════════════════
+
+/**
+ * Create an immutable access snapshot — freezes the exact terms,
+ * jurisdiction, and constraints at the moment of access.
+ * Prevents retroactive term changes from holding downstream models hostage.
+ */
+export function createAccessSnapshot(opts: {
+  accessReceiptId: string
+  sourceId: string
+  pinnedTerms: TermsVersionPin
+  jurisdiction?: JurisdictionEnvelope
+  combinationConstraints?: CombinationConstraint[]
+  privateKey: string
+}): AccessSnapshot {
+  const termsHash = createHash('sha256')
+    .update(canonicalize(opts.pinnedTerms))
+    .digest('hex')
+
+  const snapshot: Omit<AccessSnapshot, 'signature'> = {
+    snapshotId: 'snap_' + randomBytes(12).toString('hex'),
+    accessReceiptId: opts.accessReceiptId,
+    sourceId: opts.sourceId,
+    termsHash,
+    pinnedTerms: opts.pinnedTerms,
+    jurisdiction: opts.jurisdiction,
+    combinationConstraints: opts.combinationConstraints,
+    timestamp: new Date().toISOString(),
+  }
+  const sig = sign(canonicalize(snapshot), opts.privateKey)
+  return { ...snapshot, signature: sig }
+}
+
+/**
+ * Verify an access snapshot signature.
+ */
+export function verifyAccessSnapshot(
+  snapshot: AccessSnapshot,
+  publicKey: string
+): boolean {
+  const { signature, ...unsigned } = snapshot
+  return verify(canonicalize(unsigned), signature, publicKey)
+}

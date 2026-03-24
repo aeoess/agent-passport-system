@@ -183,3 +183,131 @@ export interface TermsVersionPin {
   allowedPurposes: string[]
   retentionPolicy?: RetentionPolicy
 }
+
+
+// ══════════════════════════════════════════════════════════════════
+// Phase 2: Aggregation, Jurisdiction, Governance Taint,
+//          Dispute State, Combination Constraints
+// ══════════════════════════════════════════════════════════════════
+
+// ── Aggregation Controls ──
+// Per-access gates are not enough. Bulk extraction is a real abuse pattern.
+
+export interface AggregateConstraint {
+  /** Max accesses per rolling window */
+  maxAccessesPerWindow?: number
+  /** Window duration in milliseconds */
+  windowMs?: number
+  /** Max distinct records per window */
+  maxRecordsPerWindow?: number
+  /** Burst limit (max in any 1-second interval) */
+  burstLimit?: number
+}
+
+export interface AggregateAccessLog {
+  sourceId: string
+  agentId: string
+  windowStartMs: number
+  accessCount: number
+  recordCount: number
+  lastAccessMs: number
+}
+
+// ── Jurisdiction Envelope ──
+// Legal context that travels with data. Not a law firm — a context carrier.
+
+export interface JurisdictionEnvelope {
+  /** Source data jurisdiction (ISO 3166-1 alpha-2) */
+  sourceJurisdiction?: string
+  /** Processing restrictions (e.g. 'EU_ONLY', 'NO_CROSS_BORDER') */
+  processingRestrictions?: string[]
+  /** Whether jurisdiction must propagate to derivatives */
+  propagationRequired?: boolean
+  /** Transfer constraints (e.g. 'GDPR_ADEQUATE_ONLY') */
+  transferConstraints?: string[]
+}
+
+// ── Governance Taint / Contamination State ──
+// Once a system touches restricted data, how does that propagate?
+// Not about derivation (object-level) — about operational contamination.
+
+export type GovernanceTaint =
+  | 'clean'                    // no restricted data contact
+  | 'source_bound'             // touched restricted data, obligations known
+  | 'mixed'                    // touched multiple sources with different restrictions
+  | 'restricted'               // under active restriction from revocation or terms
+  | 'quarantined'              // flagged for review, access suspended
+  | 'untraceable_contamination' // may have been contaminated but chain is broken
+
+export interface TaintRecord {
+  artifactId: string
+  taintLevel: GovernanceTaint
+  sources: string[]
+  reason: string
+  detectedAt: string
+  /** Can this taint be cleared? */
+  clearable: boolean
+  clearCondition?: string
+}
+
+// ── Dispute / Contested State ──
+// Reality produces conflicts. The protocol needs structured ambiguity.
+
+export type DisputeStatus =
+  | 'undisputed'
+  | 'contested_by_source'      // source claims unauthorized use
+  | 'contested_by_agent'       // agent claims terms were different
+  | 'contested_by_principal'   // principal disputes delegation scope
+  | 'under_review'             // dispute filed, awaiting resolution
+  | 'resolved_in_favor_source'
+  | 'resolved_in_favor_agent'
+  | 'escalated_external'       // sent to external arbitration/legal
+
+export interface DisputeRecord {
+  disputeId: string
+  artifactId: string
+  disputeType: 'unauthorized_access' | 'terms_violation' | 'compensation_dispute' | 'revocation_dispute' | 'lineage_dispute'
+  status: DisputeStatus
+  filedBy: string
+  filedAt: string
+  evidence: string[]
+  resolution?: string
+  resolvedAt?: string
+  signature: string
+}
+
+// ── Combination Constraints / Forbidden Joins ──
+// Some data must NOT be combined with other data.
+// Not competitive exclusion — prohibited inference prevention.
+// e.g. health + geolocation, children + behavioral advertising
+
+export interface CombinationConstraint {
+  /** This source cannot be combined with sources of these classes */
+  forbiddenSourceClasses?: string[]
+  /** This source cannot be combined with specific source IDs */
+  forbiddenSourceIds?: string[]
+  /** Reason for the constraint */
+  reason: string
+  /** Regulatory basis (e.g. 'COPPA', 'HIPAA', 'GDPR_Art9') */
+  regulatoryBasis?: string
+}
+
+// ── Access Snapshot (anti-rug-pull) ──
+// Immutable record of exact terms + state at moment of access.
+// Prevents retroactive term changes from holding downstream models hostage.
+
+export interface AccessSnapshot {
+  snapshotId: string
+  accessReceiptId: string
+  sourceId: string
+  /** Exact terms hash at moment of access */
+  termsHash: string
+  /** Pinned terms (full copy) */
+  pinnedTerms: TermsVersionPin
+  /** Jurisdiction at access time */
+  jurisdiction?: JurisdictionEnvelope
+  /** Combination constraints active at access time */
+  combinationConstraints?: CombinationConstraint[]
+  timestamp: string
+  signature: string
+}
