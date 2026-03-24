@@ -649,3 +649,26 @@ export * from './core/decision-equivalence.js'
 
 export * from './types/data-lifecycle.js'
 export * from './core/data-lifecycle.js'
+
+
+// ══════════════════════════════════════
+// Framework Adapters
+// ══════════════════════════════════════
+
+export { GovernanceHook } from './adapters/governance-hook.js'
+export type {
+  GovernanceHookConfig, ActionDescriptor, GovernanceVerdict,
+  GovernanceResult, GovernanceReceipt,
+} from './adapters/governance-hook.js'
+
+export { createCrewAIGovernance } from './adapters/crewai.js'
+export type { CrewAIGovernance, CrewAITaskOutput } from './adapters/crewai.js'
+
+export { createADKGovernancePlugin } from './adapters/adk.js'
+export type { ADKGovernancePlugin, ADKActionContext } from './adapters/adk.js'
+
+export { createLangChainGovernanceHandler } from './adapters/langchain.js'
+export type { LangChainGovernanceHandler } from './adapters/langchain.js'
+
+export { createA2AGovernance } from './adapters/a2a.js'
+export type { A2AGovernance } from './adapters/a2a.js'
