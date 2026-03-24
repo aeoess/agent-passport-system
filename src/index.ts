@@ -633,3 +633,10 @@ export * from './core/data-gateway.js'
 
 export * from './types/decision-equivalence.js'
 export * from './core/decision-equivalence.js'
+
+// ══════════════════════════════════════
+// Data Lifecycle Governance
+// ══════════════════════════════════════
+
+export * from './types/data-lifecycle.js'
+export * from './core/data-lifecycle.js'
