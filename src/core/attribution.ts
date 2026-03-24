@@ -1,3 +1,4 @@
+// Copyright 2024-2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
 // Beneficiary Attribution Protocol — Trace, Attribute, Prove
 // Layer 3 of the Agent Social Contract
 //

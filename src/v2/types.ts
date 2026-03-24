@@ -1,3 +1,4 @@
+// Copyright 2024-2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
 /**
  * APS v2 Types — Constitutional Governance Extensions
  * Integrated into the Agent Passport System SDK

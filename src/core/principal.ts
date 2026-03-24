@@ -1,3 +1,4 @@
+// Copyright 2024-2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
 // Agent Passport System — Principal Identity
 // Cryptographic chain from human principal to agent.
 // The principal has their own Ed25519 keypair and endorses agents.

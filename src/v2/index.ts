@@ -1,3 +1,4 @@
+// Copyright 2024-2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
 /**
  * APS v2 Module Index — Constitutional Governance Extensions
  * Full v2 implementation: Bridge + Delegation + Outcome + Anomaly + Emergency + Migration + Attestation

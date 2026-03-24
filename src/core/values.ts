@@ -1,3 +1,4 @@
+// Copyright 2024-2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
 // Human Values Floor — Attestation, Compliance, and Negotiation
 // Layer 2 of the Agent Social Contract
 //

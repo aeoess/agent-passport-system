@@ -1,3 +1,4 @@
+// Copyright 2024-2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
 /**
  * APS v2 Bridge — Connects v1 SDK primitives to v2 protocol extensions
  * Uses v1's crypto (node:crypto Ed25519) and canonical serialization.

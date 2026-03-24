@@ -1,3 +1,4 @@
+// Copyright 2024-2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
 /**
  * qntm Bridge — APS ↔ qntm E2E encrypted relay integration
  * 

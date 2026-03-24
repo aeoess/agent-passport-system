@@ -1,3 +1,4 @@
+// Copyright 2024-2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
 // Core Passport Operations — create, sign, update, expire
 
 import { generateKeyPair, sign } from '../crypto/keys.js'

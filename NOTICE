@@ -1,0 +1,20 @@
+Agent Passport System
+Copyright 2024-2026 Tymofii Pidlisnyi
+
+This product includes software developed by
+Tymofii Pidlisnyi (https://aeoess.com).
+
+Licensed under the Apache License, Version 2.0.
+
+The Agent Passport System protocol, including all cryptographic identity,
+delegation, governance, data lifecycle, and coordination primitives, is the
+intellectual property of Tymofii Pidlisnyi. The protocol specification,
+reference implementation, test suite, and associated documentation are
+protected under copyright law and licensed under Apache 2.0.
+
+Third parties may use, modify, and distribute this software under the
+terms of the Apache License 2.0, which requires:
+- Preservation of copyright notices
+- Attribution in derivative works
+- Statement of changes made
+- Inclusion of the original LICENSE and NOTICE files

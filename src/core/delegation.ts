@@ -1,3 +1,4 @@
+// Copyright 2024-2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
 // Delegation System — create, verify, revoke, and enforce depth limits
 // v1.1: Action Receipts + Revocation + Depth Limits
 // v1.4: Cascade Revocation + Chain Validation + Batch Revocation

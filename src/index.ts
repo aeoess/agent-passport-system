@@ -1,3 +1,4 @@
+// Copyright 2024-2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
 // Agent Passport System — Public API v2.0
 // The Agent Social Contract: Identity · Values · Attribution
 //

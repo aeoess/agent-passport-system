@@ -1,3 +1,4 @@
+// Copyright 2024-2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
 // Agent Passport System — W3C DID Method (did:aps)
 // DID Method Specification: did:aps:<hex-encoded-ed25519-public-key>
 //
