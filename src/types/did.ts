@@ -123,3 +123,50 @@ export interface DIDResolutionResult {
     error?: string
   }
 }
+
+
+// ══════════════════════════════════════════════════════════════════
+// Entity Verification v1.0 — adopted from WG conformance testing
+// ══════════════════════════════════════════════════════════════════
+
+/** DID resolution status — makes failure mode visible in the artifact */
+export type DIDResolutionStatus = 'live' | 'cached' | 'failed'
+
+/** Cached DID resolution entry */
+export interface DIDResolutionCacheEntry {
+  did: string
+  publicKey: string
+  resolvedAt: string
+  expiresAt: string
+  status: DIDResolutionStatus
+}
+
+/** Public proof surface — minimum fields a verifier can rely on without authentication */
+export interface PublicProofSurface {
+  entity_id: string
+  name: string
+  status: string
+  entity_type: string
+  authority_ceiling: string[]
+  verified_at: string
+}
+
+/** Full entity verification result */
+export interface EntityVerificationResult {
+  /** Overall pass/fail */
+  verified: boolean
+  /** DID resolution status */
+  didResolutionStatus: DIDResolutionStatus
+  /** Resolved Ed25519 public key (hex) */
+  resolvedPublicKey: string | null
+  /** Entity from Corpo API (or equivalent) */
+  entity: PublicProofSurface | null
+  /** When the DID was resolved */
+  resolvedAt: string | null
+  /** If cached, when the cache entry was created */
+  cachedAt?: string
+  /** Sender ID (QSP-1 §4: Trunc16(SHA-256(pubkey))) */
+  senderId: string | null
+  /** Error details */
+  errors: string[]
+}

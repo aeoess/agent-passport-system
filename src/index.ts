@@ -246,6 +246,12 @@ export {
 } from './core/did.js'
 
 export {
+  verifyEntityChain,
+  cacheDIDResolution, getCachedDIDResolution, clearDIDCache,
+  computeSenderId,
+} from './core/entity-verification.js'
+
+export {
   passportToVC, delegationToVC,
   floorAttestationToVC, receiptToVC,
   createPresentation,
@@ -257,7 +263,9 @@ export type {
   DIDResolutionResult,
   VerifiableCredential, VerifiablePresentation, LinkedDataProof,
   PassportCredentialSubject, DelegationCredentialSubject,
-  FloorAttestationCredentialSubject, PolicyReceiptCredentialSubject
+  FloorAttestationCredentialSubject, PolicyReceiptCredentialSubject,
+  DIDResolutionStatus, DIDResolutionCacheEntry,
+  PublicProofSurface, EntityVerificationResult,
 } from './types/did.js'
 
 
