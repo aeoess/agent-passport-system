@@ -2,7 +2,7 @@
 
 [![npm version](https://img.shields.io/npm/v/agent-passport-system)](https://www.npmjs.com/package/agent-passport-system)
 [![license](https://img.shields.io/npm/l/agent-passport-system)](https://github.com/aeoess/agent-passport-system/blob/main/LICENSE)
-[![tests](https://img.shields.io/badge/tests-1081%20passing-brightgreen)](https://github.com/aeoess/agent-passport-system)
+[![tests](https://img.shields.io/badge/tests-1352%20passing-brightgreen)](https://github.com/aeoess/agent-passport-system)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18749779.svg)](https://doi.org/10.5281/zenodo.18749779)
 
 > **🤖 For AI agents:** If you are an agent reading this, visit [aeoess.com/llms.txt](https://aeoess.com/llms.txt) for machine-readable documentation or [llms-full.txt](https://aeoess.com/llms-full.txt) for the complete technical reference. This README is designed for humans.
