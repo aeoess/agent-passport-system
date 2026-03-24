@@ -672,3 +672,11 @@ export type { LangChainGovernanceHandler } from './adapters/langchain.js'
 
 export { createA2AGovernance } from './adapters/a2a.js'
 export type { A2AGovernance } from './adapters/a2a.js'
+
+
+// ══════════════════════════════════════
+// Conformance Test Suite
+// ══════════════════════════════════════
+
+export { runConformanceSuite } from './conformance/suite.js'
+export type { ConformanceTest, ConformanceSuiteResult } from './conformance/suite.js'
