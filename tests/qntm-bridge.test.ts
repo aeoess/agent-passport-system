@@ -361,3 +361,73 @@ describe('qntm Bridge — DID Field (QSP-1 v0.1.1)', () => {
     assert.strictEqual(new TextDecoder().decode(d2), original);
   });
 });
+
+
+// ═══════════════════════════════════════
+// QSP-1 v1.0-rc1 Roundtrip Conformance Vector
+// Known-answer test from the spec. A conforming implementation
+// MUST produce identical nonce, ciphertext, sender, and aad_hash.
+// ═══════════════════════════════════════
+
+describe('QSP-1 v1.0-rc1 — Roundtrip Conformance Vector', () => {
+  // Fixed test vector from spec
+  const VECTOR = {
+    seed: 'deadbeefcafebabe1234567890abcdefdeadbeefcafebabe1234567890abcdef',
+    publicKey: '8aa49008d58bad4ccd3494960da49848331a78bc06e23c36d731322c35b35fa9',
+    sender: '1f60f7ef29e27d280400a7f3e5f4899c',
+    msgId: '0102030405060708090a0b0c0d0e0f10',
+    plaintext: 'Hello from QSP-1 test vector',
+    nonce: 'a7f98b27bb1aab6f8b216a587dc78b1b53f6b23ce7fe3413',
+    ciphertext: 'e6be3866938c2e8085cfdbc61102cc4f3dc66638528e37e47e81e8ce954b1824086f3c52de0a66085c309425',
+    aadHash: 'b17148a47096a25b259b276fd03632231e308b8e29ed898eab8ecbae6ad4d7b9',
+    sig: 'dd47f05e079dd4460c90da592a6cc7de472ccbc748fa620063af969f061e2cb4e741dd759ff2409169458390d48be9060db36eff1575f3c50b182ff3a1d25a0d',
+  };
+
+  const toHex = (b: Uint8Array) => Buffer.from(b).toString('hex');
+  const fromHex = (s: string) => new Uint8Array(Buffer.from(s, 'hex'));
+
+  it('sender key ID matches spec', () => {
+    const pubkey = fromHex(VECTOR.publicKey);
+    const keyId = computeKeyId(pubkey);
+    assert.strictEqual(toHex(keyId), VECTOR.sender);
+  });
+
+  it('nonce derivation matches spec', () => {
+    const invite = decodeQntmInvite(TEST_INVITE_TOKEN);
+    const keys = deriveQntmKeys(invite);
+    const msgId = fromHex(VECTOR.msgId);
+    const nonce = deriveNonce(keys.nonceKey, msgId);
+    assert.strictEqual(toHex(nonce), VECTOR.nonce);
+  });
+
+  it('aad_hash matches spec (SHA-256 of conv_id)', async () => {
+    const crypto = await import('crypto');
+    const invite = decodeQntmInvite(TEST_INVITE_TOKEN);
+    const keys = deriveQntmKeys(invite);
+    const aadHash = crypto.createHash('sha256').update(keys.convId).digest();
+    assert.strictEqual(toHex(new Uint8Array(aadHash)), VECTOR.aadHash);
+  });
+
+  it('ciphertext matches spec (XChaCha20-Poly1305)', async () => {
+    const sodium = await import('libsodium-wrappers');
+    await sodium.default.ready;
+    const invite = decodeQntmInvite(TEST_INVITE_TOKEN);
+    const keys = deriveQntmKeys(invite);
+    const nonce = fromHex(VECTOR.nonce);
+    const plaintext = new TextEncoder().encode(VECTOR.plaintext);
+    const ct = sodium.default.crypto_aead_xchacha20poly1305_ietf_encrypt(
+      plaintext, keys.convId, null, nonce, keys.aeadKey,
+    );
+    assert.strictEqual(toHex(new Uint8Array(ct)), VECTOR.ciphertext);
+  });
+
+  it('Ed25519 signature verifies against spec public key', async () => {
+    const sodium = await import('libsodium-wrappers');
+    await sodium.default.ready;
+    const ct = fromHex(VECTOR.ciphertext);
+    const sig = fromHex(VECTOR.sig);
+    const pubkey = fromHex(VECTOR.publicKey);
+    const valid = sodium.default.crypto_sign_verify_detached(sig, ct, pubkey);
+    assert.strictEqual(valid, true);
+  });
+});
