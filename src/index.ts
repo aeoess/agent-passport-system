@@ -680,3 +680,20 @@ export type { A2AGovernance } from './adapters/a2a.js'
 
 export { runConformanceSuite } from './conformance/suite.js'
 export type { ConformanceTest, ConformanceSuiteResult } from './conformance/suite.js'
+
+
+// ══════════════════════════════════════
+// Governance Block (HTML-embedded governance)
+// ══════════════════════════════════════
+
+export {
+  generateGovernanceBlock, verifyGovernanceBlock,
+  renderGovernanceHTML, renderGovernanceMeta,
+  parseGovernanceBlockFromHTML, embedGovernance, isUsagePermitted,
+  DEFAULT_REVOCATION_POLICY,
+} from './core/governance-block.js'
+export type {
+  GovernanceBlock, GovernanceTerms, RevocationPolicy,
+  UsagePermission, GovernanceBlockVerification,
+  GenerateGovernanceBlockInput,
+} from './core/governance-block.js'
