@@ -697,3 +697,18 @@ export type {
   UsagePermission, GovernanceBlockVerification,
   GenerateGovernanceBlockInput,
 } from './core/governance-block.js'
+
+
+// ══════════════════════════════════════
+// aps.txt + HTTP Headers + Chained Blocks
+// ══════════════════════════════════════
+
+export {
+  generateApsTxt, verifyApsTxt, serializeApsTxt, parseApsTxt,
+  resolveTermsForPath, governanceHeaders, parseGovernanceHeaders,
+  createChainedGovernanceBlock, verifyChainedBlock,
+} from './core/aps-txt.js'
+export type {
+  ApsTxt, PathOverride, GenerateApsTxtInput,
+  ChainedGovernanceBlock,
+} from './core/aps-txt.js'
