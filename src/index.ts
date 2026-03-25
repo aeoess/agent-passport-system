@@ -712,3 +712,17 @@ export type {
   ApsTxt, PathOverride, GenerateApsTxtInput,
   ChainedGovernanceBlock,
 } from './core/aps-txt.js'
+
+
+// ══════════════════════════════════════
+// Governance Consumer (agent-side 360 loop)
+// ══════════════════════════════════════
+
+export {
+  checkHTMLGovernance, checkHeaderGovernance,
+  createAccessReceipt, verifyAccessReceipt,
+  governanceLoop360,
+} from './core/governance-consumer.js'
+export type {
+  AccessReceipt, GovernanceCheckResult, Full360Result,
+} from './core/governance-consumer.js'
