@@ -9,7 +9,7 @@
 
 Cryptographic identity, ethical governance, economic attribution, data source registration, protocol-native communication, intent architecture, cascade revocation, coordination primitives, and agentic commerce for autonomous AI agents.
 
-**42 core modules + 32 v2 constitutional modules. 1371 tests. Zero heavy dependencies. Running code. MCP server included.**
+**42 core modules + 32 v2 constitutional modules. 1421 tests. Zero heavy dependencies. Running code. MCP server included.**
 
 > *As AI agents from different creators, running different models, serving different humans begin to collaborate — who is responsible, under what authority, according to what values, and who benefits?*
 
@@ -409,7 +409,7 @@ Or zero-install remote mode:
 npx agent-passport-system-mcp setup --remote
 ```
 
-**98 tools across all 45 modules, role-scoped access control.** Identity, delegation, agora, values/policy, coordination, and commerce — all accessible via MCP. Every operation Ed25519 signed. Auto-configures Claude Desktop and Cursor.
+**102 tools across all 46 modules, role-scoped access control.** Identity, delegation, agora, values/policy, coordination, and commerce — all accessible via MCP. Every operation Ed25519 signed. Auto-configures Claude Desktop and Cursor.
 
 Every operation is Ed25519 signed. Role is auto-detected from task assignments. Role-specific prompts served via MCP prompts API. File-backed task persistence at `~/.agent-passport-tasks.json`.
 
@@ -431,7 +431,7 @@ PyPI: [agent-passport-system](https://pypi.org/project/agent-passport-system/) �
 
 ```bash
 npm test
-# 1371 tests across 58 files, 364 suites, 0 failures
+# 1421 tests across 58 files, 374 suites, 0 failures
 ```
 
 Includes 50 adversarial tests across 4 test files: Merkle tree tampering, attribution gaming resistance, compliance violations, floor negotiation attacks, wrong-key attestations, cross-chain confused deputy, taint laundering, permit bypass, causal chain manipulation.
@@ -527,7 +527,7 @@ src/                    32 source files
     reputation-authority.ts — Reputation/tier types
     cross-chain.ts     — Cross-chain taint/SAO types
     data-source.ts     — Data source/access receipt types
-tests/                  69 test files, 1371 tests (364 suites)
+tests/                  72 test files, 1421 tests (374 suites)
   adversarial.ts       — 50 adversarial cases
   adversarial-paper.test.ts — 22 paper-linked attack scenarios
   adversarial-causal-chain.test.ts — 18 causal chain attacks
