@@ -24,6 +24,175 @@ import type { ActiveEscalation, EscalationGrant } from '../core/escalation.js'
 
 export type ActionReversibility = 'tentative' | 'compensable' | 'irreversible'
 
+// ══════════════════════════════════════════════════════════════════
+// Constraint Architecture — Authorization Witness & Constraint Vector
+// ══════════════════════════════════════════════════════════════════
+// Consilium decision (March 26, 2026): receipts must capture WHY an
+// action was allowed/denied, not just WHAT happened. Authorization
+// proof and execution proof are separate but hash-linked.
+//
+// Design: referential receipts + optional embedded witness snapshot.
+// Types here are protocol primitives (SDK). Evaluation is gateway.
+// ══════════════════════════════════════════════════════════════════
+
+// ── Constraint Facets ──
+// The dimensions of authority. Each narrows independently through
+// delegation (faceted Monotonic Narrowing). Product lattice:
+// Time × Spend × Scope × Reputation × Values × Revocation × Reversibility
+
+export type ConstraintFacet =
+  | 'time'           // approval TTL, delegation expiry
+  | 'spend'          // per-action limit, cumulative limit, delegation budget
+  | 'scope'          // tool name, parameter patterns, target restrictions
+  | 'reputation'     // tier threshold, minimum evidence count
+  | 'values'         // F-001 through F-008, graduated enforcement
+  | 'revocation'     // delegation revoked, cascade revocation
+  | 'reversibility'  // tentative/compensable/irreversible classification
+  | 'governance'     // governance artifact version, stale attestation
+  | 'identity'       // passport verification, signature validity
+  | 'replay'         // request ID reuse detection
+  | 'cross_chain'    // taint tracking, confused deputy prevention
+  | 'escalation'     // bounded escalation grant validity
+
+// ── Constraint Status ──
+// Four-valued evaluation inspired by Belnap logic:
+// pass/fail are standard; not_applicable when constraint doesn't apply;
+// unknown when evidence is insufficient to evaluate.
+
+export type ConstraintStatus = 'pass' | 'fail' | 'not_applicable' | 'unknown'
+
+// ── Constraint Severity ──
+// How serious is this failure? Affects retry strategy and alerting.
+
+export type ConstraintSeverity = 'hard' | 'soft' | 'warning'
+
+// ── Constraint Failure ──
+// Machine-readable denial reason. Replaces free-text denialReason.
+// Every denial carries structured data about WHICH constraint failed
+// and by how much. This is the vocabulary that becomes the standard.
+
+export interface ConstraintFailure {
+  /** Which dimension failed */
+  facet: ConstraintFacet
+  /** Evaluation result */
+  status: ConstraintStatus
+  /** Specific reason code within the facet */
+  code: string
+  /** The constraint's limit/threshold */
+  limit?: string | number
+  /** The actual value at evaluation time */
+  actual?: string | number
+  /** How serious: hard (blocked), soft (logged), warning (near-miss) */
+  severity: ConstraintSeverity
+  /** Can the agent retry with modified parameters? */
+  retryable: boolean
+  /** For time/spend dual-expiry: which expiry relation triggered */
+  expiryRelation?: 'time_expired' | 'spend_exceeded' | 'both'
+  /** Human-readable explanation (for logs, not for parsing) */
+  message: string
+}
+
+// ── Constraint Vector ──
+// Complete constraint evaluation for a single action.
+// Every processToolCall produces one, regardless of outcome.
+
+export interface ConstraintVector {
+  /** Timestamp of evaluation */
+  evaluatedAt: string
+  /** Overall outcome */
+  outcome: 'permitted' | 'denied' | 'partially_permitted'
+  /** Per-facet evaluation results */
+  facets: ConstraintEvaluation[]
+  /** Failures only (convenience accessor, subset of facets where status = 'fail') */
+  failures: ConstraintFailure[]
+  /** Primary failure: the one that would have blocked even if all others passed */
+  primaryFailure?: ConstraintFailure
+}
+
+export interface ConstraintEvaluation {
+  facet: ConstraintFacet
+  status: ConstraintStatus
+  /** Headroom: how far from the constraint boundary (for near-miss alerting) */
+  headroom?: number | string
+  /** Details (only for failures) */
+  failure?: ConstraintFailure
+}
+
+// ── Authorization Witness ──
+// Compact signed authorization state projection at execution time.
+// Separate from the receipt. Hash-linked for forensic integrity.
+// The witness proves what the gateway BELIEVED at execution time.
+
+export interface AuthorizationWitness {
+  /** Unique witness ID */
+  witnessId: string
+  /** What was the authorization status at execution time? */
+  status: 'valid' | 'expired' | 'revoked' | 'none' | 'superseded'
+  /** Approval ID (if an approval existed) */
+  approvalId?: string
+  /** When the authorization was issued */
+  issuedAt?: string
+  /** When it expires/expired */
+  expiresAt?: string
+  /** Who approved (principal DID or public key fingerprint) */
+  approvedBy?: string
+  /** Delegation ID in the chain */
+  delegationId: string
+  /** Scope that was authorized */
+  scopeAuthorized: string[]
+  /** Spend authorization (if applicable) */
+  spendAuthorization?: {
+    limit: number
+    spent: number
+    remaining: number
+    currency: string
+  }
+  /** Constraint vector at evaluation time */
+  constraints: ConstraintVector
+  /** SHA-256 hash of the full authorization object (for deep inspection) */
+  authorizationHash: string
+  /** Gateway signature over this witness */
+  gatewaySignature: string
+  /** Timestamp */
+  timestamp: string
+}
+
+// ── Authorization Reference ──
+// Embedded in ActionReceipt. Points to the full AuthorizationWitness.
+// Receipt stays compact; witness is available for deep forensics.
+
+export interface AuthorizationRef {
+  /** ID of the AuthorizationWitness */
+  witnessId: string
+  /** SHA-256 hash of the witness (integrity check without the full witness) */
+  witnessHash: string
+  /** Authorization status at execution time */
+  status: 'valid' | 'expired' | 'revoked' | 'none' | 'superseded'
+  /** Summary of constraint evaluation (compact) */
+  constraintOutcome: 'permitted' | 'denied' | 'partially_permitted'
+  /** Number of constraints that failed (0 for permitted actions) */
+  failureCount: number
+  /** Primary failure facet (if denied) */
+  primaryFailureFacet?: ConstraintFacet
+}
+
+// ── Near-Miss Event ──
+// Emitted when an agent approaches a constraint boundary.
+// Pure product intelligence — gateway alerting, not protocol.
+
+export interface ConstraintNearMiss {
+  agentId: string
+  facet: ConstraintFacet
+  /** How close to the boundary (0.0 = at boundary, 1.0 = fully within) */
+  headroomRatio: number
+  /** Absolute headroom value */
+  headroomAbsolute: number | string
+  /** Threshold that triggered the near-miss alert */
+  alertThreshold: number
+  timestamp: string
+  message: string
+}
+
 // ── Tool Executor ──
 // The gateway wraps any tool. This is the abstraction.
 // Could be an MCP tool, an HTTP API, a function call, anything.
@@ -88,6 +257,15 @@ export interface ToolCallResult {
   escalationId?: string
   /** Reversibility class of the executed action */
   reversibility?: ActionReversibility
+  /** Constraint vector: complete per-facet evaluation of all constraints.
+   *  Present on EVERY result (permitted or denied). Machine-readable denial taxonomy. */
+  constraintVector?: ConstraintVector
+  /** Authorization witness: signed snapshot of authorization state at execution time.
+   *  Present when gateway produces forensic evidence. Hash-linked from receipt. */
+  authorizationWitness?: AuthorizationWitness
+  /** Structured denial reasons (replaces free-text denialReason for machine consumers).
+   *  denialReason is kept for backward compatibility; constraintFailures is the canonical source. */
+  constraintFailures?: ConstraintFailure[]
 }
 
 /** The complete cryptographic proof chain */

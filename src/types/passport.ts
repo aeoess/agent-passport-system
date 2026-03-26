@@ -86,6 +86,10 @@ export interface ActionReceipt {
   /** If tombstoned (GDPR), payload is redacted but hash chain and signature preserved */
   tombstoned?: boolean
   tombstoneReason?: string
+  /** Authorization context: links this receipt to the authorization that permitted execution.
+   *  Separate from the receipt itself — the AuthorizationRef is compact; the full
+   *  AuthorizationWitness is available for deep forensics via witnessId lookup. */
+  authorizationRef?: import('./gateway.js').AuthorizationRef
 }
 
 export interface RevocationRecord {

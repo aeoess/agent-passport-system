@@ -236,6 +236,9 @@ export type {
   ToolCallRequest, ToolCallResult, GatewayProof,
   GatewayApproval, ToolExecutor, GatewayConfig,
   RegisteredAgent, GatewayStats, ActionReversibility, GatewayAgentRole,
+  ConstraintFacet, ConstraintStatus, ConstraintSeverity,
+  ConstraintFailure, ConstraintVector, ConstraintEvaluation,
+  AuthorizationWitness, AuthorizationRef, ConstraintNearMiss,
 } from './types/gateway.js'
 
 // ── Layer 9: W3C DID & Verifiable Credentials Bridge ──

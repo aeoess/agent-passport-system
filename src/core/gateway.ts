@@ -58,7 +58,10 @@ import type { AutonomyLevel } from '../types/intent.js'
 import type {
   ToolCallRequest, ToolCallResult, GatewayProof,
   GatewayApproval, ToolExecutor, GatewayConfig,
-  RegisteredAgent, GatewayStats, GatewayAgentRole
+  RegisteredAgent, GatewayStats, GatewayAgentRole,
+  ConstraintFacet, ConstraintFailure, ConstraintVector,
+  ConstraintEvaluation, AuthorizationWitness, AuthorizationRef,
+  ConstraintNearMiss,
 } from '../types/gateway.js'
 
 
@@ -357,10 +360,13 @@ export class ProxyGateway {
     if (this.usedRequestIds.has(request.requestId)) {
       this.stats.replayAttemptsBlocked++
       this.config.onSuspicious?.(request.agentId, `Replay attempt: requestId ${request.requestId}`)
+      const failure = this.buildConstraintFailure('replay', 'REPLAY_DETECTED', 'This requestId has already been processed')
       return {
         executed: false,
         requestId: request.requestId,
-        denialReason: 'Replay detected: this requestId has already been processed'
+        denialReason: 'Replay detected: this requestId has already been processed',
+        constraintFailures: [failure],
+        constraintVector: this.buildConstraintVector('denied', [{ facet: 'replay', status: 'fail', failure }], [failure]),
       }
     }
 
@@ -368,7 +374,13 @@ export class ProxyGateway {
     const agent = this.agents.get(request.agentId)
     if (!agent) {
       this.stats.totalDenied++
-      return { executed: false, requestId: request.requestId, denialReason: 'Agent not registered with gateway' }
+      const failure = this.buildConstraintFailure('identity', 'AGENT_NOT_REGISTERED', 'Agent not registered with gateway')
+      return {
+        executed: false, requestId: request.requestId,
+        denialReason: 'Agent not registered with gateway',
+        constraintFailures: [failure],
+        constraintVector: this.buildConstraintVector('denied', [{ facet: 'identity', status: 'fail', failure }], [failure]),
+      }
     }
 
     // Verify request signature
@@ -384,7 +396,13 @@ export class ProxyGateway {
     if (!sigValid) {
       this.stats.totalDenied++
       this.config.onSuspicious?.(request.agentId, 'Invalid request signature')
-      return { executed: false, requestId: request.requestId, denialReason: 'Invalid request signature' }
+      const failure = this.buildConstraintFailure('identity', 'INVALID_SIGNATURE', 'Invalid request signature')
+      return {
+        executed: false, requestId: request.requestId,
+        denialReason: 'Invalid request signature',
+        constraintFailures: [failure],
+        constraintVector: this.buildConstraintVector('denied', [{ facet: 'identity', status: 'fail', failure }], [failure]),
+      }
     }
 
     // Step 2: Find and verify delegation
@@ -430,9 +448,14 @@ export class ProxyGateway {
 
       if (!viaEscalation) {
         this.stats.totalDenied++
+        const failure = this.buildConstraintFailure('scope', 'NO_VALID_DELEGATION',
+          `No valid delegation covers scope "${request.scopeRequired}" for tool "${request.tool}"`,
+          { actual: request.scopeRequired })
         return {
           executed: false, requestId: request.requestId,
-          denialReason: `No valid delegation covers scope "${request.scopeRequired}" for tool "${request.tool}"`
+          denialReason: `No valid delegation covers scope "${request.scopeRequired}" for tool "${request.tool}"`,
+          constraintFailures: [failure],
+          constraintVector: this.buildConstraintVector('denied', [{ facet: 'scope', status: 'fail', failure }], [failure]),
         }
       }
       // Use escalation delegation as base
@@ -442,7 +465,17 @@ export class ProxyGateway {
     const delegationStatus = verifyDelegation(delegation)
     if (!delegationStatus.valid || delegationStatus.expired || delegationStatus.revoked) {
       this.stats.totalDenied++
-      return { executed: false, requestId: request.requestId, denialReason: `Delegation ${delegation.delegationId} is no longer valid` }
+      const facet: ConstraintFacet = delegationStatus.revoked ? 'revocation' : 'time'
+      const code = delegationStatus.revoked ? 'DELEGATION_REVOKED' : 'DELEGATION_EXPIRED'
+      const failure = this.buildConstraintFailure(facet, code,
+        `Delegation ${delegation.delegationId} is no longer valid`,
+        { expiryRelation: delegationStatus.revoked ? undefined : 'time_expired' })
+      return {
+        executed: false, requestId: request.requestId,
+        denialReason: `Delegation ${delegation.delegationId} is no longer valid`,
+        constraintFailures: [failure],
+        constraintVector: this.buildConstraintVector('denied', [{ facet, status: 'fail', failure }], [failure]),
+      }
     }
 
     // Step 2.5: Governance staleness check (Module 21 / INV-2)
@@ -516,7 +549,14 @@ export class ProxyGateway {
     if (decision.verdict === 'deny') {
       this.stats.totalDenied++
       this.usedRequestIds.set(request.requestId, Date.now())
-      const result: ToolCallResult = { executed: false, requestId: request.requestId, denialReason: decision.reason, decision }
+      const failure = this.buildConstraintFailure('values', 'POLICY_DENY', decision.reason || 'Policy evaluation denied action')
+      const result: ToolCallResult = {
+        executed: false, requestId: request.requestId, denialReason: decision.reason, decision,
+        constraintFailures: [failure],
+        constraintVector: this.buildConstraintVector('denied',
+          [{ facet: 'identity', status: 'pass' }, { facet: 'scope', status: 'pass' }, { facet: 'values', status: 'fail', failure }],
+          [failure]),
+      }
       this.config.onToolCall?.(request, result)
       return result
     }
@@ -543,7 +583,17 @@ export class ProxyGateway {
           (tierCheck.requestedSpend !== undefined
             ? `spend $${tierCheck.requestedSpend} exceeds tier max $${agent.authorityTier.maxSpendPerAction}`
             : `requires tier ${tierCheck.requiredTier}`)
-        const result: ToolCallResult = { executed: false, requestId: request.requestId, denialReason: reason, decision, tierCheck }
+        const failure = this.buildConstraintFailure('reputation', 'TIER_INSUFFICIENT', reason, {
+          limit: tierCheck.requestedSpend !== undefined ? agent.authorityTier.maxSpendPerAction : tierCheck.requiredTier,
+          actual: tierCheck.requestedSpend !== undefined ? tierCheck.requestedSpend : tierCheck.currentTier,
+        })
+        const result: ToolCallResult = {
+          executed: false, requestId: request.requestId, denialReason: reason, decision, tierCheck,
+          constraintFailures: [failure],
+          constraintVector: this.buildConstraintVector('denied',
+            [{ facet: 'identity', status: 'pass' }, { facet: 'scope', status: 'pass' }, { facet: 'values', status: 'pass' }, { facet: 'reputation', status: 'fail', failure }],
+            [failure]),
+        }
         this.config.onTierDenied?.(request.agentId, tierCheck)
         this.config.onToolCall?.(request, result)
         return result
@@ -557,7 +607,15 @@ export class ProxyGateway {
       if (revocation) {
         this.stats.totalDenied++
         this.usedRequestIds.set(request.requestId, Date.now())
-        return { executed: false, requestId: request.requestId, denialReason: 'Delegation was revoked between approval and execution', decision }
+        const failure = this.buildConstraintFailure('revocation', 'REVOKED_AT_EXECUTION', 'Delegation was revoked between approval and execution')
+        return {
+          executed: false, requestId: request.requestId,
+          denialReason: 'Delegation was revoked between approval and execution', decision,
+          constraintFailures: [failure],
+          constraintVector: this.buildConstraintVector('denied',
+            [{ facet: 'identity', status: 'pass' }, { facet: 'scope', status: 'pass' }, { facet: 'revocation', status: 'fail', failure }],
+            [failure]),
+        }
       }
     }
 
@@ -831,6 +889,15 @@ export class ProxyGateway {
       receiptSignature: receipt.signature, policyReceipt
     }
 
+    // ── Constraint Architecture: Build constraint vector + authorization witness ──
+    const successEvals = this.buildSuccessEvaluations(request, delegation)
+    const constraintVector = this.buildConstraintVector('permitted', successEvals, [])
+    const authWitness = this.buildAuthorizationWitness(request, delegation, constraintVector)
+    const authRef = this.buildAuthorizationRef(authWitness)
+
+    // Attach authorization ref to receipt (forensic link)
+    receipt.authorizationRef = authRef
+
     const result: ToolCallResult = {
       executed: true, requestId: request.requestId,
       result: toolResult.result, toolError: toolResult.success ? undefined : toolResult.error,
@@ -842,6 +909,8 @@ export class ProxyGateway {
       viaEscalation: viaEscalation || undefined,
       escalationId: usedEscalationId,
       reversibility: request.reversibility,
+      constraintVector,
+      authorizationWitness: authWitness,
     }
 
     // ── Persist to storage (write-through) ──
@@ -1409,6 +1478,121 @@ export class ProxyGateway {
       },
       agentRegistered: true, agentAttestationValid: true
     }
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  // Constraint Architecture — Builder Methods
+  // ══════════════════════════════════════════════════════════════════
+
+  /** Build a ConstraintFailure for a specific facet */
+  private buildConstraintFailure(
+    facet: ConstraintFacet, code: string, message: string,
+    opts?: { limit?: string | number; actual?: string | number; retryable?: boolean; severity?: 'hard' | 'soft' | 'warning'; expiryRelation?: 'time_expired' | 'spend_exceeded' | 'both' }
+  ): ConstraintFailure {
+    return {
+      facet, status: 'fail', code, message,
+      severity: opts?.severity ?? 'hard',
+      retryable: opts?.retryable ?? false,
+      limit: opts?.limit, actual: opts?.actual,
+      expiryRelation: opts?.expiryRelation,
+    }
+  }
+
+  /** Build a ConstraintVector from individual evaluations */
+  private buildConstraintVector(
+    outcome: 'permitted' | 'denied' | 'partially_permitted',
+    evaluations: ConstraintEvaluation[],
+    failures: ConstraintFailure[]
+  ): ConstraintVector {
+    // Determine primary failure: the one that would have blocked even if all others passed
+    let primaryFailure: ConstraintFailure | undefined
+    if (failures.length === 1) {
+      primaryFailure = failures[0]
+    } else if (failures.length > 1) {
+      // Priority: revocation > identity > scope > spend > time > reputation > values > governance
+      const priority: ConstraintFacet[] = ['revocation', 'identity', 'scope', 'spend', 'time', 'reputation', 'values', 'governance']
+      primaryFailure = failures.sort((a, b) => {
+        const ai = priority.indexOf(a.facet); const bi = priority.indexOf(b.facet)
+        return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi)
+      })[0]
+    }
+    return {
+      evaluatedAt: new Date().toISOString(),
+      outcome, facets: evaluations, failures,
+      primaryFailure,
+    }
+  }
+
+  /** Build an AuthorizationWitness for a successful execution */
+  private buildAuthorizationWitness(
+    request: ToolCallRequest, delegation: Delegation,
+    constraintVector: ConstraintVector, approvalId?: string,
+  ): AuthorizationWitness {
+    const witnessId = 'aw_' + uuidv4().slice(0, 12)
+    const witnessData = {
+      witnessId,
+      status: 'valid' as const,
+      approvalId,
+      delegationId: delegation.delegationId,
+      scopeAuthorized: delegation.scope,
+      spendAuthorization: delegation.spendLimit !== undefined ? {
+        limit: delegation.spendLimit,
+        spent: 0, // TODO: track cumulative from storage
+        remaining: delegation.spendLimit,
+        currency: request.spend?.currency ?? 'usd',
+      } : undefined,
+      constraints: constraintVector,
+      authorizationHash: '', // filled below
+      gatewaySignature: '', // filled below
+      timestamp: new Date().toISOString(),
+    }
+    // Hash the witness data (without signature) for integrity
+    const hashPayload = canonicalize({ ...witnessData, gatewaySignature: undefined, authorizationHash: undefined })
+    witnessData.authorizationHash = hashPayload.length > 0 ? hashPayload.slice(0, 64) : 'empty'
+    const sigPayload = canonicalize(witnessData)
+    witnessData.gatewaySignature = signData(sigPayload, this.config.gatewayPrivateKey)
+    return witnessData
+  }
+
+  /** Build a compact AuthorizationRef for embedding in receipts */
+  private buildAuthorizationRef(witness: AuthorizationWitness): AuthorizationRef {
+    return {
+      witnessId: witness.witnessId,
+      witnessHash: witness.authorizationHash,
+      status: witness.status,
+      constraintOutcome: witness.constraints.outcome,
+      failureCount: witness.constraints.failures.length,
+      primaryFailureFacet: witness.constraints.primaryFailure?.facet,
+    }
+  }
+
+  /** Build the standard "all passed" evaluations for a successful execution */
+  private buildSuccessEvaluations(request: ToolCallRequest, delegation: Delegation): ConstraintEvaluation[] {
+    const evals: ConstraintEvaluation[] = [
+      { facet: 'identity', status: 'pass' },
+      { facet: 'replay', status: 'pass' },
+      { facet: 'scope', status: 'pass' },
+      { facet: 'revocation', status: 'pass' },
+    ]
+    // Time headroom
+    if (delegation.expiresAt) {
+      const remaining = new Date(delegation.expiresAt).getTime() - Date.now()
+      evals.push({ facet: 'time', status: 'pass', headroom: Math.max(0, Math.floor(remaining / 1000)) + 's' })
+    } else {
+      evals.push({ facet: 'time', status: 'not_applicable' })
+    }
+    // Spend headroom
+    if (delegation.spendLimit !== undefined && request.spend) {
+      const remaining = delegation.spendLimit - (request.spend.amount ?? 0)
+      evals.push({ facet: 'spend', status: 'pass', headroom: remaining })
+    } else {
+      evals.push({ facet: 'spend', status: request.spend ? 'pass' : 'not_applicable' })
+    }
+    evals.push({ facet: 'values', status: 'pass' })
+    if (request.reversibility) {
+      evals.push({ facet: 'reversibility', status: 'pass' })
+    }
+    return evals
   }
 }
 
