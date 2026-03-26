@@ -55,6 +55,8 @@ export interface Delegation {
   createdAt: string
   /** Hash of the obligation IDs accepted with this delegation (Module 20) */
   obligationBundleHash?: string
+  /** Optional: URL that gateways should poll for revocation status (enables future multi-gateway) */
+  revocationCheckUrl?: string
   signature: string  // signed by delegator
 }
 
@@ -77,6 +79,13 @@ export interface ActionReceipt {
   }
   delegationChain: string[]  // public key fingerprints from principal to executor
   signature: string  // signed by executing agent
+  /** Optional: independent witness signature (notary pattern — witness ≠ executor) */
+  witnessSignature?: string
+  /** Optional: hash of previous receipt in chain (for append-only chain verification) */
+  previousReceiptHash?: string
+  /** If tombstoned (GDPR), payload is redacted but hash chain and signature preserved */
+  tombstoned?: boolean
+  tombstoneReason?: string
 }
 
 export interface RevocationRecord {

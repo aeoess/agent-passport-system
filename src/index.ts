@@ -726,3 +726,11 @@ export {
 export type {
   AccessReceipt, GovernanceCheckResult, Full360Result,
 } from './core/governance-consumer.js'
+
+// ── Storage Layer ──
+export { VolatileBackend } from './storage/volatile-backend.js'
+export type {
+  StorageBackend, StorageOperations, StoredAgentRecord,
+  CursorPage, ReceiptFilter, SpendReservation, SpendReservationResult,
+  GatewayCheckpoint, IntegrityReport, CheckpointCallback
+} from './storage/types.js'
