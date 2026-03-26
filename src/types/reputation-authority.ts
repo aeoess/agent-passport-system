@@ -24,6 +24,38 @@ export interface ScopedReputation {
   sigma: number            // Uncertainty (0-50, higher = less certain)
   receiptCount: number     // Total receipts in this scope
   lastUpdatedAt: string
+  /** Evidence diversity metadata — sybil resistance through diversity requirements.
+   *  High score + low diversity = low confidence = restricted effective authority. */
+  evidenceDiversity?: EvidenceDiversity
+  /** Computed confidence (0-1). Low with few/homogeneous interactions,
+   *  high with many/diverse interactions. Sybil defense: farming cheap
+   *  interactions from one source keeps confidence low. */
+  confidence?: number
+}
+
+/**
+ * Evidence diversity tracks HOW VARIED an agent's track record is.
+ * An agent with 100 tasks from one principal has low diversity.
+ * An agent with 30 tasks from 10 principals across 5 task types has high diversity.
+ * This is the sybil defense: diverse evidence is hard to fake.
+ */
+export interface EvidenceDiversity {
+  /** Number of distinct principals who delegated to this agent */
+  distinctPrincipals: number
+  /** Number of distinct task types completed */
+  distinctTaskTypes: number
+  /** Number of distinct evidence classes received */
+  distinctEvidenceClasses: number
+  /** Number of successful interactions */
+  successCount: number
+  /** Number of failed interactions */
+  failureCount: number
+  /** Set of principal IDs (for dedup — stored as hashes for privacy) */
+  principalHashes: string[]
+  /** Set of task type strings seen */
+  taskTypesSeen: string[]
+  /** Set of evidence classes seen */
+  evidenceClassesSeen: string[]
 }
 
 // ── Authority Tiers ──

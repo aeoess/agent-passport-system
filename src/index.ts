@@ -317,7 +317,7 @@ export type {
 export {
   DEFAULT_K, MAX_SIGMA, INITIAL_MU, INITIAL_SIGMA, SCARRING_PENALTY,
   DEFAULT_TIERS, DEFAULT_PROMOTION_REQUIREMENTS,
-  computeEffectiveScore, createScopedReputation,
+  computeEffectiveScore, createScopedReputation, computeConfidence, createEvidenceDiversity,
   classifyEvidence, resolveAuthorityTier, shouldDemote,
   effectiveAutonomy, effectiveSpendLimit, effectiveDelegationDepth,
   classifyRuntimeChange, sigmaAfterRuntimeChange,
@@ -329,7 +329,7 @@ export {
 
 export type {
   ScopedReputation, AuthorityTier, TierDefinition, TierOrigin,
-  EvidenceClass, TaskClassification, EvidencePortfolio,
+  EvidenceClass, TaskClassification, EvidencePortfolio, EvidenceDiversity,
   PromotionRequirements, PromotionReview,
   RuntimeProfile, RuntimeChangeClass,
   DemotionCause, DemotionEvent,

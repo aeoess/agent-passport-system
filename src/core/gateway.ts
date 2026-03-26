@@ -818,7 +818,10 @@ export class ProxyGateway {
     if (this.config.enableReputationGating && agent.reputation && agent.authorityTier) {
       const evidenceClass: EvidenceClass = request.evidenceClass ?? this.config.defaultEvidenceClass ?? 'standard'
       const success = toolResult.success
-      agent.reputation = updateReputationFromResult(agent.reputation, success, evidenceClass);
+      agent.reputation = updateReputationFromResult(agent.reputation, success, evidenceClass, {
+        principalHash: delegation.delegatedBy.slice(0, 16),  // first 16 chars as hash
+        taskType: request.tool,
+      });
       (this.stats.reputationUpdates as number)++
 
       // Recompute tier
@@ -1180,7 +1183,10 @@ export class ProxyGateway {
     // Reputation update (step 8.7 parity)
     if (this.config.enableReputationGating && agent.reputation && agent.authorityTier) {
       const evidenceClass: EvidenceClass = approval.evidenceClass ?? this.config.defaultEvidenceClass ?? 'standard'
-      agent.reputation = updateReputationFromResult(agent.reputation, toolResult.success, evidenceClass);
+      agent.reputation = updateReputationFromResult(agent.reputation, toolResult.success, evidenceClass, {
+        principalHash: delegation.delegatedBy.slice(0, 16),
+        taskType: approval.tool,
+      });
       (this.stats.reputationUpdates as number)++
       const newScore = computeEffectiveScore(agent.reputation.mu, agent.reputation.sigma)
       const newTierDef = resolveAuthorityTier(newScore, agent.authorityTier.demotionCount)

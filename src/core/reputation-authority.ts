@@ -12,7 +12,7 @@ import { sign, verify } from '../crypto/keys.js'
 import { canonicalize } from './canonical.js'
 import type {
   ScopedReputation, TierDefinition,
-  EvidenceClass, TaskClassification, EvidencePortfolio,
+  EvidenceClass, TaskClassification, EvidencePortfolio, EvidenceDiversity,
   PromotionRequirements, PromotionReview,
   RuntimeProfile, RuntimeChangeClass,
   DemotionCause, DemotionEvent, TierOrigin,
@@ -76,7 +76,75 @@ export function createScopedReputation(
     sigma: INITIAL_SIGMA,
     receiptCount: 0,
     lastUpdatedAt: new Date().toISOString(),
+    evidenceDiversity: createEvidenceDiversity(),
+    confidence: 0,
   }
+}
+
+/**
+ * Create empty evidence diversity metadata.
+ */
+export function createEvidenceDiversity(): EvidenceDiversity {
+  return {
+    distinctPrincipals: 0,
+    distinctTaskTypes: 0,
+    distinctEvidenceClasses: 0,
+    successCount: 0,
+    failureCount: 0,
+    principalHashes: [],
+    taskTypesSeen: [],
+    evidenceClassesSeen: [],
+  }
+}
+
+/**
+ * Compute confidence (0-1) from evidence diversity and volume.
+ *
+ * Confidence is the product of four sub-scores:
+ *   1. Volume: log-scaled receipt count (saturates around 100 receipts)
+ *   2. Diversity of principals: more distinct principals = harder to sybil
+ *   3. Diversity of evidence classes: not all trivial tasks
+ *   4. Success/failure balance: some failures are HEALTHIER than 100% success
+ *      (100% success with few interactions is suspicious)
+ *
+ * Each sub-score is [0, 1]. Final confidence = geometric mean.
+ * This means ALL dimensions must be non-zero for meaningful confidence.
+ */
+export function computeConfidence(rep: ScopedReputation): number {
+  const diversity = rep.evidenceDiversity
+  if (!diversity || rep.receiptCount === 0) return 0
+
+  // Volume: log-scaled, saturates around 100 receipts
+  // log2(1+n) / log2(101) → 0 at n=0, ~1.0 at n=100
+  const volumeScore = Math.min(1, Math.log2(1 + rep.receiptCount) / Math.log2(101))
+
+  // Principal diversity: how many distinct principals?
+  // 1 principal = 0.2 (minimum), 5+ principals = 1.0
+  const principalScore = Math.min(1, 0.2 + 0.2 * diversity.distinctPrincipals)
+
+  // Evidence class diversity: how many distinct classes?
+  // 1 class = 0.25, 4 classes = 1.0
+  const classScore = Math.min(1, diversity.distinctEvidenceClasses * 0.25)
+
+  // Healthy failure rate: 0% failures with few receipts is suspicious.
+  // Optimal is 5-15% failure rate (realistic). 0% or >50% both penalized.
+  const total = diversity.successCount + diversity.failureCount
+  if (total === 0) return 0
+  const failRate = diversity.failureCount / total
+  let healthScore: number
+  if (failRate === 0 && total < 20) {
+    healthScore = 0.5  // suspicious: no failures yet with few interactions
+  } else if (failRate >= 0.05 && failRate <= 0.15) {
+    healthScore = 1.0  // healthy range
+  } else if (failRate > 0.5) {
+    healthScore = 0.2  // too many failures
+  } else {
+    healthScore = 0.7  // acceptable
+  }
+
+  // Geometric mean: all dimensions must contribute
+  const raw = Math.pow(volumeScore * principalScore * classScore * healthScore, 0.25)
+  return Math.round(raw * 1000) / 1000
 }
 
 // ── Evidence Classification ──
@@ -569,7 +637,9 @@ const MIN_SIGMA = 1
 export function updateReputationFromResult(
   rep: ScopedReputation,
   success: boolean,
-  evidenceClass: EvidenceClass
+  evidenceClass: EvidenceClass,
+  /** Optional diversity metadata — pass to enable sybil-resistant confidence scoring */
+  diversityUpdate?: { principalHash?: string; taskType?: string }
 ): ScopedReputation {
   const updates = REPUTATION_UPDATES[evidenceClass]
 
@@ -579,11 +649,40 @@ export function updateReputationFromResult(
   const newMu = Math.max(0, Math.min(100, rep.mu + muDelta))
   const newSigma = Math.max(MIN_SIGMA, Math.min(MAX_SIGMA, rep.sigma + sigmaDelta))
 
-  return {
+  // Update evidence diversity if tracking is active
+  let diversity = rep.evidenceDiversity ? { ...rep.evidenceDiversity } : createEvidenceDiversity()
+  diversity = { ...diversity,
+    principalHashes: [...diversity.principalHashes],
+    taskTypesSeen: [...diversity.taskTypesSeen],
+    evidenceClassesSeen: [...diversity.evidenceClassesSeen],
+  }
+
+  if (success) diversity.successCount++
+  else diversity.failureCount++
+
+  if (!diversity.evidenceClassesSeen.includes(evidenceClass)) {
+    diversity.evidenceClassesSeen.push(evidenceClass)
+    diversity.distinctEvidenceClasses = diversity.evidenceClassesSeen.length
+  }
+
+  if (diversityUpdate?.principalHash && !diversity.principalHashes.includes(diversityUpdate.principalHash)) {
+    diversity.principalHashes.push(diversityUpdate.principalHash)
+    diversity.distinctPrincipals = diversity.principalHashes.length
+  }
+
+  if (diversityUpdate?.taskType && !diversity.taskTypesSeen.includes(diversityUpdate.taskType)) {
+    diversity.taskTypesSeen.push(diversityUpdate.taskType)
+    diversity.distinctTaskTypes = diversity.taskTypesSeen.length
+  }
+
+  const updated: ScopedReputation = {
     ...rep,
     mu: Math.round(newMu * 100) / 100,
     sigma: Math.round(newSigma * 100) / 100,
     receiptCount: rep.receiptCount + 1,
     lastUpdatedAt: new Date().toISOString(),
+    evidenceDiversity: diversity,
   }
+  updated.confidence = computeConfidence(updated)
+  return updated
 }
