@@ -142,6 +142,22 @@ This function is called at both the SDK layer (subDelegate, createReceipt) and t
 
 **Limitations.** Scope semantics are string-based with hierarchical matching, not ontological. The protocol does not prevent a principal from issuing an overly broad delegation; it only prevents sub-delegations from widening scope.
 
+#### 3.2.1 Generalization: Faceted Narrowing over Product Lattices
+
+The three conditions above (scope ⊆, spendLimit ≤, depth <) are not independent properties. They are instances of a single structural principle: authority is an element of a **product lattice**, and delegation is a **monotone function** on that lattice.
+
+**Definition (Authority Space).** We define the authority space as a product of ordered sets: **A** = D₁ × D₂ × ... × Dₙ, where each Dₖ is a partially ordered set with a meet operation (⊓) representing the narrowing of authority along that dimension. For the Agent Passport System, the dimensions include scope (set inclusion over labels), spend (natural ordering of non-negative reals), depth (natural ordering), time (seconds remaining), reputation (effective score), values (floor principles as set inclusion), and reversibility (tentative ≤ compensable ≤ irreversible).
+
+**Definition (Product Ordering).** The product lattice ordering ≤_A is defined componentwise: a ≤_A b if and only if aₖ ≤ₖ bₖ for all dimensions k. A delegation function δ: A → A is monotone if δ(a) ≤_A a for all a ∈ A.
+
+**Theorem (Faceted Monotonic Narrowing).** For any delegation chain d₁, d₂, ..., dₖ: auth(dₖ) ≤_A auth(dₖ₋₁) ≤_A ... ≤_A auth(d₁). Authority monotonically narrows along the chain in the product lattice ordering. *Proof.* Each delegation step is monotone by definition. Composition of monotone functions on a product lattice is monotone (standard result from order theory). □
+
+**Corollary.** The original three-condition formulation is recovered by projecting the product ordering onto three dimensions (scope, spend, depth). Faceted narrowing is strictly more general: it extends naturally to any additional authority dimension without modifying the formalization.
+
+**Connection to established theory.** The product lattice construction connects to lattice-based access control (Denning 1976, Sandhu 1993), where security levels form a lattice and information flow is restricted by the lattice ordering. Constraint checking in the gateway can be formalized as abstract interpretation (Cousot and Cousot 1977) over the authority lattice: the abstraction maps actions to minimum required authority elements, and the soundness guarantee states that if the abstract check permits the action, the concrete execution is within the principal's intended authority. The delegation chain forms a directed-complete partial order (dcpo) in the sense of domain theory (Scott 1970), with the agent's effective authority as the infimum of all delegations in its chain.
+
+**Implementation.** The ConstraintVector type (SDK v1.25.0+) is the runtime representation of authority evaluation over the product lattice: each ConstraintEvaluation corresponds to one dimension Dₖ, with status indicating whether the action is within authority in that dimension. The AuthorizationWitness captures the agent's position in the authority lattice at execution time as a signed, verifiable record. These types are protocol primitives — the evaluation logic that determines WHERE in the lattice an agent sits is enforcement-layer intelligence.
+
 ### 3.3 INV-2: Governance Attenuation
 
 **Informal statement.** Governance artifacts (floors, policies, delegation templates) can only strengthen over time. Weakening an existing governance artifact requires higher-order authorization than strengthening it.
