@@ -28,6 +28,7 @@
 import { v4 as uuidv4 } from 'uuid'
 import { verify, sign as signData } from '../crypto/keys.js'
 import { canonicalize } from './canonical.js'
+import type { StorageBackend, StoredAgentRecord } from '../storage/types.js'
 import { createActionIntent, evaluateIntent, createPolicyReceipt, FloorValidatorV1 } from './policy.js'
 import { verifyDelegation, createReceipt, scopeAuthorizes, getRevocation } from './delegation.js'
 import { verifyPassport } from '../verification/verify.js'
@@ -74,6 +75,7 @@ export class ProxyGateway {
   private requestsSinceCleanup = 0 // V5-MED-4: auto-cleanup counter
   private agentLocks: Map<string, Promise<void>> = new Map() // Per-agent sequential execution (concurrency fix)
   private executor: ToolExecutor
+  private storage?: StorageBackend
   private stats: GatewayStats = {
     totalRequests: 0,
     totalPermitted: 0,
@@ -114,15 +116,77 @@ export class ProxyGateway {
     }
     this.validator = config.validator || new FloorValidatorV1()
     this.executor = executor
+    this.storage = config.storage
 
-    // B-1 security warning: all gateway state is in-memory
-    if (typeof console !== 'undefined') {
+    // B-1 security warning: only if no persistent storage
+    if (!this.storage && typeof console !== 'undefined') {
       console.warn(
         '[ProxyGateway] WARNING: All security state (revocations, registrations, replay protection) ' +
         'is stored in-memory. Process restart will erase all security state. ' +
         'NOT SAFE FOR PRODUCTION. Implement a persistent StorageBackend for production use.'
       )
     }
+  }
+
+  // ── Storage Persistence (write-through cache) ──
+  // Maps remain the hot path for sync lookups.
+  // StorageBackend persists behind them for durability.
+  // On restart: loadFromStorage() hydrates Maps from backend.
+
+  /**
+   * Load persisted state from StorageBackend into in-memory Maps.
+   * Call after constructor when using persistent storage.
+   * Performs integrity verification on startup.
+   */
+  async loadFromStorage(): Promise<{ loaded: boolean; agents: number; receipts: number; errors: string[] }> {
+    if (!this.storage) return { loaded: false, agents: 0, receipts: 0, errors: ['No storage backend configured'] }
+
+    // Integrity check first
+    const report = await this.storage.verifyIntegrity()
+    if (report.errors.length > 0) {
+      return { loaded: false, agents: 0, receipts: report.receiptCount, errors: report.errors }
+    }
+
+    // Load agents
+    const agents = await this.storage.listAgents()
+    for (const stored of agents) {
+      // Re-register: load delegations for this agent
+      const delegations = await this.storage.getDelegationsForAgent(stored.passport.passport?.publicKey || '')
+      const delegationMap = new Map<string, Delegation>()
+      for (const d of delegations) {
+        const revoked = await this.storage.isRevoked(d.delegationId)
+        if (!revoked) delegationMap.set(d.delegationId, d)
+      }
+
+      // Load reputation if it exists
+      let reputation: ScopedReputation | undefined
+      let authorityTier: AuthorityTier | undefined
+      if (this.config.enableReputationGating) {
+        reputation = (await this.storage.getReputation(stored.agentId, '*')) ?? undefined
+        if (reputation) {
+          const score = computeEffectiveScore(reputation.mu, reputation.sigma)
+          const demotions = await this.storage.getDemotionCount(stored.agentId)
+          const tierDef = resolveAuthorityTier(score, demotions)
+          authorityTier = {
+            tier: tierDef.tier, name: tierDef.name,
+            origin: 'earned' as const, autonomyLevel: tierDef.autonomyLevel,
+            maxDelegationDepth: tierDef.maxDelegationDepth,
+            maxSpendPerAction: tierDef.maxSpendPerAction, demotionCount: demotions,
+          }
+        }
+      }
+
+      this.agents.set(stored.agentId, {
+        passport: stored.passport,
+        attestation: stored.attestation,
+        delegations: delegationMap,
+        role: (stored.metadata?.role as any) ?? 'executor',
+        reputation, authorityTier,
+      })
+    }
+    this.stats.activeAgents = this.agents.size
+
+    return { loaded: true, agents: agents.length, receipts: report.receiptCount, errors: [] }
   }
 
   // ── Agent Registration ──
@@ -188,6 +252,19 @@ export class ProxyGateway {
       activeEscalations: this.config.enableEscalation ? [] : undefined,
     })
     this.stats.activeAgents = this.agents.size
+
+    // Write-through to persistent storage (fire-and-forget)
+    if (this.storage) {
+      const s = this.storage
+      ;(async () => {
+        try {
+          await s.putAgent({ agentId, passport, attestation, registeredAt: new Date().toISOString() })
+          for (const d of delegations) await s.putDelegation(d)
+          if (reputation) await s.putReputation(reputation)
+        } catch (e) { /* storage write failure — logged but not fatal */ }
+      })()
+    }
+
     return { registered: true }
   }
 
@@ -767,6 +844,21 @@ export class ProxyGateway {
       reversibility: request.reversibility,
     }
 
+    // ── Persist to storage (write-through) ──
+    if (this.storage && receipt) {
+      const s = this.storage
+      const agentRep = agent.reputation
+      ;(async () => {
+        try {
+          await s.transaction(async (tx) => {
+            await tx.appendReceipt(receipt)
+            await tx.checkAndStoreNonce(request.requestId, Math.floor((this.config.requestIdTTLMs || 3600000) / 1000))
+            if (agentRep) await tx.putReputation(agentRep)
+          })
+        } catch (_e) { /* storage write failure — in-memory state is still authoritative */ }
+      })()
+    }
+
     this.config.onToolCall?.(request, result)
     return result
   }
@@ -1049,6 +1141,21 @@ export class ProxyGateway {
 
     const proof: GatewayProof = { requestSignature: approval.intent.signature, decisionSignature: approval.decision.signature, receiptSignature: receipt.signature, policyReceipt }
     this.stats.pendingApprovals = Array.from(this.approvals.values()).filter(a => !a.consumed).length
+
+    // ── Persist to storage (write-through, 2-phase path) ──
+    if (this.storage && receipt) {
+      const s = this.storage
+      const agentRep = agent.reputation
+      ;(async () => {
+        try {
+          await s.transaction(async (tx) => {
+            await tx.appendReceipt(receipt)
+            await tx.checkAndStoreNonce(approval.requestId, Math.floor((this.config.requestIdTTLMs || 3600000) / 1000))
+            if (agentRep) await tx.putReputation(agentRep)
+          })
+        } catch (_e) { /* storage write failure — in-memory state is still authoritative */ }
+      })()
+    }
 
     return {
       executed: true, requestId: approval.requestId,

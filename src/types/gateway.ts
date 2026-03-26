@@ -219,6 +219,10 @@ export interface GatewayConfig {
   onEscalationUsed?: (agentId: string, escalationId: string, tool: string) => void
   /** Callback: fires when an escalation expires */
   onEscalationExpired?: (agentId: string, escalationId: string) => void
+  /** Optional: persistent storage backend. When provided, gateway persists
+   *  agents, delegations, receipts, revocations, nonces, and reputation.
+   *  State survives restarts. Use loadFromStorage() after construction to hydrate. */
+  storage?: import('../storage/types.js').StorageBackend
 }
 
 // ── Registered Agent ──
