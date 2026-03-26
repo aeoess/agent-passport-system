@@ -46,12 +46,13 @@ For the Agent Passport System, the dimensions are:
 | Reputation | ([0,100], ≤) | effective score ordering | 100 | 0 |
 | Values | (V, ⊆) | floor principles as set inclusion | V (all principles attested) | ∅ |
 | Reversibility | ({T,C,I}, ≤) | T ≤ C ≤ I | irreversible | tentative |
+| Fidelity | ([0,1], ≤) | substrate behavioral consistency | 1.0 (perfect) | 0 (total drift) |
 
 ### Definition 2: Authority Element
 
 An authority element a ∈ A is a tuple:
 
-    a = (scope, spend, depth, time, reputation, values, reversibility)
+    a = (scope, spend, depth, time, reputation, values, reversibility, fidelity)
 
 where each component a_k ∈ D_k.
 
@@ -128,7 +129,7 @@ Miller's capability attenuation principle states that a reference holder
 cannot confer rights to another that the holder does not possess. Faceted
 narrowing extends this from a single capability (scope) to a product of
 capabilities (scope × spend × depth × time × reputation × values ×
-reversibility). The extension is natural: Miller's attenuation is faceted
+reversibility × fidelity). The extension is natural: Miller's attenuation is faceted
 narrowing with n=1.
 
 ### Lattice-Based Access Control (Denning 1976, Sandhu 1993)
