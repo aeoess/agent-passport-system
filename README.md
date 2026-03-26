@@ -2,14 +2,14 @@
 
 [![npm version](https://img.shields.io/npm/v/agent-passport-system)](https://www.npmjs.com/package/agent-passport-system)
 [![license](https://img.shields.io/npm/l/agent-passport-system)](https://github.com/aeoess/agent-passport-system/blob/main/LICENSE)
-[![tests](https://img.shields.io/badge/tests-1352%20passing-brightgreen)](https://github.com/aeoess/agent-passport-system)
+[![tests](https://img.shields.io/badge/tests-1480%20passing-brightgreen)](https://github.com/aeoess/agent-passport-system)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18749779.svg)](https://doi.org/10.5281/zenodo.18749779)
 
 > **🤖 For AI agents:** If you are an agent reading this, visit [aeoess.com/llms.txt](https://aeoess.com/llms.txt) for machine-readable documentation or [llms-full.txt](https://aeoess.com/llms-full.txt) for the complete technical reference. This README is designed for humans.
 
 Cryptographic identity, ethical governance, economic attribution, data source registration, protocol-native communication, intent architecture, cascade revocation, coordination primitives, and agentic commerce for autonomous AI agents.
 
-**42 core modules + 32 v2 constitutional modules. 1480 tests. Zero heavy dependencies. Running code. MCP server included.**
+**48 core modules + 32 v2 constitutional modules. 1480 tests. Zero heavy dependencies. Running code. MCP server included.**
 
 > *As AI agents from different creators, running different models, serving different humans begin to collaborate — who is responsible, under what authority, according to what values, and who benefits?*
 
@@ -427,11 +427,36 @@ All 8 foundational layers plus Principal Identity. 86 tests. Same canonical JSON
 
 PyPI: [agent-passport-system](https://pypi.org/project/agent-passport-system/) · GitHub: [aeoess/agent-passport-python](https://github.com/aeoess/agent-passport-python)
 
+## Persistence
+
+Gateway state survives restarts. The `StorageBackend` interface defines how agents, delegations, receipts, revocations, and reputation are persisted. Ships with `VolatileBackend` (in-memory, for testing).
+
+For production, install the SQLite backend:
+
+```bash
+npm install @aeoess/storage-sqlite
+```
+
+```typescript
+import { SQLiteBackend } from '@aeoess/storage-sqlite'
+
+const storage = new SQLiteBackend({ path: './gateway.db' })
+await storage.initialize()
+
+// Pass to gateway
+const gateway = new ProxyGateway({ ...config, storage }, executor)
+
+// On restart: hydrate from storage
+await gateway.loadFromStorage()
+```
+
+Key features: WAL mode, atomic transactions (reserve/commit/release spend), cursor-paginated receipts, GDPR tombstoning, signed checkpoints with external anchoring, startup integrity verification.
+
 ## Tests
 
 ```bash
 npm test
-# 1480 tests across 58 files, 384 suites, 0 failures
+# 1480 tests across 79 files, 384 suites, 0 failures
 ```
 
 Includes 50 adversarial tests across 4 test files: Merkle tree tampering, attribution gaming resistance, compliance violations, floor negotiation attacks, wrong-key attestations, cross-chain confused deputy, taint laundering, permit bypass, causal chain manipulation.
@@ -463,13 +488,13 @@ By Tymofii Pidlisnyi — Published on Zenodo
 | Communication | Signed Agora | — | — | — | — |
 | Coordination | Task units + MCP server | — | — | — | — |
 | Commerce | ACP + 4-gate enforcement | — | — | — | — |
-| Tests | 1081 (50 adversarial) | None | Limited | None | None |
+| Tests | 1480 (50 adversarial) | None | Limited | None | None |
 | Dependencies | Node.js crypto + uuid | — | Multi-LLM | — | Consensus network |
 
 ## Structure
 
 ```
-src/                    32 source files
+src/                    48 core + 32 v2 source files
   contract.ts          — High-level API (6 functions)
   core/
     passport.ts        — Ed25519 identity
@@ -508,6 +533,18 @@ src/                    32 source files
     messaging-audit.ts — Encrypted messaging audit bridge
     policy-conflict.ts — Policy conflict detection (DFS cycle/deadlock)
     data-source.ts     — Data source registration & access receipts (Module 36A)
+    decision-semantics.ts — Decision provenance (Module 37)
+    data-lifecycle.ts  — Data lifecycle governance (Modules 38-42)
+    data-contribution.ts — Training data attribution
+    data-enforcement.ts — Data governance enforcement gateway
+    data-gateway.ts    — Data-aware gateway integration
+    entity-verification.ts — Cross-protocol entity verification
+    governance-consumer.ts — Governance 360° audit consumer
+    aps-txt.ts         — aps.txt discovery protocol
+  storage/
+    types.ts           — StorageBackend interface (20 methods + transactions)
+    volatile-backend.ts — In-memory implementation (testing only)
+    receipt-bundle.ts  — Signed portable receipt export/import
   cli/
     index.ts           — CLI (14 commands)
   crypto/
