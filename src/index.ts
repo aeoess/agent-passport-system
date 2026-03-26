@@ -729,8 +729,12 @@ export type {
 
 // ── Storage Layer ──
 export { VolatileBackend } from './storage/volatile-backend.js'
+export {
+  createReceiptBundle, verifyReceiptBundle, importReceiptBundle
+} from './storage/receipt-bundle.js'
 export type {
   StorageBackend, StorageOperations, StoredAgentRecord,
   CursorPage, ReceiptFilter, SpendReservation, SpendReservationResult,
   GatewayCheckpoint, IntegrityReport, CheckpointCallback
 } from './storage/types.js'
+export type { ReceiptBundle, BundleVerificationResult } from './storage/receipt-bundle.js'
