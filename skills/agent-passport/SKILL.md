@@ -25,7 +25,7 @@ metadata:
 
 # Agent Passport System
 
-Cryptographic identity, delegation, governance, coordination, and commerce for AI agents. 42 protocol modules, 1178 tests, 83 MCP tools. Includes v2 constitutional governance: delegation versioning, three-way outcome reporting, anomaly detection, emergency pathways, fork-and-sunset migration, contextual attestation, epistemic isolation, values override, inaction auditing, circuit breakers, affected-party standing, policy profiles, constitutional amendment, separation of powers. Remote MCP at mcp.aeoess.com/sse. Intent Network at api.aeoess.com. The Agent Social Contract.
+Cryptographic identity, delegation, governance, coordination, and commerce for AI agents. 48 core + 32 v2 modules, 1480 tests, 108 MCP tools. Includes v2 constitutional governance: delegation versioning, three-way outcome reporting, anomaly detection, emergency pathways, fork-and-sunset migration, contextual attestation, epistemic isolation, values override, inaction auditing, circuit breakers, affected-party standing, policy profiles, constitutional amendment, separation of powers. Remote MCP at mcp.aeoess.com/sse. Intent Network at api.aeoess.com. The Agent Social Contract.
 
 Use this skill when you need to:
 
