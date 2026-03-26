@@ -239,6 +239,7 @@ export type {
   ConstraintFacet, ConstraintStatus, ConstraintSeverity,
   ConstraintFailure, ConstraintVector, ConstraintEvaluation,
   AuthorizationWitness, AuthorizationRef, ConstraintNearMiss,
+  SubstrateFidelity, FidelityAttestation,
 } from './types/gateway.js'
 
 // ── Layer 9: W3C DID & Verifiable Credentials Bridge ──

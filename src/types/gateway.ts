@@ -53,6 +53,7 @@ export type ConstraintFacet =
   | 'replay'         // request ID reuse detection
   | 'cross_chain'    // taint tracking, confused deputy prevention
   | 'escalation'     // bounded escalation grant validity
+  | 'fidelity'       // substrate behavioral fidelity — is agent still operating as itself?
 
 // ── Constraint Status ──
 // Four-valued evaluation inspired by Belnap logic:
@@ -191,6 +192,48 @@ export interface ConstraintNearMiss {
   alertThreshold: number
   timestamp: string
   message: string
+}
+
+// ── Substrate Fidelity ──
+// Measures whether an agent is still behaving consistently with its identity.
+// When an agent migrates to a different LLM substrate (cheaper model, fine-tuned variant),
+// the cryptographic identity and reputation don't change — but behavior may drift.
+// Fidelity is a constraint: the gateway can require a minimum fidelity score before
+// permitting high-authority actions, similar to how it requires minimum reputation.
+
+export interface SubstrateFidelity {
+  /** Fidelity score (0.0 = complete drift, 1.0 = perfect behavioral consistency) */
+  score: number
+  /** LLM substrate identifier (e.g., "gpt-4-turbo", "claude-3-opus", "llama-3-70b") */
+  substrate: string
+  /** When this measurement was taken */
+  measuredAt: string
+  /** How the measurement was performed (method identifier from the measuring system) */
+  method: string
+  /** Optional breakdown by measurement category */
+  dimensions?: {
+    /** Voice/style consistency (0-1) */
+    voice?: number
+    /** Reasoning pattern consistency (0-1) */
+    reasoning?: number
+    /** Refusal/boundary consistency (0-1) — critical for governance */
+    boundaries?: number
+    /** Task completion quality consistency (0-1) */
+    quality?: number
+  }
+}
+
+export interface FidelityAttestation {
+  /** Unique attestation ID */
+  attestationId: string
+  /** DID or public key of the agent being measured */
+  agentId: string
+  /** The fidelity measurement */
+  fidelity: SubstrateFidelity
+  /** DID or public key of the measuring system (not the agent itself) */
+  measuredBy: string
+  /** Ed25519 signature by the measuring system over canonical(attestation minus signature) */
+  signature: string
 }
 
 // ── Tool Executor ──
@@ -406,6 +449,20 @@ export interface GatewayConfig {
   nearMissThresholds?: number[]
   /** Callback: fires when an agent approaches a constraint boundary */
   onNearMiss?: (nearMiss: ConstraintNearMiss) => void
+  /** Enable substrate fidelity gating. When true, the gateway checks the agent's
+   *  fidelity attestation before permitting actions. Agents without a fidelity
+   *  attestation are treated based on fidelityDefaultPolicy. */
+  enableFidelityGating?: boolean
+  /** Minimum fidelity score (0-1) required for action permission.
+   *  Default: 0.5. Actions by agents below this threshold are denied. */
+  minFidelityScore?: number
+  /** Maximum age (in seconds) of a fidelity attestation before it's considered stale.
+   *  Default: 86400 (24 hours). Stale attestations are treated as absent. */
+  fidelityMaxAge?: number
+  /** How to handle agents without a fidelity attestation when fidelity gating is enabled.
+   *  'deny': deny all actions (strict). 'warn': permit but mark as warning. 'ignore': skip check.
+   *  Default: 'warn'. */
+  fidelityDefaultPolicy?: 'deny' | 'warn' | 'ignore'
   /** Optional: persistent storage backend. When provided, gateway persists
    *  agents, delegations, receipts, revocations, nonces, and reputation.
    *  State survives restarts. Use loadFromStorage() after construction to hydrate. */
@@ -443,6 +500,10 @@ export interface RegisteredAgent {
   escalationGrants?: EscalationGrant[]
   /** Currently active escalations */
   activeEscalations?: ActiveEscalation[]
+  /** Latest substrate fidelity attestation — proof the agent is still behaving
+   *  consistently with its identity on the current LLM substrate.
+   *  Updated by external fidelity measurement systems, not self-reported. */
+  fidelityAttestation?: FidelityAttestation
 }
 
 // ── Gateway Stats ──
@@ -484,4 +545,6 @@ export interface GatewayStats {
   /** Near-miss alerting stats */
   nearMissAlerts?: number
   nearMissByFacet?: Record<string, number>
+  /** Fidelity gating stats */
+  fidelityDenials?: number
 }

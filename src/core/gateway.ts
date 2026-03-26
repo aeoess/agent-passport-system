@@ -61,7 +61,7 @@ import type {
   RegisteredAgent, GatewayStats, GatewayAgentRole,
   ConstraintFacet, ConstraintFailure, ConstraintVector,
   ConstraintEvaluation, AuthorizationWitness, AuthorizationRef,
-  ConstraintNearMiss,
+  ConstraintNearMiss, FidelityAttestation,
 } from '../types/gateway.js'
 
 
@@ -595,6 +595,26 @@ export class ProxyGateway {
             [failure]),
         }
         this.config.onTierDenied?.(request.agentId, tierCheck)
+        this.config.onToolCall?.(request, result)
+        return result
+      }
+    }
+
+    // Step 4.6: Substrate fidelity check
+    if (this.config.enableFidelityGating) {
+      const fidelityResult = this.checkFidelity(agent, request)
+      if (fidelityResult) {
+        this.stats.totalDenied++;
+        (this.stats.fidelityDenials as number) = ((this.stats.fidelityDenials as number) ?? 0) + 1
+        this.usedRequestIds.set(request.requestId, Date.now())
+        const result: ToolCallResult = {
+          executed: false, requestId: request.requestId, denialReason: fidelityResult.reason, decision,
+          constraintFailures: [fidelityResult.failure],
+          constraintVector: this.buildConstraintVector('denied',
+            [{ facet: 'identity', status: 'pass' }, { facet: 'scope', status: 'pass' }, { facet: 'values', status: 'pass' },
+             { facet: 'fidelity', status: 'fail', failure: fidelityResult.failure }],
+            [fidelityResult.failure]),
+        }
         this.config.onToolCall?.(request, result)
         return result
       }
@@ -1264,6 +1284,15 @@ export class ProxyGateway {
     return cleared + pruned
   }
 
+  /** Update an agent's substrate fidelity attestation.
+   *  Called by external fidelity measurement systems — agents cannot self-report. */
+  setFidelityAttestation(agentId: string, attestation: FidelityAttestation): boolean {
+    const agent = this.agents.get(agentId)
+    if (!agent) return false
+    agent.fidelityAttestation = attestation
+    return true
+  }
+
   getStats(): GatewayStats { return { ...this.stats } }
 
   getAgentApprovals(agentId: string): GatewayApproval[] {
@@ -1601,11 +1630,71 @@ export class ProxyGateway {
     if (request.reversibility) {
       evals.push({ facet: 'reversibility', status: 'pass' })
     }
+    // Fidelity headroom (if gating enabled and attestation exists)
+    if (this.config.enableFidelityGating) {
+      const agent = this.agents.get(request.agentId)
+      const att = agent?.fidelityAttestation
+      if (att) {
+        const minScore = this.config.minFidelityScore ?? 0.5
+        const headroom = att.fidelity.score - minScore
+        evals.push({ facet: 'fidelity', status: 'pass', headroom: Math.round(headroom * 100) / 100 })
+      } else {
+        const policy = this.config.fidelityDefaultPolicy ?? 'warn'
+        evals.push({ facet: 'fidelity', status: policy === 'ignore' ? 'not_applicable' : 'unknown' })
+      }
+    }
     return evals
   }
 
   /** Check for near-miss conditions after a permitted execution.
    *  Fires onNearMiss callback for each facet approaching its boundary. */
+  /** Check substrate fidelity constraint. Returns failure info if denied, null if passed. */
+  private checkFidelity(
+    agent: RegisteredAgent, request: ToolCallRequest
+  ): { reason: string; failure: ConstraintFailure } | null {
+    const attestation = agent.fidelityAttestation
+    const minScore = this.config.minFidelityScore ?? 0.5
+    const maxAge = this.config.fidelityMaxAge ?? 86400
+    const defaultPolicy = this.config.fidelityDefaultPolicy ?? 'warn'
+
+    if (!attestation) {
+      if (defaultPolicy === 'deny') {
+        return {
+          reason: `No fidelity attestation for agent ${request.agentId}`,
+          failure: this.buildConstraintFailure('fidelity', 'NO_ATTESTATION',
+            'Agent has no substrate fidelity attestation', { limit: minScore, actual: 0 }),
+        }
+      }
+      return null // 'warn' or 'ignore' — pass but ConstraintVector will show unknown/not_applicable
+    }
+
+    // Check staleness
+    const ageSeconds = (Date.now() - new Date(attestation.fidelity.measuredAt).getTime()) / 1000
+    if (ageSeconds > maxAge) {
+      if (defaultPolicy === 'deny') {
+        return {
+          reason: `Fidelity attestation stale (${Math.round(ageSeconds)}s old, max ${maxAge}s)`,
+          failure: this.buildConstraintFailure('fidelity', 'STALE_ATTESTATION',
+            `Attestation expired (${Math.round(ageSeconds)}s > ${maxAge}s max)`,
+            { limit: maxAge, actual: Math.round(ageSeconds) }),
+        }
+      }
+      return null // warn/ignore — treat stale same as absent
+    }
+
+    // Check score
+    if (attestation.fidelity.score < minScore) {
+      return {
+        reason: `Fidelity score ${attestation.fidelity.score.toFixed(2)} below minimum ${minScore}`,
+        failure: this.buildConstraintFailure('fidelity', 'BELOW_THRESHOLD',
+          `Fidelity ${attestation.fidelity.score.toFixed(2)} < required ${minScore}`,
+          { limit: minScore, actual: attestation.fidelity.score }),
+      }
+    }
+
+    return null // passed
+  }
+
   private checkNearMisses(
     request: ToolCallRequest, delegation: Delegation,
     constraintVector: ConstraintVector

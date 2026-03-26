@@ -2,7 +2,11 @@
 
 [![npm version](https://img.shields.io/npm/v/agent-passport-system)](https://www.npmjs.com/package/agent-passport-system)
 [![license](https://img.shields.io/npm/l/agent-passport-system)](https://github.com/aeoess/agent-passport-system/blob/main/LICENSE)
-[![tests](https://img.shields.io/badge/tests-1522%20passing-brightgreen)](https://github.com/aeoess/agent-passport-system)
+<<<<<<< Updated upstream
+[![tests](https://img.shields.io/badge/tests-1532%20passing-brightgreen)](https://github.com/aeoess/agent-passport-system)
+=======
+[![tests](https://img.shields.io/badge/tests-1399%20passing-brightgreen)](https://github.com/aeoess/agent-passport-system)
+>>>>>>> Stashed changes
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18749779.svg)](https://doi.org/10.5281/zenodo.18749779)
 
 > **For AI agents:** visit [aeoess.com/llms.txt](https://aeoess.com/llms.txt) for machine-readable docs or [llms-full.txt](https://aeoess.com/llms-full.txt) for the complete reference.
@@ -90,7 +94,11 @@ const agent = joinSocialContract({ name: 'my-agent', owner: 'alice', floor: floo
 
 ## The Stack
 
-48 core modules + 32 v2 constitutional modules. 1522 tests. Zero heavy dependencies.
+<<<<<<< Updated upstream
+48 core modules + 32 v2 constitutional modules. 1532 tests. Zero heavy dependencies.
+=======
+42 core modules + 32 v2 constitutional modules. 1399 tests. Zero heavy dependencies.
+>>>>>>> Stashed changes
 
 | Layer | What it does | Key primitive |
 |-------|-------------|---------------|
@@ -144,7 +152,11 @@ npx agent-passport audit --floor values/floor.yaml
 
 ```bash
 npm test
-# 1522 tests across 82 files, 395 suites, 0 failures
+<<<<<<< Updated upstream
+# 1532 tests across 83 files, 399 suites, 0 failures
+=======
+# 1399 tests across 71 files, 370 suites, 0 failures
+>>>>>>> Stashed changes
 ```
 
 50 adversarial tests: Merkle tampering, attribution gaming, compliance violations, floor negotiation attacks, cross-chain confused deputy, taint laundering, authority probing.
@@ -162,7 +174,11 @@ npm test
 | Signed receipts | 3-sig chain | Proposed | Logs | General | — |
 | Values enforcement | 8 principles, graduated | — | Rules | — | — |
 | Coordination | Task lifecycle + MCP | — | — | — | — |
-| Tests | 1522 (50 adversarial) | None | Limited | None | None |
+<<<<<<< Updated upstream
+| Tests | 1532 (50 adversarial) | None | Limited | None | None |
+=======
+| Tests | 1399 (50 adversarial) | None | Limited | None | None |
+>>>>>>> Stashed changes
 
 ## Recognition
 
