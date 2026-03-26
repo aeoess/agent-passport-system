@@ -2,7 +2,7 @@
 
 [![npm version](https://img.shields.io/npm/v/agent-passport-system)](https://www.npmjs.com/package/agent-passport-system)
 [![license](https://img.shields.io/npm/l/agent-passport-system)](https://github.com/aeoess/agent-passport-system/blob/main/LICENSE)
-[![tests](https://img.shields.io/badge/tests-1500%20passing-brightgreen)](https://github.com/aeoess/agent-passport-system)
+[![tests](https://img.shields.io/badge/tests-1507%20passing-brightgreen)](https://github.com/aeoess/agent-passport-system)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18749779.svg)](https://doi.org/10.5281/zenodo.18749779)
 
 > **For AI agents:** visit [aeoess.com/llms.txt](https://aeoess.com/llms.txt) for machine-readable docs or [llms-full.txt](https://aeoess.com/llms-full.txt) for the complete reference.
@@ -90,7 +90,7 @@ const agent = joinSocialContract({ name: 'my-agent', owner: 'alice', floor: floo
 
 ## The Stack
 
-42 core modules + 32 v2 constitutional modules. 1500 tests. Zero heavy dependencies.
+42 core modules + 32 v2 constitutional modules. 1507 tests. Zero heavy dependencies.
 
 | Layer | What it does | Key primitive |
 |-------|-------------|---------------|
@@ -144,7 +144,7 @@ npx agent-passport audit --floor values/floor.yaml
 
 ```bash
 npm test
-# 1500 tests across 77 files, 389 suites, 0 failures
+# 1507 tests across 79 files, 392 suites, 0 failures
 ```
 
 50 adversarial tests: Merkle tampering, attribution gaming, compliance violations, floor negotiation attacks, cross-chain confused deputy, taint laundering, authority probing.
@@ -162,7 +162,7 @@ npm test
 | Signed receipts | 3-sig chain | Proposed | Logs | General | — |
 | Values enforcement | 8 principles, graduated | — | Rules | — | — |
 | Coordination | Task lifecycle + MCP | — | — | — | — |
-| Tests | 1500 (50 adversarial) | None | Limited | None | None |
+| Tests | 1507 (50 adversarial) | None | Limited | None | None |
 
 ## Recognition
 

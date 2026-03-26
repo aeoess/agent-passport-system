@@ -916,6 +916,9 @@ export class ProxyGateway {
       authorizationWitness: authWitness,
     }
 
+    // ── Near-miss alerting (Phase 3) ──
+    this.checkNearMisses(request, delegation, constraintVector)
+
     // ── Persist to storage (write-through) ──
     if (this.storage && receipt) {
       const s = this.storage
@@ -1599,6 +1602,61 @@ export class ProxyGateway {
       evals.push({ facet: 'reversibility', status: 'pass' })
     }
     return evals
+  }
+
+  /** Check for near-miss conditions after a permitted execution.
+   *  Fires onNearMiss callback for each facet approaching its boundary. */
+  private checkNearMisses(
+    request: ToolCallRequest, delegation: Delegation,
+    constraintVector: ConstraintVector
+  ): void {
+    if (!this.config.enableNearMissAlerting || !this.config.onNearMiss) return
+    const thresholds = this.config.nearMissThresholds ?? [0.1, 0.05, 0.01]
+    const highestThreshold = Math.max(...thresholds)
+
+    for (const eval_ of constraintVector.facets) {
+      if (eval_.status !== 'pass' || eval_.headroom === undefined) continue
+
+      let headroomRatio: number | undefined
+      let headroomAbsolute: number | string = eval_.headroom
+
+      if (eval_.facet === 'spend' && typeof eval_.headroom === 'number' && delegation.spendLimit) {
+        headroomRatio = eval_.headroom / delegation.spendLimit
+      } else if (eval_.facet === 'time' && typeof eval_.headroom === 'string') {
+        // Parse "Ns" format
+        const seconds = parseInt(eval_.headroom.replace('s', ''), 10)
+        if (!isNaN(seconds) && delegation.expiresAt) {
+          const totalSeconds = (new Date(delegation.expiresAt).getTime() - Date.now()) / 1000
+          // Use original TTL estimate (delegation lifetime)
+          const delegationTTL = 3600 // default 1 hour, conservative
+          headroomRatio = Math.max(0, seconds / delegationTTL)
+          headroomAbsolute = seconds
+        }
+      }
+
+      if (headroomRatio !== undefined && headroomRatio <= highestThreshold) {
+        // Find the highest threshold that was breached
+        const breachedThreshold = thresholds
+          .filter(t => headroomRatio! <= t)
+          .sort((a, b) => b - a)[0] ?? highestThreshold
+
+        const nearMiss: ConstraintNearMiss = {
+          agentId: request.agentId,
+          facet: eval_.facet,
+          headroomRatio,
+          headroomAbsolute,
+          alertThreshold: breachedThreshold,
+          timestamp: new Date().toISOString(),
+          message: `Agent ${request.agentId} at ${((1 - headroomRatio) * 100).toFixed(1)}% of ${eval_.facet} limit`,
+        }
+
+        this.stats.nearMissAlerts = (this.stats.nearMissAlerts ?? 0) + 1
+        if (!this.stats.nearMissByFacet) this.stats.nearMissByFacet = {}
+        this.stats.nearMissByFacet[eval_.facet] = (this.stats.nearMissByFacet[eval_.facet] ?? 0) + 1
+
+        this.config.onNearMiss(nearMiss)
+      }
+    }
   }
 }
 

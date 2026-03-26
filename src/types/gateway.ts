@@ -397,6 +397,15 @@ export interface GatewayConfig {
   onEscalationUsed?: (agentId: string, escalationId: string, tool: string) => void
   /** Callback: fires when an escalation expires */
   onEscalationExpired?: (agentId: string, escalationId: string) => void
+  /** Enable near-miss alerting. When true, gateway checks constraint headroom
+   *  after every permitted action and fires onNearMiss when thresholds are breached.
+   *  Pure operational intelligence — proactive governance vs. reactive enforcement. */
+  enableNearMissAlerting?: boolean
+  /** Near-miss threshold ratios (0-1). Alert when headroom drops below these.
+   *  Default: [0.1, 0.05, 0.01] → alerts at 90%, 95%, 99% utilization. */
+  nearMissThresholds?: number[]
+  /** Callback: fires when an agent approaches a constraint boundary */
+  onNearMiss?: (nearMiss: ConstraintNearMiss) => void
   /** Optional: persistent storage backend. When provided, gateway persists
    *  agents, delegations, receipts, revocations, nonces, and reputation.
    *  State survives restarts. Use loadFromStorage() after construction to hydrate. */
@@ -472,4 +481,7 @@ export interface GatewayStats {
   escalationsDenied?: number
   /** Reversibility enforcement stats */
   reversibilityDenied?: number
+  /** Near-miss alerting stats */
+  nearMissAlerts?: number
+  nearMissByFacet?: Record<string, number>
 }
