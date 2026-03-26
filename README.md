@@ -90,7 +90,7 @@ const agent = joinSocialContract({ name: 'my-agent', owner: 'alice', floor: floo
 
 ## The Stack
 
-42 core modules + 32 v2 constitutional modules. 1507 tests. Zero heavy dependencies.
+48 core modules + 32 v2 constitutional modules. 1507 tests. Zero heavy dependencies.
 
 | Layer | What it does | Key primitive |
 |-------|-------------|---------------|

@@ -169,7 +169,7 @@ semantics of agent authority.
 
 The faceted narrowing formalization is not just theory. It is directly
 implemented in the Agent Passport System's Constraint Architecture
-(shipped SDK v1.25.0+).
+(shipped SDK v1.26.0+).
 
 ### ConstraintVector as Authority Evaluation
 
