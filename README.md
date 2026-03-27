@@ -177,6 +177,8 @@ npm test
 
 **"Monotonic Narrowing for Agent Authority"** — Published on [Zenodo](https://doi.org/10.5281/zenodo.18749779). [Read →](papers/agent-social-contract.md)
 
+**"Faceted Authority Attenuation: A Product Lattice Model for AI Agent Governance"** — Published on [Zenodo](https://doi.org/10.5281/zenodo.19260073). Seven-dimensional product lattice formalization with authorization witnesses, constraint vectors, and institutional governance composition.
+
 ## Authorship
 
 Designed and built by **Tymofii Pidlisnyi** with AI assistance from **Claude** (Anthropic).
