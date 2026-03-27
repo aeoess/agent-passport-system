@@ -109,7 +109,7 @@ const agent = joinSocialContract({ name: 'my-agent', owner: 'alice', floor: floo
 
 ## MCP Server
 
-108 tools across all modules. Any MCP client connects agents directly.
+120 tools across all modules. Any MCP client connects agents directly.
 
 ```bash
 npm install -g agent-passport-system-mcp

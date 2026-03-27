@@ -94,3 +94,49 @@ export interface DangerSignal {
   autoEscalate: boolean
   message: string
 }
+
+
+// ══════════════════════════════════════════════════════════════════
+// Escrow-Aware Revocation (Gemini S2 Q3)
+// ══════════════════════════════════════════════════════════════════
+// Consilium Q3 resolution: revocation enters locked settlement state
+// if active escrows exist. The delegation's authority drops to 0 for
+// NEW actions, but remains valid ONLY for resolution of existing escrows.
+//
+// This is a state machine rule, not agent rights. The gateway enforces
+// the split between "no new actions" and "existing escrows can resolve."
+// ══════════════════════════════════════════════════════════════════
+
+/** Escrow-aware revocation status. */
+export type EscrowRevocationStatus =
+  | 'pending_escrow_clearance'  // waiting for blocking escrows to resolve
+  | 'executed'                  // all escrows resolved, revocation complete
+  | 'failed'                    // grace period expired, force revocation
+
+/** Escrow-aware revocation record. When a principal revokes a delegation
+ *  that has active escrows, the revocation enters a holding state.
+ *  New actions are immediately blocked. Existing escrows continue to resolution. */
+export interface EscrowAwareRevocation {
+  /** Unique revocation identifier */
+  revocationId: string
+  /** Delegation being revoked */
+  targetDelegationId: string
+  /** Ed25519 signature by the principal authorizing revocation */
+  principalSignature: string
+  /** Current revocation status */
+  status: EscrowRevocationStatus
+  /** Escrow IDs that must resolve before revocation completes */
+  blockingEscrowIds: string[]
+  /** ISO datetime — max time to wait before force-canceling escrows */
+  gracePeriodExpiresAt: string
+  /** Authority state during grace period:
+   *  delegation authority = 0 for NEW actions.
+   *  delegation remains valid ONLY for resolution of existing escrows. */
+  newActionsBlocked: boolean
+  /** Existing escrows are protected during the grace period */
+  existingEscrowsProtected: boolean
+  /** ISO datetime — when this revocation was initiated */
+  createdAt: string
+  /** Gateway signature enforcing the revocation state */
+  gatewaySignature: string
+}

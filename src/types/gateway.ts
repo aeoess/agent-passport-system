@@ -623,3 +623,112 @@ export interface GatewayStats {
   disputesFiled?: number
   disputesResolved?: number
 }
+
+
+// ══════════════════════════════════════════════════════════════════
+// Gateway Identity — Institutional Identity for Gateways
+// ══════════════════════════════════════════════════════════════════
+// GPT correction #12: gateways must publish what regime they operate under.
+// A gateway is not just enforcement — it's an institution with its own
+// identity, trust basis, fee policy, and sovereignty level.
+// Phase 2 — Rome Completeness: cross-domain governance requires
+// gateways to identify themselves to each other.
+// ══════════════════════════════════════════════════════════════════
+
+/** Gateway jurisdiction — where this gateway operates legally. */
+export interface GatewayJurisdiction {
+  /** Primary jurisdiction (e.g. "US", "EU", "SG") */
+  primary: string
+  /** Additional jurisdictions this gateway complies with */
+  additional?: string[]
+  /** Data residency requirements */
+  dataResidency?: string
+}
+
+/** Infrastructure fee policy — how the gateway charges for services.
+ *  Deferred to Phase 2+ for full typed design (Gemini S2 open item). */
+export interface InfrastructureFeePolicy {
+  /** Fee model: flat per-action, percentage of spend, or subscription */
+  model: 'per_action' | 'percentage' | 'subscription' | 'free'
+  /** Fee amount (interpretation depends on model) */
+  amount?: number
+  /** Currency for the fee */
+  currency?: string
+  /** SHA-256 hash of the full fee schedule document */
+  feeScheduleHash: string
+}
+
+/** Import rules — what this gateway accepts from foreign gateways.
+ *  GPT #13: separate channels per artifact type. */
+export interface GatewayImportPolicy {
+  /** Receipt import rules */
+  receipts: { acceptFrom: string[]; requireWitness: boolean }
+  /** Reputation import rules — downgradeRatio: 0.5 means foreign rep counts half */
+  reputation: { acceptFrom: string[]; downgradeRatio: number }
+  /** Witness attestation import rules */
+  witnessAttestations: { acceptFrom: string[]; minObservationBasis: WitnessObservationBasis }
+  /** Reserve attestation import rules */
+  reserveAttestations: { acceptFrom: string[]; requireLiabilityClass: boolean }
+  /** Charter fact import rules */
+  charterFacts: { acceptFrom: string[] }
+  /** Default tier assigned to foreign agents */
+  foreignAgentDefaultTier: number
+}
+
+/** Sovereignty level — graduated gateway authority.
+ *  border_outpost: minimal, forwards most decisions upstream
+ *  province: local authority with oversight
+ *  sovereign: full independent authority */
+export type GatewaySovereigntyLevel = 'border_outpost' | 'province' | 'sovereign'
+
+/** Gateway trust basis — WHY anyone should trust this gateway's receipts.
+ *  Published as part of GatewayIdentity so agents can evaluate
+ *  whether to interact through this gateway. */
+export interface GatewayTrustBasis {
+  /** Charter that operates this gateway (institutional anchor) */
+  charterAnchor?: string
+  /** SHA-256 hash of the witness policy document */
+  witnessPolicyHash: string
+  /** How receipts are archived */
+  archivePolicy: 'local' | 'external_anchor' | 'federated'
+  /** When receipts become final */
+  finalityPolicy: 'immediate' | 'witness_required' | 'maturation_window'
+  /** SHA-256 hash of the fee schedule */
+  feePolicyHash: string
+  /** SHA-256 hash of the dispute policy */
+  disputePolicyHash: string
+}
+
+/** Full institutional identity of a gateway. Published so other
+ *  gateways and agents can evaluate trust, fees, and jurisdiction
+ *  before routing transactions through this gateway. */
+export interface GatewayIdentity {
+  /** Unique gateway identifier */
+  gatewayId: string
+  /** Ed25519 public key (hex) of the gateway */
+  publicKey: string
+  /** Human-readable name */
+  displayName: string
+  /** Who operates this gateway (charterId or principalId) */
+  operator: string
+  /** Why anyone should trust this gateway */
+  trustBasis: GatewayTrustBasis
+  /** Fee schedule */
+  feePolicy: InfrastructureFeePolicy
+  /** Witness requirements */
+  witnessPolicy: WitnessPolicy
+  /** Trust domain this gateway belongs to */
+  trustDomainId: string
+  /** Legal jurisdiction */
+  jurisdiction?: GatewayJurisdiction
+  /** What this gateway accepts from foreign gateways (GPT #13) */
+  importPolicy: GatewayImportPolicy
+  /** Graduated sovereignty level */
+  sovereigntyLevel: GatewaySovereigntyLevel
+  /** ISO datetime — when this gateway was registered */
+  registeredAt: string
+  /** ISO datetime — last heartbeat (liveness check) */
+  lastHeartbeat?: string
+  /** Ed25519 signature over canonical identity content */
+  signature: string
+}

@@ -241,6 +241,8 @@ export type {
   AuthorizationWitness, AuthorizationRef, ConstraintNearMiss,
   SubstrateFidelity, FidelityAttestation,
   WitnessAttestation, WitnessConflict, WitnessPolicy, WitnessObservationBasis,
+  InfrastructureFeePolicy, GatewayImportPolicy,
+  GatewaySovereigntyLevel, GatewayTrustBasis, GatewayIdentity, GatewayJurisdiction,
 } from './types/gateway.js'
 
 // ── Transactional Integrity Layer: Finality, Evidence, Escrow, Dispute ──
@@ -626,6 +628,122 @@ export type {
   DecisionSemantics, DecisionArtifact, DecisionArtifactVerification,
 } from './types/decision-semantics.js'
 
+
+// ══════════════════════════════════════
+// Charter — Institutional Root Object
+// ══════════════════════════════════════
+
+export type {
+  CharterStatus, OfficeHolderMode, OfficeStatus,
+  OfficeHolder, OfficeDelegationPolicy, Office,
+  CharterSignature, DelegationSurvival, DissolutionPolicy, DisputeVenue,
+  CharterCore,
+  SuccessionTrigger, SuccessionRule, QuorumFailurePolicy,
+  OfficeRegistry, CharterAmendment,
+  CharterVerification, AmendmentVerification,
+  OfficeTransfer,
+} from './types/charter.js'
+
+
+// ══════════════════════════════════════
+// Approval — Multi-Class Threshold Policies
+// ══════════════════════════════════════
+
+export type {
+  KeyClassRequirement, MultiClassThresholdPolicy,
+  ApprovalType, ApprovalPolicy,
+  ApprovalSignature, ApprovalSubjectType, ApprovalRequest,
+  ApprovalEvaluation, KeyClassStatus,
+} from './types/approval.js'
+
+
+// ══════════════════════════════════════
+// Charter & Approval — Pure Functions
+// ══════════════════════════════════════
+
+export {
+  createCharter, signCharter, verifyCharter,
+  createAmendment, signAmendment, verifyAmendment,
+  evaluateThreshold,
+  createOfficeRegistry,
+  createOfficeTransfer,
+  createApprovalRequest, addApprovalSignature, evaluateApprovalRequest,
+  findOffice, findOfficesByHolder, resolveSuccessor,
+  checkIncompatibility, checkQuorum,
+} from './core/charter.js'
+
+export type { CreateCharterOptions, CreateAmendmentOptions, CreateOfficeTransferOptions } from './core/charter.js'
+
+
+// ══════════════════════════════════════
+// Time — Hybrid Logical Clocks + Temporal Rights
+// ══════════════════════════════════════
+
+export type {
+  HybridTimestamp, TemporalBound, TemporalRights,
+  TemporalOrdering, TemporalValidation,
+} from './types/time.js'
+
+export {
+  DEFAULT_NTP_DRIFT_MS,
+  createHybridTimestamp, createTemporalBound,
+  compareTimestamps, isTemporalBoundExpired,
+  validateTemporalRights, resetLogicalCounter,
+} from './core/time.js'
+
+
+// ══════════════════════════════════════
+// Foreign Counterparty — Non-APS Entity Handling
+// ══════════════════════════════════════
+
+export type {
+  ForeignProvenanceClass, ForeignTrustClass,
+  ForeignSandboxPolicy, ForeignReclassificationRules,
+  ForeignCounterpartyEnvelope,
+} from './types/foreign.js'
+
+
+// ══════════════════════════════════════
+// Escrow-Aware Revocation
+// ══════════════════════════════════════
+
+export type {
+  EscrowRevocationStatus, EscrowAwareRevocation,
+} from './types/escrow.js'
+
+
+// ══════════════════════════════════════
+// Reserve Attestation
+// ══════════════════════════════════════
+
+export type {
+  ReserveAssuranceClass, AttestationBasis, FalseAttestationPenalty,
+  ReserveAttestationLiability, ReserveAttestation,
+} from './types/reserve.js'
+
+export {
+  createReserveAttestation, verifyReserveAttestation,
+  compareAssuranceClass, meetsAssuranceRequirement,
+} from './core/reserve.js'
+
+export type { CreateReserveAttestationOptions, ReserveAttestationVerification } from './core/reserve.js'
+
+
+// ══════════════════════════════════════
+// Federation — Cross-Gateway Portability (WS-2, WS-3)
+// ══════════════════════════════════════
+
+export type {
+  ForeignReceiptEnvelope, VouchedReputation,
+} from './types/federation.js'
+
+export {
+  importReceipt, verifyReceiptEnvelope,
+  vouchReputation, verifyVouchedReputation,
+  applyReputationDowngrade,
+} from './core/federation.js'
+
+export type { ImportReceiptOptions, VouchReputationOptions } from './core/federation.js'
 
 
 // ══════════════════════════════════════
