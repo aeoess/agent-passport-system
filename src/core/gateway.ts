@@ -62,7 +62,12 @@ import type {
   ConstraintFacet, ConstraintFailure, ConstraintVector,
   ConstraintEvaluation, AuthorizationWitness, AuthorizationRef,
   ConstraintNearMiss, FidelityAttestation,
+  WitnessAttestation, WitnessConflict, WitnessPolicy,
 } from '../types/gateway.js'
+import type { EscrowHold, DangerSignal, DangerType } from '../types/escrow.js'
+import type { DisputeArtifact, DisputeOverlay } from '../types/dispute.js'
+import type { FinalityState } from '../types/finality.js'
+import { evaluateDisputeOverlay } from './transactional.js'
 
 
 // ══════════════════════════════════════
@@ -79,6 +84,10 @@ export class ProxyGateway {
   private agentLocks: Map<string, Promise<void>> = new Map() // Per-agent sequential execution (concurrency fix)
   private executor: ToolExecutor
   private storage?: StorageBackend
+  // ── Transactional Integrity Layer ──
+  private escrows: Map<string, EscrowHold> = new Map()
+  private disputes: Map<string, DisputeArtifact> = new Map()
+  private dangerSignals: DangerSignal[] = []
   private stats: GatewayStats = {
     totalRequests: 0,
     totalPermitted: 0,
@@ -620,6 +629,27 @@ export class ProxyGateway {
       }
     }
 
+    // Step 4.7: Dispute overlay (defeasible — NOT a lattice facet)
+    // Evaluated AFTER monotone lattice. Dispute is a defeater that suppresses valid authority.
+    const activeDisputes = this.getActiveDisputesForAgent(request.agentId)
+    const overlay = evaluateDisputeOverlay(activeDisputes, request.scopeRequired, request.agentId)
+    if (overlay.actionAffected && overlay.effectiveSeverity === 'hard') {
+      this.stats.totalDenied++
+      this.usedRequestIds.set(request.requestId, Date.now())
+      const reason = `Action blocked by active dispute(s): ${overlay.activeDisputeIds.join(', ')} (frozen scope: ${overlay.frozenScopes.join(', ')})`
+      const failure = this.buildConstraintFailure('scope', 'DISPUTE_FREEZE', reason)
+      const result: ToolCallResult = {
+        executed: false, requestId: request.requestId, denialReason: reason, decision,
+        constraintFailures: [failure],
+        constraintVector: this.buildConstraintVector('denied',
+          [{ facet: 'identity', status: 'pass' }, { facet: 'scope', status: 'fail', failure }],
+          [failure]),
+      }
+      result.constraintVector!.disputeOverlay = overlay
+      this.config.onToolCall?.(request, result)
+      return result
+    }
+
     // Step 5: Revocation recheck (paranoid mode)
     if (this.config.recheckRevocationOnExecute) {
       this.stats.revocationRechecksTriggered++
@@ -920,6 +950,17 @@ export class ProxyGateway {
 
     // Attach authorization ref to receipt (forensic link)
     receipt.authorizationRef = authRef
+
+    // ── Dispute overlay on successful result (defeasible, not lattice) ──
+    if (overlay.hasActiveDispute) {
+      constraintVector.disputeOverlay = overlay
+    }
+
+    // ── Receipt maturation: starts 'maturing', finalized after witness or TTL ──
+    if (this.config.witnessPolicy) {
+      receipt.finality = { status: 'maturing', since: new Date().toISOString(),
+        challengeWindowEnds: new Date(Date.now() + (this.config.witnessPolicy.maturationWindow ?? 300) * 1000).toISOString() }
+    }
 
     const result: ToolCallResult = {
       executed: true, requestId: request.requestId,
@@ -1292,6 +1333,161 @@ export class ProxyGateway {
     agent.fidelityAttestation = attestation
     return true
   }
+
+  // ══════════════════════════════════════════════════════════════
+  // Transactional Integrity Layer — Escrow, Dispute, Witness
+  // ══════════════════════════════════════════════════════════════
+
+  /** Create an escrow hold — hard reservation on delegation spend.
+   *  Returns null if delegation not found or insufficient spend remaining. */
+  createGatewayEscrow(escrow: EscrowHold): { success: boolean; error?: string } {
+    // Validate delegation exists
+    const agent = this.agents.get(escrow.initiatorAgentId)
+    if (!agent) return { success: false, error: 'Initiator agent not registered' }
+
+    const delegation = agent.delegations.get(escrow.delegationId)
+    if (!delegation) return { success: false, error: 'Delegation not found' }
+
+    // Hard reservation: check available spend
+    if (delegation.spendLimit !== undefined) {
+      const existingHolds = Array.from(this.escrows.values())
+        .filter(e => e.delegationId === escrow.delegationId && (e.status === 'held' || e.status === 'disputed'))
+        .reduce((sum, e) => sum + e.amount.value, 0)
+
+      if (existingHolds + escrow.amount.value > delegation.spendLimit) {
+        return { success: false, error: `Insufficient spend: ${delegation.spendLimit - existingHolds} available, ${escrow.amount.value} requested` }
+      }
+    }
+
+    this.escrows.set(escrow.escrowId, escrow)
+    this.stats.escrowsCreated = ((this.stats as any).escrowsCreated ?? 0) + 1
+    return { success: true }
+  }
+
+  /** Fulfill an escrow — transition to released. */
+  fulfillEscrow(escrowId: string, fulfillmentReceiptId: string): { success: boolean; error?: string } {
+    const escrow = this.escrows.get(escrowId)
+    if (!escrow) return { success: false, error: 'Escrow not found' }
+    if (escrow.status !== 'held' && escrow.status !== 'verification_pending') {
+      return { success: false, error: `Cannot fulfill escrow in status: ${escrow.status}` }
+    }
+    if (new Date(escrow.expiresAt) < new Date()) {
+      escrow.status = 'expired'
+      escrow.finality = { status: 'finalized', since: new Date().toISOString() }
+      return { success: false, error: 'Escrow expired' }
+    }
+    escrow.status = 'released'
+    escrow.fulfillmentReceiptId = fulfillmentReceiptId
+    escrow.finality = { status: 'finalized', since: new Date().toISOString() }
+    this.stats.escrowsReleased = ((this.stats as any).escrowsReleased ?? 0) + 1
+    return { success: true }
+  }
+
+  /** Expire an escrow — auto-refund on TTL expiry. */
+  expireEscrow(escrowId: string): { success: boolean; error?: string } {
+    const escrow = this.escrows.get(escrowId)
+    if (!escrow) return { success: false, error: 'Escrow not found' }
+    if (escrow.status === 'disputed') return { success: false, error: 'Cannot expire disputed escrow' }
+    if (escrow.status !== 'held' && escrow.status !== 'partially_fulfilled') {
+      return { success: false, error: `Cannot expire escrow in status: ${escrow.status}` }
+    }
+    escrow.status = 'expired'
+    escrow.finality = { status: 'finalized', since: new Date().toISOString() }
+    this.stats.escrowsExpired = ((this.stats as any).escrowsExpired ?? 0) + 1
+    return { success: true }
+  }
+
+  /** File a dispute — freezes escrow, deducts bond from claimant delegation. */
+  fileGatewayDispute(dispute: DisputeArtifact): { success: boolean; error?: string } {
+    // Validate bond (slashing bond — options pricing: free dispute = free option)
+    if (dispute.bond.slashable && dispute.bond.amount > 0) {
+      const claimant = this.agents.get(dispute.claimantId)
+      if (!claimant) return { success: false, error: 'Claimant not registered' }
+      const bondDel = claimant.delegations.get(dispute.bond.delegationId)
+      if (!bondDel) return { success: false, error: 'Bond delegation not found' }
+    }
+    // Freeze affected escrows
+    for (const escrowId of dispute.freezeScope.escrowIds) {
+      const escrow = this.escrows.get(escrowId)
+      if (escrow && escrow.status === 'held') {
+        escrow.status = 'disputed'
+        escrow.disputeId = dispute.disputeId
+        escrow.finality = { status: 'frozen', since: new Date().toISOString(), frozenBy: dispute.disputeId }
+      }
+    }
+    this.disputes.set(dispute.disputeId, dispute)
+    this.stats.disputesFiled = ((this.stats as any).disputesFiled ?? 0) + 1
+    return { success: true }
+  }
+
+  /** Resolve a dispute — unfreeze escrow, slash or return bond.
+   *  Uses bifurcated timeout (ESS): low-value → respondent, high-value → claimant. */
+  resolveGatewayDispute(disputeId: string, resolution: DisputeArtifact['resolution']): { success: boolean; error?: string } {
+    const dispute = this.disputes.get(disputeId)
+    if (!dispute) return { success: false, error: 'Dispute not found' }
+    if (dispute.status === 'resolved' || dispute.status === 'dismissed') {
+      return { success: false, error: `Dispute already in terminal state: ${dispute.status}` }
+    }
+
+    dispute.resolution = resolution
+    dispute.status = resolution!.outcome === 'dismissed' ? 'dismissed' : 'resolved'
+    dispute.finality = { status: 'appealable', since: new Date().toISOString() }
+
+    // Unfreeze escrows and apply enforcement
+    for (const escrowId of dispute.freezeScope.escrowIds) {
+      const escrow = this.escrows.get(escrowId)
+      if (!escrow || escrow.status !== 'disputed') continue
+
+      const action = resolution!.enforcement.escrowAction ?? 'release'
+      if (action === 'release') {
+        escrow.status = 'released'
+        escrow.finality = { status: 'finalized', since: new Date().toISOString() }
+      } else if (action === 'refund') {
+        escrow.status = 'refunded'
+        escrow.finality = { status: 'finalized', since: new Date().toISOString() }
+      } else if (action === 'split') {
+        escrow.status = 'released' // partial — split tracked in resolution
+        escrow.finality = { status: 'finalized', since: new Date().toISOString() }
+      }
+    }
+
+    this.stats.disputesResolved = ((this.stats as any).disputesResolved ?? 0) + 1
+    return { success: true }
+  }
+
+  /** Auto-resolve a dispute on timeout — bifurcated ESS default.
+   *  Low-value: dismiss (favor respondent). High-value: uphold (favor claimant). */
+  timeoutDispute(disputeId: string): { success: boolean; outcome: string; error?: string } {
+    const dispute = this.disputes.get(disputeId)
+    if (!dispute) return { success: false, outcome: 'not_found', error: 'Dispute not found' }
+    const threshold = this.config.escrowTimeoutThreshold ?? 100
+    const escrowAmount = dispute.freezeScope.escrowIds
+      .map(id => this.escrows.get(id))
+      .reduce((sum, e) => sum + (e?.amount.value ?? 0), 0)
+
+    const outcome = escrowAmount >= threshold ? 'upheld' : 'dismissed'
+    const escrowAction = outcome === 'upheld' ? 'refund' : 'release'
+    const bondAction = outcome === 'upheld' ? 'return' : 'slash'
+
+    const result = this.resolveGatewayDispute(disputeId, {
+      outcome: outcome as any, resolvedBy: 'system', resolverRole: 'timeout_default',
+      resolvedAt: new Date().toISOString(), reasoning: `Auto-timeout: ${outcome} (threshold: ${threshold}, amount: ${escrowAmount})`,
+      enforcement: { escrowAction: escrowAction as any, bondAction: bondAction as any },
+    })
+    return { ...result, outcome }
+  }
+
+  /** Get escrow by ID */
+  getEscrow(escrowId: string): EscrowHold | undefined { return this.escrows.get(escrowId) }
+  /** Get dispute by ID */
+  getDispute(disputeId: string): DisputeArtifact | undefined { return this.disputes.get(disputeId) }
+  /** Get active disputes for an agent (as respondent) */
+  getActiveDisputesForAgent(agentId: string): DisputeArtifact[] {
+    return Array.from(this.disputes.values()).filter(d =>
+      d.respondentId === agentId && ['filed', 'acknowledged', 'investigating'].includes(d.status))
+  }
+  /** Get all danger signals */
+  getDangerSignals(): DangerSignal[] { return [...this.dangerSignals] }
 
   getStats(): GatewayStats { return { ...this.stats } }
 
@@ -1746,6 +1942,66 @@ export class ProxyGateway {
         this.config.onNearMiss(nearMiss)
       }
     }
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // Danger Signal Detection — Matzinger Danger Model (1994)
+  // ══════════════════════════════════════════════════════════════
+  // The gateway doesn't wait for someone to file a dispute.
+  // It autonomously detects escrow anomaly patterns and emits signals.
+
+  /** Scan all active escrows for danger patterns. Call periodically or after each processToolCall. */
+  scanForDangerSignals(): DangerSignal[] {
+    const now = Date.now()
+    const newSignals: DangerSignal[] = []
+
+    for (const [, escrow] of this.escrows) {
+      if (escrow.status !== 'held' && escrow.status !== 'partially_fulfilled') continue
+
+      const expiresAt = new Date(escrow.expiresAt).getTime()
+      const totalDuration = expiresAt - new Date(escrow.createdAt).getTime()
+      const remaining = expiresAt - now
+      const elapsed = totalDuration - remaining
+
+      // Danger: escrow approaching TTL with no fulfillment
+      if (remaining > 0 && remaining < totalDuration * 0.1 && !escrow.fulfillmentReceiptId) {
+        newSignals.push({
+          signalId: `ds_${escrow.escrowId}_ttl_${now}`,
+          type: 'escrow_ttl_approaching',
+          agentId: escrow.counterpartyAgentId,
+          relatedArtifactId: escrow.escrowId,
+          severity: remaining < totalDuration * 0.05 ? 'high' : 'medium',
+          detectedAt: new Date().toISOString(),
+          autoEscalate: remaining < totalDuration * 0.02,
+          message: `Escrow ${escrow.escrowId} at ${Math.round((1 - remaining / totalDuration) * 100)}% of TTL with no fulfillment`,
+        })
+      }
+    }
+
+    // Danger: agent involved in multiple active disputes
+    const disputesByRespondent = new Map<string, number>()
+    for (const [, d] of this.disputes) {
+      if (['filed', 'acknowledged', 'investigating'].includes(d.status)) {
+        disputesByRespondent.set(d.respondentId, (disputesByRespondent.get(d.respondentId) ?? 0) + 1)
+      }
+    }
+    for (const [agentId, count] of disputesByRespondent) {
+      if (count >= 3) {
+        newSignals.push({
+          signalId: `ds_disputes_${agentId}_${now}`,
+          type: 'repeated_disputes',
+          agentId,
+          relatedArtifactId: agentId,
+          severity: count >= 5 ? 'high' : 'medium',
+          detectedAt: new Date().toISOString(),
+          autoEscalate: count >= 5,
+          message: `Agent ${agentId} has ${count} active disputes`,
+        })
+      }
+    }
+
+    this.dangerSignals.push(...newSignals)
+    return newSignals
   }
 }
 

@@ -616,4 +616,10 @@ export interface GatewayStats {
   nearMissByFacet?: Record<string, number>
   /** Fidelity gating stats */
   fidelityDenials?: number
+  /** Transactional integrity stats */
+  escrowsCreated?: number
+  escrowsReleased?: number
+  escrowsExpired?: number
+  disputesFiled?: number
+  disputesResolved?: number
 }
