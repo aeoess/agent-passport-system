@@ -90,6 +90,13 @@ export interface ActionReceipt {
    *  Separate from the receipt itself — the AuthorizationRef is compact; the full
    *  AuthorizationWitness is available for deep forensics via witnessId lookup. */
   authorizationRef?: import('./gateway.js').AuthorizationRef
+  /** Receipt maturation: starts 'maturing', becomes 'finalized' after witness or TTL.
+   *  Unwitnessed receipts are economically weaker than finalized ones. */
+  finality?: import('./finality.js').FinalityState
+  /** Full witness attestation (if witnessed) */
+  witnessAttestation?: import('./gateway.js').WitnessAttestation
+  /** Witness conflict record (if gateway and witness disagree) */
+  witnessConflict?: import('./gateway.js').WitnessConflict
 }
 
 export interface RevocationRecord {

@@ -108,6 +108,10 @@ export interface ConstraintVector {
   failures: ConstraintFailure[]
   /** Primary failure: the one that would have blocked even if all others passed */
   primaryFailure?: ConstraintFailure
+  /** Defeasible dispute overlay — NOT a lattice facet. Applied after monotone evaluation.
+   *  Dispute is an epistemological defeater (Defeasible Logic, Nute 1994) that suppresses
+   *  otherwise valid authority. When dismissed, the defeater is removed, not authority restored. */
+  disputeOverlay?: import('./dispute.js').DisputeOverlay
 }
 
 export interface ConstraintEvaluation {
@@ -234,6 +238,65 @@ export interface FidelityAttestation {
   measuredBy: string
   /** Ed25519 signature by the measuring system over canonical(attestation minus signature) */
   signature: string
+}
+
+// ── Witness Attestation (enhanced per consilium) ──
+// Witnesses reduce gateway power concentration. Post-execution, non-blocking for v1.
+// Witness attests to WHAT it observed and HOW it observed it (observation basis).
+// Gateway-witness disagreement creates real state (WitnessConflict), not silence.
+
+export type WitnessObservationBasis =
+  | 'direct_observation'         // witness directly observed execution
+  | 'replay_verification'       // witness replayed and verified
+  | 'receipt_only'              // witness only checked the receipt
+  | 'log_derived'               // witness derived from execution logs
+  | 'independent_recomputation' // witness independently recomputed result
+
+export interface WitnessAttestation {
+  witnessId: string
+  witnessRole: 'notary' | 'co_signer' | 'auditor' | 'external_anchor'
+  receiptId: string
+  receiptHash: string              // SHA-256 of canonical(receipt minus witnessSignature)
+  attestedAt: string
+  attestation: {
+    executionObserved: boolean
+    receiptConsistent: boolean
+    constraintsVerified: boolean
+  }
+  /** HOW the witness observed — not all attestations are equally strong */
+  observationBasis: WitnessObservationBasis
+  /** Prediction error (Friston Free Energy) — focus on what's surprising */
+  predictionError?: {
+    expectedOutcome: string
+    observedOutcome: string
+    divergence: number             // 0 = matched, 1 = completely unexpected
+  }
+  signature: string
+}
+
+/** Gateway-witness disagreement creates real state, not just absent signature.
+ *  A conflict is a first-class event: possible fraud, or minimum a contestable inconsistency. */
+export interface WitnessConflict {
+  conflictId: string
+  receiptId: string
+  gatewayAssertion: 'success' | 'failure'
+  witnessAssertion: 'consistent' | 'inconsistent' | 'refused'
+  divergenceDetails?: string
+  /** Should this auto-file a dispute? */
+  autoDisputeCandidate: boolean
+  createdAt: string
+}
+
+export interface WitnessPolicy {
+  requireWitness: 'always' | 'above_spend_threshold' | 'irreversible_only' | 'never'
+  spendThreshold?: number
+  /** Seconds before unwitnessed receipt auto-finalizes (receipt maturation) */
+  maturationWindow?: number
+  witnesses: Array<{
+    agentId: string
+    publicKey: string
+    role: WitnessAttestation['witnessRole']
+  }>
 }
 
 // ── Tool Executor ──
@@ -463,6 +526,12 @@ export interface GatewayConfig {
    *  'deny': deny all actions (strict). 'warn': permit but mark as warning. 'ignore': skip check.
    *  Default: 'warn'. */
   fidelityDefaultPolicy?: 'deny' | 'warn' | 'ignore'
+  /** Witness policy — when witnesses are required and who they are */
+  witnessPolicy?: WitnessPolicy
+  /** Escrow dispute timeout direction (Evolutionary Stable Strategy).
+   *  Low-value escrow timeout favors respondent (release). High-value favors claimant (refund).
+   *  This threshold determines the crossover point. Default: 100. */
+  escrowTimeoutThreshold?: number
   /** Optional: persistent storage backend. When provided, gateway persists
    *  agents, delegations, receipts, revocations, nonces, and reputation.
    *  State survives restarts. Use loadFromStorage() after construction to hydrate. */

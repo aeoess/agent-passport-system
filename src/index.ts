@@ -240,7 +240,34 @@ export type {
   ConstraintFailure, ConstraintVector, ConstraintEvaluation,
   AuthorizationWitness, AuthorizationRef, ConstraintNearMiss,
   SubstrateFidelity, FidelityAttestation,
+  WitnessAttestation, WitnessConflict, WitnessPolicy, WitnessObservationBasis,
 } from './types/gateway.js'
+
+// ── Transactional Integrity Layer: Finality, Evidence, Escrow, Dispute ──
+export type {
+  FinalityStatus, FinalityState,
+} from './types/finality.js'
+
+export type {
+  EvidenceType, TypedEvidence,
+} from './types/evidence.js'
+
+export type {
+  EscrowStatus, EscrowHold, EscrowMilestone, EscrowFulfillmentCondition,
+  DangerType, DangerSignal,
+} from './types/escrow.js'
+
+export type {
+  DisputeStatus, DisputeResolution, DisputeSubject, ResolverRole,
+  DisputeBond, DisputeArtifact, DisputeOverlay,
+} from './types/dispute.js'
+
+export {
+  createEscrowHold, verifyEscrowHold,
+  createDisputeArtifact, verifyDisputeArtifact,
+  createWitnessAttestation, verifyWitnessAttestation,
+  evaluateDisputeOverlay,
+} from './core/transactional.js'
 
 // ── Layer 9: W3C DID & Verifiable Credentials Bridge ──
 export {
@@ -523,13 +550,14 @@ export type {
 // ── Oracle Witness Diversity (Module 28 — Gap 4) ──
 
 export {
-  createWitnessPool, createAttestation, verifyWitnessAttestation,
+  createWitnessPool, createAttestation,
+  verifyWitnessAttestation as verifyOracleWitnessAttestation,
   addAttestation, computeDiversityScore, evaluateWitnessConsensus,
   wouldIncreaseDiversity,
 } from './core/oracle-witness.js'
 
 export type {
-  WitnessAttestation, WitnessPool, WitnessPoolConfig,
+  WitnessAttestation as OracleWitnessAttestation, WitnessPool, WitnessPoolConfig,
   DiversityScore, WitnessConsensusResult,
 } from './types/oracle-witness.js'
 
