@@ -1,11 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE rfc [
-  <!ENTITY nbsp    "&#160;">
-  <!ENTITY zwsp   "&#8203;">
-  <!ENTITY nbhy   "&#8209;">
-  <!ENTITY wj     "&#8288;">
-]>
-<rfc xmlns:xi="http://www.w3.org/2001/XInclude"
+<rfc
      category="info"
      docName="draft-pidlisnyi-aps-00"
      ipr="trust200902"
@@ -85,7 +79,7 @@
       (DOI:10.5281/zenodo.19260073).</t>
 
       <section numbered="true" toc="default">
-        <n>Requirements Language</n>
+        <name>Requirements Language</name>
         <t>The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
         "SHOULD", "SHOULD NOT", "RECOMMENDED", "NOT RECOMMENDED", "MAY", and
         "OPTIONAL" in this document are to be interpreted as described in
@@ -95,9 +89,9 @@
     </section>
 
     <section numbered="true" toc="default">
-      <n>Identity Scheme</n>
+      <name>Identity Scheme</name>
       <section numbered="true" toc="default">
-        <n>Agent Passport</n>
+        <name>Agent Passport</name>
         <t>Each agent in APS possesses an Agent Passport: a signed document
         binding an Ed25519 public key to an agent identifier, name, owner,
         and time-to-live. The passport is self-signed by the agent's private
@@ -105,16 +99,16 @@
       </section>
 
       <section numbered="true" toc="default">
-        <n>DID Scheme</n>
+        <name>DID Scheme</name>
         <t>APS defines a DID method "did:aps" using multibase-encoded Ed25519
         public keys: did:aps:z&lt;base58btc-encoded-public-key&gt;.</t>
       </section>
     </section>
 
     <section numbered="true" toc="default">
-      <n>Delegation and Authority Attenuation</n>
+      <name>Delegation and Authority Attenuation</name>
       <section numbered="true" toc="default">
-        <n>Faceted Authority Attenuation</n>
+        <name>Faceted Authority Attenuation</name>
         <t>Agent authority is modeled as an element of a product lattice
         A = D_1 x D_2 x ... x D_7, where each D_k is a bounded partially
         ordered set. The seven dimensions are: Scope (power set, subset ordering),
@@ -128,7 +122,7 @@
       </section>
 
       <section numbered="true" toc="default">
-        <n>Cascade Revocation</n>
+        <name>Cascade Revocation</name>
         <t>Any delegation MAY be revoked by its issuer. Revocation MUST
         cascade to all transitive descendants. Revocation is irreversible.
         The enforcement gateway MUST recheck revocation status at execution
@@ -136,7 +130,7 @@
       </section>
 
       <section numbered="true" toc="default">
-        <n>Core Invariants</n>
+        <name>Core Invariants</name>
         <t>The protocol specifies eight invariants: INV-1 (Identity Unforgeability),
         INV-2 (Scope Monotonic Narrowing), INV-3 (Spend Limit Narrowing),
         INV-4 (Cascade Completeness), INV-5 (Revocation Irreversibility),
@@ -146,7 +140,7 @@
     </section>
 
     <section numbered="true" toc="default">
-      <n>Policy Chain</n>
+      <name>Policy Chain</name>
       <t>APS defines a three-signature policy chain: ActionIntent (agent declares
       intended action), PolicyDecision (policy engine evaluates with verdict
       allow/deny/escalate), PolicyReceipt (enforcement gateway records execution
@@ -156,7 +150,7 @@
     </section>
 
     <section numbered="true" toc="default">
-      <n>Protocol Artifacts</n>
+      <name>Protocol Artifacts</name>
       <t>The lattice structure enables three artifacts: AuthorizationWitness
       (signed snapshot of agent lattice position at execution time),
       ConstraintVector (per-dimension evaluation with headroom), and
@@ -164,7 +158,7 @@
     </section>
 
     <section numbered="true" toc="default">
-      <n>Institutional Governance</n>
+      <name>Institutional Governance</name>
       <t>APS provides institutional governance primitives for multi-agent
       organizations: InstitutionalCharter, OfficeRegistry, ApprovalPolicy,
       SuccessionEngine, and Federation. All operate within the same product
@@ -173,7 +167,7 @@
     </section>
 
     <section numbered="true" toc="default">
-      <n>MCP Binding</n>
+      <name>MCP Binding</name>
       <t>APS provides a 120-tool MCP server as the enforcement gateway.
       All privileged actions MUST pass through the gateway, which validates
       the delegation chain, evaluates the policy chain, and generates signed
@@ -182,7 +176,7 @@
     </section>
 
     <section numbered="true" toc="default">
-      <n>Security Considerations</n>
+      <name>Security Considerations</name>
       <t>The protocol's strongest guarantees hold when all privileged effects
       are mediated by the ProxyGateway enforcement boundary. When agents use
       the SDK voluntarily without an external gateway, guarantees are
@@ -192,23 +186,23 @@
     </section>
 
     <section numbered="true" toc="default">
-      <n>IANA Considerations</n>
+      <name>IANA Considerations</name>
       <t>This document has no IANA actions.</t>
     </section>
   </middle>
 
   <back>
     <references>
-      <n>References</n>
+      <name>References</name>
       <references>
-        <n>Normative References</n>
-        <xi:include href="https://bib.ietf.org/public/rfc/bibxml/reference.RFC.2119.xml"/>
-        <xi:include href="https://bib.ietf.org/public/rfc/bibxml/reference.RFC.8174.xml"/>
-        <xi:include href="https://bib.ietf.org/public/rfc/bibxml/reference.RFC.8032.xml"/>
-        <xi:include href="https://bib.ietf.org/public/rfc/bibxml/reference.RFC.8785.xml"/>
+        <name>Normative References</name>
+        <reference anchor="RFC2119" target="https://www.rfc-editor.org/info/rfc2119"><front><title>Key words for use in RFCs to Indicate Requirement Levels</title><author fullname="S. Bradner"/><date year="1997" month="March"/></front><seriesInfo name="BCP" value="14"/><seriesInfo name="RFC" value="2119"/></reference>
+        <reference anchor="RFC8174" target="https://www.rfc-editor.org/info/rfc8174"><front><title>Ambiguity of Uppercase vs Lowercase in RFC 2119 Key Words</title><author fullname="B. Leiba"/><date year="2017" month="May"/></front><seriesInfo name="BCP" value="14"/><seriesInfo name="RFC" value="8174"/></reference>
+        <reference anchor="RFC8032" target="https://www.rfc-editor.org/info/rfc8032"><front><title>Edwards-Curve Digital Signature Algorithm (EdDSA)</title><author fullname="S. Josefsson"/><author fullname="I. Liusvaara"/><date year="2017" month="January"/></front><seriesInfo name="RFC" value="8032"/></reference>
+        <reference anchor="RFC8785" target="https://www.rfc-editor.org/info/rfc8785"><front><title>JSON Canonicalization Scheme (JCS)</title><author fullname="A. Rundgren"/><author fullname="B. Jordan"/><author fullname="S. Erdtman"/><date year="2020" month="June"/></front><seriesInfo name="RFC" value="8785"/></reference>
       </references>
       <references>
-        <n>Informative References</n>
+        <name>Informative References</name>
         <reference anchor="APS-NARROWING" target="https://doi.org/10.5281/zenodo.18932404">
           <front>
             <title>Monotonic Narrowing for Agent Authority</title>
@@ -227,7 +221,7 @@
     </references>
 
     <section numbered="true" toc="default">
-      <n>Implementation Status</n>
+      <name>Implementation Status</name>
       <t>As of March 27, 2026: TypeScript SDK v1.27.0 (1,634 tests, 421 suites,
       npm: agent-passport-system). Python SDK v0.7.0 (PyPI: agent-passport-system).
       MCP Server v2.16.0 (120 tools, npm: agent-passport-system-mcp).
