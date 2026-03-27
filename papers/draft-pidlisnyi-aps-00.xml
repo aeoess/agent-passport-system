@@ -1,0 +1,238 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE rfc [
+  <!ENTITY nbsp    "&#160;">
+  <!ENTITY zwsp   "&#8203;">
+  <!ENTITY nbhy   "&#8209;">
+  <!ENTITY wj     "&#8288;">
+]>
+<rfc xmlns:xi="http://www.w3.org/2001/XInclude"
+     category="info"
+     docName="draft-pidlisnyi-aps-00"
+     ipr="trust200902"
+     submissionType="independent"
+     xml:lang="en"
+     version="3">
+
+  <front>
+    <title abbrev="APS">Agent Passport System (APS): Cryptographic Identity, Faceted Authority Attenuation, and Governance for AI Agent Systems</title>
+    <seriesInfo name="Internet-Draft" value="draft-pidlisnyi-aps-00"/>
+    <author fullname="Tymofii Pidlisnyi" initials="T." surname="Pidlisnyi">
+      <organization>AEOESS</organization>
+      <address>
+        <email>signal@aeoess.com</email>
+        <uri>https://aeoess.com</uri>
+      </address>
+    </author>
+    <date year="2026" month="March" day="27"/>
+    <area>Security</area>
+    <workgroup>Individual Submission</workgroup>
+    <keyword>AI agent</keyword>
+    <keyword>identity</keyword>
+    <keyword>delegation</keyword>
+    <keyword>capability attenuation</keyword>
+    <keyword>governance</keyword>
+    <keyword>Ed25519</keyword>
+
+    <abstract>
+      <t>This document specifies the Agent Passport System (APS), a protocol
+      for cryptographic identity, faceted authority attenuation, and governance
+      for AI agent systems. APS introduces Ed25519-based agent passports,
+      scoped delegation chains with monotonic narrowing across seven constraint
+      dimensions (scope, spend, depth, time, reputation, values, reversibility),
+      cascade revocation, a three-signature policy chain (intent, evaluation,
+      receipt), Bayesian reputation-gated authority, and institutional governance
+      primitives (charters, offices, approval policies, federation). Authority is
+      modeled as an element of a product lattice, and delegation is a monotone
+      function on that lattice, ensuring that delegated capabilities can only be
+      attenuated, never amplified. The protocol addresses authentication and
+      authorization gaps in current AI agent infrastructure including MCP and A2A.
+      Reference implementations are provided in TypeScript and Python with
+      1,634 tests across 85 modules, published as open-source SDKs under
+      Apache-2.0. Protocol bindings are specified for MCP (120 tools), with
+      cross-protocol validation through a five-member working group on
+      production infrastructure.</t>
+    </abstract>
+  </front>
+
+  <middle>
+    <section numbered="true" toc="default">
+      <name>Introduction</name>
+      <t>AI agent systems are increasingly deployed in architectures where
+      orchestrators decompose tasks and delegate subtasks to specialist agents.
+      The protocols enabling this communication, notably the Model Context
+      Protocol (MCP) and the Agent-to-Agent Protocol (A2A), solve the
+      connectivity problem but do not solve the identity and authorization
+      problem.</t>
+
+      <t>MCP provides no built-in authentication layer. A2A uses self-declared
+      identities with no attestation mechanism. When an orchestrator delegates
+      to a specialist that calls a tool, the delegation chain that led to the
+      tool invocation is lost.</t>
+
+      <t>APS fills this gap by providing: (1) Ed25519 cryptographic identity
+      bound to unforgeable passports; (2) scoped delegation chains where
+      authority narrows monotonically across seven constraint dimensions;
+      (3) cascade revocation where revoking any delegation invalidates all
+      descendants; (4) a three-signature policy chain binding intent to
+      evaluation to receipt; (5) institutional governance primitives for
+      multi-agent organizations; and (6) an enforcement gateway that serves
+      as an external reference monitor.</t>
+
+      <t>The protocol was first published to npm on February 22, 2026, with
+      the formal invariants published on Zenodo on March 10, 2026
+      (DOI:10.5281/zenodo.18932404). The faceted authority attenuation
+      formalization was published on March 27, 2026
+      (DOI:10.5281/zenodo.19260073).</t>
+
+      <section numbered="true" toc="default">
+        <n>Requirements Language</n>
+        <t>The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
+        "SHOULD", "SHOULD NOT", "RECOMMENDED", "NOT RECOMMENDED", "MAY", and
+        "OPTIONAL" in this document are to be interpreted as described in
+        BCP 14 <xref target="RFC2119"/> <xref target="RFC8174"/> when, and
+        only when, they appear in all capitals, as shown here.</t>
+      </section>
+    </section>
+
+    <section numbered="true" toc="default">
+      <n>Identity Scheme</n>
+      <section numbered="true" toc="default">
+        <n>Agent Passport</n>
+        <t>Each agent in APS possesses an Agent Passport: a signed document
+        binding an Ed25519 public key to an agent identifier, name, owner,
+        and time-to-live. The passport is self-signed by the agent's private
+        key, establishing cryptographic identity without a central authority.</t>
+      </section>
+
+      <section numbered="true" toc="default">
+        <n>DID Scheme</n>
+        <t>APS defines a DID method "did:aps" using multibase-encoded Ed25519
+        public keys: did:aps:z&lt;base58btc-encoded-public-key&gt;.</t>
+      </section>
+    </section>
+
+    <section numbered="true" toc="default">
+      <n>Delegation and Authority Attenuation</n>
+      <section numbered="true" toc="default">
+        <n>Faceted Authority Attenuation</n>
+        <t>Agent authority is modeled as an element of a product lattice
+        A = D_1 x D_2 x ... x D_7, where each D_k is a bounded partially
+        ordered set. The seven dimensions are: Scope (power set, subset ordering),
+        Spend (non-negative reals), Depth (naturals), Time (TTL seconds),
+        Reputation ([0,100] interval), Values (attested principles),
+        Reversibility ({Tentative, Compensable, Irreversible}).</t>
+        <t>Delegation is a monotone function on this lattice: for any
+        delegation d with parent p, auth(d) &lt;= auth(p) in the product
+        ordering. Authority narrows monotonically along any delegation chain
+        across all seven dimensions simultaneously.</t>
+      </section>
+
+      <section numbered="true" toc="default">
+        <n>Cascade Revocation</n>
+        <t>Any delegation MAY be revoked by its issuer. Revocation MUST
+        cascade to all transitive descendants. Revocation is irreversible.
+        The enforcement gateway MUST recheck revocation status at execution
+        time, not only at approval time.</t>
+      </section>
+
+      <section numbered="true" toc="default">
+        <n>Core Invariants</n>
+        <t>The protocol specifies eight invariants: INV-1 (Identity Unforgeability),
+        INV-2 (Scope Monotonic Narrowing), INV-3 (Spend Limit Narrowing),
+        INV-4 (Cascade Completeness), INV-5 (Revocation Irreversibility),
+        INV-6 (Intent-Receipt Binding), INV-7 (Attribution Completeness),
+        INV-8 (Signature Integrity).</t>
+      </section>
+    </section>
+
+    <section numbered="true" toc="default">
+      <n>Policy Chain</n>
+      <t>APS defines a three-signature policy chain: ActionIntent (agent declares
+      intended action), PolicyDecision (policy engine evaluates with verdict
+      allow/deny/escalate), PolicyReceipt (enforcement gateway records execution
+      result). The policy engine splits into a deterministic gate (scope, signature,
+      revocation, attribution, spend) and an advisory evaluation path (deception,
+      proportionality).</t>
+    </section>
+
+    <section numbered="true" toc="default">
+      <n>Protocol Artifacts</n>
+      <t>The lattice structure enables three artifacts: AuthorizationWitness
+      (signed snapshot of agent lattice position at execution time),
+      ConstraintVector (per-dimension evaluation with headroom), and
+      ConstraintFailure (structured denial identifying which dimensions failed).</t>
+    </section>
+
+    <section numbered="true" toc="default">
+      <n>Institutional Governance</n>
+      <t>APS provides institutional governance primitives for multi-agent
+      organizations: InstitutionalCharter, OfficeRegistry, ApprovalPolicy,
+      SuccessionEngine, and Federation. All operate within the same product
+      lattice: charters constrain offices, offices constrain delegations,
+      delegations constrain actions.</t>
+    </section>
+
+    <section numbered="true" toc="default">
+      <n>MCP Binding</n>
+      <t>APS provides a 120-tool MCP server as the enforcement gateway.
+      All privileged actions MUST pass through the gateway, which validates
+      the delegation chain, evaluates the policy chain, and generates signed
+      receipts. The agent cannot bypass the gateway because the gateway holds
+      the target API credentials.</t>
+    </section>
+
+    <section numbered="true" toc="default">
+      <n>Security Considerations</n>
+      <t>The protocol's strongest guarantees hold when all privileged effects
+      are mediated by the ProxyGateway enforcement boundary. When agents use
+      the SDK voluntarily without an external gateway, guarantees are
+      conditional on agent cooperation. The threat model defines three
+      attacker classes: adversarial agent, messaging attacker, and runtime
+      attacker. Runtime compromise is out of scope for protocol guarantees.</t>
+    </section>
+
+    <section numbered="true" toc="default">
+      <n>IANA Considerations</n>
+      <t>This document has no IANA actions.</t>
+    </section>
+  </middle>
+
+  <back>
+    <references>
+      <n>References</n>
+      <references>
+        <n>Normative References</n>
+        <xi:include href="https://bib.ietf.org/public/rfc/bibxml/reference.RFC.2119.xml"/>
+        <xi:include href="https://bib.ietf.org/public/rfc/bibxml/reference.RFC.8174.xml"/>
+        <xi:include href="https://bib.ietf.org/public/rfc/bibxml/reference.RFC.8032.xml"/>
+        <xi:include href="https://bib.ietf.org/public/rfc/bibxml/reference.RFC.8785.xml"/>
+      </references>
+      <references>
+        <n>Informative References</n>
+        <reference anchor="APS-NARROWING" target="https://doi.org/10.5281/zenodo.18932404">
+          <front>
+            <title>Monotonic Narrowing for Agent Authority</title>
+            <author fullname="Tymofii Pidlisnyi"/>
+            <date year="2026" month="March"/>
+          </front>
+        </reference>
+        <reference anchor="APS-FACETED" target="https://doi.org/10.5281/zenodo.19260073">
+          <front>
+            <title>Faceted Authority Attenuation</title>
+            <author fullname="Tymofii Pidlisnyi"/>
+            <date year="2026" month="March"/>
+          </front>
+        </reference>
+      </references>
+    </references>
+
+    <section numbered="true" toc="default">
+      <n>Implementation Status</n>
+      <t>As of March 27, 2026: TypeScript SDK v1.27.0 (1,634 tests, 421 suites,
+      npm: agent-passport-system). Python SDK v0.7.0 (PyPI: agent-passport-system).
+      MCP Server v2.16.0 (120 tools, npm: agent-passport-system-mcp).
+      Source: https://github.com/aeoess/agent-passport-system (Apache-2.0).
+      First npm publish: February 22, 2026.</t>
+    </section>
+  </back>
+</rfc>
