@@ -172,3 +172,63 @@ export interface DataComplianceReport {
   }>
   signature: string
 }
+
+
+// ══════════════════════════════════════
+// Module 40: Data Source Attribution
+// ══════════════════════════════════════
+// The inverse of Module 37's agent attribution.
+// Agent attribution: "Agent A did 60% of the work"
+// Data source attribution: "Data Source X contributed 60% to this output"
+// This is the AppsFlyer for AI data — which source caused which value.
+
+// ── Attribution Weight Model ──
+// Configurable, not hardcoded. "Attribution weights are configurable,
+// not hardcoded gospel." Multiple models, customer picks.
+
+export type DataAttributionModel =
+  | 'equal'           // equal split across all sources
+  | 'access_weighted' // weighted by access count
+  | 'recency_weighted'// more recent access = higher weight
+  | 'custom'          // caller provides explicit weights
+
+// ── Per-Source Attribution Entry ──
+
+export interface DataSourceAttributionEntry {
+  sourceReceiptId: string
+  sourceDescriptor: string
+  accessReceiptIds: string[]
+  accessCount: number
+  weight: number               // raw computed weight
+  percentage: number           // normalized 0-100
+  compensationOwed: number
+  currency: string
+  compensationModel: string
+}
+
+// ── Data Source Attribution Report ──
+// Signed, Merkle-committed proof of which data sources
+// contributed to a specific output or decision.
+
+export interface DataSourceAttributionReport {
+  reportId: string              // 'dsar_' + uuid
+  // What output this attribution is for
+  outputArtifactId: string
+  outputType: string            // 'decision' | 'content' | 'model' | 'action'
+  // Attribution entries per source
+  sources: DataSourceAttributionEntry[]
+  // Model used
+  attributionModel: DataAttributionModel
+  // Totals
+  totalSources: number
+  totalAccessEvents: number
+  totalCompensation: number
+  currency: string
+  // Cryptographic commitment
+  merkleRoot: string            // Merkle root of all backing access receipt IDs
+  entriesHash: string           // SHA-256 of canonical entries
+  // Metadata
+  generatedAt: string
+  generatedBy: string           // public key of generator
+  signature: string
+}

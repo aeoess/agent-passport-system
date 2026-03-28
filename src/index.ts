@@ -772,6 +772,7 @@ export * from './interop/agent-json-bridge.js'
 export * from './types/data-contribution.js'
 export * from './core/data-contribution.js'
 export * from './core/data-settlement.js'
+export * from './core/data-source-attribution.js'
 
 // ══════════════════════════════════════
 // Data Enforcement Gate + Training Attribution
