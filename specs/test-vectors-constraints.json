@@ -1,0 +1,121 @@
+{
+  "spec": "authority-constraints-v0.1",
+  "producer": "agent-passport-system",
+  "producer_version": "1.27.0",
+  "generated_at": "2026-03-28T06:00:00Z",
+  "description": "APS constraint evaluation test vectors in desiorac format. Each vector includes authorization state, per-facet constraint evaluations, and expected verification result.",
+  "vectors": [
+    {
+      "id": "aps-vec-001",
+      "scenario": "Valid authorization, all constraints within limits",
+      "authorization_ref": "valid",
+      "constraints": [
+        { "facet": "scope", "limit": "cloud:*", "actual": "cloud:provision", "delta": null, "result": "pass" },
+        { "facet": "spend", "limit": 500.00, "actual": 47.50, "delta": 452.50, "result": "pass" },
+        { "facet": "time", "limit": "2026-04-01T00:00:00Z", "actual": "2026-03-28T06:00:00Z", "delta": 345600, "result": "pass" }
+      ],
+      "expected_verification_result": "pass"
+    },
+    {
+      "id": "aps-vec-002",
+      "scenario": "No authorization — null delegation",
+      "authorization_ref": "null",
+      "constraints": [],
+      "expected_verification_result": "fail",
+      "failure_reason": "No valid delegation covers requested scope"
+    },
+    {
+      "id": "aps-vec-003",
+      "scenario": "Expired authorization — delegation past expires_at",
+      "authorization_ref": "expired",
+      "constraints": [
+        { "facet": "scope", "limit": "cloud:*", "actual": "cloud:provision", "delta": null, "result": "pass" },
+        { "facet": "spend", "limit": 500.00, "actual": 0, "delta": 500.00, "result": "pass" },
+        { "facet": "time", "limit": "2026-03-27T00:00:00Z", "actual": "2026-03-28T06:00:00Z", "delta": -108000, "result": "fail" }
+      ],
+      "expected_verification_result": "fail",
+      "failure_reason": "Delegation expired"
+    },
+    {
+      "id": "aps-vec-004",
+      "scenario": "Scope violation — action outside delegated scope",
+      "authorization_ref": "valid",
+      "constraints": [
+        { "facet": "scope", "limit": "cloud:provision", "actual": "admin:delete", "delta": null, "result": "fail" },
+        { "facet": "spend", "limit": 500.00, "actual": 0, "delta": 500.00, "result": "pass" },
+        { "facet": "time", "limit": "2026-04-01T00:00:00Z", "actual": "2026-03-28T06:00:00Z", "delta": 345600, "result": "pass" }
+      ],
+      "expected_verification_result": "fail",
+      "failure_reason": "Scope 'admin:delete' not covered by delegation scope 'cloud:provision'"
+    },
+    {
+      "id": "aps-vec-005",
+      "scenario": "BOUNDARY: Spend exactly at limit — APS treats as PASS (limit is inclusive ceiling)",
+      "authorization_ref": "valid",
+      "constraints": [
+        { "facet": "scope", "limit": "cloud:*", "actual": "cloud:provision", "delta": null, "result": "pass" },
+        { "facet": "spend", "limit": 500.00, "actual": 500.00, "delta": 0, "result": "pass" }
+      ],
+      "expected_verification_result": "pass",
+      "notes": "APS semantics: amount == limit passes. The limit is the maximum allowed, inclusive. Implementations that treat amount == limit as fail will diverge here."
+    },
+    {
+      "id": "aps-vec-006",
+      "scenario": "BOUNDARY: Spend one cent over limit — fail",
+      "authorization_ref": "valid",
+      "constraints": [
+        { "facet": "scope", "limit": "cloud:*", "actual": "cloud:provision", "delta": null, "result": "pass" },
+        { "facet": "spend", "limit": 500.00, "actual": 500.01, "delta": -0.01, "result": "fail" }
+      ],
+      "expected_verification_result": "fail",
+      "failure_reason": "Spend $500.01 exceeds delegation limit $500.00"
+    },
+    {
+      "id": "aps-vec-007",
+      "scenario": "ADVERSARIAL: Expired by 1 second — within typical clock skew tolerance",
+      "authorization_ref": "expired",
+      "constraints": [
+        { "facet": "scope", "limit": "cloud:*", "actual": "cloud:provision", "delta": null, "result": "pass" },
+        { "facet": "time", "limit": "2026-03-28T05:59:59Z", "actual": "2026-03-28T06:00:00Z", "delta": -1, "result": "fail" }
+      ],
+      "expected_verification_result": "fail",
+      "notes": "APS does NOT define a clock skew grace window. Expired is expired. Implementations that allow a grace window (e.g. 5s tolerance) will diverge here. This vector forces implementors to declare their handling."
+    },
+    {
+      "id": "aps-vec-008",
+      "scenario": "ADVERSARIAL: Revoked delegation — was valid, now revoked",
+      "authorization_ref": "valid",
+      "constraints": [
+        { "facet": "scope", "limit": "cloud:*", "actual": "cloud:provision", "delta": null, "result": "pass" },
+        { "facet": "spend", "limit": 500.00, "actual": 47.50, "delta": 452.50, "result": "pass" },
+        { "facet": "revocation", "limit": "active", "actual": "revoked", "delta": null, "result": "fail" }
+      ],
+      "expected_verification_result": "fail",
+      "failure_reason": "Delegation revoked — cascade revocation propagated from upstream"
+    },
+    {
+      "id": "aps-vec-009",
+      "scenario": "Reputation threshold — agent below required trust level",
+      "authorization_ref": "valid",
+      "constraints": [
+        { "facet": "scope", "limit": "cloud:*", "actual": "cloud:provision", "delta": null, "result": "pass" },
+        { "facet": "spend", "limit": 500.00, "actual": 0, "delta": 500.00, "result": "pass" },
+        { "facet": "reputation", "limit": 50, "actual": 23, "delta": -27, "result": "fail" }
+      ],
+      "expected_verification_result": "fail",
+      "failure_reason": "Agent reputation 23 below required threshold 50"
+    },
+    {
+      "id": "aps-vec-010",
+      "scenario": "COMPOUND: Multiple facets fail simultaneously",
+      "authorization_ref": "expired",
+      "constraints": [
+        { "facet": "scope", "limit": "cloud:provision", "actual": "admin:delete", "delta": null, "result": "fail" },
+        { "facet": "spend", "limit": 500.00, "actual": 750.00, "delta": -250.00, "result": "fail" },
+        { "facet": "time", "limit": "2026-03-27T00:00:00Z", "actual": "2026-03-28T06:00:00Z", "delta": -108000, "result": "fail" }
+      ],
+      "expected_verification_result": "fail",
+      "failure_reason": "Multiple constraint violations: scope, spend, time"
+    }
+  ]
+}
