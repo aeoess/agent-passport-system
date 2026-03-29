@@ -232,6 +232,19 @@ export type {
 // ── Proxy Gateway (Enforcement Boundary) ──
 export { ProxyGateway, createProxyGateway } from './core/gateway.js'
 
+// ── Fidelity Probe: Substrate Behavioral Drift Measurement ──
+export {
+  scoreFidelityResponse, aggregateFidelityScores,
+  createFidelityAttestation, verifyFidelityAttestation,
+  shouldProbe, fidelityDelta,
+  DEFAULT_PROBE_SCHEDULE,
+} from './core/fidelity-probe.js'
+
+export type {
+  FidelityChallenge, FidelityResponse, FidelityOutcome, FidelityScore,
+  ProbeSchedule,
+} from './core/fidelity-probe.js'
+
 export type {
   ToolCallRequest, ToolCallResult, GatewayProof,
   GatewayApproval, ToolExecutor, GatewayConfig,
