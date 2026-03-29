@@ -70,6 +70,40 @@ const result = await gateway.processToolCall({
 
 **What just happened:** The gateway verified the agent's identity, checked delegation scope, enforced spend limits, evaluated values floor compliance, verified reputation tier, checked revocation status, executed the tool, generated a signed receipt, and updated reputation. All in one call. The agent never touched the tool directly.
 
+## Framework Integration: CrewAI
+
+Add governance to any CrewAI crew in 10 lines. Works the same way with LangChain, ADK, A2A, or any custom framework.
+
+```typescript
+import { generateKeyPair, createCrewAIGovernance } from 'agent-passport-system'
+
+const keys = generateKeyPair()
+const gov = createCrewAIGovernance({
+  agentId: 'research-agent',
+  ...keys,
+  delegationId: 'del_research_2026',
+  allowedScopes: ['tool:web_search', 'tool:read_file', 'task:execute'],
+  spendLimitPerAction: 5.00,
+})
+
+// Wrap any tool call — permitted actions execute, denied ones don't
+const result = await gov.governedToolCall(
+  'web_search',
+  { query: 'AI governance standards' },
+  () => mySearchTool('AI governance standards'),
+  0.01  // estimated cost
+)
+// result.governance.verdict → 'permit' or 'deny'
+// result.receipt → signed proof of the action (or denial)
+
+// Use as CrewAI task callback
+const receipt = gov.taskCallback({ description: '...', result: '...', agent: 'research-agent' })
+```
+
+**What you get:** scope enforcement (agent can only use allowed tools), spend controls ($5/action limit), signed receipts for every action (permit or deny), and a verifiable audit trail. The agent never bypasses governance because the wrapper executes the action, not the agent.
+
+See [`examples/crewai-governance.ts`](examples/crewai-governance.ts) for the full working example. Adapters also available for [LangChain](src/adapters/langchain.ts), [Google ADK](src/adapters/adk.ts), and [A2A](src/adapters/a2a.ts).
+
 ## Identity Is the Foundation, Not the Product
 
 Everything above is built on Ed25519 cryptographic identity. But identity is the plumbing, not the value proposition.
