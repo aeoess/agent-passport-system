@@ -7,9 +7,9 @@
 
 > **For AI agents:** visit [aeoess.com/llms.txt](https://aeoess.com/llms.txt) for machine-readable docs or [llms-full.txt](https://aeoess.com/llms-full.txt) for the complete reference.
 
-**Governance, trust, and enforcement for AI agents. Not just identity.**
+**Governance infrastructure for the agent economy.** Identity, delegation, reputation, enforcement, commerce, institutional governance. Not just identity — the full stack.
 
-When an AI agent acts on your behalf, APS answers: what is it allowed to do? How much can it spend? Is it trustworthy? What happens when it violates a constraint? And can you prove all of this cryptographically?
+AI agents represent companies and people. They spend real money, access sensitive data, negotiate contracts, and talk to other agents. APS answers: what is this agent allowed to do? How much can it spend? Is it trustworthy? What happens when it violates a constraint? And can you prove all of this cryptographically?
 
 ```bash
 npm install agent-passport-system
