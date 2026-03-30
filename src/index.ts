@@ -285,6 +285,18 @@ export {
 
 export type { FacetSnapshot, NarrowingCheckResult } from './core/data-narrowing.js'
 
+// ── Governance Posture: behavioral → structural propagation ──
+export {
+  createInitialPosture, recordBehavioralFailure, recordBehavioralSuccess,
+  upgradePosture, getPostureConstraints, isScopeBlocked, comparePostureTiers,
+  DEFAULT_POSTURE_CONSTRAINTS, DEFAULT_DOWNGRADE_POLICY,
+} from './core/governance-posture.js'
+
+export type {
+  PostureTier, PostureConstraints, GovernancePosture,
+  PostureChange, PostureDowngradePolicy,
+} from './core/governance-posture.js'
+
 export type {
   ToolCallRequest, ToolCallResult, GatewayProof,
   GatewayApproval, ToolExecutor, GatewayConfig,
