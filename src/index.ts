@@ -297,6 +297,17 @@ export type {
   PostureChange, PostureDowngradePolicy,
 } from './core/governance-posture.js'
 
+// ── Anchor States: external verifiability tracking ──
+export {
+  createAnchorMetadata, markBatched, markAnchored,
+  shouldAutoBatch, meetsAnchorRequirement, isValidAnchorTransition,
+  DEFAULT_AUTO_BATCH_CONFIG, ANCHOR_STATE_ORDER,
+} from './core/anchor-state.js'
+
+export type {
+  AnchorState, AnchorMetadata, AutoBatchConfig,
+} from './core/anchor-state.js'
+
 export type {
   ToolCallRequest, ToolCallResult, GatewayProof,
   GatewayApproval, ToolExecutor, GatewayConfig,
