@@ -78,6 +78,7 @@ export function createScopedReputation(
     lastUpdatedAt: new Date().toISOString(),
     evidenceDiversity: createEvidenceDiversity(),
     confidence: 0,
+    firstObservedAt: undefined,
   }
 }
 
@@ -97,20 +98,31 @@ export function createEvidenceDiversity(): EvidenceDiversity {
   }
 }
 
+/** Default temporal spread calibration window in days.
+ *  Configurable per deployment. Nanook's empirical data suggests
+ *  window ≥ 5 observations achieves reliable drift detection.
+ *  14 days is a conservative default for most agent deployments. */
+export const DEFAULT_TEMPORAL_SPREAD_DAYS = 14
+
 /**
- * Compute confidence (0-1) from evidence diversity and volume.
+ * Compute confidence (0-1) from evidence diversity, volume, and temporal spread.
  *
- * Confidence is the product of four sub-scores:
+ * Confidence is the product of five sub-scores:
  *   1. Volume: log-scaled receipt count (saturates around 100 receipts)
  *   2. Diversity of principals: more distinct principals = harder to sybil
  *   3. Diversity of evidence classes: not all trivial tasks
  *   4. Success/failure balance: some failures are HEALTHIER than 100% success
  *      (100% success with few interactions is suspicious)
+ *   5. Temporal spread: evidence clustered in a short window is penalized
+ *      (prevents gaming through burst submissions — Nanook PDR paper §6.4)
  *
- * Each sub-score is [0, 1]. Final confidence = geometric mean.
+ * Each sub-score is [0, 1]. Final confidence = geometric mean (5th root).
  * This means ALL dimensions must be non-zero for meaningful confidence.
  */
-export function computeConfidence(rep: ScopedReputation): number {
+export function computeConfidence(
+  rep: ScopedReputation,
+  opts?: { temporalSpreadDays?: number },
+): number {
   const diversity = rep.evidenceDiversity
   if (!diversity || rep.receiptCount === 0) return 0
 
@@ -143,7 +155,23 @@ export function computeConfidence(rep: ScopedReputation): number {
   }
 
   // Geometric mean: all dimensions must contribute
-  const raw = Math.pow(volumeScore * principalScore * classScore * healthScore, 0.25)
+  // Temporal spread: penalize evidence clustered in short windows
+  // Formula: 0.5 + 0.5 × min(span_days / calibration_window, 1.0)
+  // Floor of 0.5 means burst evidence still counts (half weight), not zero
+  const spreadDays = opts?.temporalSpreadDays ?? DEFAULT_TEMPORAL_SPREAD_DAYS
+  let temporalScore = 1.0
+  if (rep.firstObservedAt && rep.lastUpdatedAt) {
+    const firstMs = new Date(rep.firstObservedAt).getTime()
+    const lastMs = new Date(rep.lastUpdatedAt).getTime()
+    const spanDays = Math.max(0, (lastMs - firstMs) / (1000 * 60 * 60 * 24))
+    const coverage = Math.min(spanDays / spreadDays, 1.0)
+    temporalScore = 0.5 + 0.5 * coverage
+  } else if (rep.receiptCount > 0) {
+    // Has evidence but no temporal metadata — default to half penalty
+    temporalScore = 0.5
+  }
+
+  const raw = Math.pow(volumeScore * principalScore * classScore * healthScore * temporalScore, 0.2)
   return Math.round(raw * 1000) / 1000
 }
 

@@ -31,6 +31,10 @@ export interface ScopedReputation {
    *  high with many/diverse interactions. Sybil defense: farming cheap
    *  interactions from one source keeps confidence low. */
   confidence?: number
+  /** ISO timestamp of the first evidence event for this scope.
+   *  Used for temporal spread calculation — confidence is penalized
+   *  when all evidence is clustered in a short window. */
+  firstObservedAt?: string
 }
 
 /**
