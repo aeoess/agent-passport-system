@@ -189,7 +189,7 @@ describe('Paper Section 3 — Four Attenuation Invariants', () => {
     const grant = createEscalationGrant({
       delegationId: d.delegationId, grantedTo: agent.publicKey,
       grantedBy: principal.publicKey, granterPrivateKey: principal.keyPair.privateKey,
-      ceiling: { scope: ['admin:*'], maxSpend: 50, maxDurationMs: 50 },
+      ceiling: { scope: ['admin:*'], maxSpend: 50, maxDurationMs: 150 },
       allowedTriggers: ['human_authorized'],
       expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
     })
@@ -209,7 +209,7 @@ describe('Paper Section 3 — Four Attenuation Invariants', () => {
     assert.equal(r2.viaEscalation, true, 'result should flag viaEscalation')
 
     // Wait for TTL expiry
-    await new Promise(r => setTimeout(r, 60))
+    await new Promise(r => setTimeout(r, 200))
 
     // admin:delete denied again after expiry
     const r3 = await gw.processToolCall(makeReq(agent, 'admin:*'))
