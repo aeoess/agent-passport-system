@@ -25,7 +25,7 @@ export type {
 } from './contract.js'
 
 // ── Layer 1: Identity & Accountability ──
-export { createPassport, signPassport, updatePassport, isExpired } from './core/passport.js'
+export { createPassport, signPassport, updatePassport, isExpired, countersignPassport, verifyIssuerSignature, isIssuerVerified } from './core/passport.js'
 export { canonicalize } from './core/canonical.js'
 
 // ── JCS Canonicalization (RFC 8785) ──
@@ -80,7 +80,7 @@ export {
 // ── Types ──
 export type {
   // Layer 1
-  AgentPassport, SignedPassport, KeyPair, VerificationResult,
+  AgentPassport, SignedPassport, IssuerSignature, KeyPair, VerificationResult,
   Challenge, ChallengeResponse, ReputationScore, ReputationEvent,
   Delegation, RuntimeInfo, CreatePassportOptions,
   ActionReceipt, RevocationRecord, DelegationStatus,

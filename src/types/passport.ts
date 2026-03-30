@@ -153,10 +153,18 @@ export interface RevocationEvent {
   batchAgentId?: string        // which agent triggered batch
 }
 
+export interface IssuerSignature {
+  issuerId: string
+  issuerPublicKey: string
+  signature: string
+  signedAt: string
+}
+
 export interface SignedPassport {
   passport: AgentPassport
   signature: string
   signedAt: string
+  issuerSignature?: IssuerSignature
 }
 
 export interface VerificationResult {

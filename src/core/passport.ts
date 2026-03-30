@@ -1,11 +1,11 @@
 // Copyright 2024-2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
 // Core Passport Operations — create, sign, update, expire
 
-import { generateKeyPair, sign } from '../crypto/keys.js'
+import { generateKeyPair, sign, verify, publicKeyFromPrivate } from '../crypto/keys.js'
 import { canonicalize } from './canonical.js'
 import type {
   AgentPassport, SignedPassport, KeyPair,
-  CreatePassportOptions, ReputationScore
+  CreatePassportOptions, ReputationScore, IssuerSignature
 } from '../types/passport.js'
 
 const DEFAULT_EXPIRY_DAYS = 365
@@ -94,4 +94,56 @@ export function updatePassport(
 
 export function isExpired(passport: AgentPassport): boolean {
   return new Date(passport.expiresAt) < new Date()
+}
+
+/**
+ * Countersign a passport with the issuer's private key.
+ * This is the Certificate Authority operation — proves AEOESS issued this passport.
+ * The issuer signature covers the entire SignedPassport (passport + agent signature + signedAt).
+ */
+export function countersignPassport(
+  signedPassport: SignedPassport,
+  issuerPrivateKey: string,
+  issuerId: string = 'aeoess'
+): SignedPassport {
+  const payload = canonicalize({
+    passport: signedPassport.passport,
+    signature: signedPassport.signature,
+    signedAt: signedPassport.signedAt,
+  })
+  const issuerSig = sign(payload, issuerPrivateKey)
+  return {
+    ...signedPassport,
+    issuerSignature: {
+      issuerId,
+      issuerPublicKey: publicKeyFromPrivate(issuerPrivateKey),
+      signature: issuerSig,
+      signedAt: new Date().toISOString(),
+    },
+  }
+}
+
+/**
+ * Verify an issuer countersignature on a passport.
+ * Returns true if the passport was issued by the authority holding issuerPublicKey.
+ */
+export function verifyIssuerSignature(
+  signedPassport: SignedPassport,
+  issuerPublicKey: string
+): boolean {
+  if (!signedPassport.issuerSignature) return false
+  if (signedPassport.issuerSignature.issuerPublicKey !== issuerPublicKey) return false
+  const payload = canonicalize({
+    passport: signedPassport.passport,
+    signature: signedPassport.signature,
+    signedAt: signedPassport.signedAt,
+  })
+  return verify(payload, signedPassport.issuerSignature.signature, issuerPublicKey)
+}
+
+/**
+ * Check if a passport has a valid issuer countersignature from any known authority.
+ */
+export function isIssuerVerified(signedPassport: SignedPassport): boolean {
+  return !!signedPassport.issuerSignature && signedPassport.issuerSignature.signature.length === 128
 }
