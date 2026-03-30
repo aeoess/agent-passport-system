@@ -516,6 +516,13 @@ export interface GatewayConfig {
    *  fidelity attestation before permitting actions. Agents without a fidelity
    *  attestation are treated based on fidelityDefaultPolicy. */
   enableFidelityGating?: boolean
+  /** Enable identity verification during agent registration. When true, the gateway
+   *  resolves the agent's DID, verifies principal endorsement chain, and optionally
+   *  performs entity verification. Results stored on RegisteredAgent. */
+  enableIdentityVerification?: boolean
+  /** Identity verification configuration. Controls which verification steps run
+   *  and the minimum identity strength required for registration. */
+  identityConfig?: import('../core/gateway-identity.js').IdentityVerificationConfig
   /** Minimum fidelity score (0-1) required for action permission.
    *  Default: 0.5. Actions by agents below this threshold are denied. */
   minFidelityScore?: number
@@ -573,6 +580,9 @@ export interface RegisteredAgent {
    *  consistently with its identity on the current LLM substrate.
    *  Updated by external fidelity measurement systems, not self-reported. */
   fidelityAttestation?: FidelityAttestation
+  /** Identity verification result — DID resolution, principal chain, entity verification.
+   *  Set during registration when enableIdentityVerification is true. */
+  identityVerification?: import('../core/gateway-identity.js').GatewayIdentityVerification
 }
 
 // ── Gateway Stats ──

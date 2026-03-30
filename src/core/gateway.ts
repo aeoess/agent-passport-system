@@ -68,6 +68,8 @@ import type { EscrowHold, DangerSignal, DangerType } from '../types/escrow.js'
 import type { DisputeArtifact, DisputeOverlay } from '../types/dispute.js'
 import type { FinalityState } from '../types/finality.js'
 import { evaluateDisputeOverlay } from './transactional.js'
+import { verifyAgentIdentity, verifyAgentIdentitySync, strengthMeetsMinimum, identityStrengthFailure, DEFAULT_IDENTITY_CONFIG } from './gateway-identity.js'
+import type { GatewayIdentityVerification } from './gateway-identity.js'
 
 
 // ══════════════════════════════════════
@@ -207,7 +209,8 @@ export class ProxyGateway {
     passport: RegisteredAgent['passport'],
     attestation: FloorAttestation,
     delegations: Delegation[],
-    role: GatewayAgentRole = 'executor'
+    role: GatewayAgentRole = 'executor',
+    options?: { endorsement?: import('../types/principal.js').PrincipalEndorsement }
   ): { registered: boolean; error?: string } {
     // Verify passport (SignedPassport wraps AgentPassport)
     const passportCheck = verifyPassport(passport)
@@ -231,6 +234,17 @@ export class ProxyGateway {
     }
 
     const agentId = passport.passport.agentId
+
+    // Identity verification: DID resolution + principal endorsement chain
+    let identityVerification: GatewayIdentityVerification | undefined
+    if (this.config.enableIdentityVerification) {
+      const idConfig = this.config.identityConfig ?? DEFAULT_IDENTITY_CONFIG
+      identityVerification = verifyAgentIdentitySync(passport, idConfig, options?.endorsement)
+      // Enforce minimum identity strength
+      if (!strengthMeetsMinimum(identityVerification.strength, idConfig.minimumStrength)) {
+        return { registered: false, error: `Identity strength '${identityVerification.strength}' below required '${idConfig.minimumStrength}'` }
+      }
+    }
 
     // Initialize reputation + tier if reputation gating is enabled
     let reputation: ScopedReputation | undefined
@@ -262,6 +276,7 @@ export class ProxyGateway {
         ? this.config.governanceEnvelope.artifact.version : undefined,
       escalationGrants: this.config.enableEscalation ? [] : undefined,
       activeEscalations: this.config.enableEscalation ? [] : undefined,
+      identityVerification,
     })
     this.stats.activeAgents = this.agents.size
 
@@ -1334,6 +1349,12 @@ export class ProxyGateway {
     return true
   }
 
+  /** Get an agent's identity verification result.
+   *  Returns undefined if agent not registered or identity verification not enabled. */
+  getAgentIdentity(agentId: string): GatewayIdentityVerification | undefined {
+    return this.agents.get(agentId)?.identityVerification
+  }
+
   // ══════════════════════════════════════════════════════════════
   // Transactional Integrity Layer — Escrow, Dispute, Witness
   // ══════════════════════════════════════════════════════════════
@@ -1802,8 +1823,9 @@ export class ProxyGateway {
 
   /** Build the standard "all passed" evaluations for a successful execution */
   private buildSuccessEvaluations(request: ToolCallRequest, delegation: Delegation): ConstraintEvaluation[] {
+    const registeredAgent = this.agents.get(request.agentId)
     const evals: ConstraintEvaluation[] = [
-      { facet: 'identity', status: 'pass' },
+      { facet: 'identity', status: 'pass', headroom: registeredAgent?.identityVerification?.strength },
       { facet: 'replay', status: 'pass' },
       { facet: 'scope', status: 'pass' },
       { facet: 'revocation', status: 'pass' },

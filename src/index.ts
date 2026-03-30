@@ -245,6 +245,17 @@ export type {
   ProbeSchedule,
 } from './core/fidelity-probe.js'
 
+// ── Gateway Identity: DID + Principal + Entity Verification ──
+export {
+  verifyAgentIdentity, verifyAgentIdentitySync,
+  strengthMeetsMinimum, identityStrengthFailure,
+  DEFAULT_IDENTITY_CONFIG,
+} from './core/gateway-identity.js'
+
+export type {
+  GatewayIdentityVerification, IdentityVerificationConfig,
+} from './core/gateway-identity.js'
+
 export type {
   ToolCallRequest, ToolCallResult, GatewayProof,
   GatewayApproval, ToolExecutor, GatewayConfig,
