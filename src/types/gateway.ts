@@ -371,6 +371,9 @@ export interface ToolCallResult {
   /** Data access decisions (if data gateway configured and dataSourceIds present).
    *  Contains terms compliance check + access receipts for each data source. */
   dataAccessDecisions?: import('../core/data-enforcement.js').DataAccessDecision[]
+  /** Hybrid logical clock timestamp (if enableHybridTimestamps is true).
+   *  Enables causal ordering across gateway operations. */
+  hlcTimestamp?: import('../types/time.js').HybridTimestamp
   /** Constraint vector: complete per-facet evaluation of all constraints.
    *  Present on EVERY result (permitted or denied). Machine-readable denial taxonomy. */
   constraintVector?: ConstraintVector
@@ -536,6 +539,16 @@ export interface GatewayConfig {
   enableDataEnforcement?: boolean
   /** Data gateway instance for data access enforcement. Set via constructor or setDataGateway(). */
   dataGateway?: import('../core/data-gateway.js').DataGateway
+  /** Enable hybrid logical clock timestamps on receipts and witnesses.
+   *  When true, all gateway timestamps use HLC with NTP uncertainty bounds
+   *  instead of plain ISO 8601 strings. Enables causal ordering. Default: false */
+  enableHybridTimestamps?: boolean
+  /** Fidelity probe schedule. Controls when probes fire during agent interactions.
+   *  Only relevant when enableFidelityGating is true. Default: DEFAULT_PROBE_SCHEDULE */
+  probeSchedule?: import('../core/fidelity-probe.js').ProbeSchedule
+  /** Callback: fires when the probe schedule determines a fidelity probe should run.
+   *  The external measurement system should fire the probe and call setFidelityAttestation. */
+  onProbeRequired?: (agentId: string, reason: 'delegation' | 'turn_interval' | 'substrate_change') => void
   /** Minimum fidelity score (0-1) required for action permission.
    *  Default: 0.5. Actions by agents below this threshold are denied. */
   minFidelityScore?: number
@@ -596,6 +609,12 @@ export interface RegisteredAgent {
   /** Identity verification result — DID resolution, principal chain, entity verification.
    *  Set during registration when enableIdentityVerification is true. */
   identityVerification?: import('../core/gateway-identity.js').GatewayIdentityVerification
+  /** Turn counter — increments on every processToolCall for this agent */
+  turnCount?: number
+  /** Turn number when fidelity probe was last fired */
+  lastProbeTurn?: number
+  /** Last known substrate (for substrate change detection) */
+  lastKnownSubstrate?: string
 }
 
 // ── Gateway Stats ──

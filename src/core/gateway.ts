@@ -71,6 +71,10 @@ import { evaluateDisputeOverlay } from './transactional.js'
 import { verifyAgentIdentity, verifyAgentIdentitySync, strengthMeetsMinimum, identityStrengthFailure, DEFAULT_IDENTITY_CONFIG } from './gateway-identity.js'
 import type { GatewayIdentityVerification } from './gateway-identity.js'
 import type { DataAccessDecision } from './data-enforcement.js'
+import { createHybridTimestamp } from './time.js'
+import type { HybridTimestamp } from '../types/time.js'
+import { shouldProbe, DEFAULT_PROBE_SCHEDULE } from './fidelity-probe.js'
+import type { ProbeSchedule } from './fidelity-probe.js'
 
 
 // ══════════════════════════════════════
@@ -407,6 +411,12 @@ export class ProxyGateway {
         constraintVector: this.buildConstraintVector('denied', [{ facet: 'identity', status: 'fail', failure }], [failure]),
       }
     }
+
+    // Track turn count and generate HLC timestamp
+    agent.turnCount = (agent.turnCount ?? 0) + 1
+    const hlcTimestamp = this.config.enableHybridTimestamps
+      ? createHybridTimestamp(this.config.gatewayId)
+      : undefined
 
     // Verify request signature
     const requestPayload = canonicalize({
@@ -1031,6 +1041,29 @@ export class ProxyGateway {
       constraintVector,
       authorizationWitness: authWitness,
       dataAccessDecisions,
+      hlcTimestamp,
+    }
+
+    // ── Fidelity probe scheduling ──
+    if (this.config.enableFidelityGating && this.config.onProbeRequired) {
+      const schedule = this.config.probeSchedule ?? DEFAULT_PROBE_SCHEDULE
+      const substrateChanged = agent.fidelityAttestation?.fidelity.substrate !== agent.lastKnownSubstrate
+        && agent.lastKnownSubstrate !== undefined
+      if (agent.fidelityAttestation?.fidelity.substrate) {
+        agent.lastKnownSubstrate = agent.fidelityAttestation.fidelity.substrate
+      }
+      const probeNeeded = shouldProbe(schedule, {
+        isDelegationEvent: false,
+        turnNumber: agent.turnCount ?? 0,
+        lastProbeTurn: agent.lastProbeTurn ?? 0,
+        substrateChanged,
+        highStakes: request.reversibility === 'irreversible',
+      })
+      if (probeNeeded) {
+        agent.lastProbeTurn = agent.turnCount ?? 0
+        const reason = substrateChanged ? 'substrate_change' : 'turn_interval'
+        this.config.onProbeRequired(request.agentId, reason)
+      }
     }
 
     // ── Near-miss alerting (Phase 3) ──
