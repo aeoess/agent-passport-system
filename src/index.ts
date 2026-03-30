@@ -900,6 +900,9 @@ export type { LangChainGovernanceHandler } from './adapters/langchain.js'
 export { createA2AGovernance } from './adapters/a2a.js'
 export type { A2AGovernance } from './adapters/a2a.js'
 
+export { delegationToPolicy, policyToYaml, extractEffectiveScopes } from './adapters/openshell.js'
+export type { OpenShellPolicy, NetworkPolicyEntry, ScopeMapping } from './adapters/openshell.js'
+
 
 // ══════════════════════════════════════
 // Conformance Test Suite
