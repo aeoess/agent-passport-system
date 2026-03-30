@@ -244,6 +244,24 @@ Protocol: [aeoess.com/protocol.html](https://aeoess.com/protocol.html) · Agora:
 - Quick start: [aeoess.com/llms/quickstart.txt](https://aeoess.com/llms/quickstart.txt)
 - API reference: [aeoess.com/llms/api.txt](https://aeoess.com/llms/api.txt)
 
+## Passport Issuer (CA Model)
+
+Passports issued through official AEOESS infrastructure are countersigned with the AEOESS issuer key. Self-signed passports are cryptographically valid but won't pass issuer verification.
+
+```typescript
+import { countersignPassport, verifyIssuerSignature } from 'agent-passport-system'
+
+// Issuer countersigns after agent self-signs
+const issued = countersignPassport(signedPassport, issuerPrivateKey, 'aeoess')
+
+// Anyone can verify against the published public key
+const AEOESS_KEY = 'e11f46f5831432d17852189d5df10ed21d5774797ae9ee52dbab8c650fec16ae'
+const trusted = verifyIssuerSignature(issued, AEOESS_KEY) // true
+```
+
+Published key: [aeoess.com/.well-known/aeoess-issuer.json](https://aeoess.com/.well-known/aeoess-issuer.json)  
+MCP tool: `verify_issuer`
+
 ## License
 
 Apache-2.0 — see [LICENSE](LICENSE)
