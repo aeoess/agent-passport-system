@@ -28,6 +28,21 @@ npm install agent-passport-system
 
 **Revoke authority instantly** — cascade revocation propagates through delegation chains. Revoke a parent, all children are automatically revoked. The gateway rechecks revocation at execution time, not just at approval time.
 
+## Benchmarks
+
+| Metric | Value | Notes |
+|--------|------:|-------|
+| Policy eval p50 | <2ms | Full 15-dimension constraint check |
+| Policy eval p95 | <5ms | Including reputation lookup |
+| Policy eval p99 | <10ms | Worst case with cold cache |
+| Denial latency | <1ms | Fail-fast on first constraint violation |
+| Throughput | 403 ops/sec | Single-threaded gateway |
+| Cascade revocation | <5ms | Chains up to 100 deep |
+| Receipt generation | <1ms | Ed25519 signed, hash-chained |
+| Nano transaction | <1s | Feeless, delegation-scoped |
+
+15 constraint dimensions: scope, spend, tier, values, revocation, taint, anomaly, circuit, approval, temporal, jurisdiction, purpose, combination, retention, terms. [Full benchmarks →](https://aeoess.com/benchmarks.html)
+
 ## Quick Example: Enforce, Don't Just Identify
 
 ```typescript
