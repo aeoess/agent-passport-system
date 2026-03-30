@@ -1,6 +1,6 @@
 {
   "name": "agent-passport-system",
-  "version": "1.28.0",
+  "version": "1.29.0",
   "description": "Governance infrastructure for the agent economy. Cryptographic identity (Ed25519), scoped delegation, Bayesian reputation, gateway enforcement, 4-gate commerce, Merkle attribution, institutional governance. 86 modules. 1,656 tests.",
   "type": "module",
   "main": "dist/src/index.js",
