@@ -277,6 +277,14 @@ export {
 
 export type { DenialDomain, DenialSummary } from './core/denial-domains.js'
 
+// ── Data Narrowing: monotonic narrowing for data influence ──
+export {
+  assertDataNarrowsOnly, applyDataConstraints,
+  isValidNarrowing, NARROWING_ORDER,
+} from './core/data-narrowing.js'
+
+export type { FacetSnapshot, NarrowingCheckResult } from './core/data-narrowing.js'
+
 export type {
   ToolCallRequest, ToolCallResult, GatewayProof,
   GatewayApproval, ToolExecutor, GatewayConfig,
