@@ -70,6 +70,7 @@ import type { FinalityState } from '../types/finality.js'
 import { evaluateDisputeOverlay } from './transactional.js'
 import { verifyAgentIdentity, verifyAgentIdentitySync, strengthMeetsMinimum, identityStrengthFailure, DEFAULT_IDENTITY_CONFIG } from './gateway-identity.js'
 import type { GatewayIdentityVerification } from './gateway-identity.js'
+import type { DataAccessDecision } from './data-enforcement.js'
 
 
 // ══════════════════════════════════════
@@ -644,7 +645,46 @@ export class ProxyGateway {
       }
     }
 
-    // Step 4.7: Dispute overlay (defeasible — NOT a lattice facet)
+    // Step 4.7: Data access enforcement (if data gateway configured and sources declared)
+    let dataAccessDecisions: DataAccessDecision[] | undefined
+    if (this.config.enableDataEnforcement && this.config.dataGateway && request.dataSourceIds?.length) {
+      const decisions: DataAccessDecision[] = []
+      for (const sourceId of request.dataSourceIds) {
+        const d = this.config.dataGateway.requestAccess({
+          agentId: request.agentId,
+          agentPublicKey: request.agentPublicKey,
+          principalId: agent.passport.passport.publicKey,
+          sourceReceiptId: sourceId,
+          declaredPurpose: 'read',
+          accessMethod: 'api_call',
+          accessScope: request.scopeRequired,
+          executionFrameId: agent.executionFrame?.frameId ?? 'default',
+        })
+        decisions.push(d)
+      }
+      dataAccessDecisions = decisions
+      const blocked = decisions.filter(d => !d.allowed)
+      if (blocked.length > 0) {
+        this.stats.totalDenied++;
+        (this.stats.dataAccessDenials as number) = ((this.stats.dataAccessDenials as number) ?? 0) + 1
+        this.usedRequestIds.set(request.requestId, Date.now())
+        const reason = `Data access denied for source(s): ${blocked.map(b => b.sourceReceiptId).join(', ')} — ${blocked.flatMap(b => b.hardViolations).join('; ')}`
+        const failure = this.buildConstraintFailure('data', 'DATA_ACCESS_DENIED', reason)
+        const result: ToolCallResult = {
+          executed: false, requestId: request.requestId, denialReason: reason, decision,
+          constraintFailures: [failure], dataAccessDecisions,
+          constraintVector: this.buildConstraintVector('denied',
+            [{ facet: 'identity', status: 'pass' }, { facet: 'scope', status: 'pass' },
+             { facet: 'data', status: 'fail', failure }],
+            [failure]),
+        }
+        this.config.onToolCall?.(request, result)
+        return result
+      }
+      (this.stats.dataAccessGranted as number) = ((this.stats.dataAccessGranted as number) ?? 0) + request.dataSourceIds.length
+    }
+
+    // Step 4.8: Dispute overlay (defeasible — NOT a lattice facet)
     // Evaluated AFTER monotone lattice. Dispute is a defeater that suppresses valid authority.
     const activeDisputes = this.getActiveDisputesForAgent(request.agentId)
     const overlay = evaluateDisputeOverlay(activeDisputes, request.scopeRequired, request.agentId)
@@ -990,6 +1030,7 @@ export class ProxyGateway {
       reversibility: request.reversibility,
       constraintVector,
       authorizationWitness: authWitness,
+      dataAccessDecisions,
     }
 
     // ── Near-miss alerting (Phase 3) ──
@@ -1353,6 +1394,18 @@ export class ProxyGateway {
    *  Returns undefined if agent not registered or identity verification not enabled. */
   getAgentIdentity(agentId: string): GatewayIdentityVerification | undefined {
     return this.agents.get(agentId)?.identityVerification
+  }
+
+  /** Set the data gateway for data access enforcement.
+   *  Can be set after construction to enable data enforcement dynamically. */
+  setDataGateway(dataGateway: import('./data-gateway.js').DataGateway): void {
+    this.config.dataGateway = dataGateway
+    this.config.enableDataEnforcement = true
+  }
+
+  /** Get the data gateway (if configured) */
+  getDataGateway(): import('./data-gateway.js').DataGateway | undefined {
+    return this.config.dataGateway
   }
 
   // ══════════════════════════════════════════════════════════════

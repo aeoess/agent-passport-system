@@ -54,6 +54,7 @@ export type ConstraintFacet =
   | 'cross_chain'    // taint tracking, confused deputy prevention
   | 'escalation'     // bounded escalation grant validity
   | 'fidelity'       // substrate behavioral fidelity — is agent still operating as itself?
+  | 'data'           // data source access terms, contribution tracking
 
 // ── Constraint Status ──
 // Four-valued evaluation inspired by Belnap logic:
@@ -328,6 +329,10 @@ export interface ToolCallRequest {
   evidenceClass?: EvidenceClass
   /** Optional: declared reversibility class of this action (Gap 3 taxonomy) */
   reversibility?: ActionReversibility
+  /** Optional: data source IDs this tool call will access.
+   *  When present and data gateway is configured, the gateway checks data terms
+   *  and produces data access receipts alongside the standard ActionReceipt. */
+  dataSourceIds?: string[]
 }
 
 export interface ToolCallResult {
@@ -363,6 +368,9 @@ export interface ToolCallResult {
   escalationId?: string
   /** Reversibility class of the executed action */
   reversibility?: ActionReversibility
+  /** Data access decisions (if data gateway configured and dataSourceIds present).
+   *  Contains terms compliance check + access receipts for each data source. */
+  dataAccessDecisions?: import('../core/data-enforcement.js').DataAccessDecision[]
   /** Constraint vector: complete per-facet evaluation of all constraints.
    *  Present on EVERY result (permitted or denied). Machine-readable denial taxonomy. */
   constraintVector?: ConstraintVector
@@ -523,6 +531,11 @@ export interface GatewayConfig {
   /** Identity verification configuration. Controls which verification steps run
    *  and the minimum identity strength required for registration. */
   identityConfig?: import('../core/gateway-identity.js').IdentityVerificationConfig
+  /** Enable data access enforcement. When true and dataGateway is provided,
+   *  tool calls with dataSourceIds trigger data terms checking and receipt generation. */
+  enableDataEnforcement?: boolean
+  /** Data gateway instance for data access enforcement. Set via constructor or setDataGateway(). */
+  dataGateway?: import('../core/data-gateway.js').DataGateway
   /** Minimum fidelity score (0-1) required for action permission.
    *  Default: 0.5. Actions by agents below this threshold are denied. */
   minFidelityScore?: number
@@ -626,6 +639,9 @@ export interface GatewayStats {
   nearMissByFacet?: Record<string, number>
   /** Fidelity gating stats */
   fidelityDenials?: number
+  /** Data access enforcement stats */
+  dataAccessDenials?: number
+  dataAccessGranted?: number
   /** Transactional integrity stats */
   escrowsCreated?: number
   escrowsReleased?: number
