@@ -1,0 +1,144 @@
+[
+  {
+    "id": "cv-001",
+    "description": "Simple object, no nulls — variants identical",
+    "input": {
+      "agentId": "agent-001",
+      "scope": "read"
+    },
+    "expected_jcs": "{\"agentId\":\"agent-001\",\"scope\":\"read\"}",
+    "expected_legacy": "{\"agentId\":\"agent-001\",\"scope\":\"read\"}",
+    "sha256_jcs": "598fa19ccadbc8df940a9cde9bff497c094ff209818b2bc36e5fac8d5cc2f477",
+    "sha256_legacy": "598fa19ccadbc8df940a9cde9bff497c094ff209818b2bc36e5fac8d5cc2f477"
+  },
+  {
+    "id": "cv-002",
+    "description": "Null value — JCS preserves, legacy strips",
+    "input": {
+      "agentId": "agent-001",
+      "metadata": null,
+      "scope": "read"
+    },
+    "expected_jcs": "{\"agentId\":\"agent-001\",\"metadata\":null,\"scope\":\"read\"}",
+    "expected_legacy": "{\"agentId\":\"agent-001\",\"scope\":\"read\"}",
+    "sha256_jcs": "52a6250f9b8d4df9654556cb46fcf3a6b3829693643578bacfa344831cc6d99d",
+    "sha256_legacy": "598fa19ccadbc8df940a9cde9bff497c094ff209818b2bc36e5fac8d5cc2f477"
+  },
+  {
+    "id": "cv-003",
+    "description": "Keys sorted by Unicode code point",
+    "input": {
+      "zebra": 1,
+      "alpha": 2,
+      "middle": 3
+    },
+    "expected_jcs": "{\"alpha\":2,\"middle\":3,\"zebra\":1}",
+    "expected_legacy": "{\"alpha\":2,\"middle\":3,\"zebra\":1}",
+    "sha256_jcs": "8279885d9e6f748807a4a8838376aad819aee964979d576d496aa9a67ea2bd6a",
+    "sha256_legacy": "8279885d9e6f748807a4a8838376aad819aee964979d576d496aa9a67ea2bd6a"
+  },
+  {
+    "id": "cv-004",
+    "description": "Nested object with null at depth",
+    "input": {
+      "outer": {
+        "inner": null,
+        "value": 42
+      },
+      "top": "ok"
+    },
+    "expected_jcs": "{\"outer\":{\"inner\":null,\"value\":42},\"top\":\"ok\"}",
+    "expected_legacy": "{\"outer\":{\"value\":42},\"top\":\"ok\"}",
+    "sha256_jcs": "02f4d61eb43de15b3680d6c9d2e1852ba3947e78521c2ba7de8e4afb640ef043",
+    "sha256_legacy": "62929b78e57f82c931333dcd7f27728317b35be3bcee17b2cb05fe37f1ef991e"
+  },
+  {
+    "id": "cv-005",
+    "description": "Array with null elements — both preserve array nulls",
+    "input": {
+      "items": [
+        1,
+        null,
+        3
+      ]
+    },
+    "expected_jcs": "{\"items\":[1,null,3]}",
+    "expected_legacy": "{\"items\":[1,null,3]}",
+    "sha256_jcs": "df088e3ff71850c361e768d9ca5141426005ad9497b6d4cf6ec3e082fe663e75",
+    "sha256_legacy": "df088e3ff71850c361e768d9ca5141426005ad9497b6d4cf6ec3e082fe663e75"
+  },
+  {
+    "id": "cv-006",
+    "description": "Number formatting — integers and floats",
+    "input": {
+      "integer": 42,
+      "negative": -7,
+      "float": 3.14,
+      "zero": 0
+    },
+    "expected_jcs": "{\"float\":3.14,\"integer\":42,\"negative\":-7,\"zero\":0}",
+    "expected_legacy": "{\"float\":3.14,\"integer\":42,\"negative\":-7,\"zero\":0}",
+    "sha256_jcs": "35c2f03aed2d77e96b1e301c3ead65d8212d3a27f0776e9c85bb0e74414a904b",
+    "sha256_legacy": "35c2f03aed2d77e96b1e301c3ead65d8212d3a27f0776e9c85bb0e74414a904b"
+  },
+  {
+    "id": "cv-007",
+    "description": "Empty object and empty array",
+    "input": {
+      "emptyArr": [],
+      "emptyObj": {}
+    },
+    "expected_jcs": "{\"emptyArr\":[],\"emptyObj\":{}}",
+    "expected_legacy": "{\"emptyArr\":[],\"emptyObj\":{}}",
+    "sha256_jcs": "2e49ff7a9de29f7f42b6cfb0e7a9826b5743d888aed3029df47b773b4393d0d4",
+    "sha256_legacy": "2e49ff7a9de29f7f42b6cfb0e7a9826b5743d888aed3029df47b773b4393d0d4"
+  },
+  {
+    "id": "cv-008",
+    "description": "Unicode string content",
+    "input": {
+      "name": "Тимофій",
+      "emoji": "🔐"
+    },
+    "expected_jcs": "{\"emoji\":\"🔐\",\"name\":\"Тимофій\"}",
+    "expected_legacy": "{\"emoji\":\"🔐\",\"name\":\"Тимофій\"}",
+    "sha256_jcs": "f04c986f5b3862ad3c6ee7b26b54846bad39e101a27e98f72772023c40584fc6",
+    "sha256_legacy": "f04c986f5b3862ad3c6ee7b26b54846bad39e101a27e98f72772023c40584fc6"
+  },
+  {
+    "id": "cv-009",
+    "description": "Realistic delegation object with mixed null/present fields",
+    "input": {
+      "delegationId": "del_abc123",
+      "delegatedBy": "did:aps:principal001",
+      "delegatedTo": "did:aps:agent002",
+      "scope": [
+        "data:read",
+        "commerce:checkout"
+      ],
+      "spendLimit": 500,
+      "obligationBundleHash": null,
+      "expiresAt": "2026-04-01T00:00:00Z",
+      "notBefore": null,
+      "maxDepth": 3,
+      "currentDepth": 1,
+      "createdAt": "2026-03-29T00:00:00Z"
+    },
+    "expected_jcs": "{\"createdAt\":\"2026-03-29T00:00:00Z\",\"currentDepth\":1,\"delegatedBy\":\"did:aps:principal001\",\"delegatedTo\":\"did:aps:agent002\",\"delegationId\":\"del_abc123\",\"expiresAt\":\"2026-04-01T00:00:00Z\",\"maxDepth\":3,\"notBefore\":null,\"obligationBundleHash\":null,\"scope\":[\"data:read\",\"commerce:checkout\"],\"spendLimit\":500}",
+    "expected_legacy": "{\"createdAt\":\"2026-03-29T00:00:00Z\",\"currentDepth\":1,\"delegatedBy\":\"did:aps:principal001\",\"delegatedTo\":\"did:aps:agent002\",\"delegationId\":\"del_abc123\",\"expiresAt\":\"2026-04-01T00:00:00Z\",\"maxDepth\":3,\"scope\":[\"data:read\",\"commerce:checkout\"],\"spendLimit\":500}",
+    "sha256_jcs": "3d435c3fc4214e6a513dc0f4da2a308fa4ea3fdd9e63adb5c98fa33efe14e286",
+    "sha256_legacy": "acbecec28458235ba2aa4826e99c2c513b29ec80867e937d4837320350f9a190"
+  },
+  {
+    "id": "cv-010",
+    "description": "Boolean values",
+    "input": {
+      "active": true,
+      "revoked": false
+    },
+    "expected_jcs": "{\"active\":true,\"revoked\":false}",
+    "expected_legacy": "{\"active\":true,\"revoked\":false}",
+    "sha256_jcs": "9135447f8ef8e76a18f1e9b8457c3764002d36b2bf247a0f2ee9eb836dddcd4f",
+    "sha256_legacy": "9135447f8ef8e76a18f1e9b8457c3764002d36b2bf247a0f2ee9eb836dddcd4f"
+  }
+]

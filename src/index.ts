@@ -27,6 +27,10 @@ export type {
 // ── Layer 1: Identity & Accountability ──
 export { createPassport, signPassport, updatePassport, isExpired } from './core/passport.js'
 export { canonicalize } from './core/canonical.js'
+
+// ── JCS Canonicalization (RFC 8785) ──
+export { canonicalizeJCS, detectCanonicalVariant, getTestVectors } from './core/canonical-jcs.js'
+export type { CanonicalizationTestVector } from './core/canonical-jcs.js'
 export { generateKeyPair, sign, verify, publicKeyFromPrivate } from './crypto/keys.js'
 export { InMemoryKeyStorage, EncryptedFileKeyStorage } from './crypto/key-storage.js'
 export type { KeyStorageBackend } from './crypto/key-storage.js'
