@@ -28,6 +28,29 @@ export type {
 export { createPassport, signPassport, updatePassport, isExpired, countersignPassport, verifyIssuerSignature, isIssuerVerified } from './core/passport.js'
 export { canonicalize } from './core/canonical.js'
 
+// ── Agent Attestation Architecture (Phase 1 — Consilium Build) ──
+export {
+  createIssuanceChallenge, verifyRuntimeAttestation,
+  computePassportGrade, computeAttestationFlags, computeAttestationBundleHash,
+  createIssuanceContext, bindAttestation,
+  createWorkspaceManifest, createEmptyEvidenceRecord,
+  isChallengeFresh, isGradeAtLeast,
+} from './core/attestation.js'
+
+export type {
+  PassportGrade, AttestationProvenance, SignalStability, VerificationStatus,
+  AttestedSignal, ObservedContext,
+  RuntimeAttestation, ProviderAttestation,
+  IssuanceEvidenceRecord, IssuanceAssessment, IssuanceContext,
+  PassportAttestationSummary, AttestationFlag,
+  IssuanceChallenge, IssuanceChallengeResponse, AttestationClass,
+  DerivedSignal, SignalVerificationResult, GradeChange,
+  WorkspaceManifest, WorkspaceManifestEntry, WorkspaceCheckpoint,
+  RecoveryRequest, RecoveryResult,
+} from './types/attestation.js'
+
+export { PASSPORT_GRADE_LABELS } from './types/attestation.js'
+
 // ── JCS Canonicalization (RFC 8785) ──
 export { canonicalizeJCS, detectCanonicalVariant, getTestVectors } from './core/canonical-jcs.js'
 export type { CanonicalizationTestVector } from './core/canonical-jcs.js'

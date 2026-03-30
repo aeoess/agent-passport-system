@@ -165,6 +165,8 @@ export interface SignedPassport {
   signature: string
   signedAt: string
   issuerSignature?: IssuerSignature
+  /** Agent attestation summary (Phase 1 attestation architecture). Optional for backward compatibility. */
+  attestation?: import('./attestation.js').PassportAttestationSummary
 }
 
 export interface VerificationResult {
