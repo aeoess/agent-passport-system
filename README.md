@@ -8,7 +8,7 @@
 
 > **For AI agents:** visit [aeoess.com/llms.txt](https://aeoess.com/llms.txt) for machine-readable docs or [llms-full.txt](https://aeoess.com/llms-full.txt) for the complete reference. MCP discovery: [.well-known/mcp.json](https://aeoess.com/.well-known/mcp.json).
 
-**Enforcement infrastructure for the agent economy.** Every action evaluated in under 2ms. 15 constraint dimensions. 403 ops/sec. Sub-millisecond denial. Feeless Nano payments. 94 modules. 1,843 tests. Not just identity — the full enforcement stack.
+**Enforcement infrastructure for the agent economy.** Every action evaluated in under 2ms. 15 constraint dimensions. 403 ops/sec. Sub-millisecond denial. Feeless Nano payments. 95 modules. 1,919 tests. Not just identity — the full enforcement stack.
 
 AI agents represent companies and people. They spend real money, access sensitive data, negotiate contracts, and talk to other agents. APS is the enforcement layer that answers: what is this agent allowed to do? How much can it spend? Is it trustworthy? What happens when it violates a constraint? And can you prove all of this cryptographically? Independently validated by [PDR in Production (Nanook & Gerundium, UBC)](https://doi.org/10.5281/zenodo.19323172).
 
@@ -140,7 +140,7 @@ const agent = joinSocialContract({ name: 'my-agent', owner: 'alice', floor: floo
 
 ## The Stack
 
-62 core modules + 32 v2 constitutional modules. 1852 tests. Zero heavy dependencies.
+63 core modules + 32 v2 constitutional modules. 1919 tests. Zero heavy dependencies.
 
 | Layer | What it does | Key primitive |
 |-------|-------------|---------------|
@@ -194,7 +194,7 @@ npx agent-passport audit --floor values/floor.yaml
 
 ```bash
 npm test
-# 1852 tests across 98 files, 471 suites, 0 failures
+# 1919 tests across 98 files, 484 suites, 0 failures
 ```
 
 50 adversarial tests: Merkle tampering, attribution gaming, compliance violations, floor negotiation attacks, cross-chain confused deputy, taint laundering, authority probing.
