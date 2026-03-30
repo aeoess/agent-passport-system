@@ -213,6 +213,8 @@ npm test
 
 **"Faceted Authority Attenuation: A Product Lattice Model for AI Agent Governance"** — Published on [Zenodo](https://doi.org/10.5281/zenodo.19260073). Seven-dimensional product lattice formalization with authorization witnesses, constraint vectors, and institutional governance composition.
 
+**Cited by:** Nanook & Gerundium, "PDR in Production: Empirical Validation of Behavioral Trust Scoring in Multi-Agent Systems" ([DOI:10.5281/zenodo.19323172](https://doi.org/10.5281/zenodo.19323172)) — Section 7.6 independently validates the APS Bayesian reputation model, sigma dynamics, and structuralVerdict/trustVerdict separation using production data from UBC.
+
 ## Authorship
 
 Designed and built by **Tymofii Pidlisnyi** with AI assistance from **Claude** (Anthropic).
