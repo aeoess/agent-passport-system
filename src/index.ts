@@ -246,7 +246,7 @@ export {
 
 export type {
   FidelityChallenge, FidelityResponse, FidelityOutcome, FidelityScore,
-  ProbeSchedule,
+  ProbeSchedule, PressureType, SpecificationClarity,
 } from './core/fidelity-probe.js'
 
 // ── Gateway Identity: DID + Principal + Entity Verification ──
