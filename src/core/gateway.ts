@@ -75,6 +75,7 @@ import { createHybridTimestamp } from './time.js'
 import type { HybridTimestamp } from '../types/time.js'
 import { shouldProbe, DEFAULT_PROBE_SCHEDULE } from './fidelity-probe.js'
 import type { ProbeSchedule } from './fidelity-probe.js'
+import { checkCommerceConstraint } from './gateway-wiring.js'
 
 
 // ══════════════════════════════════════
@@ -692,6 +693,24 @@ export class ProxyGateway {
         return result
       }
       (this.stats.dataAccessGranted as number) = ((this.stats.dataAccessGranted as number) ?? 0) + request.dataSourceIds.length
+    }
+
+    // Step 4.75: Commerce preflight (if tool call has spend + commerce scope)
+    const commerceCheck = checkCommerceConstraint(agent.passport, delegation, request.tool, request.spend)
+    if (!commerceCheck.passed && commerceCheck.failure) {
+      this.stats.totalDenied++
+      this.usedRequestIds.set(request.requestId, Date.now())
+      const result: ToolCallResult = {
+        executed: false, requestId: request.requestId,
+        denialReason: commerceCheck.reason, decision,
+        constraintFailures: [commerceCheck.failure],
+        constraintVector: this.buildConstraintVector('denied',
+          [{ facet: 'identity', status: 'pass' }, { facet: 'scope', status: 'pass' },
+           { facet: 'spend', status: 'fail', failure: commerceCheck.failure }],
+          [commerceCheck.failure]),
+      }
+      this.config.onToolCall?.(request, result)
+      return result
     }
 
     // Step 4.8: Dispute overlay (defeasible — NOT a lattice facet)

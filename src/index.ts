@@ -256,6 +256,15 @@ export type {
   GatewayIdentityVerification, IdentityVerificationConfig,
 } from './core/gateway-identity.js'
 
+// ── Gateway Wiring: module integration hooks ──
+export {
+  checkCommerceConstraint, extractCharterPolicy,
+} from './core/gateway-wiring.js'
+
+export type {
+  CommerceCheckResult, CharterPolicyExtract,
+} from './core/gateway-wiring.js'
+
 export type {
   ToolCallRequest, ToolCallResult, GatewayProof,
   GatewayApproval, ToolExecutor, GatewayConfig,
