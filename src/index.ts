@@ -269,6 +269,14 @@ export type {
   CommerceCheckResult, CharterPolicyExtract,
 } from './core/gateway-wiring.js'
 
+// ── Denial Domains: operator-facing constraint grouping ──
+export {
+  getDomain, getDomainLabel, summarizeDenial, groupByDomain,
+  EVALUATION_ORDER,
+} from './core/denial-domains.js'
+
+export type { DenialDomain, DenialSummary } from './core/denial-domains.js'
+
 export type {
   ToolCallRequest, ToolCallResult, GatewayProof,
   GatewayApproval, ToolExecutor, GatewayConfig,
