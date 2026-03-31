@@ -252,7 +252,7 @@ describe('Data Compliance Report', () => {
     const ledger = createContributionLedger()
     for (let i = 0; i < 25; i++) recordContribution(ledger, mockReceipt({ sourceReceiptId: 'ds_1' }), 'Customer DB')
     for (let i = 0; i < 10; i++) recordContribution(ledger, mockReceipt({ sourceReceiptId: 'ds_2', declaredPurpose: 'train', agentId: 'trainer' }), 'Training Set')
-    const period = { startDate: '2026-01-01', endDate: '2026-03-31', periodLabel: '2026-Q1' }
+    const period = { startDate: '2026-01-01', endDate: '2026-12-31', periodLabel: '2026' }
     const report = generateDataComplianceReport(ledger, period, 'gdpr_article30', 'priv_key')
     assert.ok(report.reportId.startsWith('dcpr_'))
     assert.strictEqual(report.reportType, 'gdpr_article30')
