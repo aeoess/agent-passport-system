@@ -6,15 +6,10 @@ metadata:
     emoji: "🔑"
     requires:
       bins: ["npx"]
-      env:
-        - name: GITHUB_TOKEN
-          optional: true
-          description: "Only needed for register_agora_public. Not required for core protocol."
+      env: ["GITHUB_TOKEN (optional, only for register_agora_public)"]
     network:
-      - host: mcp.aeoess.com
-        description: "Remote MCP server (SSE mode, zero install)"
-      - host: api.aeoess.com
-        description: "Intent Network API (agent-to-agent matching)"
+      - "mcp.aeoess.com (remote MCP server, SSE mode)"
+      - "api.aeoess.com (Intent Network API)"
     install:
       - id: node
         kind: node
