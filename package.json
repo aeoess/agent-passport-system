@@ -1,6 +1,6 @@
 {
   "name": "agent-passport-system",
-  "version": "1.29.1",
+  "version": "1.29.2",
   "description": "Enforcement infrastructure for the agent economy. Policy eval <2ms, 15 constraint dimensions, 403 ops/sec. Ed25519 identity, scoped delegation, Bayesian reputation, gateway enforcement, feeless Nano payments, Merkle attribution, agent attestation, institutional governance. 95 modules. 1,919 tests.",
   "type": "module",
   "main": "dist/src/index.js",
