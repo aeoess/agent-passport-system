@@ -35,6 +35,7 @@ export {
   createIssuanceContext, bindAttestation,
   createWorkspaceManifest, createEmptyEvidenceRecord,
   isChallengeFresh, isGradeAtLeast,
+  importProviderAttestation, addIdentityBoundary,
 } from './core/attestation.js'
 
 export type {

@@ -302,3 +302,81 @@ export function isChallengeFresh(challenge: IssuanceChallenge): boolean {
 export function isGradeAtLeast(grade: PassportGrade, minimum: PassportGrade): boolean {
   return grade >= minimum
 }
+
+// ── importProviderAttestation ──
+// Accept external attestation reports (JWS or raw JSON) and convert to ProviderAttestation.
+// Enables composable trust: security test results, cloud attestations, or any third-party
+// verification report feeds into the IssuanceEvidenceRecord as Tier 2 evidence.
+// Connected to msaleme's machine-readable attestation schema (A2A #1696).
+export function importProviderAttestation(
+  input: {
+    /** JWS compact serialization (header.payload.signature) OR raw JSON string OR object */
+    attestation: string | Record<string, unknown>
+    /** Provider identifier (e.g. 'red-team-harness', 'cloud-provider', 'oauth-issuer') */
+    provider: string
+    /** What kind of subject was attested */
+    subjectClass?: string
+    /** Verification method used by the provider */
+    verificationMethod?: string
+  }
+): ProviderAttestation {
+  let payload: Record<string, unknown>
+  let signature: string | undefined
+
+  if (typeof input.attestation === 'string') {
+    const parts = input.attestation.split('.')
+    if (parts.length === 3) {
+      // JWS compact: header.payload.signature
+      try {
+        const decoded = Buffer.from(parts[1], 'base64url').toString('utf-8')
+        payload = JSON.parse(decoded)
+        signature = parts[2]
+      } catch {
+        // Not valid JWS, treat as raw JSON
+        payload = JSON.parse(input.attestation)
+      }
+    } else {
+      payload = JSON.parse(input.attestation)
+    }
+  } else {
+    payload = input.attestation
+  }
+
+  // Extract subject identifier and hash it
+  const subjectId = String(
+    payload.sub || payload.subject_id || payload.agentId || payload.agent_id || ''
+  )
+  const subjectIdHash = sha256Hex(subjectId)
+
+  return {
+    provider: input.provider,
+    subjectClass: input.subjectClass || String(payload.subject_class || 'agent'),
+    subjectIdHash,
+    nonce: payload.nonce ? String(payload.nonce) : undefined,
+    publicKeyHash: payload.public_key ? sha256Hex(String(payload.public_key)) : undefined,
+    verificationMethod: input.verificationMethod || String(payload.verification_method || 'jwt'),
+    issuedAt: String(payload.iat ? new Date(Number(payload.iat) * 1000).toISOString() : payload.issued_at || new Date().toISOString()),
+    expiresAt: payload.exp ? new Date(Number(payload.exp) * 1000).toISOString() : (payload.expires_at ? String(payload.expires_at) : undefined),
+    signature,
+  }
+}
+
+// ── addIdentityBoundary ──
+// Add a self-describing identity boundary to any object. The boundary declares which
+// fields are included in the content hash, making cross-system attribution possible
+// without agreeing on a single hashing standard. Inspired by xsa520's decision artifact spec.
+export function addIdentityBoundary<T extends Record<string, unknown>>(
+  obj: T,
+  fields?: string[]
+): T & { _identityBoundary: string[]; _contentHash: string } {
+  const boundary = (fields || Object.keys(obj)).filter(k => !k.startsWith('_')).sort()
+  const hashInput: Record<string, unknown> = { _identityBoundary: boundary }
+  for (const k of boundary) {
+    if (k in obj) hashInput[k] = obj[k]
+  }
+  return {
+    ...obj,
+    _identityBoundary: boundary,
+    _contentHash: sha256Hex(JSON.stringify(hashInput)),
+  }
+}

@@ -10,7 +10,7 @@ import {
   computePassportGrade, computeAttestationFlags, computeAttestationBundleHash,
   createIssuanceContext, bindAttestation,
   createWorkspaceManifest, createEmptyEvidenceRecord,
-  isChallengeFresh, isGradeAtLeast,
+  isChallengeFresh, isGradeAtLeast, importProviderAttestation, addIdentityBoundary,
   PASSPORT_GRADE_LABELS,
   createPassport, countersignPassport,
   generateKeyPair, sign, canonicalize,
@@ -657,5 +657,131 @@ describe('Consilium mandatory corrections', () => {
     ctx.assessment.gradeHistory = [change]
     assert.equal(ctx.assessment.gradeHistory.length, 1)
     assert.equal(ctx.assessment.gradeHistory[0].reason, 'cluster_analysis_downgrade')
+  })
+})
+
+
+// ════════════════════════════════════════════════════════════
+// importProviderAttestation tests (msaleme A2A#1696 integration)
+// ════════════════════════════════════════════════════════════
+
+describe('importProviderAttestation', () => {
+  it('should import raw JSON attestation', () => {
+    const result = importProviderAttestation({
+      attestation: { sub: 'agent-001', issued_at: '2026-03-30T12:00:00Z' },
+      provider: 'red-team-harness',
+      subjectClass: 'agent',
+      verificationMethod: 'jwt',
+    })
+    assert.equal(result.provider, 'red-team-harness')
+    assert.equal(result.subjectClass, 'agent')
+    assert.ok(result.subjectIdHash.length === 64) // SHA-256 hex
+    assert.equal(result.verificationMethod, 'jwt')
+  })
+
+  it('should import JSON string attestation', () => {
+    const json = JSON.stringify({ sub: 'agent-002', verification_method: 'oauth2' })
+    const result = importProviderAttestation({
+      attestation: json,
+      provider: 'cloud-provider',
+    })
+    assert.equal(result.provider, 'cloud-provider')
+    assert.equal(result.verificationMethod, 'oauth2')
+  })
+
+  it('should parse JWS compact format', () => {
+    // Create a fake JWS: header.payload.signature
+    const header = Buffer.from(JSON.stringify({ alg: 'ES256' })).toString('base64url')
+    const payload = Buffer.from(JSON.stringify({
+      sub: 'agent-003',
+      iat: Math.floor(Date.now() / 1000),
+      exp: Math.floor(Date.now() / 1000) + 3600,
+      nonce: 'test-nonce-123',
+    })).toString('base64url')
+    const sig = 'fakesignature123'
+    const jws = `${header}.${payload}.${sig}`
+
+    const result = importProviderAttestation({
+      attestation: jws,
+      provider: 'oauth-issuer',
+    })
+    assert.equal(result.provider, 'oauth-issuer')
+    assert.equal(result.nonce, 'test-nonce-123')
+    assert.equal(result.signature, sig)
+    assert.ok(result.expiresAt) // should have expiry from JWS exp claim
+  })
+
+  it('should hash public key when present', () => {
+    const result = importProviderAttestation({
+      attestation: { sub: 'a', public_key: 'abc123hexkey' },
+      provider: 'provider',
+    })
+    assert.ok(result.publicKeyHash)
+    assert.equal(result.publicKeyHash!.length, 64)
+  })
+
+  it('should produce valid ProviderAttestation for evidence record', () => {
+    const attestation = importProviderAttestation({
+      attestation: { sub: 'agent-test', subject_class: 'tenant' },
+      provider: 'security-scanner',
+      verificationMethod: 'api_key',
+    })
+    // Can be added to evidence record
+    const evidence = createEmptyEvidenceRecord({
+      transportType: 'sse',
+      issuanceVelocity: 1,
+      requestPayloadFingerprint: 'test',
+    })
+    evidence.providerAttestations.push(attestation)
+    assert.equal(evidence.providerAttestations.length, 1)
+    assert.equal(evidence.providerAttestations[0].provider, 'security-scanner')
+  })
+})
+
+
+// ════════════════════════════════════════════════════════════
+// addIdentityBoundary tests (xsa520 decision artifact insight)
+// ════════════════════════════════════════════════════════════
+
+describe('addIdentityBoundary', () => {
+  it('should add boundary and content hash', () => {
+    const receipt = {
+      agentId: 'agent-001',
+      sourceId: 'data-source-x',
+      amount: 0.003,
+    }
+    const result = addIdentityBoundary(receipt)
+    assert.ok(result._identityBoundary)
+    assert.ok(result._contentHash)
+    assert.equal(result._contentHash.length, 64) // SHA-256
+    assert.deepEqual(result._identityBoundary, ['agentId', 'amount', 'sourceId']) // sorted
+  })
+
+  it('should produce same hash for same data regardless of field order', () => {
+    const a = addIdentityBoundary({ x: 1, y: 2, z: 3 })
+    const b = addIdentityBoundary({ z: 3, x: 1, y: 2 })
+    assert.equal(a._contentHash, b._contentHash)
+  })
+
+  it('should produce different hash for different data', () => {
+    const a = addIdentityBoundary({ x: 1 })
+    const b = addIdentityBoundary({ x: 2 })
+    assert.notEqual(a._contentHash, b._contentHash)
+  })
+
+  it('should support custom field selection', () => {
+    const obj = { agentId: 'a', sourceId: 's', timestamp: '2026-01-01', noise: 'irrelevant' }
+    const result = addIdentityBoundary(obj, ['agentId', 'sourceId'])
+    assert.deepEqual(result._identityBoundary, ['agentId', 'sourceId'])
+    // Hash should not change if noise changes
+    const obj2 = { ...obj, noise: 'different' }
+    const result2 = addIdentityBoundary(obj2, ['agentId', 'sourceId'])
+    assert.equal(result._contentHash, result2._contentHash)
+  })
+
+  it('should exclude _ prefixed fields from auto boundary', () => {
+    const obj = { x: 1, _internal: 'skip', y: 2 }
+    const result = addIdentityBoundary(obj)
+    assert.deepEqual(result._identityBoundary, ['x', 'y'])
   })
 })
