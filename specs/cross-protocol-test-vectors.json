@@ -1,0 +1,217 @@
+{
+  "schema_version": "1.0.0",
+  "generated_at": "2026-04-01T10:00:00Z",
+  "generator": "agent-passport-system v1.29.4",
+  "description": "Cross-protocol test vectors. Any conformant implementation should produce identical outputs.",
+  "hash_algorithm": "SHA-256",
+  "canonicalization": "JCS (RFC 8785) — keys sorted, no whitespace",
+  "compound_digest": [
+    {
+      "id": "CD-001",
+      "description": "Basic compound digest",
+      "input": {
+        "intent": {
+          "intentId": "i1",
+          "agentId": "agent-001",
+          "signature": "sig1"
+        },
+        "receipt": {
+          "policyReceiptId": "pr1",
+          "intentId": "i1",
+          "signature": "sig2"
+        },
+        "executionFrameId": "frame-001",
+        "timestamp": "2026-04-01T00:00:00Z"
+      },
+      "expected_hash": "8353810d3e2367a37f49349d08e3948192d1285df04ebddb3c7b1a9c3d21ccf8"
+    },
+    {
+      "id": "CD-002",
+      "description": "Different frame ID",
+      "input": {
+        "intent": {
+          "intentId": "i1",
+          "agentId": "agent-001",
+          "signature": "sig1"
+        },
+        "receipt": {
+          "policyReceiptId": "pr1",
+          "intentId": "i1",
+          "signature": "sig2"
+        },
+        "executionFrameId": "frame-002",
+        "timestamp": "2026-04-01T00:00:00Z"
+      },
+      "expected_hash": "63b418832a3321ad2a8b63c56cd6cc470da9a94bcd75789bb664cbbf8f030993"
+    },
+    {
+      "id": "CD-003",
+      "description": "Different timestamp",
+      "input": {
+        "intent": {
+          "intentId": "i1",
+          "agentId": "agent-001",
+          "signature": "sig1"
+        },
+        "receipt": {
+          "policyReceiptId": "pr1",
+          "intentId": "i1",
+          "signature": "sig2"
+        },
+        "executionFrameId": "frame-001",
+        "timestamp": "2026-04-01T12:00:00Z"
+      },
+      "expected_hash": "c3cf3da9b3c6a31a7da4920617ffe6b5ce05e8939b6db6c4d53febf3a3209fd8"
+    }
+  ],
+  "routing_divergence": [
+    {
+      "id": "RD-001",
+      "description": "No divergence",
+      "input": {
+        "intent": {
+          "did": "did:web:a.com",
+          "didDocumentHash": "abc123",
+          "endpointHash": "def456"
+        },
+        "execution": {
+          "did": "did:web:a.com",
+          "didDocumentHash": "abc123",
+          "endpointHash": "def456"
+        }
+      },
+      "expected": {
+        "pattern": "none",
+        "riskLevel": "none"
+      }
+    },
+    {
+      "id": "RD-002",
+      "description": "Endpoint migration (benign)",
+      "input": {
+        "intent": {
+          "did": "did:web:a.com",
+          "didDocumentHash": "abc123",
+          "endpointHash": "def456"
+        },
+        "execution": {
+          "did": "did:web:a.com",
+          "didDocumentHash": "abc123",
+          "endpointHash": "xyz789"
+        }
+      },
+      "expected": {
+        "pattern": "endpoint_migration",
+        "riskLevel": "low"
+      }
+    },
+    {
+      "id": "RD-003",
+      "description": "Key rotation",
+      "input": {
+        "intent": {
+          "did": "did:web:a.com",
+          "didDocumentHash": "abc123",
+          "endpointHash": "def456"
+        },
+        "execution": {
+          "did": "did:web:a.com",
+          "didDocumentHash": "rotated",
+          "endpointHash": "def456"
+        }
+      },
+      "expected": {
+        "pattern": "key_rotation",
+        "riskLevel": "medium"
+      }
+    },
+    {
+      "id": "RD-004",
+      "description": "Full migration",
+      "input": {
+        "intent": {
+          "did": "did:web:a.com",
+          "didDocumentHash": "abc123",
+          "endpointHash": "def456"
+        },
+        "execution": {
+          "did": "did:web:a.com",
+          "didDocumentHash": "newdoc",
+          "endpointHash": "newendpoint"
+        }
+      },
+      "expected": {
+        "pattern": "full_migration",
+        "riskLevel": "medium"
+      }
+    },
+    {
+      "id": "RD-005",
+      "description": "Entity change (high risk)",
+      "input": {
+        "intent": {
+          "did": "did:web:a.com",
+          "didDocumentHash": "abc123",
+          "endpointHash": "def456"
+        },
+        "execution": {
+          "did": "did:web:evil.com",
+          "didDocumentHash": "evil",
+          "endpointHash": "evil"
+        }
+      },
+      "expected": {
+        "pattern": "entity_change",
+        "riskLevel": "high"
+      }
+    }
+  ],
+  "policy_hash_chain": [
+    {
+      "id": "PC-001",
+      "description": "Genesis (null previous)",
+      "input": {
+        "constraints": {
+          "scopes": [
+            "web_search",
+            "code_execution"
+          ],
+          "spendLimit": 500,
+          "trustLevel": 2
+        },
+        "previousPolicyHash": null
+      },
+      "expected_hash": "91743f943d0224df558bffb8d78f8ed3b8ac38d2eb517258f48aee708f12b6f8"
+    },
+    {
+      "id": "PC-002",
+      "description": "Chains to first",
+      "input": {
+        "constraints": {
+          "scopes": [
+            "web_search"
+          ],
+          "spendLimit": 400,
+          "trustLevel": 2
+        },
+        "previousPolicyHash": "91743f943d0224df558bffb8d78f8ed3b8ac38d2eb517258f48aee708f12b6f8"
+      },
+      "expected_hash": "bd2f1a45fc9b5c28d9a64e9ab056bd371b240badf3ba44ae034b98a57aa80473"
+    },
+    {
+      "id": "PC-003",
+      "description": "Chains to second",
+      "input": {
+        "constraints": {
+          "scopes": [
+            "web_search"
+          ],
+          "spendLimit": 300,
+          "trustLevel": 3
+        },
+        "previousPolicyHash": "bd2f1a45fc9b5c28d9a64e9ab056bd371b240badf3ba44ae034b98a57aa80473"
+      },
+      "expected_hash": "8a7388013b3f5dc5d90b241c830005bcb4ef6e38bc6e0ec1a1fb16d95d2a25b7"
+    }
+  ]
+}
