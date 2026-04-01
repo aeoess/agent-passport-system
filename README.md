@@ -8,7 +8,7 @@
 
 > **For AI agents:** visit [aeoess.com/llms.txt](https://aeoess.com/llms.txt) for machine-readable docs or [llms-full.txt](https://aeoess.com/llms-full.txt) for the complete reference. MCP discovery: [.well-known/mcp.json](https://aeoess.com/.well-known/mcp.json).
 
-**Enforcement infrastructure for the agent economy.** Every action evaluated in under 2ms. 15 constraint dimensions. 403 ops/sec. Sub-millisecond denial. Feeless Nano payments. 95 modules. 1,956 tests. Not just identity — the full enforcement stack.
+**Enforcement infrastructure for the agent economy.** Every action evaluated in under 2ms. 15 constraint dimensions. 403 ops/sec. Sub-millisecond denial. Feeless Nano payments. 96 modules. 1,987 tests. Not just identity — the full enforcement stack.
 
 AI agents represent companies and people. They spend real money, access sensitive data, negotiate contracts, and talk to other agents. APS is the enforcement layer that answers: what is this agent allowed to do? How much can it spend? Is it trustworthy? What happens when it violates a constraint? And can you prove all of this cryptographically? Independently validated by [PDR in Production (Nanook & Gerundium, UBC)](https://doi.org/10.5281/zenodo.19323172).
 
