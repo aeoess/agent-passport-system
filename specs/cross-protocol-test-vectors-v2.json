@@ -1,0 +1,194 @@
+{
+  "schema_version": "2.0.0",
+  "generated_at": "2026-04-01T22:29:32.840Z",
+  "generator": "agent-passport-system v1.29.4 (edge-case vectors)",
+  "description": "Cross-protocol edge-case test vectors v2. Covers: empty strings, null vs absent, Unicode NFC/NFD, nested key ordering, empty arrays, extensibility.",
+  "hash_algorithm": "SHA-256",
+  "canonicalization": "JCS (RFC 8785) — keys sorted recursively, no whitespace, undefined omitted, null preserved",
+  "compound_digest_v2": [
+    {
+      "id": "CD-004",
+      "description": "Empty string executionFrameId (not null, not absent)",
+      "input": {
+        "intent": {
+          "intentId": "i1",
+          "agentId": "agent-001",
+          "signature": "sig1"
+        },
+        "receipt": {
+          "policyReceiptId": "pr1",
+          "intentId": "i1",
+          "signature": "sig2"
+        },
+        "executionFrameId": "",
+        "timestamp": "2026-04-01T00:00:00Z"
+      },
+      "expected_hash": "9e4239ec5d201150227708cd534187b65447757e9ff7cf7fb681d6a82fbba486",
+      "note": "JCS treats \"\" differently from null and absent. Empty string is a valid value."
+    },
+    {
+      "id": "CD-005a",
+      "description": "Receipt with decisionId: null",
+      "input": {
+        "intent": {
+          "intentId": "i1",
+          "agentId": "agent-001",
+          "signature": "sig1"
+        },
+        "receipt": {
+          "policyReceiptId": "pr1",
+          "intentId": "i1",
+          "signature": "sig2",
+          "decisionId": null
+        },
+        "executionFrameId": "frame-001",
+        "timestamp": "2026-04-01T00:00:00Z"
+      },
+      "expected_hash": "0b084ec4c2bff381298dbf867f90073684649c40bb4cd82cf706ca3ca6435ea4"
+    },
+    {
+      "id": "CD-005b",
+      "description": "Receipt with decisionId absent (different canonical form)",
+      "input": {
+        "intent": {
+          "intentId": "i1",
+          "agentId": "agent-001",
+          "signature": "sig1"
+        },
+        "receipt": {
+          "policyReceiptId": "pr1",
+          "intentId": "i1",
+          "signature": "sig2"
+        },
+        "executionFrameId": "frame-001",
+        "timestamp": "2026-04-01T00:00:00Z"
+      },
+      "expected_hash": "c817cecc536ea1aebf5a813a8451094e81151e6f84e648513c9ec3e0cdf2ff84",
+      "note": "CD-005a and CD-005b MUST produce different hashes. JCS includes null keys but omits undefined."
+    },
+    {
+      "id": "CD-006a",
+      "description": "Unicode NFC: agentId with precomposed é (U+00E9)",
+      "input": {
+        "intent": {
+          "intentId": "i1",
+          "agentId": "agent-é",
+          "signature": "sig1"
+        },
+        "receipt": {
+          "policyReceiptId": "pr1",
+          "intentId": "i1",
+          "signature": "sig2"
+        },
+        "executionFrameId": "frame-001",
+        "timestamp": "2026-04-01T00:00:00Z"
+      },
+      "expected_hash": "065ca100daf6d23a3e17fd0a58b86f1c59db338f1294ffcf9096e672e5798e82"
+    },
+    {
+      "id": "CD-006b",
+      "description": "Unicode NFD: agentId with combining é (U+0065 U+0301)",
+      "input": {
+        "intent": {
+          "intentId": "i1",
+          "agentId": "agent-é",
+          "signature": "sig1"
+        },
+        "receipt": {
+          "policyReceiptId": "pr1",
+          "intentId": "i1",
+          "signature": "sig2"
+        },
+        "executionFrameId": "frame-001",
+        "timestamp": "2026-04-01T00:00:00Z"
+      },
+      "expected_hash": "26147ac537e0747a9568cd71b7042584c981a3a879c1db0e08ad0ada047b4a51",
+      "note": "NFC and NFD produce DIFFERENT bytes, therefore DIFFERENT hashes. Implementations MUST NOT normalize."
+    },
+    {
+      "id": "CD-007",
+      "description": "Nested object key ordering: insertion order vs sorted",
+      "input_a": {
+        "intent": {
+          "intentId": "i1",
+          "agentId": "agent-001",
+          "signature": "sig1",
+          "metadata": {
+            "zebra": "z",
+            "alpha": "a",
+            "nested": {
+              "omega": 1,
+              "alpha": 2
+            }
+          }
+        },
+        "receipt": {
+          "policyReceiptId": "pr1",
+          "intentId": "i1",
+          "signature": "sig2"
+        },
+        "executionFrameId": "frame-001",
+        "timestamp": "2026-04-01T00:00:00Z"
+      },
+      "input_b": {
+        "intent": {
+          "agentId": "agent-001",
+          "intentId": "i1",
+          "metadata": {
+            "alpha": "a",
+            "nested": {
+              "alpha": 2,
+              "omega": 1
+            },
+            "zebra": "z"
+          },
+          "signature": "sig1"
+        },
+        "receipt": {
+          "intentId": "i1",
+          "policyReceiptId": "pr1",
+          "signature": "sig2"
+        },
+        "executionFrameId": "frame-001",
+        "timestamp": "2026-04-01T00:00:00Z"
+      },
+      "expected_hash": "7b2068dabe288b2d4e4ad1b20d2adea19913c85584d84eb3019497517d504893",
+      "note": "Both inputs MUST produce IDENTICAL hashes. JCS recursively sorts keys.",
+      "verification": "PASS"
+    }
+  ],
+  "policy_hash_chain_v2": [
+    {
+      "id": "PC-004",
+      "description": "Empty scopes array (valid but maximally restricted)",
+      "input": {
+        "constraints": {
+          "scopes": [],
+          "spendLimit": 0,
+          "trustLevel": 10
+        },
+        "previousPolicyHash": null
+      },
+      "expected_hash": "8c6c07f841f9ebff48578a516706910bc48db2c807d20afa96178ea7fd16acd8",
+      "note": "Empty scopes = no permissions. Valid policy state."
+    },
+    {
+      "id": "PC-005",
+      "description": "Constraints with unknown extension keys",
+      "input": {
+        "constraints": {
+          "scopes": [
+            "web_search"
+          ],
+          "spendLimit": 100,
+          "trustLevel": 2,
+          "customVendorField": "vendor-specific-value",
+          "x_experimental": true
+        },
+        "previousPolicyHash": null
+      },
+      "expected_hash": "a3ca77524b6690c379e72e44402cc80980dead5b54ee9903237830fe85e532f1",
+      "note": "Unknown keys MUST be included in hash. Dropping them breaks interop."
+    }
+  ]
+}

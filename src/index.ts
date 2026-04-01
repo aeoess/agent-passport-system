@@ -543,6 +543,26 @@ export type {
   EvaluationMethod, EnvelopeVerdict, RevocationStatus
 } from './types/execution-envelope.js'
 
+
+// ── Execution Attestation (Checkpoint 3 — what ACTUALLY ran) ──
+
+export {
+  createExecutionAttestation,
+  verifyExecutionAttestation,
+  detectExecutionDrift,
+} from './core/execution-attestation.js'
+
+export type {
+  ExecutionAttestation,
+  ExecutionAttestationVerification,
+  ExecutionDrift, ExecutionDriftSeverity,
+  AttestorType, CreateExecutionAttestationInput,
+  DriftClassificationRule,
+} from './types/execution-attestation.js'
+
+export { DEFAULT_DRIFT_RULES } from './types/execution-attestation.js'
+
+
 // ── Feasibility Linting (Module 24, Gap 7) ──
 
 export {
