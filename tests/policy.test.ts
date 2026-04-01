@@ -13,6 +13,7 @@ import {
   createPolicyReceipt, verifyPolicyReceipt,
   FloorValidatorV1, requestAction,
   computeCompoundDigest, captureRoutingContext, detectRoutingDivergence,
+  createPolicyChain, appendPolicyChainEntry, verifyPolicyChain, detectConstraintDrift,
 } from '../src/index.js'
 import type { ValidationContext } from '../src/index.js'
 
@@ -885,5 +886,161 @@ describe('detectRoutingDivergence', () => {
     const result = detectRoutingDivergence({ intent: baseCtx, execution: exec, resolutionDeltaMs: 1500 })
     assert.equal(result.resolutionDeltaMs, 1500)
     assert.equal(result.pattern, 'endpoint_migration')
+  })
+})
+
+
+// ════════════════════════════════════════════════════════════
+// Policy Hash Chaining (haroldmalikfrimpong-ops A2A#1672 / qntm#7)
+// ════════════════════════════════════════════════════════════
+
+describe('createPolicyChain + appendPolicyChainEntry', () => {
+  it('creates empty chain', () => {
+    const chain = createPolicyChain('agent-001')
+    assert.equal(chain.agentId, 'agent-001')
+    assert.equal(chain.entries.length, 0)
+    assert.equal(chain.currentHash, null)
+  })
+
+  it('appends genesis entry with null previousHash', () => {
+    const chain = createPolicyChain('agent-001')
+    const entry = appendPolicyChainEntry(chain, {
+      scopes: ['web_search', 'code_execution'], spendLimit: 500, trustLevel: 2,
+    })
+    assert.equal(entry.index, 0)
+    assert.equal(entry.previousPolicyHash, null)
+    assert.equal(entry.policyHash.length, 64)
+    assert.equal(chain.currentHash, entry.policyHash)
+    assert.equal(chain.entries.length, 1)
+  })
+
+  it('chains entries with back-links', () => {
+    const chain = createPolicyChain('agent-001')
+    const e1 = appendPolicyChainEntry(chain, { scopes: ['web_search'], spendLimit: 500 })
+    const e2 = appendPolicyChainEntry(chain, { scopes: ['web_search'], spendLimit: 400 })
+    const e3 = appendPolicyChainEntry(chain, { scopes: ['web_search'], spendLimit: 300 })
+    assert.equal(e2.previousPolicyHash, e1.policyHash)
+    assert.equal(e3.previousPolicyHash, e2.policyHash)
+    assert.equal(chain.entries.length, 3)
+  })
+
+  it('same constraints produce different hashes due to different previous', () => {
+    const chain = createPolicyChain('agent-001')
+    const e1 = appendPolicyChainEntry(chain, { scopes: ['web_search'], spendLimit: 500 })
+    const e2 = appendPolicyChainEntry(chain, { scopes: ['web_search'], spendLimit: 500 })
+    assert.notEqual(e1.policyHash, e2.policyHash) // different previousHash
+  })
+
+  it('includes decisionId when provided', () => {
+    const chain = createPolicyChain('agent-001')
+    const entry = appendPolicyChainEntry(chain, { scopes: ['code'] }, 'dec_123')
+    assert.equal(entry.decisionId, 'dec_123')
+  })
+})
+
+describe('verifyPolicyChain', () => {
+  it('verifies valid chain', () => {
+    const chain = createPolicyChain('agent-001')
+    appendPolicyChainEntry(chain, { scopes: ['web_search'], spendLimit: 500 })
+    appendPolicyChainEntry(chain, { scopes: ['web_search'], spendLimit: 400 })
+    appendPolicyChainEntry(chain, { scopes: ['web_search'], spendLimit: 300 })
+    const result = verifyPolicyChain(chain)
+    assert.equal(result.valid, true)
+    assert.equal(result.length, 3)
+  })
+
+  it('detects tampered constraint (hash mismatch)', () => {
+    const chain = createPolicyChain('agent-001')
+    appendPolicyChainEntry(chain, { scopes: ['web_search'], spendLimit: 500 })
+    appendPolicyChainEntry(chain, { scopes: ['web_search'], spendLimit: 400 })
+    // Tamper: change constraints after the fact
+    chain.entries[1].constraints.spendLimit = 9999
+    const result = verifyPolicyChain(chain)
+    assert.equal(result.valid, false)
+    assert.equal(result.brokenAt, 1)
+  })
+
+  it('detects broken back-link (entry removed)', () => {
+    const chain = createPolicyChain('agent-001')
+    appendPolicyChainEntry(chain, { scopes: ['a'], spendLimit: 100 })
+    appendPolicyChainEntry(chain, { scopes: ['a'], spendLimit: 90 })
+    appendPolicyChainEntry(chain, { scopes: ['a'], spendLimit: 80 })
+    // Remove middle entry
+    chain.entries.splice(1, 1)
+    chain.entries[1].index = 1 // fix index to avoid obvious detection
+    const result = verifyPolicyChain(chain)
+    assert.equal(result.valid, false)
+  })
+
+  it('verifies empty chain as valid', () => {
+    const chain = createPolicyChain('agent-001')
+    const result = verifyPolicyChain(chain)
+    assert.equal(result.valid, true)
+    assert.equal(result.length, 0)
+  })
+})
+
+describe('detectConstraintDrift', () => {
+  it('detects no drift when constraints are stable', () => {
+    const chain = createPolicyChain('agent-001')
+    appendPolicyChainEntry(chain, { scopes: ['web_search'], spendLimit: 500 })
+    appendPolicyChainEntry(chain, { scopes: ['web_search'], spendLimit: 500 })
+    const result = detectConstraintDrift(chain)
+    assert.equal(result.hasDrift, false)
+    assert.equal(result.hasWidening, false)
+    assert.equal(result.drifts.length, 0)
+  })
+
+  it('detects scope narrowing (safe)', () => {
+    const chain = createPolicyChain('agent-001')
+    appendPolicyChainEntry(chain, { scopes: ['web_search', 'code_execution'], spendLimit: 500 })
+    appendPolicyChainEntry(chain, { scopes: ['web_search'], spendLimit: 500 })
+    const result = detectConstraintDrift(chain)
+    assert.equal(result.hasDrift, true)
+    assert.equal(result.hasWidening, false)
+    assert.equal(result.drifts[0].field, 'scopes')
+    assert.equal(result.drifts[0].direction, 'narrowed')
+  })
+
+  it('detects scope widening (violation)', () => {
+    const chain = createPolicyChain('agent-001')
+    appendPolicyChainEntry(chain, { scopes: ['web_search'], spendLimit: 500 })
+    appendPolicyChainEntry(chain, { scopes: ['web_search', 'code_execution'], spendLimit: 500 })
+    const result = detectConstraintDrift(chain)
+    assert.equal(result.hasDrift, true)
+    assert.equal(result.hasWidening, true)
+    assert.equal(result.drifts[0].direction, 'widened')
+  })
+
+  it('detects spend limit narrowing', () => {
+    const chain = createPolicyChain('agent-001')
+    appendPolicyChainEntry(chain, { scopes: ['web_search'], spendLimit: 500 })
+    appendPolicyChainEntry(chain, { scopes: ['web_search'], spendLimit: 300 })
+    const result = detectConstraintDrift(chain)
+    assert.equal(result.hasDrift, true)
+    assert.equal(result.hasWidening, false)
+    assert.equal(result.drifts[0].field, 'spendLimit')
+    assert.equal(result.drifts[0].direction, 'narrowed')
+  })
+
+  it('detects spend limit widening (violation)', () => {
+    const chain = createPolicyChain('agent-001')
+    appendPolicyChainEntry(chain, { scopes: ['web_search'], spendLimit: 300 })
+    appendPolicyChainEntry(chain, { scopes: ['web_search'], spendLimit: 500 })
+    const result = detectConstraintDrift(chain)
+    assert.equal(result.hasWidening, true)
+    assert.equal(result.drifts[0].field, 'spendLimit')
+    assert.equal(result.drifts[0].direction, 'widened')
+  })
+
+  it('detects multiple drifts across chain', () => {
+    const chain = createPolicyChain('agent-001')
+    appendPolicyChainEntry(chain, { scopes: ['a', 'b'], spendLimit: 500, trustLevel: 2 })
+    appendPolicyChainEntry(chain, { scopes: ['a'], spendLimit: 400, trustLevel: 2 })
+    appendPolicyChainEntry(chain, { scopes: ['a'], spendLimit: 400, trustLevel: 3 })
+    const result = detectConstraintDrift(chain)
+    assert.equal(result.hasDrift, true)
+    assert.equal(result.drifts.length, 3) // scopes narrowed, spend narrowed, trust narrowed
+    assert.equal(result.hasWidening, false)
   })
 })

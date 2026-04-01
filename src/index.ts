@@ -182,7 +182,8 @@ export {
   FloorValidatorV1,
   requestAction,
   computeCompoundDigest, captureRoutingContext, detectRoutingDivergence,
-  type DivergencePattern,
+  createPolicyChain, appendPolicyChainEntry, verifyPolicyChain, detectConstraintDrift,
+  type DivergencePattern, type PolicyChain, type PolicyChainEntry, type PolicyConstraintSnapshot,
 } from './core/policy.js'
 
 export type {

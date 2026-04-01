@@ -609,3 +609,188 @@ export function detectRoutingDivergence(opts: {
 
   return { ...base, pattern: 'partial', riskLevel: 'medium' }
 }
+
+
+// ══════════════════════════════════════════════════════════════════
+// Policy Hash Chaining — Tamper-evident constraint state history
+// From haroldmalikfrimpong-ops on A2A#1672 / qntm#7
+//
+// Every policy evaluation chains the agent's constraint state:
+//   policy_hash[N] = SHA-256(constraints_at_N + previous_policy_hash)
+//
+// If constraints drift through summarization, memory compaction,
+// or any mutation — the chain breaks. A verifier can check integrity
+// without seeing every evaluation, just by replaying the chain.
+// ══════════════════════════════════════════════════════════════════
+
+export interface PolicyChainEntry {
+  /** Position in the chain (0-indexed) */
+  index: number
+  /** The agent this chain belongs to */
+  agentId: string
+  /** SHA-256(canonicalized constraints + previousHash) */
+  policyHash: string
+  /** Previous entry's hash (null for genesis) */
+  previousPolicyHash: string | null
+  /** The constraint snapshot that produced this hash */
+  constraints: PolicyConstraintSnapshot
+  /** When this entry was created */
+  timestamp: string
+  /** Optional: which policy evaluation triggered this entry */
+  decisionId?: string
+}
+
+export interface PolicyConstraintSnapshot {
+  /** Active delegation scopes */
+  scopes: string[]
+  /** Spend limit remaining */
+  spendLimit?: number
+  /** Trust level / passport grade */
+  trustLevel?: number
+  /** Max delegation depth remaining */
+  maxDepth?: number
+  /** Expiry timestamp of active delegation */
+  expiresAt?: string
+  /** Reversibility ceiling */
+  maxReversibility?: string
+  /** Any additional constraint dimensions */
+  [key: string]: unknown
+}
+
+export interface PolicyChain {
+  agentId: string
+  entries: PolicyChainEntry[]
+  currentHash: string | null
+}
+
+/**
+ * Create a new empty policy chain for an agent.
+ */
+export function createPolicyChain(agentId: string): PolicyChain {
+  return { agentId, entries: [], currentHash: null }
+}
+
+/**
+ * Append a new constraint snapshot to the chain.
+ * Returns the new entry with its computed hash.
+ */
+export function appendPolicyChainEntry(
+  chain: PolicyChain,
+  constraints: PolicyConstraintSnapshot,
+  decisionId?: string,
+): PolicyChainEntry {
+  const previousHash = chain.currentHash
+  const hashInput = JSON.stringify({
+    constraints: canonicalize(constraints),
+    previousPolicyHash: previousHash,
+  })
+  const policyHash = sha256(hashInput)
+
+  const entry: PolicyChainEntry = {
+    index: chain.entries.length,
+    agentId: chain.agentId,
+    policyHash,
+    previousPolicyHash: previousHash,
+    constraints,
+    timestamp: new Date().toISOString(),
+    decisionId,
+  }
+
+  chain.entries.push(entry)
+  chain.currentHash = policyHash
+  return entry
+}
+
+/**
+ * Verify the integrity of a policy chain.
+ * Recomputes every hash from the constraint snapshots.
+ * If any entry was tampered with (constraints changed, entry removed/inserted),
+ * the chain breaks and verification fails.
+ */
+export function verifyPolicyChain(chain: PolicyChain): {
+  valid: boolean
+  brokenAt?: number
+  expectedHash?: string
+  actualHash?: string
+  length: number
+} {
+  let previousHash: string | null = null
+
+  for (let i = 0; i < chain.entries.length; i++) {
+    const entry = chain.entries[i]
+
+    // Check back-link
+    if (entry.previousPolicyHash !== previousHash) {
+      return { valid: false, brokenAt: i, expectedHash: previousHash || 'null', actualHash: entry.previousPolicyHash || 'null', length: chain.entries.length }
+    }
+
+    // Recompute hash
+    const hashInput = JSON.stringify({
+      constraints: canonicalize(entry.constraints),
+      previousPolicyHash: previousHash,
+    })
+    const expected = sha256(hashInput)
+
+    if (entry.policyHash !== expected) {
+      return { valid: false, brokenAt: i, expectedHash: expected, actualHash: entry.policyHash, length: chain.entries.length }
+    }
+
+    previousHash = entry.policyHash
+  }
+
+  return { valid: true, length: chain.entries.length }
+}
+
+/**
+ * Detect constraint drift between consecutive chain entries.
+ * Returns which constraint dimensions changed and whether the change
+ * was a narrowing (safe) or widening (violation).
+ */
+export function detectConstraintDrift(chain: PolicyChain): {
+  drifts: Array<{
+    fromIndex: number
+    toIndex: number
+    field: string
+    before: unknown
+    after: unknown
+    direction: 'narrowed' | 'widened' | 'changed'
+  }>
+  hasDrift: boolean
+  hasWidening: boolean
+} {
+  const drifts: Array<{
+    fromIndex: number; toIndex: number; field: string
+    before: unknown; after: unknown; direction: 'narrowed' | 'widened' | 'changed'
+  }> = []
+
+  for (let i = 1; i < chain.entries.length; i++) {
+    const prev = chain.entries[i - 1].constraints
+    const curr = chain.entries[i].constraints
+    const allKeys = new Set([...Object.keys(prev), ...Object.keys(curr)])
+
+    for (const key of allKeys) {
+      const before = prev[key]
+      const after = curr[key]
+      if (JSON.stringify(before) === JSON.stringify(after)) continue
+
+      let direction: 'narrowed' | 'widened' | 'changed' = 'changed'
+      if (key === 'scopes' && Array.isArray(before) && Array.isArray(after)) {
+        direction = after.length <= before.length && after.every((s: string) => (before as string[]).includes(s)) ? 'narrowed' : 'widened'
+      } else if (key === 'spendLimit' && typeof before === 'number' && typeof after === 'number') {
+        direction = after <= before ? 'narrowed' : 'widened'
+      } else if (key === 'maxDepth' && typeof before === 'number' && typeof after === 'number') {
+        direction = after <= before ? 'narrowed' : 'widened'
+      } else if (key === 'trustLevel' && typeof before === 'number' && typeof after === 'number') {
+        direction = after >= before ? 'narrowed' : 'widened'  // higher trust = more restrictive gate
+      }
+
+      drifts.push({ fromIndex: i - 1, toIndex: i, field: key, before, after, direction })
+    }
+  }
+
+  return {
+    drifts,
+    hasDrift: drifts.length > 0,
+    hasWidening: drifts.some(d => d.direction === 'widened'),
+  }
+}
