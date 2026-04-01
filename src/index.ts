@@ -563,6 +563,23 @@ export type {
 export { DEFAULT_DRIFT_RULES } from './types/execution-attestation.js'
 
 
+// ── Bilateral Receipt + Evidence Commitments + Compromise Window ──
+
+export {
+  createBilateralReceipt,
+  verifyBilateralReceipt,
+  createEvidenceCommitment,
+  verifyEvidenceCommitment,
+  checkCompromiseWindow,
+} from './core/bilateral-receipt.js'
+
+export type {
+  BilateralReceipt, BilateralReceiptVerification,
+  InteractionOutcome, EvidenceCommitment,
+  CompromiseWindowCheck, RevocationReason,
+} from './types/bilateral-receipt.js'
+
+
 // ── Feasibility Linting (Module 24, Gap 7) ──
 
 export {
