@@ -181,6 +181,8 @@ export {
   createPolicyReceipt, verifyPolicyReceipt,
   FloorValidatorV1,
   requestAction,
+  computeCompoundDigest, captureRoutingContext, detectRoutingDivergence,
+  type DivergencePattern,
 } from './core/policy.js'
 
 export type {

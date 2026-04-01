@@ -12,6 +12,7 @@ import {
   evaluateIntent, verifyPolicyDecision,
   createPolicyReceipt, verifyPolicyReceipt,
   FloorValidatorV1, requestAction,
+  computeCompoundDigest, captureRoutingContext, detectRoutingDivergence,
 } from '../src/index.js'
 import type { ValidationContext } from '../src/index.js'
 
@@ -755,5 +756,134 @@ describe('PolicyDecision Finding Layer Tags', () => {
     const scopeCheck = decision.principlesEvaluated.find(e => e.principleId === 'F-003')
     assert.equal(scopeCheck!.layer, 'structural')
     assert.equal(scopeCheck!.status, 'fail')
+  })
+})
+
+
+// ════════════════════════════════════════════════════════════
+// computeCompoundDigest tests (desiorac A2A#1672)
+// ════════════════════════════════════════════════════════════
+
+describe('computeCompoundDigest', () => {
+  it('produces a 64-char hex hash', () => {
+    const mockIntent = { intentId: 'i1', signature: 'sig1' } as any
+    const mockReceipt = { policyReceiptId: 'pr1', signature: 'sig2' } as any
+    const digest = computeCompoundDigest({
+      intent: mockIntent, receipt: mockReceipt,
+      executionFrameId: 'frame-001', timestamp: '2026-04-01T00:00:00Z',
+    })
+    assert.equal(digest.length, 64)
+  })
+
+  it('same inputs produce same digest (deterministic)', () => {
+    const mockIntent = { intentId: 'i1', agentId: 'a1', signature: 'sig1' } as any
+    const mockReceipt = { policyReceiptId: 'pr1', intentId: 'i1', signature: 'sig2' } as any
+    const d1 = computeCompoundDigest({ intent: mockIntent, receipt: mockReceipt, executionFrameId: 'f1', timestamp: 't1' })
+    const d2 = computeCompoundDigest({ intent: mockIntent, receipt: mockReceipt, executionFrameId: 'f1', timestamp: 't1' })
+    assert.equal(d1, d2)
+  })
+
+  it('different executionFrameId produces different digest', () => {
+    const mockIntent = { intentId: 'i1', signature: 'sig1' } as any
+    const mockReceipt = { policyReceiptId: 'pr1', signature: 'sig2' } as any
+    const d1 = computeCompoundDigest({ intent: mockIntent, receipt: mockReceipt, executionFrameId: 'frame-A', timestamp: 't1' })
+    const d2 = computeCompoundDigest({ intent: mockIntent, receipt: mockReceipt, executionFrameId: 'frame-B', timestamp: 't1' })
+    assert.notEqual(d1, d2)
+  })
+})
+
+
+// ════════════════════════════════════════════════════════════
+// captureRoutingContext + detectRoutingDivergence (desiorac OATR#2)
+// ════════════════════════════════════════════════════════════
+
+describe('captureRoutingContext', () => {
+  it('hashes DID document and endpoint', () => {
+    const ctx = captureRoutingContext({
+      did: 'did:web:example.com',
+      didDocument: { id: 'did:web:example.com', verificationMethod: [] },
+      endpoint: 'https://api.example.com/agent',
+    })
+    assert.equal(ctx.did, 'did:web:example.com')
+    assert.ok(ctx.didDocumentHash)
+    assert.equal(ctx.didDocumentHash!.length, 64)
+    assert.ok(ctx.endpointHash)
+    assert.equal(ctx.endpointHash!.length, 64)
+  })
+
+  it('handles string DID document', () => {
+    const ctx = captureRoutingContext({ did: 'did:key:z6Mk', didDocument: '{"id":"did:key:z6Mk"}' })
+    assert.ok(ctx.didDocumentHash)
+  })
+})
+
+describe('detectRoutingDivergence', () => {
+  const baseCtx = captureRoutingContext({
+    did: 'did:web:a.com', didDocument: { id: 'a', key: 'k1' }, endpoint: 'https://a.com/agent',
+  })
+
+  it('detects no divergence when contexts match', () => {
+    const result = detectRoutingDivergence({ intent: baseCtx, execution: baseCtx })
+    assert.equal(result.pattern, 'none')
+    assert.equal(result.riskLevel, 'none')
+  })
+
+  it('detects endpoint_migration (DID stable, doc stable, endpoint changed)', () => {
+    const exec = captureRoutingContext({
+      did: 'did:web:a.com', didDocument: { id: 'a', key: 'k1' }, endpoint: 'https://b.com/agent',
+    })
+    const result = detectRoutingDivergence({ intent: baseCtx, execution: exec })
+    assert.equal(result.pattern, 'endpoint_migration')
+    assert.equal(result.riskLevel, 'low')
+    assert.equal(result.endpointChanged, true)
+    assert.equal(result.didChanged, false)
+    assert.equal(result.documentChanged, false)
+  })
+
+  it('detects key_rotation (DID stable, endpoint stable, doc changed)', () => {
+    const exec = captureRoutingContext({
+      did: 'did:web:a.com', didDocument: { id: 'a', key: 'k2-rotated' }, endpoint: 'https://a.com/agent',
+    })
+    const result = detectRoutingDivergence({ intent: baseCtx, execution: exec })
+    assert.equal(result.pattern, 'key_rotation')
+    assert.equal(result.riskLevel, 'medium')
+    assert.equal(result.documentChanged, true)
+    assert.equal(result.endpointChanged, false)
+  })
+
+  it('detects full_migration (DID stable, doc changed, endpoint changed)', () => {
+    const exec = captureRoutingContext({
+      did: 'did:web:a.com', didDocument: { id: 'a', key: 'k2-new' }, endpoint: 'https://b.com/agent',
+    })
+    const result = detectRoutingDivergence({ intent: baseCtx, execution: exec })
+    assert.equal(result.pattern, 'full_migration')
+    assert.equal(result.riskLevel, 'medium')
+    assert.equal(result.documentChanged, true)
+    assert.equal(result.endpointChanged, true)
+  })
+
+  it('detects entity_change (DID changed — always high risk)', () => {
+    const exec = captureRoutingContext({
+      did: 'did:web:evil.com', didDocument: { id: 'evil' }, endpoint: 'https://evil.com/agent',
+    })
+    const result = detectRoutingDivergence({ intent: baseCtx, execution: exec })
+    assert.equal(result.pattern, 'entity_change')
+    assert.equal(result.riskLevel, 'high')
+    assert.equal(result.didChanged, true)
+  })
+
+  it('returns none when no routing context provided', () => {
+    const result = detectRoutingDivergence({ intent: {}, execution: {} })
+    assert.equal(result.pattern, 'none')
+    assert.equal(result.riskLevel, 'none')
+  })
+
+  it('includes resolutionDeltaMs when provided', () => {
+    const exec = captureRoutingContext({
+      did: 'did:web:a.com', didDocument: { id: 'a', key: 'k1' }, endpoint: 'https://b.com/agent',
+    })
+    const result = detectRoutingDivergence({ intent: baseCtx, execution: exec, resolutionDeltaMs: 1500 })
+    assert.equal(result.resolutionDeltaMs, 1500)
+    assert.equal(result.pattern, 'endpoint_migration')
   })
 })

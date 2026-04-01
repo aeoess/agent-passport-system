@@ -33,6 +33,12 @@ export interface ActionIntent {
   }
   context?: string          // optional: why the agent wants to do this
   contentHash?: ContentHash // Module 37: content-addressable hash of unsigned intent
+  /** Routing context at intent time — for divergence detection (desiorac OATR#2) */
+  routingContext?: {
+    intentDid?: string                // DID at intent declaration time
+    intentDidDocumentHash?: string    // SHA-256 of resolved DID doc at intent time
+    intentEndpointHash?: string       // SHA-256 of resolved endpoint at intent time
+  }
   createdAt: string
   signature: string         // signed by the requesting agent
 }
@@ -87,6 +93,15 @@ export interface PolicyReceipt {
     receiptSignature: string
   }
   verifiedAt: string
+  /** Compound digest binding intent + receipt + frame (desiorac A2A#1672) */
+  compoundDigest?: string   // SHA-256(hash(ActionIntent) + hash(PolicyReceipt) + executionFrameId + timestamp)
+  /** Routing context at execution time — compared against intent routingContext for divergence */
+  executionRoutingContext?: {
+    actualDid?: string
+    actualDidDocumentHash?: string
+    actualEndpointHash?: string
+    resolutionDeltaMs?: number   // ms between intent and execution endpoint resolution
+  }
   signature: string         // signed by the verifier
 }
 

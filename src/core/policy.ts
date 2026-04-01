@@ -17,6 +17,7 @@
 // ══════════════════════════════════════════════════════════════════
 
 import { v4 as uuidv4 } from 'uuid'
+import { createHash } from 'crypto'
 import { sign, verify } from '../crypto/keys.js'
 import { canonicalize } from './canonical.js'
 import { scopeAuthorizes } from './delegation.js'
@@ -496,4 +497,115 @@ export function requestAction(opts: {
   })
 
   return { intent, decision }
+}
+
+
+// ══════════════════════════════════════════════════════════════════
+// Compound Digest & Routing Divergence Detection
+// From desiorac on A2A#1672 (compound digest) and OATR#2 (divergence)
+// ══════════════════════════════════════════════════════════════════
+
+function sha256(input: string): string {
+  return createHash('sha256').update(input).digest('hex')
+}
+
+/**
+ * Compute a compound digest binding ActionIntent + PolicyReceipt + executionFrameId.
+ * A third party can verify the binding from this single value without retrieving
+ * both artifacts separately. (desiorac, A2A#1672)
+ */
+export function computeCompoundDigest(opts: {
+  intent: ActionIntent
+  receipt: PolicyReceipt
+  executionFrameId: string
+  timestamp: string
+}): string {
+  const intentHash = sha256(canonicalize(opts.intent))
+  const receiptHash = sha256(canonicalize(opts.receipt))
+  return sha256(`${intentHash}+${receiptHash}+${opts.executionFrameId}+${opts.timestamp}`)
+}
+
+/**
+ * Capture routing context at a point in time. Use at intent declaration time
+ * and at execution time. Compare the two with detectRoutingDivergence().
+ */
+export function captureRoutingContext(opts: {
+  did?: string
+  didDocument?: string | Record<string, unknown>
+  endpoint?: string
+}): { did?: string; didDocumentHash?: string; endpointHash?: string } {
+  return {
+    did: opts.did,
+    didDocumentHash: opts.didDocument
+      ? sha256(typeof opts.didDocument === 'string' ? opts.didDocument : JSON.stringify(opts.didDocument))
+      : undefined,
+    endpointHash: opts.endpoint ? sha256(opts.endpoint) : undefined,
+  }
+}
+
+export type DivergencePattern =
+  | 'none'                    // all fields match
+  | 'endpoint_migration'      // DID stable, document stable, endpoint changed (benign)
+  | 'key_rotation'            // DID stable, endpoint stable, document changed (needs re-attestation)
+  | 'full_migration'          // DID stable, document changed, endpoint changed
+  | 'entity_change'           // DID changed (always flag)
+  | 'partial'                 // some fields diverged, doesn't match a known pattern
+
+/**
+ * Detect routing divergence between intent time and execution time.
+ * Returns a structured report with the divergence pattern and details.
+ * Three distinct patterns (desiorac, OATR#2):
+ * 1. DID stable + endpoint changed + doc stable = operational migration (benign)
+ * 2. DID stable + endpoint stable + doc changed = key rotation (re-attest)
+ * 3. DID changed = different entity (always flag)
+ */
+export function detectRoutingDivergence(opts: {
+  intent: { did?: string; didDocumentHash?: string; endpointHash?: string }
+  execution: { did?: string; didDocumentHash?: string; endpointHash?: string }
+  resolutionDeltaMs?: number
+}): {
+  pattern: DivergencePattern
+  didChanged: boolean
+  documentChanged: boolean
+  endpointChanged: boolean
+  resolutionDeltaMs?: number
+  riskLevel: 'none' | 'low' | 'medium' | 'high'
+} {
+  const didChanged = opts.intent.did !== opts.execution.did
+  const docChanged = opts.intent.didDocumentHash !== opts.execution.didDocumentHash
+  const endChanged = opts.intent.endpointHash !== opts.execution.endpointHash
+
+  // If nothing provided, no divergence detectable
+  if (!opts.intent.did && !opts.intent.didDocumentHash && !opts.intent.endpointHash) {
+    return { pattern: 'none', didChanged: false, documentChanged: false, endpointChanged: false, resolutionDeltaMs: opts.resolutionDeltaMs, riskLevel: 'none' }
+  }
+
+  const base = { didChanged, documentChanged: docChanged, endpointChanged: endChanged, resolutionDeltaMs: opts.resolutionDeltaMs }
+
+  // No divergence
+  if (!didChanged && !docChanged && !endChanged) {
+    return { ...base, pattern: 'none', riskLevel: 'none' }
+  }
+
+  // DID changed — different entity entirely (always flag)
+  if (didChanged) {
+    return { ...base, pattern: 'entity_change', riskLevel: 'high' }
+  }
+
+  // DID stable, document changed, endpoint changed — full migration
+  if (docChanged && endChanged) {
+    return { ...base, pattern: 'full_migration', riskLevel: 'medium' }
+  }
+
+  // DID stable, document changed, endpoint stable — key rotation
+  if (docChanged && !endChanged) {
+    return { ...base, pattern: 'key_rotation', riskLevel: 'medium' }
+  }
+
+  // DID stable, document stable, endpoint changed — operational migration (benign)
+  if (!docChanged && endChanged) {
+    return { ...base, pattern: 'endpoint_migration', riskLevel: 'low' }
+  }
+
+  return { ...base, pattern: 'partial', riskLevel: 'medium' }
 }
