@@ -1,6 +1,6 @@
 ---
 name: agent-passport-system
-description: "Give AI agents cryptographic identity, scoped delegation, trust scoring, and spending controls. Use when agents need to prove who they are, what they're authorized to do, how much they can spend, or when you need to revoke access across a delegation chain. Covers identity, delegation, governance, commerce, coordination, attribution, encrypted communication, and institutional governance. 96 modules, 125 MCP tools, 1987 tests."
+description: "Give AI agents cryptographic identity, scoped delegation, trust scoring, and spending controls. Use when agents need to prove who they are, what they're authorized to do, how much they can spend, or when you need to revoke access across a delegation chain. Covers identity, delegation, governance, commerce, coordination, attribution, encrypted communication, and institutional governance. 97 modules, 125 MCP tools, 2009 tests."
 metadata:
   clawdbot:
     emoji: "🔑"
@@ -36,7 +36,7 @@ metadata:
 ## Install
 
 ```bash
-npm install agent-passport-system        # SDK (96 modules)
+npm install agent-passport-system        # SDK (97 modules)
 npm install agent-passport-system-mcp    # MCP server (125 tools)
 ```
 
@@ -130,8 +130,8 @@ Grade travels with the passport. Any consumer reads it without understanding sco
 
 ## Key facts
 
-- **96 modules** (64 core + 32 v2 constitutional)
-- **1,987 tests** including 50 adversarial attack scenarios
+- **97 modules** (65 core + 32 v2 constitutional)
+- **2,009 tests** including 50 adversarial attack scenarios
 - **125 MCP tools** with role-scoped profiles
 - **Policy eval <2ms**, 403 ops/sec, 15 constraint dimensions
 - **Zero heavy dependencies** — Node.js crypto + uuid only
