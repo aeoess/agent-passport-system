@@ -140,7 +140,7 @@ const agent = joinSocialContract({ name: 'my-agent', owner: 'alice', floor: floo
 
 ## The Stack
 
-63 core modules + 32 v2 constitutional modules. 1956 tests. Zero heavy dependencies.
+63 core modules + 32 v2 constitutional modules. 1987 tests. Zero heavy dependencies.
 
 | Layer | What it does | Key primitive |
 |-------|-------------|---------------|
@@ -194,7 +194,7 @@ npx agent-passport audit --floor values/floor.yaml
 
 ```bash
 npm test
-# 1956 tests across 98 files, 492 suites, 0 failures
+# 1987 tests across 98 files, 503 suites, 0 failures
 ```
 
 50 adversarial tests: Merkle tampering, attribution gaming, compliance violations, floor negotiation attacks, cross-chain confused deputy, taint laundering, authority probing.
