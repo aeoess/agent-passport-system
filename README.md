@@ -194,7 +194,7 @@ npx agent-passport audit --floor values/floor.yaml
 
 ```bash
 npm test
-# 2047 tests across 98 files, 521 suites, 0 failures
+# 2051 tests across 98 files, 522 suites, 0 failures
 ```
 
 50 adversarial tests: Merkle tampering, attribution gaming, compliance violations, floor negotiation attacks, cross-chain confused deputy, taint laundering, authority probing.
