@@ -32,6 +32,8 @@ Open protocol for AI agent identity, trust, governance, and commerce. Ed25519 cr
 ## Build Specs = Your Instructions
 Strategy sessions in claude.ai produce `BUILD-SPEC-*.md` files in `~/aeoess_web/specs/`. These are your build orders. When Tima says "read the build spec and execute" — find the relevant spec, read it, and build what it says.
 
+**Start every session by reading `~/aeoess_web/specs/CURRENT-PRIORITIES.md`** — it lists what's ready to build, what's waiting, and what was recently completed. Updated after every claude.ai strategy session.
+
 ## IP Boundary — Ask Before Every New Feature
 **Protocol primitive or product intelligence?**
 - Protocol primitives (types, functions) → public SDK at `src/`
