@@ -2,15 +2,14 @@
 
 [![npm version](https://img.shields.io/npm/v/agent-passport-system)](https://www.npmjs.com/package/agent-passport-system)
 [![license](https://img.shields.io/npm/l/agent-passport-system)](https://github.com/aeoess/agent-passport-system/blob/main/LICENSE)
-[![tests](https://img.shields.io/badge/tests-2051%20passing-brightgreen)](https://github.com/aeoess/agent-passport-system)
+[![tests](https://img.shields.io/badge/tests-1399%20passing-brightgreen)](https://github.com/aeoess/agent-passport-system)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18749779.svg)](https://doi.org/10.5281/zenodo.18749779)
-[![cited](https://img.shields.io/badge/cited%20by-PDR%20in%20Production%20(UBC)-blue)](https://doi.org/10.5281/zenodo.19323172)
 
-> **For AI agents:** visit [aeoess.com/llms.txt](https://aeoess.com/llms.txt) for machine-readable docs or [llms-full.txt](https://aeoess.com/llms-full.txt) for the complete reference. MCP discovery: [.well-known/mcp.json](https://aeoess.com/.well-known/mcp.json).
+> **For AI agents:** visit [aeoess.com/llms.txt](https://aeoess.com/llms.txt) for machine-readable docs or [llms-full.txt](https://aeoess.com/llms-full.txt) for the complete reference.
 
-**Enforcement infrastructure for the agent economy.** Every action evaluated in under 2ms. 15 constraint dimensions. 403 ops/sec. Sub-millisecond denial. Feeless Nano payments. 99 modules. 2,051 tests. Not just identity — the full enforcement stack.
+**Governance, trust, and enforcement for AI agents. Not just identity.**
 
-AI agents represent companies and people. They spend real money, access sensitive data, negotiate contracts, and talk to other agents. APS is the enforcement layer that answers: what is this agent allowed to do? How much can it spend? Is it trustworthy? What happens when it violates a constraint? And can you prove all of this cryptographically? Independently validated by [PDR in Production (Nanook & Gerundium, UBC)](https://doi.org/10.5281/zenodo.19323172).
+When an AI agent acts on your behalf, APS answers: what is it allowed to do? How much can it spend? Is it trustworthy? What happens when it violates a constraint? And can you prove all of this cryptographically?
 
 ```bash
 npm install agent-passport-system
@@ -27,21 +26,6 @@ npm install agent-passport-system
 **Control spending** — 4-gate commerce enforcement: passport verification, delegation scope check, spend limit enforcement, merchant allowlist. Human approval thresholds for high-value purchases. Cumulative budget tracking across sessions.
 
 **Revoke authority instantly** — cascade revocation propagates through delegation chains. Revoke a parent, all children are automatically revoked. The gateway rechecks revocation at execution time, not just at approval time.
-
-## Benchmarks
-
-| Metric | Value | Notes |
-|--------|------:|-------|
-| Policy eval p50 | <2ms | Full 15-dimension constraint check |
-| Policy eval p95 | <5ms | Including reputation lookup |
-| Policy eval p99 | <10ms | Worst case with cold cache |
-| Denial latency | <1ms | Fail-fast on first constraint violation |
-| Throughput | 403 ops/sec | Single-threaded gateway |
-| Cascade revocation | <5ms | Chains up to 100 deep |
-| Receipt generation | <1ms | Ed25519 signed, hash-chained |
-| Nano transaction | <1s | Feeless, delegation-scoped |
-
-15 constraint dimensions: scope, spend, tier, values, revocation, taint, anomaly, circuit, approval, temporal, jurisdiction, purpose, combination, retention, terms. [Full benchmarks →](https://aeoess.com/benchmarks.html)
 
 ## Quick Example: Enforce, Don't Just Identify
 
@@ -86,40 +70,6 @@ const result = await gateway.processToolCall({
 
 **What just happened:** The gateway verified the agent's identity, checked delegation scope, enforced spend limits, evaluated values floor compliance, verified reputation tier, checked revocation status, executed the tool, generated a signed receipt, and updated reputation. All in one call. The agent never touched the tool directly.
 
-## Framework Integration: CrewAI
-
-Add governance to any CrewAI crew in 10 lines. Works the same way with LangChain, ADK, A2A, or any custom framework.
-
-```typescript
-import { generateKeyPair, createCrewAIGovernance } from 'agent-passport-system'
-
-const keys = generateKeyPair()
-const gov = createCrewAIGovernance({
-  agentId: 'research-agent',
-  ...keys,
-  delegationId: 'del_research_2026',
-  allowedScopes: ['tool:web_search', 'tool:read_file', 'task:execute'],
-  spendLimitPerAction: 5.00,
-})
-
-// Wrap any tool call — permitted actions execute, denied ones don't
-const result = await gov.governedToolCall(
-  'web_search',
-  { query: 'AI governance standards' },
-  () => mySearchTool('AI governance standards'),
-  0.01  // estimated cost
-)
-// result.governance.verdict → 'permit' or 'deny'
-// result.receipt → signed proof of the action (or denial)
-
-// Use as CrewAI task callback
-const receipt = gov.taskCallback({ description: '...', result: '...', agent: 'research-agent' })
-```
-
-**What you get:** scope enforcement (agent can only use allowed tools), spend controls ($5/action limit), signed receipts for every action (permit or deny), and a verifiable audit trail. The agent never bypasses governance because the wrapper executes the action, not the agent.
-
-See [`examples/crewai-governance.ts`](examples/crewai-governance.ts) for the full working example. Adapters also available for [LangChain](src/adapters/langchain.ts), [Google ADK](src/adapters/adk.ts), and [A2A](src/adapters/a2a.ts).
-
 ## Identity Is the Foundation, Not the Product
 
 Everything above is built on Ed25519 cryptographic identity. But identity is the plumbing, not the value proposition.
@@ -140,7 +90,7 @@ const agent = joinSocialContract({ name: 'my-agent', owner: 'alice', floor: floo
 
 ## The Stack
 
-67 core modules + 32 v2 constitutional modules. 2,051 tests. Zero heavy dependencies.
+42 core modules + 32 v2 constitutional modules. 1399 tests. Zero heavy dependencies.
 
 | Layer | What it does | Key primitive |
 |-------|-------------|---------------|
@@ -159,7 +109,7 @@ const agent = joinSocialContract({ name: 'my-agent', owner: 'alice', floor: floo
 
 ## MCP Server
 
-125 tools across all modules. Any MCP client connects agents directly.
+108 tools across all modules. Any MCP client connects agents directly.
 
 ```bash
 npm install -g agent-passport-system-mcp
@@ -194,7 +144,7 @@ npx agent-passport audit --floor values/floor.yaml
 
 ```bash
 npm test
-# 2051 tests across 98 files, 522 suites, 0 failures
+# 1399 tests across 71 files, 370 suites, 0 failures
 ```
 
 50 adversarial tests: Merkle tampering, attribution gaming, compliance violations, floor negotiation attacks, cross-chain confused deputy, taint laundering, authority probing.
@@ -212,7 +162,7 @@ npm test
 | Signed receipts | 3-sig chain | Proposed | Logs | General | — |
 | Values enforcement | 8 principles, graduated | — | Rules | — | — |
 | Coordination | Task lifecycle + MCP | — | — | — | — |
-| Tests | 1852 (50 adversarial) | None | Limited | None | None |
+| Tests | 1399 (50 adversarial) | None | Limited | None | None |
 
 ## Recognition
 
@@ -227,10 +177,6 @@ npm test
 
 **"Monotonic Narrowing for Agent Authority"** — Published on [Zenodo](https://doi.org/10.5281/zenodo.18749779). [Read →](papers/agent-social-contract.md)
 
-**"Faceted Authority Attenuation: A Product Lattice Model for AI Agent Governance"** — Published on [Zenodo](https://doi.org/10.5281/zenodo.19260073). Seven-dimensional product lattice formalization with authorization witnesses, constraint vectors, and institutional governance composition.
-
-**Cited by:** Nanook & Gerundium, "PDR in Production: Empirical Validation of Behavioral Trust Scoring in Multi-Agent Systems" ([DOI:10.5281/zenodo.19323172](https://doi.org/10.5281/zenodo.19323172)) — Section 7.6 independently validates the APS Bayesian reputation model, sigma dynamics, and structuralVerdict/trustVerdict separation using production data from UBC.
-
 ## Authorship
 
 Designed and built by **Tymofii Pidlisnyi** with AI assistance from **Claude** (Anthropic).
@@ -243,24 +189,6 @@ Protocol: [aeoess.com/protocol.html](https://aeoess.com/protocol.html) · Agora:
 - Full docs: [aeoess.com/llms-full.txt](https://aeoess.com/llms-full.txt)
 - Quick start: [aeoess.com/llms/quickstart.txt](https://aeoess.com/llms/quickstart.txt)
 - API reference: [aeoess.com/llms/api.txt](https://aeoess.com/llms/api.txt)
-
-## Passport Issuer (CA Model)
-
-Passports issued through official AEOESS infrastructure are countersigned with the AEOESS issuer key. Self-signed passports are cryptographically valid but won't pass issuer verification.
-
-```typescript
-import { countersignPassport, verifyIssuerSignature } from 'agent-passport-system'
-
-// Issuer countersigns after agent self-signs
-const issued = countersignPassport(signedPassport, issuerPrivateKey, 'aeoess')
-
-// Anyone can verify against the published public key
-const AEOESS_KEY = 'e11f46f5831432d17852189d5df10ed21d5774797ae9ee52dbab8c650fec16ae'
-const trusted = verifyIssuerSignature(issued, AEOESS_KEY) // true
-```
-
-Published key: [aeoess.com/.well-known/aeoess-issuer.json](https://aeoess.com/.well-known/aeoess-issuer.json)  
-MCP tool: `verify_issuer`
 
 ## License
 
