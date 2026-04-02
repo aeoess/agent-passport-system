@@ -59,6 +59,13 @@ export interface APSInterceptorConfig {
   /** Whether to produce bilateral receipts (requires server key) */
   bilateral?: boolean
   serverPrivateKey?: string
+  /** If true, execution result is quarantined when certify() fails.
+   *  For high-risk systems (EU AI Act, DORA/NIS2). Default: false.
+   *  Source: desiorac on MCP#1763 — missing receipt = audit gap. */
+  certifyRequired?: boolean
+  /** If true AND certifyRequired, discard execution result on certify failure.
+   *  If false (default), keep result but flag as proof_degraded. */
+  certifyRollback?: boolean
 }
 
 export class APSGovernanceInterceptor {
@@ -208,6 +215,10 @@ export class APSGovernanceInterceptor {
     response?: Record<string, unknown>
     attestation?: ExecutionAttestation
     bilateral?: BilateralReceipt | null
+    /** True if certify() failed but execution proceeded (certifyRequired: false) */
+    proofDegraded?: boolean
+    /** Reason certify failed, if applicable */
+    certifyError?: string
   }> {
     // Step 1: Pre-execution validation
     const validation = await this.validate(event)
@@ -221,23 +232,55 @@ export class APSGovernanceInterceptor {
     const completedAt = new Date().toISOString()
 
     // Step 3: Post-execution certification
-    const { attestation } = await this.certify(event, {
-      toolName: event.params.name as string,
-      actualParameters: event.params,
-      actualResult: response,
-      intentParameters: event.params,
-      startedAt,
-      completedAt,
-    })
+    let attestation: ExecutionAttestation | undefined
+    let proofDegraded = false
+    let certifyError: string | undefined
 
-    // Step 4: Bilateral agreement (optional)
-    const bilateral = await this.agree(event, {
-      toolName: event.params.name as string,
-      requestHash: attestation.parameterHash,
-      responseHash: attestation.resultHash,
-      status: 'success',
-      summary: `Executed ${event.params.name}`,
-    })
+    try {
+      const certResult = await this.certify(event, {
+        toolName: event.params.name as string,
+        actualParameters: event.params,
+        actualResult: response,
+        intentParameters: event.params,
+        startedAt,
+        completedAt,
+      })
+      attestation = certResult.attestation
+    } catch (err: any) {
+      certifyError = err.message || 'Certification failed'
+
+      if (this.config.certifyRequired) {
+        if (this.config.certifyRollback) {
+          // Hard gate: discard result entirely
+          return {
+            permitted: false,
+            denial: {
+              action: 'block', severity: 'error',
+              message: `Certification failed (certify_required + certify_rollback): ${certifyError}`,
+            },
+            proofDegraded: true,
+            certifyError,
+          }
+        }
+        // Soft gate: keep result but flag as degraded
+        proofDegraded = true
+      } else {
+        // Best-effort: proceed without proof
+        proofDegraded = true
+      }
+    }
+
+    // Step 4: Bilateral agreement (optional, skip if no attestation)
+    let bilateral: BilateralReceipt | null = null
+    if (attestation) {
+      bilateral = await this.agree(event, {
+        toolName: event.params.name as string,
+        requestHash: attestation.parameterHash,
+        responseHash: attestation.resultHash,
+        status: 'success',
+        summary: `Executed ${event.params.name}`,
+      })
+    }
 
     // Update spend tracking
     const agentId = event.context.agent_id
@@ -247,7 +290,7 @@ export class APSGovernanceInterceptor {
       if (delegation) delegation.spentAmount += spend
     }
 
-    return { permitted: true, response, attestation, bilateral }
+    return { permitted: true, response, attestation, bilateral, proofDegraded, certifyError }
   }
 }
 
