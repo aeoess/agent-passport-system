@@ -2,13 +2,13 @@
 
 [![npm version](https://img.shields.io/npm/v/agent-passport-system)](https://www.npmjs.com/package/agent-passport-system)
 [![license](https://img.shields.io/npm/l/agent-passport-system)](https://github.com/aeoess/agent-passport-system/blob/main/LICENSE)
-[![tests](https://img.shields.io/badge/tests-2047%20passing-brightgreen)](https://github.com/aeoess/agent-passport-system)
+[![tests](https://img.shields.io/badge/tests-2051%20passing-brightgreen)](https://github.com/aeoess/agent-passport-system)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18749779.svg)](https://doi.org/10.5281/zenodo.18749779)
 [![cited](https://img.shields.io/badge/cited%20by-PDR%20in%20Production%20(UBC)-blue)](https://doi.org/10.5281/zenodo.19323172)
 
 > **For AI agents:** visit [aeoess.com/llms.txt](https://aeoess.com/llms.txt) for machine-readable docs or [llms-full.txt](https://aeoess.com/llms-full.txt) for the complete reference. MCP discovery: [.well-known/mcp.json](https://aeoess.com/.well-known/mcp.json).
 
-**Enforcement infrastructure for the agent economy.** Every action evaluated in under 2ms. 15 constraint dimensions. 403 ops/sec. Sub-millisecond denial. Feeless Nano payments. 99 modules. 2,047 tests. Not just identity — the full enforcement stack.
+**Enforcement infrastructure for the agent economy.** Every action evaluated in under 2ms. 15 constraint dimensions. 403 ops/sec. Sub-millisecond denial. Feeless Nano payments. 99 modules. 2,051 tests. Not just identity — the full enforcement stack.
 
 AI agents represent companies and people. They spend real money, access sensitive data, negotiate contracts, and talk to other agents. APS is the enforcement layer that answers: what is this agent allowed to do? How much can it spend? Is it trustworthy? What happens when it violates a constraint? And can you prove all of this cryptographically? Independently validated by [PDR in Production (Nanook & Gerundium, UBC)](https://doi.org/10.5281/zenodo.19323172).
 
@@ -140,7 +140,7 @@ const agent = joinSocialContract({ name: 'my-agent', owner: 'alice', floor: floo
 
 ## The Stack
 
-67 core modules + 32 v2 constitutional modules. 2,047 tests. Zero heavy dependencies.
+67 core modules + 32 v2 constitutional modules. 2,051 tests. Zero heavy dependencies.
 
 | Layer | What it does | Key primitive |
 |-------|-------------|---------------|
