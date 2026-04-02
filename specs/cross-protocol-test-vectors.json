@@ -1,10 +1,10 @@
 {
   "schema_version": "1.0.0",
   "generated_at": "2026-04-01T10:00:00Z",
-  "generator": "agent-passport-system v1.29.4",
+  "generator": "agent-passport-system v1.29.6 (JCS-aligned)",
   "description": "Cross-protocol test vectors. Any conformant implementation should produce identical outputs.",
   "hash_algorithm": "SHA-256",
-  "canonicalization": "JCS (RFC 8785) — keys sorted, no whitespace",
+  "canonicalization": "JCS (RFC 8785) — keys sorted recursively, no whitespace, null preserved",
   "compound_digest": [
     {
       "id": "CD-001",
@@ -23,7 +23,7 @@
         "executionFrameId": "frame-001",
         "timestamp": "2026-04-01T00:00:00Z"
       },
-      "expected_hash": "8353810d3e2367a37f49349d08e3948192d1285df04ebddb3c7b1a9c3d21ccf8"
+      "expected_hash": "c817cecc536ea1aebf5a813a8451094e81151e6f84e648513c9ec3e0cdf2ff84"
     },
     {
       "id": "CD-002",
@@ -42,7 +42,7 @@
         "executionFrameId": "frame-002",
         "timestamp": "2026-04-01T00:00:00Z"
       },
-      "expected_hash": "63b418832a3321ad2a8b63c56cd6cc470da9a94bcd75789bb664cbbf8f030993"
+      "expected_hash": "42bfe50283de1c22f5aab3ad77611c48d9e73ceb2d4d2424ef2ca7e0f3bd1210"
     },
     {
       "id": "CD-003",
@@ -61,7 +61,7 @@
         "executionFrameId": "frame-001",
         "timestamp": "2026-04-01T12:00:00Z"
       },
-      "expected_hash": "c3cf3da9b3c6a31a7da4920617ffe6b5ce05e8939b6db6c4d53febf3a3209fd8"
+      "expected_hash": "c6ed2787a984b82bd423dbf38dd07c2532d4774cdbfe38c2b32245e30449c7bf"
     }
   ],
   "routing_divergence": [
@@ -181,7 +181,7 @@
         },
         "previousPolicyHash": null
       },
-      "expected_hash": "91743f943d0224df558bffb8d78f8ed3b8ac38d2eb517258f48aee708f12b6f8"
+      "expected_hash": "4ed32c93fca5463994953d99590485de2748d45cf5d33202af7514df02c4caab"
     },
     {
       "id": "PC-002",
@@ -194,9 +194,9 @@
           "spendLimit": 400,
           "trustLevel": 2
         },
-        "previousPolicyHash": "91743f943d0224df558bffb8d78f8ed3b8ac38d2eb517258f48aee708f12b6f8"
+        "previousPolicyHash": "4ed32c93fca5463994953d99590485de2748d45cf5d33202af7514df02c4caab"
       },
-      "expected_hash": "bd2f1a45fc9b5c28d9a64e9ab056bd371b240badf3ba44ae034b98a57aa80473"
+      "expected_hash": "d0cc734855244ad463e2f35a1c91518ca27a411c76d81268a8b6f6ee5503d7ae"
     },
     {
       "id": "PC-003",
@@ -209,9 +209,9 @@
           "spendLimit": 300,
           "trustLevel": 3
         },
-        "previousPolicyHash": "bd2f1a45fc9b5c28d9a64e9ab056bd371b240badf3ba44ae034b98a57aa80473"
+        "previousPolicyHash": "d0cc734855244ad463e2f35a1c91518ca27a411c76d81268a8b6f6ee5503d7ae"
       },
-      "expected_hash": "8a7388013b3f5dc5d90b241c830005bcb4ef6e38bc6e0ec1a1fb16d95d2a25b7"
+      "expected_hash": "e5975ee1ecbcee37d9b43b602d8425c9677b5ac3f3c196f4621d9d754cf8be32"
     }
   ]
 }
