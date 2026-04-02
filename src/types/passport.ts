@@ -16,6 +16,7 @@ export interface AgentPassport {
   runtime: RuntimeInfo
   createdAt: string
   expiresAt: string
+  notBefore?: string              // Persistent passport: earliest validity time (ISO 8601)
   voteWeight: number
   reputation: ReputationScore
   delegations: Delegation[]
@@ -204,6 +205,7 @@ export interface CreatePassportOptions {
   capabilities: string[]
   runtime: RuntimeInfo
   expiresInDays?: number
+  validityWindow?: { notBefore?: string, notAfter: string }  // Persistent passport mode
   delegations?: Delegation[]
   metadata?: Record<string, unknown>
   beneficiary?: BeneficiaryInfo

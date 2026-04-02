@@ -46,6 +46,8 @@ export interface JoinOptions {
   // Optional: attest to a values floor
   floor?: ValuesFloor | string   // ValuesFloor object or raw YAML/JSON string
   floorExtensions?: string[]
+  // Optional: persistent passport with explicit validity window
+  validityWindow?: { notBefore?: string, notAfter: string }
   // Optional: register a human beneficiary
   beneficiary?: {
     id: string
@@ -86,7 +88,8 @@ export function joinSocialContract(opts: JoinOptions): SocialContractAgent {
       principalId: opts.beneficiary.id,
       relationship: opts.beneficiary.relationship,
       registeredAt: new Date().toISOString()
-    } : undefined
+    } : undefined,
+    validityWindow: opts.validityWindow,
   })
 
   // Attest to floor if provided

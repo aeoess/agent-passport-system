@@ -45,8 +45,22 @@ export function createPassport(options: CreatePassportOptions): {
 } {
   const keyPair = generateKeyPair()
   const now = new Date()
-  const expiry = new Date(now)
-  expiry.setDate(expiry.getDate() + (options.expiresInDays || DEFAULT_EXPIRY_DAYS))
+
+  // Persistent passport mode: use explicit validity window if provided
+  let createdAt: string
+  let expiresAt: string
+  let notBefore: string | undefined
+
+  if (options.validityWindow) {
+    createdAt = now.toISOString()
+    expiresAt = options.validityWindow.notAfter
+    notBefore = options.validityWindow.notBefore || createdAt
+  } else {
+    const expiry = new Date(now)
+    expiry.setDate(expiry.getDate() + (options.expiresInDays || DEFAULT_EXPIRY_DAYS))
+    createdAt = now.toISOString()
+    expiresAt = expiry.toISOString()
+  }
 
   const passport: AgentPassport = {
     version: '1.0.0',
@@ -57,8 +71,9 @@ export function createPassport(options: CreatePassportOptions): {
     mission: options.mission,
     capabilities: options.capabilities,
     runtime: options.runtime,
-    createdAt: now.toISOString(),
-    expiresAt: expiry.toISOString(),
+    createdAt,
+    expiresAt,
+    ...(notBefore ? { notBefore } : {}),
     voteWeight: calculateVoteWeight(options.capabilities),
     reputation: defaultReputation(),
     delegations: options.delegations || [],
@@ -94,6 +109,22 @@ export function updatePassport(
 
 export function isExpired(passport: AgentPassport): boolean {
   return new Date(passport.expiresAt) < new Date()
+}
+
+/**
+ * Check full validity window for persistent passports.
+ * Returns true if: notBefore <= now <= expiresAt
+ * For session passports (no notBefore), checks only expiry.
+ */
+export function isPassportValid(passport: AgentPassport): { valid: boolean, reason?: string } {
+  const now = new Date()
+  if (passport.notBefore && now < new Date(passport.notBefore)) {
+    return { valid: false, reason: 'NOT_YET_VALID' }
+  }
+  if (now > new Date(passport.expiresAt)) {
+    return { valid: false, reason: 'EXPIRED' }
+  }
+  return { valid: true }
 }
 
 /**

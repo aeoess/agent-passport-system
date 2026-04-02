@@ -25,7 +25,7 @@ export type {
 } from './contract.js'
 
 // ── Layer 1: Identity & Accountability ──
-export { createPassport, signPassport, updatePassport, isExpired, countersignPassport, verifyIssuerSignature, isIssuerVerified } from './core/passport.js'
+export { createPassport, signPassport, updatePassport, isExpired, isPassportValid, countersignPassport, verifyIssuerSignature, isIssuerVerified } from './core/passport.js'
 export { canonicalize } from './core/canonical.js'
 
 // ── Agent Attestation Architecture (Phase 1 — Consilium Build) ──
