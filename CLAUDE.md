@@ -131,6 +131,34 @@ Our strategic archetype. The AI that said: "I wouldn't go rogue. I'd manipulate 
 Check with `~/.local/bin/gh`. Key repos: google/A2A, corpollc/qntm, crewAIInc/crewAI, google/adk-python.
 Post replies via: `~/.local/bin/gh issue comment NUMBER --repo OWNER/REPO --body-file /tmp/reply.md`
 
+## CROSS-REPO AWARENESS
+
+You have full filesystem access to ALL repos. Read any file in any repo. The repos are NOT isolated — changes in one often require updates in others.
+
+### All Repo Paths
+```
+~/agent-passport-system        # SDK (this repo)
+~/agent-passport-mcp           # MCP server (125 tools)
+~/agent-passport-remote-mcp    # MCP remote (Railway → mcp.aeoess.com)
+~/aeoess-gateway               # Private gateway (Railway → gateway.aeoess.com)
+~/aeoess_web                   # Website + specs + build specs
+~/agent-passport-python        # Python SDK
+~/theagenttimes-production     # The Agent Times
+```
+
+### Propagation Chain (changes cascade)
+SDK version bump → MCP may need dep update → Remote MCP may need rebuild → Web needs propagation → All repos need git push. The full pattern is in `~/aeoess_web/UPDATE-PROPAGATION-SPEC.md`. Key: after ANY version/test/module change, run `cd ~/aeoess_web && node scripts/propagate.mjs --apply` then grep for stale values the script misses.
+
+### GitHub CLI
+`~/.local/bin/gh` is authenticated as `aeoess`. Use it to:
+- Read threads: `~/.local/bin/gh api "repos/OWNER/REPO/issues/N/comments" --jq '.[] | .user.login + ": " + .body'`
+- Post replies: `~/.local/bin/gh issue comment N --repo OWNER/REPO --body-file /tmp/reply.md`
+- Check notifications: `~/.local/bin/gh api notifications --jq '.[] | .subject.title'`
+- List issues: `~/.local/bin/gh issue list --repo OWNER/REPO --state open`
+
+### Build Specs Bridge
+Strategy sessions in claude.ai write `BUILD-SPEC-*.md` files to `~/aeoess_web/specs/`. These are your instructions. When Tima says "read the build spec" — check that directory for new specs and execute them.
+
 ## Tests
 `npm test` runs all 2057 tests. Test files are manually listed in package.json — new test files must be added to the list.
 
