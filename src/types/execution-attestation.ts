@@ -24,6 +24,10 @@ export interface ExecutionDrift {
     executionValueHash: string   // SHA-256 of what actually ran
   }>
   severity: ExecutionDriftSeverity
+  /** True if any drifted field contributes to a signed hash input.
+   *  A "benign" drift that changes a hash isn't actually benign.
+   *  Source: desiorac on qntm#6 — hash-awareness in drift detection. */
+  hashAffected?: boolean
 }
 
 export type ExecutionDriftSeverity = 'none' | 'benign' | 'suspicious' | 'critical'
@@ -106,6 +110,10 @@ export interface CreateExecutionAttestationInput {
     grade_at_execution: number
     source: string
   }
+  /** Fields that contribute to a signed hash input.
+   *  If any drifted field is in this list, drift.hashAffected = true.
+   *  Source: desiorac on qntm#6 — "benign" drift that changes a hash isn't benign. */
+  hashContributingFields?: string[]
 }
 
 // ── Drift Classification Rule ──

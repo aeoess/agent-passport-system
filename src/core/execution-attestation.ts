@@ -69,7 +69,7 @@ export function createExecutionAttestation(
   const match = parameterHash === intentParameterHash
   const drift = match
     ? { fields: [] as ExecutionDrift['fields'], severity: 'none' as const }
-    : classifyDrift(input.intentParameters, input.actualParameters, rules, context)
+    : classifyDrift(input.intentParameters, input.actualParameters, rules, context, input.hashContributingFields)
 
   const now = new Date().toISOString()
 
@@ -182,7 +182,8 @@ function classifyDrift(
   intentParams: Record<string, unknown>,
   actualParams: Record<string, unknown>,
   rules: DriftClassificationRule[],
-  context: string = '*'
+  context: string = '*',
+  hashContributingFields?: string[]
 ): ExecutionDrift {
   const allKeys = new Set([
     ...Object.keys(intentParams),
@@ -222,5 +223,10 @@ function classifyDrift(
     }
   }
 
-  return { fields: driftFields, severity: maxSeverity }
+  // Check if any drifted field contributes to a signed hash (desiorac qntm#6)
+  const hashAffected = hashContributingFields
+    ? driftFields.some(df => hashContributingFields.includes(df.field))
+    : undefined
+
+  return { fields: driftFields, severity: maxSeverity, ...(hashAffected !== undefined ? { hashAffected } : {}) }
 }
