@@ -1,0 +1,70 @@
+{
+  "id": "sv-attest-01",
+  "description": "Execution attestation — sandbox signs what actually ran",
+  "variant": "Ed25519 (pure, RFC 8032 §5.1)",
+  "canonicalization": "JCS RFC 8785 (sorted keys, no whitespace, null preserved)",
+  "keypair": {
+    "private_seed_hex": "7fcef47b66f6ef879fd7673dd1ed9cefc6bae1c7777bb75df357b6d1dd7569b7",
+    "pubkey_hex": "d3af1bdb5dfdf376b6db8dbde75f5ceb6f5fdbdf1cd77d9f6f7e36e5c7f7db6f35e35e5be5ae7af7ce79d35df5df7e9a",
+    "pubkey_base64": "068b213983a22429519c629f298c132fb3425cf32281415b5a5698550131336a",
+    "key_purpose": "test-vector-only"
+  },
+  "attestation_body": {
+    "executionId": "exec-test-001",
+    "agentId": "agent-001",
+    "attestorId": "sandbox://test-runner",
+    "attestorType": "sandbox",
+    "toolName": "web_search",
+    "parameterHash": "ca8fd9771dd913a26da166b02dddf38cc74fdd28f30173b07926e47071f26398",
+    "resultHash": "ecd2ab28382bb8a6ab7b0a2374219bf6d8073e847319aa322b7dd3bab84083f3",
+    "policyReceiptId": "pr-001",
+    "executionFrameId": "frame-001",
+    "intentParameterHash": "ca8fd9771dd913a26da166b02dddf38cc74fdd28f30173b07926e47071f26398",
+    "match": true,
+    "drift": {
+      "fields": [],
+      "severity": "none"
+    },
+    "executionStartedAt": "2026-04-01T10:00:00Z",
+    "executionCompletedAt": "2026-04-01T10:00:01Z",
+    "attestedAt": "2026-04-01T10:00:02Z"
+  },
+  "correct": {
+    "canonical_bytes_utf8": "{\"agentId\":\"agent-001\",\"attestedAt\":\"2026-04-01T10:00:02Z\",\"attestorId\":\"sandbox://test-runner\",\"attestorType\":\"sandbox\",\"drift\":{\"fields\":[],\"severity\":\"none\"},\"executionCompletedAt\":\"2026-04-01T10:00:01Z\",\"executionFrameId\":\"frame-001\",\"executionId\":\"exec-test-001\",\"executionStartedAt\":\"2026-04-01T10:00:00Z\",\"intentParameterHash\":\"ca8fd9771dd913a26da166b02dddf38cc74fdd28f30173b07926e47071f26398\",\"match\":true,\"parameterHash\":\"ca8fd9771dd913a26da166b02dddf38cc74fdd28f30173b07926e47071f26398\",\"policyReceiptId\":\"pr-001\",\"resultHash\":\"ecd2ab28382bb8a6ab7b0a2374219bf6d8073e847319aa322b7dd3bab84083f3\",\"toolName\":\"web_search\"}",
+    "canonical_length_bytes": 628,
+    "signature_base64": "e6b108ddb6aff6ef12652b8e2bcf9ea605265749a2519e75a6e2c2f7c5ec72c7ef3e8555b4ac250f2cb19b25701d3165daec3109e8d333739aca627c9cd8b309",
+    "expected_signature_length_bytes": 64,
+    "verification_result": true
+  },
+  "fail_variants": [
+    {
+      "id": "sv-attest-01-fail-a",
+      "label": "wrong-attestor-key",
+      "description": "Verify with agent key instead of attestor key — identity resolution error",
+      "expected_outcome": "signature_invalid",
+      "failure_category": "KEY_MISMATCH"
+    },
+    {
+      "id": "sv-attest-01-fail-b",
+      "label": "tampered-body",
+      "description": "toolName changed after signing — integrity violation",
+      "tampered_field": "toolName",
+      "tampered_value": "send_money",
+      "expected_outcome": "signature_invalid",
+      "failure_category": "INTEGRITY_VIOLATION"
+    },
+    {
+      "id": "sv-attest-01-fail-c",
+      "label": "prefixed-hash",
+      "description": "Signed over sha256:hex instead of bare hex — encoding error",
+      "expected_outcome": "signature_invalid",
+      "failure_category": "ENCODING_ERROR"
+    }
+  ],
+  "intermediate_values": {
+    "parameter_hash": "ca8fd9771dd913a26da166b02dddf38cc74fdd28f30173b07926e47071f26398",
+    "intent_parameter_hash": "ca8fd9771dd913a26da166b02dddf38cc74fdd28f30173b07926e47071f26398",
+    "result_hash": "ecd2ab28382bb8a6ab7b0a2374219bf6d8073e847319aa322b7dd3bab84083f3",
+    "match_check": true
+  }
+}
