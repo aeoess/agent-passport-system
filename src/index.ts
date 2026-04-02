@@ -985,11 +985,15 @@ export {
   renderGovernanceHTML, renderGovernanceMeta,
   parseGovernanceBlockFromHTML, embedGovernance, isUsagePermitted,
   DEFAULT_REVOCATION_POLICY,
+  isGovernanceBlockExpired,
+  createVerifiedGovernanceCredential, verifyGovernanceCredential,
+  bindGovernanceToImplementation,
 } from './core/governance-block.js'
 export type {
   GovernanceBlock, GovernanceTerms, RevocationPolicy,
   UsagePermission, GovernanceBlockVerification,
   GenerateGovernanceBlockInput,
+  VerifiedGovernanceCredential, GovernanceBinding,
 } from './core/governance-block.js'
 
 

@@ -73,6 +73,8 @@ export interface GovernanceBlock {
   revocation_policy: RevocationPolicy
   /** Ed25519 signature over canonical(everything except signature) */
   signature: string
+  /** When the governance block expires (AV-3: replay prevention) */
+  expires_at?: string
 }
 
 // ═══════════════════════════════════════
@@ -104,6 +106,8 @@ export interface GenerateGovernanceBlockInput {
   revocationPolicy?: RevocationPolicy
   /** Publication timestamp (defaults to now) */
   publishedAt?: string
+  /** Expiry timestamp (AV-3: replay prevention). If set, the block is invalid after this time */
+  expiresAt?: string
 }
 
 export function generateGovernanceBlock(input: GenerateGovernanceBlockInput): GovernanceBlock {
@@ -120,6 +124,7 @@ export function generateGovernanceBlock(input: GenerateGovernanceBlockInput): Go
     governance_generated_at: now,
     terms: input.terms,
     revocation_policy: input.revocationPolicy || DEFAULT_REVOCATION_POLICY,
+    ...(input.expiresAt ? { expires_at: input.expiresAt } : {}),
   }
 
   const payload = canonicalize(block)
@@ -262,4 +267,262 @@ export function isUsagePermitted(
     permitted: permission === 'permitted' || permission === 'attribution_required',
     condition: permission,
   }
+}
+
+
+// ══════════════════════════════════════════════════════════════════
+// AV-5 Fix: Governance Block ↔ Implementation Binding
+// Source: MoltyCel on qntm#7 — a skill can present a governance
+// block that mimics another skill's declarations. Without binding
+// the block to the implementation, there's no proof they belong
+// together.
+// ══════════════════════════════════════════════════════════════════
+
+export interface GovernanceBinding {
+  /** Hash of the governance block (canonical JSON) */
+  governanceBlockHash: string
+  /** Hash of the skill implementation (source code or artifact) */
+  implementationHash: string
+  /** Combined binding hash */
+  bindingHash: string
+  /** Publisher DID */
+  publisherDid: string
+  /** Timestamp of binding */
+  boundAt: string
+  /** Signature over the binding (Ed25519) */
+  signature: string
+}
+
+/**
+ * Bind a governance block to a skill implementation.
+ * Creates a cryptographic proof that this governance block
+ * belongs to this specific implementation.
+ *
+ * A verifier checks: governanceBlockHash matches the block,
+ * implementationHash matches the code, bindingHash ties them,
+ * signature proves the publisher created the binding.
+ */
+export function bindGovernanceToImplementation(input: {
+  /** The governance block to bind */
+  governanceBlock: GovernanceBlock
+  /** SHA-256 hash of the skill implementation */
+  implementationHash: string
+  /** Publisher's private key for signing */
+  privateKey: string
+  /** Publisher's DID */
+  publisherDid: string
+}): GovernanceBinding {
+  const { governanceBlock, implementationHash, privateKey, publisherDid } = input
+
+  // Hash the governance block
+  const { signature: _sig, ...blockWithoutSig } = governanceBlock
+  const governanceBlockHash = `sha256:${createHash('sha256')
+    .update(canonicalize(blockWithoutSig))
+    .digest('hex')}`
+
+  // Create the binding hash — ties block to implementation
+  const bindingInput = `${governanceBlockHash}:${implementationHash}:${publisherDid}`
+  const bindingHash = `sha256:${createHash('sha256')
+    .update(bindingInput)
+    .digest('hex')}`
+
+  const now = new Date().toISOString()
+
+  // Sign the binding
+  const bindingPayload = canonicalize({
+    governanceBlockHash,
+    implementationHash,
+    bindingHash,
+    publisherDid,
+    boundAt: now,
+  })
+  const bindingSig = sign(bindingPayload, privateKey)
+
+  return {
+    governanceBlockHash,
+    implementationHash,
+    bindingHash,
+    publisherDid,
+    boundAt: now,
+    signature: bindingSig,
+  }
+}
+
+/**
+ * Verify a governance-to-implementation binding.
+ * Confirms: hashes match, binding is correctly computed,
+ * signature is valid.
+ */
+export function verifyGovernanceBinding(
+  binding: GovernanceBinding,
+  governanceBlock: GovernanceBlock,
+  implementationHash: string,
+  publicKey: string
+): { valid: boolean; errors: string[] } {
+  const errors: string[] = []
+
+  // Verify governance block hash
+  const { signature: _sig, ...blockWithoutSig } = governanceBlock
+  const expectedBlockHash = `sha256:${createHash('sha256')
+    .update(canonicalize(blockWithoutSig))
+    .digest('hex')}`
+  if (binding.governanceBlockHash !== expectedBlockHash) {
+    errors.push('Governance block hash mismatch — block may have been modified')
+  }
+
+  // Verify implementation hash
+  if (binding.implementationHash !== implementationHash) {
+    errors.push('Implementation hash mismatch — code may have been modified')
+  }
+
+  // Verify binding hash construction
+  const expectedBinding = `sha256:${createHash('sha256')
+    .update(`${binding.governanceBlockHash}:${binding.implementationHash}:${binding.publisherDid}`)
+    .digest('hex')}`
+  if (binding.bindingHash !== expectedBinding) {
+    errors.push('Binding hash mismatch — binding may have been tampered')
+  }
+
+  // Verify signature
+  const payload = canonicalize({
+    governanceBlockHash: binding.governanceBlockHash,
+    implementationHash: binding.implementationHash,
+    bindingHash: binding.bindingHash,
+    publisherDid: binding.publisherDid,
+    boundAt: binding.boundAt,
+  })
+  const sigValid = verify(payload, binding.signature, publicKey)
+  if (!sigValid) errors.push('Binding signature verification failed')
+
+  return { valid: errors.length === 0, errors }
+}
+
+
+// ══════════════════════════════════════════════════════════════════
+// AV-3 Fix: Governance Block Expiry Check
+// Source: MoltyCel on qntm#7 — expired blocks presented as valid
+// ══════════════════════════════════════════════════════════════════
+
+/**
+ * Check if a governance block has expired.
+ * Returns true if the block has an expires_at field and it's in the past.
+ */
+export function isGovernanceBlockExpired(block: GovernanceBlock): boolean {
+  if (!block.expires_at) return false // no expiry = never expires
+  return new Date(block.expires_at) < new Date()
+}
+
+// ══════════════════════════════════════════════════════════════════
+// AV-1 Fix: Verified Governance Credential (W3C VC wrapper)
+// Source: MoltyCel on qntm#7 — governance block spoofing
+// ══════════════════════════════════════════════════════════════════
+
+/** W3C Verifiable Credential wrapping a governance block for tamper-evidence */
+export interface VerifiedGovernanceCredential {
+  '@context': ['https://www.w3.org/2018/credentials/v1', 'https://aeoess.com/governance/v1']
+  type: ['VerifiableCredential', 'GovernanceCredential']
+  issuer: string  // publisher DID
+  issuanceDate: string
+  expirationDate?: string
+  credentialSubject: {
+    /** Hash of the governance block (canonical JSON, SHA-256) */
+    governanceBlockHash: string
+    /** The source content hash */
+    contentHash: string
+    /** The publisher DID */
+    publisherDid: string
+    /** Summary of terms for quick verification */
+    termsVersion?: string
+  }
+  proof: {
+    type: 'Ed25519Signature2020'
+    created: string
+    verificationMethod: string // publisher DID + key reference
+    proofPurpose: 'assertionMethod'
+    proofValue: string  // Ed25519 signature
+  }
+}
+
+/**
+ * Create a Verified Governance Credential — W3C VC wrapping a governance block.
+ * Makes the block tamper-evident: any modification after issuance invalidates the credential.
+ * The hash is independently verifiable without trusting the presenter.
+ */
+export function createVerifiedGovernanceCredential(input: {
+  block: GovernanceBlock
+  privateKey: string
+  publisherDid: string
+}): VerifiedGovernanceCredential {
+  const { block, privateKey, publisherDid } = input
+
+  // Hash the block (excluding signature for consistency with verification)
+  const { signature: _sig, ...blockWithoutSig } = block
+  const blockHash = `sha256:${createHash('sha256')
+    .update(canonicalize(blockWithoutSig))
+    .digest('hex')}`
+
+  const now = new Date().toISOString()
+
+  const credential: Omit<VerifiedGovernanceCredential, 'proof'> = {
+    '@context': ['https://www.w3.org/2018/credentials/v1', 'https://aeoess.com/governance/v1'],
+    type: ['VerifiableCredential', 'GovernanceCredential'],
+    issuer: publisherDid,
+    issuanceDate: now,
+    ...(block.expires_at ? { expirationDate: block.expires_at } : {}),
+    credentialSubject: {
+      governanceBlockHash: blockHash,
+      contentHash: block.content_hash,
+      publisherDid: block.source_did,
+      termsVersion: block.terms.version,
+    },
+  }
+
+  const proofPayload = canonicalize(credential)
+  const proofValue = sign(proofPayload, privateKey)
+
+  return {
+    ...credential,
+    proof: {
+      type: 'Ed25519Signature2020',
+      created: now,
+      verificationMethod: `${publisherDid}#key-1`,
+      proofPurpose: 'assertionMethod',
+      proofValue,
+    },
+  }
+}
+
+/**
+ * Verify a Verified Governance Credential.
+ * Checks: signature valid, block hash matches, not expired.
+ */
+export function verifyGovernanceCredential(
+  credential: VerifiedGovernanceCredential,
+  block: GovernanceBlock,
+  publicKey: string
+): { valid: boolean; errors: string[] } {
+  const errors: string[] = []
+
+  // 1. Verify the proof signature
+  const { proof, ...credentialWithoutProof } = credential
+  const proofPayload = canonicalize(credentialWithoutProof)
+  if (!verify(proofPayload, proof.proofValue, publicKey)) {
+    errors.push('Credential proof signature invalid')
+  }
+
+  // 2. Verify block hash matches
+  const { signature: _sig, ...blockWithoutSig } = block
+  const expectedHash = `sha256:${createHash('sha256')
+    .update(canonicalize(blockWithoutSig))
+    .digest('hex')}`
+  if (credential.credentialSubject.governanceBlockHash !== expectedHash) {
+    errors.push('Governance block hash mismatch — block was modified after credential issuance')
+  }
+
+  // 3. Check expiry (AV-3)
+  if (credential.expirationDate && new Date(credential.expirationDate) < new Date()) {
+    errors.push('Governance credential has expired')
+  }
+
+  return { valid: errors.length === 0, errors }
 }

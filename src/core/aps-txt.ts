@@ -271,3 +271,113 @@ export function verifyChainedBlock(
 
   return { valid: sigValid && errors.length === 0, chainValid, errors }
 }
+
+
+// ══════════════════════════════════════════════════════════════════
+// Security Fixes — MoltyCel AV-2, AV-4, AV-5 (qntm#7)
+// ══════════════════════════════════════════════════════════════════
+
+/**
+ * AV-2 Fix: Strict aps.txt enforcement.
+ * Verifies signature before resolving path terms.
+ * unsigned aps.txt → warning or block depending on mode.
+ *
+ * Source: MoltyCel on qntm#7 — unsigned aps.txt can be replaced
+ * by a compromised repo. DID-signed aps.txt prevents this.
+ */
+export type ApsTxtEnforcementMode = 'permissive' | 'warn' | 'strict'
+
+export interface ApsTxtEnforcementResult {
+  /** Whether the agent should proceed */
+  allowed: boolean
+  /** Resolved governance terms for the requested path */
+  terms: GovernanceTerms | null
+  /** Warning if aps.txt is unsigned or unverifiable */
+  warning?: string
+  /** Error if strict mode blocks access */
+  error?: string
+  /** Whether the aps.txt signature was verified */
+  signatureVerified: boolean
+}
+
+export function enforceApsTxt(
+  doc: ApsTxt,
+  path: string,
+  opts: {
+    /** Publisher's public key for signature verification */
+    publisherPublicKey?: string
+    /** Enforcement mode: permissive (allow unsigned), warn (allow with warning), strict (block unsigned) */
+    mode?: ApsTxtEnforcementMode
+    /** Trust threshold (0-1). Below this, restrictive aps.txt produces warning instead of block (AV-4 DoS fix) */
+    trustThreshold?: number
+    /** Publisher's trust score (0-1). If below trustThreshold, warn instead of block */
+    publisherTrustScore?: number
+  } = {}
+): ApsTxtEnforcementResult {
+  const mode = opts.mode ?? 'warn'
+  const trustThreshold = opts.trustThreshold ?? 0.3
+  const publisherTrust = opts.publisherTrustScore ?? 0
+
+  // Step 1: Verify signature if public key provided
+  let signatureVerified = false
+  if (opts.publisherPublicKey) {
+    const verification = verifyApsTxt(doc, opts.publisherPublicKey)
+    signatureVerified = verification.valid
+  }
+
+  // Step 2: Check enforcement mode for unsigned aps.txt
+  if (!signatureVerified) {
+    if (mode === 'strict') {
+      return {
+        allowed: false,
+        terms: null,
+        error: 'aps.txt signature verification failed (strict mode)',
+        signatureVerified: false,
+      }
+    }
+    if (mode === 'warn') {
+      // Continue but with warning
+    }
+  }
+
+  // Step 3: Resolve terms for the path
+  const terms = resolveTermsForPath(doc, path)
+
+  // Step 4: AV-4 DoS protection — restrictive aps.txt from unknown publishers
+  // If publisher trust is below threshold and aps.txt blocks all agents,
+  // produce warning instead of block
+  if (isAllDenied(terms) || isFullBlock(doc, path)) {
+    if (publisherTrust < trustThreshold && !signatureVerified) {
+      return {
+        allowed: true,
+        terms,
+        warning: `Low-trust publisher (${publisherTrust}) with restrictive aps.txt — proceeding with caution (AV-4 protection)`,
+        signatureVerified,
+      }
+    }
+  }
+
+  return {
+    allowed: true,
+    terms,
+    warning: signatureVerified ? undefined : 'aps.txt signature not verified — proceeding in permissive mode',
+    signatureVerified,
+  }
+}
+
+/** Check if governance terms deny all usage types */
+function isAllDenied(terms: GovernanceTerms): boolean {
+  const fields = ['inference', 'training', 'redistribution', 'derivative', 'caching'] as const
+  return fields.every(f => terms[f] === 'prohibited')
+}
+
+/** Check if aps.txt effectively blocks all agents for a path */
+function isFullBlock(doc: ApsTxt, path: string): boolean {
+  if (!doc.path_overrides) return false
+  for (const override of doc.path_overrides) {
+    if (override.pattern === '/*' || override.pattern === '/**') {
+      if (isAllDenied(override.terms)) return true
+    }
+  }
+  return false
+}

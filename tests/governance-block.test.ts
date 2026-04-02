@@ -12,6 +12,9 @@ import {
   embedGovernance,
   isUsagePermitted,
   DEFAULT_REVOCATION_POLICY,
+  isGovernanceBlockExpired,
+  createVerifiedGovernanceCredential,
+  verifyGovernanceCredential,
 } from '../src/index.js'
 import type { GovernanceTerms } from '../src/index.js'
 
@@ -245,5 +248,145 @@ describe('Governance Block — Adversarial', () => {
     })
     assert.notEqual(block1.signature, block2.signature)
     assert.equal(block1.content_hash, block2.content_hash)
+  })
+})
+
+
+// ══════════════════════════════════════════════════════════════════
+// AV-3: Governance Block Expiry (MoltyCel qntm#7)
+// ══════════════════════════════════════════════════════════════════
+
+describe('AV-3: Governance Block Expiry', () => {
+  const keys = generateKeyPair()
+  const ARTICLE = 'Test content for expiry checks'
+
+  it('block without expires_at is not expired', () => {
+    const block = generateGovernanceBlock({
+      content: ARTICLE, publicKey: keys.publicKey, privateKey: keys.privateKey,
+      terms: { inference: 'permitted' },
+    })
+    assert.equal(isGovernanceBlockExpired(block), false)
+  })
+
+  it('block with future expires_at is not expired', () => {
+    const future = new Date(Date.now() + 86400000).toISOString()
+    const block = generateGovernanceBlock({
+      content: ARTICLE, publicKey: keys.publicKey, privateKey: keys.privateKey,
+      terms: { inference: 'permitted' },
+      expiresAt: future,
+    })
+    assert.equal(block.expires_at, future)
+    assert.equal(isGovernanceBlockExpired(block), false)
+  })
+
+  it('block with past expires_at is expired', () => {
+    const past = new Date(Date.now() - 86400000).toISOString()
+    const block = generateGovernanceBlock({
+      content: ARTICLE, publicKey: keys.publicKey, privateKey: keys.privateKey,
+      terms: { inference: 'permitted' },
+      expiresAt: past,
+    })
+    assert.equal(isGovernanceBlockExpired(block), true)
+  })
+
+  it('expires_at is included in signature', () => {
+    const block1 = generateGovernanceBlock({
+      content: ARTICLE, publicKey: keys.publicKey, privateKey: keys.privateKey,
+      terms: { inference: 'permitted' },
+    })
+    const block2 = generateGovernanceBlock({
+      content: ARTICLE, publicKey: keys.publicKey, privateKey: keys.privateKey,
+      terms: { inference: 'permitted' },
+      expiresAt: new Date(Date.now() + 86400000).toISOString(),
+    })
+    // Different signatures because expires_at is in the signed payload
+    assert.notEqual(block1.signature, block2.signature)
+  })
+})
+
+// ══════════════════════════════════════════════════════════════════
+// AV-1: Verified Governance Credential (MoltyCel qntm#7)
+// ══════════════════════════════════════════════════════════════════
+
+describe('AV-1: Verified Governance Credential', () => {
+  const keys = generateKeyPair()
+  const ARTICLE = 'Test content for credential verification'
+
+  it('creates valid credential from governance block', () => {
+    const block = generateGovernanceBlock({
+      content: ARTICLE, publicKey: keys.publicKey, privateKey: keys.privateKey,
+      terms: { inference: 'permitted', training: 'prohibited' },
+    })
+    const credential = createVerifiedGovernanceCredential({
+      block, privateKey: keys.privateKey,
+      publisherDid: block.source_did,
+    })
+    assert.deepEqual(credential.type, ['VerifiableCredential', 'GovernanceCredential'])
+    assert.equal(credential.issuer, block.source_did)
+    assert.ok(credential.credentialSubject.governanceBlockHash.startsWith('sha256:'))
+    assert.equal(credential.proof.type, 'Ed25519Signature2020')
+  })
+
+  it('verifies credential against original block', () => {
+    const block = generateGovernanceBlock({
+      content: ARTICLE, publicKey: keys.publicKey, privateKey: keys.privateKey,
+      terms: { inference: 'permitted' },
+    })
+    const credential = createVerifiedGovernanceCredential({
+      block, privateKey: keys.privateKey,
+      publisherDid: block.source_did,
+    })
+    const result = verifyGovernanceCredential(credential, block, keys.publicKey)
+    assert.equal(result.valid, true)
+    assert.equal(result.errors.length, 0)
+  })
+
+  it('detects tampered block (AV-1 spoofing)', () => {
+    const block = generateGovernanceBlock({
+      content: ARTICLE, publicKey: keys.publicKey, privateKey: keys.privateKey,
+      terms: { inference: 'permitted' },
+    })
+    const credential = createVerifiedGovernanceCredential({
+      block, privateKey: keys.privateKey,
+      publisherDid: block.source_did,
+    })
+    // Tamper with the block after credential issuance
+    const tampered = { ...block, terms: { ...block.terms, training: 'permitted' as any } }
+    const result = verifyGovernanceCredential(credential, tampered, keys.publicKey)
+    assert.equal(result.valid, false)
+    assert.ok(result.errors.some(e => e.includes('hash mismatch')))
+  })
+
+  it('detects expired credential (AV-3 replay)', () => {
+    const past = new Date(Date.now() - 86400000).toISOString()
+    const block = generateGovernanceBlock({
+      content: ARTICLE, publicKey: keys.publicKey, privateKey: keys.privateKey,
+      terms: { inference: 'permitted' },
+      expiresAt: past,
+    })
+    const credential = createVerifiedGovernanceCredential({
+      block, privateKey: keys.privateKey,
+      publisherDid: block.source_did,
+    })
+    const result = verifyGovernanceCredential(credential, block, keys.publicKey)
+    assert.equal(result.valid, false)
+    assert.ok(result.errors.some(e => e.includes('expired')))
+  })
+
+  it('detects wrong signer (attacker creates credential for victim block)', () => {
+    const attacker = generateKeyPair()
+    const block = generateGovernanceBlock({
+      content: ARTICLE, publicKey: keys.publicKey, privateKey: keys.privateKey,
+      terms: { inference: 'permitted' },
+    })
+    // Attacker tries to create a credential for the real block
+    const credential = createVerifiedGovernanceCredential({
+      block, privateKey: attacker.privateKey,
+      publisherDid: block.source_did,
+    })
+    // Verify with the real publisher's key — signature won't match
+    const result = verifyGovernanceCredential(credential, block, keys.publicKey)
+    assert.equal(result.valid, false)
+    assert.ok(result.errors.some(e => e.includes('signature')))
   })
 })

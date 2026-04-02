@@ -13,7 +13,7 @@
 
 import { createHash } from 'node:crypto'
 import { sign, verify, canonicalize, createDID } from '../index.js'
-import { parseGovernanceBlockFromHTML, verifyGovernanceBlock, isUsagePermitted } from './governance-block.js'
+import { parseGovernanceBlockFromHTML, verifyGovernanceBlock, isUsagePermitted, isGovernanceBlockExpired } from './governance-block.js'
 import type { GovernanceBlock, UsagePermission } from './governance-block.js'
 import { parseApsTxt, resolveTermsForPath } from './aps-txt.js'
 import { parseGovernanceHeaders } from './aps-txt.js'
@@ -219,7 +219,17 @@ export function governanceLoop360(input: {
     }
   }
 
-  // Step 3: Check usage
+  // Step 3: Check expiry (AV-3: replay prevention)
+  if (governance.block && isGovernanceBlockExpired(governance.block)) {
+    return {
+      governance,
+      receipt: null,
+      permitted: false,
+      summary: `Governance block expired at ${governance.block.expires_at}. Refusing access to prevent replay attack (AV-3).`,
+    }
+  }
+
+  // Step 4: Check usage
   const permitted = governance.usageCheck?.permitted ?? true
 
   // Step 4: Create access receipt
