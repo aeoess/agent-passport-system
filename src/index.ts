@@ -1032,3 +1032,5 @@ export type {
   GatewayCheckpoint, IntegrityReport, CheckpointCallback
 } from './storage/types.js'
 export type { ReceiptBundle, BundleVerificationResult } from './storage/receipt-bundle.js'
+
+export * from './core/proof-namespace.js'
