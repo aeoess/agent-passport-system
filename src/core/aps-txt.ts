@@ -54,6 +54,9 @@ export interface PathOverride {
   terms: GovernanceTerms
   /** Optional revocation policy override */
   revocation_policy?: RevocationPolicy
+  /** Optional DID pattern for agent-specific terms (e.g. "did:meeet:*", "did:aps:*", "did:*")
+   *  Source: alxvasilevvv on openclaw#49971 — 1,020 MEEET agents need method-level matching */
+  user_agent?: string
 }
 
 // ═══════════════════════════════════════
@@ -112,10 +115,16 @@ export function verifyApsTxt(doc: ApsTxt, publicKey: string): { valid: boolean; 
  * Resolve terms for a specific path using aps.txt path overrides.
  * Falls back to default_terms if no override matches.
  */
-export function resolveTermsForPath(doc: ApsTxt, path: string): GovernanceTerms {
+export function resolveTermsForPath(doc: ApsTxt, path: string, agentDid?: string): GovernanceTerms {
   if (doc.path_overrides) {
     for (const override of doc.path_overrides) {
-      if (matchGlob(override.pattern, path)) {
+      const pathMatch = matchGlob(override.pattern, path)
+      // If override has a user_agent pattern, both path AND agent must match
+      if (override.user_agent) {
+        if (pathMatch && agentDid && matchDidPattern(override.user_agent, agentDid)) {
+          return { ...doc.default_terms, ...override.terms }
+        }
+      } else if (pathMatch) {
         return { ...doc.default_terms, ...override.terms }
       }
     }
@@ -130,6 +139,21 @@ function matchGlob(pattern: string, path: string): boolean {
     .replace(/\*/g, '[^/]*')
     .replace(/§DOUBLESTAR§/g, '.*')
   return new RegExp(`^${regex}$`).test(path)
+}
+
+/** Match a DID pattern against an agent's DID.
+ *  `did:meeet:*` matches `did:meeet:agent_abc`
+ *  `did:*` matches any DID
+ *  `did:aps:agent_123` matches exact DID
+ *  Source: alxvasilevvv on openclaw#49971
+ */
+function matchDidPattern(pattern: string, did: string): boolean {
+  if (pattern === '*' || pattern === 'did:*') return true
+  // Convert DID pattern to regex: `did:meeet:*` → `^did:meeet:.*$`
+  const regex = pattern
+    .replace(/[.+?^${}()|[\]\\]/g, '\\$&')  // escape regex chars except *
+    .replace(/\*/g, '.*')
+  return new RegExp(`^${regex}$`).test(did)
 }
 
 /**

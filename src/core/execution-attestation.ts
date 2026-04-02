@@ -90,6 +90,7 @@ export function createExecutionAttestation(
     executionStartedAt: input.executionStartedAt,
     executionCompletedAt: input.executionCompletedAt,
     attestedAt: now,
+    ...(input.trust_context ? { trust_context: input.trust_context } : {}),
   }
 
   // Sign the entire body with the attestor's key

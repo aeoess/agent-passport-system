@@ -61,6 +61,13 @@ export interface ExecutionAttestation {
 
   // Cryptographic proof
   signature: string                // Ed25519 signed by attestor key
+
+  // Trust context at execution time (AV: 0xbrainkid NVIDIA#682)
+  trust_context?: {
+    score_at_execution: number     // trust score (0-1) when this tool was invoked
+    grade_at_execution: number     // passport grade (0-3) at execution time
+    source: string                 // where the score came from (gateway URL)
+  }
 }
 
 // ── Execution Attestation Verification Result ──
@@ -93,6 +100,12 @@ export interface CreateExecutionAttestationInput {
   executionCompletedAt: string
   /** Execution context for drift classification (e.g. 'payment', 'search', 'auth') */
   executionContext?: string
+  /** Trust context at execution time (0xbrainkid NVIDIA#682) */
+  trust_context?: {
+    score_at_execution: number
+    grade_at_execution: number
+    source: string
+  }
 }
 
 // ── Drift Classification Rule ──

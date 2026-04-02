@@ -72,6 +72,7 @@ export {
   getReceipts, getRevocation, clearStores,
   scopeCovers, scopeAuthorizes
 } from './core/delegation.js'
+export type { RevocationCheckPolicy } from './core/delegation.js'
 
 // ── Layer 2: Human Values Floor ──
 export {
@@ -1038,3 +1039,10 @@ export type {
 export type { ReceiptBundle, BundleVerificationResult } from './storage/receipt-bundle.js'
 
 export * from './core/proof-namespace.js'
+
+export {
+  createToolRegistryEntry, verifyToolIntegrity,
+} from './core/tool-integrity.js'
+export type {
+  ToolRegistryEntry, ToolRequirements, ToolIntegrityResult,
+} from './core/tool-integrity.js'

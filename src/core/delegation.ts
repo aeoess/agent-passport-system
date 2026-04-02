@@ -160,10 +160,30 @@ export function subDelegate(opts: SubDelegateOptions): Delegation {
 }
 
 // ══════════════════════════════════════
+// REVOCATION CHECK POLICY (desiorac qntm#6)
+// ══════════════════════════════════════
+
+/**
+ * What to do when the revocation check itself fails (endpoint unreachable, registry error).
+ * - fail_open: treat as NOT revoked (dangerous for high-risk)
+ * - fail_closed: treat as POTENTIALLY revoked (safe default for financial/sensitive)
+ * - cache_grace: use cached state within TTL, fail_closed after TTL expires
+ */
+export type RevocationCheckPolicy = 'fail_open' | 'fail_closed' | 'cache_grace'
+
+// ══════════════════════════════════════
 // DELEGATION VERIFICATION
 // ══════════════════════════════════════
 
-export function verifyDelegation(delegation: Delegation): DelegationStatus {
+export function verifyDelegation(delegation: Delegation, opts?: {
+  /** How to handle revocation check failures. Default: 'fail_open' (backward compat) */
+  revocationCheckPolicy?: RevocationCheckPolicy
+  /** Cached revocation state (for cache_grace mode) */
+  cachedRevocationState?: { revoked: boolean; checkedAt: string }
+  /** Cache grace period in ms (for cache_grace mode). Default: 300000 (5 min) */
+  cacheGraceMs?: number
+}): DelegationStatus {
+  const policy = opts?.revocationCheckPolicy ?? 'fail_open'
   const errors: string[] = []
 
   // Check signature
@@ -182,11 +202,35 @@ export function verifyDelegation(delegation: Delegation): DelegationStatus {
     : false
   if (notYetValid) errors.push(`Delegation not yet valid (notBefore: ${delegation.notBefore})`)
 
-  // Check revocation
-  const revocation = revocationRegistry.get(delegation.delegationId)
-  const revoked = !!revocation
+  // Check revocation (with policy for check failures)
+  let revocation: RevocationRecord | undefined
+  let revoked = false
+  let revocationCheckFailed = false
 
-  if (revoked) errors.push(`Revoked at ${revocation!.revokedAt}: ${revocation!.reason}`)
+  try {
+    revocation = revocationRegistry.get(delegation.delegationId) as RevocationRecord | undefined
+    revoked = !!revocation
+  } catch {
+    // Revocation check failed — apply policy
+    revocationCheckFailed = true
+    if (policy === 'fail_closed') {
+      revoked = true
+      errors.push('Revocation check failed — treating as revoked (fail_closed policy)')
+    } else if (policy === 'cache_grace' && opts?.cachedRevocationState) {
+      const cacheAge = Date.now() - new Date(opts.cachedRevocationState.checkedAt).getTime()
+      const graceMs = opts?.cacheGraceMs ?? 300000
+      if (cacheAge <= graceMs) {
+        revoked = opts.cachedRevocationState.revoked
+        if (revoked) errors.push('Revocation check failed — cached state shows revoked')
+      } else {
+        revoked = true
+        errors.push('Revocation check failed — cache expired, treating as revoked')
+      }
+    }
+    // fail_open: revoked stays false
+  }
+
+  if (revoked && !revocationCheckFailed) errors.push(`Revoked at ${revocation!.revokedAt}: ${revocation!.reason}`)
 
   // Check depth
   const depthExceeded = delegation.currentDepth > delegation.maxDepth
