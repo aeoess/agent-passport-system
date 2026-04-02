@@ -78,3 +78,76 @@ export function resolveProofUrl(
 
   return `${baseUrl}${encodeURIComponent(parsed.id)}`
 }
+
+
+// ══════════════════════════════════════════════════════════════════
+// Rekor Anchor Types — Transparency Log Integration
+// ══════════════════════════════════════════════════════════════════
+// Source: desiorac on A2A#1672 — independent temporal proof
+// The gateway submits receipt hashes to Sigstore Rekor.
+// Any verifier can confirm existence and timing without trusting the issuer.
+// ══════════════════════════════════════════════════════════════════
+
+/** Minimum Rekor anchor payload (4 fields, per cross-issuer resolution spec) */
+export interface RekorAnchorPayload {
+  /** SHA-256 hash of the canonicalized receipt body */
+  receipt_hash: string
+  /** Agent DID who produced the receipt */
+  agent_did: string
+  /** Issuer URL (gateway that signed the receipt) */
+  issuer: string
+  /** When the receipt was anchored */
+  anchored_at: string
+}
+
+/** Result of a Rekor submission */
+export interface RekorAnchorResult {
+  /** Rekor transparency log index */
+  logIndex: number
+  /** Rekor entry UUID */
+  entryUUID: string
+  /** Inclusion proof from the Merkle tree */
+  inclusionProof?: {
+    treeSize: number
+    rootHash: string
+    hashes: string[]
+    logIndex: number
+  }
+  /** The payload that was anchored */
+  payload: RekorAnchorPayload
+  /** Whether the anchor was verified against the log */
+  verified: boolean
+}
+
+/** Verification result when checking a Rekor anchor */
+export interface RekorVerificationResult {
+  /** Whether the anchor entry exists in Rekor */
+  found: boolean
+  /** Whether the receipt hash matches the anchored hash */
+  hashMatch: boolean
+  /** Whether the inclusion proof is valid */
+  proofValid: boolean
+  /** The anchored timestamp (independent of the issuer) */
+  anchoredAt?: string
+  /** Errors */
+  errors: string[]
+}
+
+/**
+ * Create a Rekor anchor payload from a receipt hash.
+ * This is the 4-field payload that gets submitted to the transparency log.
+ * The caller computes the receipt hash (sha256 of canonicalized body).
+ */
+export function createRekorAnchorPayload(input: {
+  /** Pre-computed SHA-256 hash of the receipt body (e.g. "sha256:abc123") */
+  receiptHash: string
+  agentDid: string
+  issuer: string
+}): RekorAnchorPayload {
+  return {
+    receipt_hash: input.receiptHash,
+    agent_did: input.agentDid,
+    issuer: input.issuer,
+    anchored_at: new Date().toISOString(),
+  }
+}
