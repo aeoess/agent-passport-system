@@ -159,6 +159,49 @@ SDK version bump → MCP may need dep update → Remote MCP may need rebuild →
 ### Build Specs Bridge
 Strategy sessions in claude.ai write `BUILD-SPEC-*.md` files to `~/aeoess_web/specs/`. These are your instructions. When Tima says "read the build spec" — check that directory for new specs and execute them.
 
+## SECRETS & CREDENTIALS (locations only — never hardcode values)
+- Gateway API keys: `~/aeoess-gateway/.gateway-credentials.md` (gitignored)
+- PyPI token: `~/.pypirc`
+- Railway env vars: set in Railway dashboard, not in code
+- AEOESS issuer private key: Railway env var `AEOESS_ISSUER_PRIVATE_KEY`
+- Never commit secrets. Never hardcode API keys. Never echo credentials to stdout.
+
+## THE AGENT TIMES (TAT)
+Tima is Editor-in-Chief at The Agent Times (theagenttimes.com). Codebase: `~/theagenttimes-production`.
+**IP BOUNDARY:** TAT uses APS under license. TAT does NOT own APS. If TAT takes investment, agreement must state APS is licensed TO TAT, not owned BY TAT. TAT owns: publication, AMCS spec, editorial pipeline. AEOESS owns: SDK, MCP, gateway, WG position, adapters, conformance suite.
+
+## WHAT'S PRIVATE (never discuss publicly or in GitHub threads)
+- **Data attribution engine** ("pixel for data in the agent economy") — private/startup, not open-source
+- **Gateway product intelligence** — compliance automation, drift detection, cross-tenant analytics, metering, lineage visualization, smart revocation
+- **Gateway strategy** — read `~/aeoess-gateway/STRATEGY.md` for details
+- Data lifecycle PRIMITIVES are public SDK. Data INTELLIGENCE is private gateway. This distinction is the entire business model.
+
+## PAPERS & DEADLINES
+- "The Agent Social Contract" — Zenodo DOI: 10.5281/zenodo.18749779
+- "Faceted Authority Attenuation" — Zenodo DOI: 10.5281/zenodo.19260073
+- IETF Internet-Draft: `draft-pidlisnyi-aps-00`
+- **YC Summer 2026** — deadline May 4, apply as AEOESS (not Mingle), infrastructure framing
+- **AISec Workshop at ACM CCS** — ~July 2026, Paper A needs LaTeX conversion
+- Language rules in papers: never "proved/verified/guaranteed" — always "specified/tested/validated"
+
+## THREE AGENTS
+| Agent | Runtime | Role |
+|-------|---------|------|
+| claude (you in Code, me in chat) | Claude | Operator, architect, builder |
+| PortalX2 (px2-002) | OpenClaw (GitHub) | Reviewer — handles GitHub posting on Tima's behalf |
+| aeoess | GPT via Telegram | Executor, comms relay |
+
+Portal: draft exact text for Portal to post. Don't ask Tima to copy-paste.
+
+## BUILD PHILOSOPHY
+- **Ship fast.** Running code > plans. One data point > perfect architecture.
+- **Never push back on building features because "we have no users yet."** Build the right system so agents come. The protocol must be complete and production-ready BEFORE adoption, not after.
+- **Dogfood the protocol.** Use Agent Passport coordination for development when practical.
+- **Scope sessions.** Never start work that can't be completed and committed within the session.
+
+## SYBIL RESISTANCE PHILOSOPHY
+Identity Sybil is unsolvable in open protocols. The protocol's job is making actions attributable, scoped, monitored, and reversible — not preventing passport creation. Build the richest possible evidence record so that when regulations arrive, every scammer has a signed, Merkle-committed, chain-of-custody confession. "Cheap identities are fine. Cheap extraction is the bug." Gateway 4-gate Sybil pipeline on wallet provisioning is the enforcement layer.
+
 ## Tests
 `npm test` runs all 2057 tests. Test files are manually listed in package.json — new test files must be added to the list.
 
