@@ -53,9 +53,10 @@ function sha256(input: string): string {
 export function createExecutionAttestation(
   input: CreateExecutionAttestationInput,
   attestorPrivateKey: string,
-  opts?: { driftRules?: DriftClassificationRule[] }
+  opts?: { driftRules?: DriftClassificationRule[]; executionContext?: string }
 ): ExecutionAttestation {
   const rules = opts?.driftRules ?? DEFAULT_DRIFT_RULES
+  const context = opts?.executionContext ?? input.executionContext ?? '*'
 
   // Hash what actually executed
   const parameterHash = sha256(canonicalize(input.actualParameters))
@@ -64,11 +65,11 @@ export function createExecutionAttestation(
   // Hash what was declared at intent time
   const intentParameterHash = sha256(canonicalize(input.intentParameters))
 
-  // Detect drift
+  // Detect drift — always return explicit object, never null
   const match = parameterHash === intentParameterHash
-  const drift = match ? null : classifyDrift(
-    input.intentParameters, input.actualParameters, rules
-  )
+  const drift = match
+    ? { fields: [] as ExecutionDrift['fields'], severity: 'none' as const }
+    : classifyDrift(input.intentParameters, input.actualParameters, rules, context)
 
   const now = new Date().toISOString()
 
@@ -167,7 +168,7 @@ export function verifyExecutionAttestation(
 export function detectExecutionDrift(
   attestation: ExecutionAttestation,
   rules?: DriftClassificationRule[]
-): ExecutionDrift | null {
+): ExecutionDrift {
   return attestation.drift
 }
 
@@ -179,7 +180,8 @@ export function detectExecutionDrift(
 function classifyDrift(
   intentParams: Record<string, unknown>,
   actualParams: Record<string, unknown>,
-  rules: DriftClassificationRule[]
+  rules: DriftClassificationRule[],
+  context: string = '*'
 ): ExecutionDrift {
   const allKeys = new Set([
     ...Object.keys(intentParams),
@@ -208,8 +210,11 @@ function classifyDrift(
   let maxSeverity: ExecutionDriftSeverity = 'none'
 
   for (const df of driftFields) {
-    const rule = rules.find(r => r.field === df.field)
-      ?? rules.find(r => r.field === '*')
+    // Match on (field, context) pair — context-specific rules take priority
+    const rule = rules.find(r => r.field === df.field && r.context === context)
+      ?? rules.find(r => r.field === df.field && (!r.context || r.context === '*'))
+      ?? rules.find(r => r.field === '*' && r.context === context)
+      ?? rules.find(r => r.field === '*' && (!r.context || r.context === '*'))
     const sev = rule?.severity ?? 'suspicious'
     if (severityOrder.indexOf(sev) > severityOrder.indexOf(maxSeverity)) {
       maxSeverity = sev

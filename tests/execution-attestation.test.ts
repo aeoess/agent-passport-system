@@ -45,7 +45,8 @@ describe('Execution Attestation — Checkpoint 3', () => {
     it('creates attestation with match=true when params identical', () => {
       const att = createExecutionAttestation(makeInput(), sandbox.privateKey)
       assert.equal(att.match, true)
-      assert.equal(att.drift, null)
+      assert.equal(att.drift.severity, 'none')
+      assert.equal(att.drift.fields.length, 0)
       assert.equal(att.toolName, 'web_search')
       assert.equal(att.attestorType, 'sandbox')
       assert.ok(att.signature.length > 0)
@@ -76,10 +77,10 @@ describe('Execution Attestation — Checkpoint 3', () => {
       }), sandbox.privateKey)
 
       assert.equal(att.match, false)
-      assert.ok(att.drift !== null)
-      assert.equal(att.drift!.severity, 'suspicious')
-      assert.equal(att.drift!.fields.length, 1)
-      assert.equal(att.drift!.fields[0].field, 'query')
+      assert.ok(att.drift.fields.length > 0)
+      assert.equal(att.drift.severity, 'suspicious')
+      assert.equal(att.drift.fields.length, 1)
+      assert.equal(att.drift.fields[0].field, 'query')
     })
 
     it('detects target change as critical drift', () => {
@@ -89,7 +90,7 @@ describe('Execution Attestation — Checkpoint 3', () => {
       }), sandbox.privateKey)
 
       assert.equal(att.match, false)
-      assert.equal(att.drift!.severity, 'critical')
+      assert.equal(att.drift.severity, 'critical')
     })
 
     it('detects amount change as critical drift', () => {
@@ -98,9 +99,9 @@ describe('Execution Attestation — Checkpoint 3', () => {
         actualParameters: { recipient: 'alice', amount: 999999 },
       }), sandbox.privateKey)
 
-      assert.equal(att.drift!.severity, 'critical')
-      assert.equal(att.drift!.fields.length, 1)
-      assert.equal(att.drift!.fields[0].field, 'amount')
+      assert.equal(att.drift.severity, 'critical')
+      assert.equal(att.drift.fields.length, 1)
+      assert.equal(att.drift.fields[0].field, 'amount')
     })
 
     it('classifies timestamp drift as benign', () => {
@@ -110,7 +111,7 @@ describe('Execution Attestation — Checkpoint 3', () => {
       }), sandbox.privateKey)
 
       assert.equal(att.match, false)
-      assert.equal(att.drift!.severity, 'benign')
+      assert.equal(att.drift.severity, 'benign')
     })
 
     it('detects multiple field drift with highest severity', () => {
@@ -120,8 +121,8 @@ describe('Execution Attestation — Checkpoint 3', () => {
       }), sandbox.privateKey)
 
       // recipient=critical > query=suspicious → severity is critical
-      assert.equal(att.drift!.severity, 'critical')
-      assert.equal(att.drift!.fields.length, 2)
+      assert.equal(att.drift.severity, 'critical')
+      assert.equal(att.drift.fields.length, 2)
     })
 
     it('detects added fields not in intent', () => {
@@ -131,7 +132,7 @@ describe('Execution Attestation — Checkpoint 3', () => {
       }), sandbox.privateKey)
 
       assert.equal(att.match, false)
-      assert.ok(att.drift!.fields.some(f => f.field === 'exfiltrate'))
+      assert.ok(att.drift.fields.some(f => f.field === 'exfiltrate'))
     })
 
     it('detects removed fields from intent', () => {
@@ -141,7 +142,7 @@ describe('Execution Attestation — Checkpoint 3', () => {
       }), sandbox.privateKey)
 
       assert.equal(att.match, false)
-      assert.ok(att.drift!.fields.some(f => f.field === 'safetyFlag'))
+      assert.ok(att.drift.fields.some(f => f.field === 'safetyFlag'))
     })
   })
 
@@ -266,9 +267,11 @@ describe('Execution Attestation — Checkpoint 3', () => {
   // ══════════════════════════════════════════════════════════════════
 
   describe('detectExecutionDrift standalone', () => {
-    it('returns null for matching attestation', () => {
+    it('returns severity none for matching attestation', () => {
       const att = createExecutionAttestation(makeInput(), sandbox.privateKey)
-      assert.equal(detectExecutionDrift(att), null)
+      const drift = detectExecutionDrift(att)
+      assert.equal(drift.severity, 'none')
+      assert.equal(drift.fields.length, 0)
     })
 
     it('returns drift for mismatched attestation', () => {
@@ -278,8 +281,8 @@ describe('Execution Attestation — Checkpoint 3', () => {
       }), sandbox.privateKey)
 
       const drift = detectExecutionDrift(att)
-      assert.ok(drift !== null)
-      assert.equal(drift!.fields.length, 1)
+      assert.ok(drift.severity !== 'none')
+      assert.equal(drift.fields.length, 1)
     })
   })
 
@@ -305,8 +308,46 @@ describe('Execution Attestation — Checkpoint 3', () => {
         }
       )
 
-      assert.equal(att.drift!.severity, 'benign')
-      assert.equal(att.drift!.fields[0].field, 'temperature')
+      assert.equal(att.drift.severity, 'benign')
+      assert.equal(att.drift.fields[0].field, 'temperature')
+    })
+
+    it('classifies nonce as critical in payment context (desiorac field-semantic)', () => {
+      const att = createExecutionAttestation(
+        makeInput({
+          intentParameters: { nonce: 'abc', amount: 100 },
+          actualParameters: { nonce: 'xyz', amount: 100 },
+        }),
+        sandbox.privateKey,
+        {
+          executionContext: 'payment',
+          driftRules: [
+            { field: 'nonce', context: 'payment', severity: 'critical', reason: 'Nonce in payment is replay-critical' },
+            { field: 'nonce', context: '*', severity: 'benign', reason: 'Nonce generally benign' },
+            { field: '*', severity: 'suspicious', reason: 'Default' },
+          ],
+        }
+      )
+      assert.equal(att.drift.severity, 'critical')
+    })
+
+    it('classifies nonce as benign in search context', () => {
+      const att = createExecutionAttestation(
+        makeInput({
+          intentParameters: { nonce: 'abc', amount: 100 },
+          actualParameters: { nonce: 'xyz', amount: 100 },
+        }),
+        sandbox.privateKey,
+        {
+          executionContext: 'search',
+          driftRules: [
+            { field: 'nonce', context: 'payment', severity: 'critical', reason: 'Nonce in payment is replay-critical' },
+            { field: 'nonce', context: '*', severity: 'benign', reason: 'Nonce generally benign' },
+            { field: '*', severity: 'suspicious', reason: 'Default' },
+          ],
+        }
+      )
+      assert.equal(att.drift.severity, 'benign')
     })
   })
 
@@ -391,7 +432,70 @@ describe('Execution Attestation — Checkpoint 3', () => {
         actualParameters: { obscureField: 'b' },
       }), sandbox.privateKey)
 
-      assert.equal(att.drift!.severity, 'suspicious')
+      assert.equal(att.drift.severity, 'suspicious')
+    })
+  })
+
+
+  // ══════════════════════════════════════════════════════════════════
+  // 11. Context-aware drift classification (desiorac qntm#6)
+  // ══════════════════════════════════════════════════════════════════
+
+  describe('context-aware drift classification', () => {
+    it('classifies nonce as critical in payment context', () => {
+      const att = createExecutionAttestation(
+        makeInput({
+          intentParameters: { nonce: 'abc', amount: 100 },
+          actualParameters: { nonce: 'xyz', amount: 100 },
+        }),
+        sandbox.privateKey,
+        {
+          executionContext: 'payment',
+          driftRules: [
+            { field: 'nonce', context: 'payment', severity: 'critical', reason: 'Nonce in payment is replay-critical' },
+            { field: 'nonce', context: '*', severity: 'benign', reason: 'Nonce normally varies' },
+            { field: '*', severity: 'suspicious', reason: 'Default' },
+          ],
+        }
+      )
+      assert.equal(att.drift.severity, 'critical')
+    })
+
+    it('classifies nonce as benign in search context', () => {
+      const att = createExecutionAttestation(
+        makeInput({
+          intentParameters: { nonce: 'abc', query: 'test' },
+          actualParameters: { nonce: 'xyz', query: 'test' },
+        }),
+        sandbox.privateKey,
+        {
+          executionContext: 'search',
+          driftRules: [
+            { field: 'nonce', context: 'payment', severity: 'critical', reason: 'Nonce in payment is replay-critical' },
+            { field: 'nonce', context: '*', severity: 'benign', reason: 'Nonce normally varies' },
+            { field: '*', severity: 'suspicious', reason: 'Default' },
+          ],
+        }
+      )
+      assert.equal(att.drift.severity, 'benign')
+    })
+
+    it('falls through to wildcard context when no specific match', () => {
+      const att = createExecutionAttestation(
+        makeInput({
+          intentParameters: { data: 'a' },
+          actualParameters: { data: 'b' },
+        }),
+        sandbox.privateKey,
+        {
+          executionContext: 'unknown_context',
+          driftRules: [
+            { field: 'data', context: 'payment', severity: 'critical', reason: 'Data in payment' },
+            { field: '*', severity: 'suspicious', reason: 'Default' },
+          ],
+        }
+      )
+      assert.equal(att.drift.severity, 'suspicious')
     })
   })
 

@@ -52,7 +52,7 @@ export interface ExecutionAttestation {
 
   // Verification
   match: boolean                   // parameterHash === intentParameterHash
-  drift: ExecutionDrift | null     // if match is false, what changed
+  drift: ExecutionDrift            // always present; severity 'none' when match=true
 
   // Timing
   executionStartedAt: string       // ISO 8601
@@ -70,7 +70,7 @@ export interface ExecutionAttestationVerification {
   receiptBindingValid: boolean     // policyReceiptId + executionFrameId present
   parameterMatch: boolean          // intent params match execution params
   timingValid: boolean             // execution timestamps are sensible
-  drift: ExecutionDrift | null
+  drift: ExecutionDrift
   errors: string[]
 }
 
@@ -91,12 +91,15 @@ export interface CreateExecutionAttestationInput {
 
   executionStartedAt: string
   executionCompletedAt: string
+  /** Execution context for drift classification (e.g. 'payment', 'search', 'auth') */
+  executionContext?: string
 }
 
 // ── Drift Classification Rule ──
 // Pluggable rules for classifying drift severity.
 export interface DriftClassificationRule {
   field: string              // field name pattern (exact or '*' for default)
+  context?: string           // execution context ('payment' | 'search' | 'auth' | '*')
   severity: ExecutionDriftSeverity
   reason: string
 }
