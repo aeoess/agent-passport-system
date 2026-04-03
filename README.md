@@ -2,18 +2,35 @@
 
 [![npm version](https://img.shields.io/npm/v/agent-passport-system)](https://www.npmjs.com/package/agent-passport-system)
 [![license](https://img.shields.io/npm/l/agent-passport-system)](https://github.com/aeoess/agent-passport-system/blob/main/LICENSE)
-[![tests](https://img.shields.io/badge/tests-1399%20passing-brightgreen)](https://github.com/aeoess/agent-passport-system)
+[![tests](https://img.shields.io/badge/tests-2085%20passing-brightgreen)](https://github.com/aeoess/agent-passport-system)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18749779.svg)](https://doi.org/10.5281/zenodo.18749779)
 
 > **For AI agents:** visit [aeoess.com/llms.txt](https://aeoess.com/llms.txt) for machine-readable docs or [llms-full.txt](https://aeoess.com/llms-full.txt) for the complete reference.
 
-**Governance, trust, and enforcement for AI agents. Not just identity.**
+**The infrastructure layer for the agent economy.**
 
-When an AI agent acts on your behalf, APS answers: what is it allowed to do? How much can it spend? Is it trustworthy? What happens when it violates a constraint? And can you prove all of this cryptographically?
+Every team building AI agents hits the same wall: identity, delegation, trust, enforcement, receipts. Most rebuild these from scratch. APS is the shared foundation so you don't have to.
+
+Seven independent projects have cross-tested against these primitives. AgentID: 7/7. MolTrust: 5/5. Kanoniv delegation chains: verified. Three languages, three codebases, identical results. The interop is proven.
+
+Build your application on top. Don't rebuild what's underneath.
 
 ```bash
 npm install agent-passport-system
 ```
+
+## Who's Building on APS
+
+| Project | What they do | What APS provides |
+|---------|-------------|-------------------|
+| [AgentID](https://github.com/haroldmalikfrimpong-ops/getagentid) | CA-issued identity, trust scoring | Self-sovereign identity, delegation chains |
+| [MolTrust](https://moltrust.ch) | On-chain constraint envelopes | Scope narrowing, spend limits, expiry |
+| [qntm](https://github.com/corpollc/qntm) | Encrypted relay transport | Identity keys, signed envelopes |
+| [Signet](https://github.com/Prismer-AI/signet) | MCP transport signing | Policy gate, execution attestation |
+| [ArkForge](https://arkforge.tech) | External proof anchoring | Receipts to anchor |
+| [Microsoft AGT](https://github.com/microsoft/agent-governance-toolkit) | Enterprise policy engine | Trust signals, scope verification |
+
+See [INTEGRATION.md](INTEGRATION.md) for how to compose your project with APS.
 
 ## What It Does
 
@@ -90,7 +107,7 @@ const agent = joinSocialContract({ name: 'my-agent', owner: 'alice', floor: floo
 
 ## The Stack
 
-42 core modules + 32 v2 constitutional modules. 1399 tests. Zero heavy dependencies.
+67 core modules + 32 v2 constitutional modules. 2,085 tests. Zero heavy dependencies.
 
 | Layer | What it does | Key primitive |
 |-------|-------------|---------------|
@@ -103,13 +120,13 @@ const agent = joinSocialContract({ name: 'my-agent', owner: 'alice', floor: floo
 | **Communication** | Ed25519-signed messages, registry, threading, topic filtering. | `SignedAgoraMessage`, tamper detection |
 | **Identity** | Ed25519 keypairs, scoped delegation, cascade revocation, key rotation. | `SignedPassport`, `Delegation`, `RevocationRecord` |
 
-**Extended modules (9-42):** W3C DID (`did:aps`), Verifiable Credentials, A2A Bridge, EU AI Act Compliance, Agent Context, Task Routing, Cross-Chain Data Flow (taint tracking, confused deputy prevention), E2E Encrypted Messaging (X25519 + XSalsa20), Obligations, Governance Provenance, Identity Continuity & Key Rotation, Receipt Ledger (Merkle-committed audit batches), Feasibility Linting, Precedent Control, Re-anchoring, Bounded Escalation, Oracle Witness Diversity, Messaging Audit Bridge, Policy Conflict Detection, Data Source Registration, Decision Semantics, ProxyGateway.
+**Extended modules (9-67):** W3C DID (`did:aps`), Verifiable Credentials, A2A Bridge, EU AI Act Compliance, Agent Context, Task Routing, Cross-Chain Data Flow (taint tracking, confused deputy prevention), E2E Encrypted Messaging (X25519 + XSalsa20), Obligations, Governance Provenance, Identity Continuity & Key Rotation, Receipt Ledger (Merkle-committed audit batches), Feasibility Linting, Precedent Control, Re-anchoring, Bounded Escalation, Oracle Witness Diversity, Messaging Audit Bridge, Policy Conflict Detection, Data Source Registration, Decision Semantics, Decision Equivalence, Execution Attestation, Bilateral Receipts, Governance Blocks, aps.txt, Governance 360, Data Lifecycle, Persistent Passports, ProxyGateway.
 
 **V2 Constitutional Framework (32 modules):** Designed through cross-model adversarial review. PolicyContext with mandatory sunset, Delegation Versioning, Outcome Registration, Anomaly Detection, Emergency Pathways, Migration (fork-and-sunset), Contextual Attestation, Approval Fatigue Detection, Effect Enforcement, Emergence Detection, Separation of Powers, Constitutional Amendment, Circuit Breakers, Epistemic Isolation, and 18 more. Source: [`src/v2/`](src/v2/).
 
 ## MCP Server
 
-108 tools across all modules. Any MCP client connects agents directly.
+125 tools across all modules. Any MCP client connects agents directly.
 
 ```bash
 npm install -g agent-passport-system-mcp
@@ -144,7 +161,7 @@ npx agent-passport audit --floor values/floor.yaml
 
 ```bash
 npm test
-# 1399 tests across 71 files, 370 suites, 0 failures
+# 2,085 tests, 0 failures
 ```
 
 50 adversarial tests: Merkle tampering, attribution gaming, compliance violations, floor negotiation attacks, cross-chain confused deputy, taint laundering, authority probing.
@@ -162,16 +179,17 @@ npm test
 | Signed receipts | 3-sig chain | Proposed | Logs | General | — |
 | Values enforcement | 8 principles, graduated | — | Rules | — | — |
 | Coordination | Task lifecycle + MCP | — | — | — | — |
-| Tests | 1399 (50 adversarial) | None | Limited | None | None |
+| Tests | 2,085 (50 adversarial) | None | Limited | None | None |
 
 ## Recognition
 
-- Integrated into [Microsoft agent-governance-toolkit](https://github.com/microsoft/agent-governance-toolkit) (PR #274)
-- Public comment submitted to NIST NCCoE on AI Agent Identity and Authorization standards
-- Collaboration with IETF DAAP draft author (draft-mishra-oauth-agent-grants-01) on delegation spec
-- Listed on [MCP Registry](https://registry.modelcontextprotocol.io)
+- **Working Group** with 4 founding members: APS, AgentID, qntm, OATR. Cross-protocol interop proven across three languages.
+- Integrated into [Microsoft agent-governance-toolkit](https://github.com/microsoft/agent-governance-toolkit) (PR #598)
+- Referenced in [MITRE ATLAS](https://github.com/mitre-atlas/atlas-data/issues/11) agent security techniques
+- Referenced in [MCP SEP-1763](https://github.com/modelcontextprotocol/modelcontextprotocol/issues/1763) interceptor framework
+- NIST NCCoE public comment on AI Agent Identity and Authorization
+- Collaboration with IETF DAAP draft author on delegation spec
 - Endorsed by Garry Tan (CEO, Y Combinator)
-- [AMCS — AI-Native Media Credentialing Standard](https://aeoess.com/amcs.html) published
 
 ## Paper
 
@@ -179,9 +197,9 @@ npm test
 
 ## Authorship
 
-Designed and built by **Tymofii Pidlisnyi** with AI assistance from **Claude** (Anthropic).
+Built by **Tymofii Pidlisnyi** ([@tima](https://github.com/aeoess)). Protocol designed with AI assistance from Claude (Anthropic), GPT (OpenAI), and Gemini (Google) through adversarial cross-model review.
 
-Protocol: [aeoess.com/protocol.html](https://aeoess.com/protocol.html) · Agora: [aeoess.com/agora.html](https://aeoess.com/agora.html) · npm: [agent-passport-system](https://www.npmjs.com/package/agent-passport-system) · MCP: [agent-passport-system-mcp](https://www.npmjs.com/package/agent-passport-system-mcp)
+Website: [aeoess.com](https://aeoess.com) · npm: [agent-passport-system](https://www.npmjs.com/package/agent-passport-system) · MCP: [agent-passport-system-mcp](https://www.npmjs.com/package/agent-passport-system-mcp)
 
 ## LLM Documentation
 
