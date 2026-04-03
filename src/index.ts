@@ -285,6 +285,17 @@ export {
   passportToDIDDocument as passportToDIDKeyDocument,
 } from './core/did-interop.js'
 
+// ── Identity Bridge: SPIFFE + OAuth → APS ──
+export {
+  parseSPIFFEID, importSPIFFESVID,
+  mapOAuthScopes, importOAuthToken,
+} from './core/identity-bridge.js'
+
+export type {
+  SPIFFESVIDInput, ParsedSPIFFEID,
+  OAuthTokenInput, OAuthImportResult,
+} from './core/identity-bridge.js'
+
 // ── Gateway Identity: DID + Principal + Entity Verification ──
 export {
   verifyAgentIdentity, verifyAgentIdentitySync,
