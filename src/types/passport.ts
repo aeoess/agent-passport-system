@@ -37,6 +37,8 @@ export interface ReputationScore {
   proposalsApproved: number
   tokensContributed: number
   tasksCompleted: number
+  /** Accumulated penalty deductions from task_failed and incident events */
+  penaltyDeductions?: number
   lastUpdated: string
 }
 

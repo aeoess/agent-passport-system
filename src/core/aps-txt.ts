@@ -98,12 +98,43 @@ export function generateApsTxt(input: GenerateApsTxtInput): ApsTxt {
   return { ...doc, signature }
 }
 
-export function verifyApsTxt(doc: ApsTxt, publicKey: string): { valid: boolean; errors: string[] } {
+export interface VerifyApsTxtOptions {
+  /** When true, unsigned or unverifiable aps.txt returns { valid: false, reason: 'UNSIGNED' } */
+  strict?: boolean
+}
+
+export interface VerifyApsTxtResult {
+  valid: boolean
+  errors: string[]
+  /** Set when strict mode rejects an unsigned/unverifiable document */
+  reason?: 'UNSIGNED'
+}
+
+export function verifyApsTxt(
+  doc: ApsTxt,
+  publicKey?: string,
+  options?: VerifyApsTxtOptions,
+): VerifyApsTxtResult {
+  const strict = options?.strict ?? false
+
+  // Strict mode: if no public key provided, reject as unsigned
+  if (!publicKey) {
+    if (strict) {
+      return { valid: false, errors: ['No public key provided for signature verification'], reason: 'UNSIGNED' }
+    }
+    return { valid: true, errors: [] }
+  }
+
   const errors: string[] = []
   const { signature, ...rest } = doc
   const payload = canonicalize(rest)
   const sigValid = verify(payload, signature, publicKey)
-  if (!sigValid) errors.push('Signature verification failed')
+  if (!sigValid) {
+    if (strict) {
+      return { valid: false, errors: ['Signature verification failed'], reason: 'UNSIGNED' }
+    }
+    errors.push('Signature verification failed')
+  }
 
   const expectedDid = createDID(publicKey)
   if (doc.publisher_did !== expectedDid) errors.push(`DID mismatch: expected ${expectedDid}`)
@@ -133,12 +164,33 @@ export function resolveTermsForPath(doc: ApsTxt, path: string, agentDid?: string
 }
 
 function matchGlob(pattern: string, path: string): boolean {
-  // Simple glob: * matches one segment, ** matches multiple segments
-  const regex = pattern
-    .replace(/\*\*/g, '§DOUBLESTAR§')
-    .replace(/\*/g, '[^/]*')
-    .replace(/§DOUBLESTAR§/g, '.*')
-  return new RegExp(`^${regex}$`).test(path)
+  // Iterative glob match — no regex, no ReDoS risk.
+  // * matches one path segment, ** matches zero or more segments.
+  const patParts = pattern.split('/')
+  const pathParts = path.split('/')
+  return globPartsMatch(patParts, 0, pathParts, 0)
+}
+
+function globPartsMatch(pat: string[], pi: number, path: string[], xi: number): boolean {
+  while (pi < pat.length && xi < path.length) {
+    if (pat[pi] === '**') {
+      // ** matches zero or more segments — try each possible skip
+      // Bounded: at most path.length - xi iterations (linear, not exponential)
+      for (let skip = 0; skip <= path.length - xi; skip++) {
+        if (globPartsMatch(pat, pi + 1, path, xi + skip)) return true
+      }
+      return false
+    }
+    if (pat[pi] === '*') {
+      // * matches exactly one segment (any content)
+      pi++; xi++; continue
+    }
+    if (pat[pi] !== path[xi]) return false
+    pi++; xi++
+  }
+  // Consume trailing ** patterns (they can match zero segments)
+  while (pi < pat.length && pat[pi] === '**') pi++
+  return pi === pat.length && xi === path.length
 }
 
 /** Match a DID pattern against an agent's DID.
@@ -149,11 +201,26 @@ function matchGlob(pattern: string, path: string): boolean {
  */
 function matchDidPattern(pattern: string, did: string): boolean {
   if (pattern === '*' || pattern === 'did:*') return true
-  // Convert DID pattern to regex: `did:meeet:*` → `^did:meeet:.*$`
-  const regex = pattern
-    .replace(/[.+?^${}()|[\]\\]/g, '\\$&')  // escape regex chars except *
-    .replace(/\*/g, '.*')
-  return new RegExp(`^${regex}$`).test(did)
+  // Simple wildcard match without regex — split on * and check segments
+  const parts = pattern.split('*')
+  if (parts.length === 1) return pattern === did  // no wildcard, exact match
+  // Check: did starts with first part and ends with last part,
+  // with all intermediate parts appearing in order
+  let pos = 0
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i]
+    if (i === 0) {
+      if (!did.startsWith(part)) return false
+      pos = part.length
+    } else if (i === parts.length - 1) {
+      if (!did.slice(pos).endsWith(part)) return false
+    } else {
+      const idx = did.indexOf(part, pos)
+      if (idx === -1) return false
+      pos = idx + part.length
+    }
+  }
+  return true
 }
 
 /**
@@ -252,6 +319,7 @@ export function createChainedGovernanceBlock(input: {
     governance_generated_at: now,
     terms: input.terms,
     revocation_policy: input.revocationPolicy || input.parentBlock.revocation_policy,
+    ...(input.parentBlock.expires_at ? { expires_at: input.parentBlock.expires_at } : {}),
     parent_block_hash: parentBlockHash,
     derivation_type: input.derivationType,
     derivative_agent_did: derivativeDid,
@@ -387,6 +455,97 @@ export function enforceApsTxt(
     warning: signatureVerified ? undefined : 'aps.txt signature not verified — proceeding in permissive mode',
     signatureVerified,
   }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// AV-4 Fix: aps.txt DoS Risk Evaluation
+// Source: MoltyCel on qntm#7 — malicious `Disallow: /` for `did:*`
+// blocks all DID-verified agents. Risk evaluation helps agents
+// decide whether to trust restrictive aps.txt declarations.
+// ══════════════════════════════════════════════════════════════════
+
+export type ApsTxtRiskLevel = 'low' | 'medium' | 'high'
+
+export interface ApsTxtRiskResult {
+  risk: ApsTxtRiskLevel
+  warnings: string[]
+}
+
+/**
+ * Evaluate the risk level of an aps.txt document.
+ * Flags suspicious patterns that may indicate DoS or manipulation.
+ *
+ * - Blanket block (all usage prohibited for wildcard agents) → high risk
+ * - Unsigned restrictive rules → medium risk
+ * - Unknown author with restrictive rules → medium risk
+ * - Signed, non-restrictive → low risk
+ */
+export function evaluateApsTxtRisk(
+  doc: ApsTxt,
+  opts?: {
+    /** Publisher's public key for signature verification */
+    publisherPublicKey?: string
+  },
+): ApsTxtRiskResult {
+  const warnings: string[] = []
+  let risk: ApsTxtRiskLevel = 'low'
+
+  // Check signature status
+  let signed = false
+  if (opts?.publisherPublicKey) {
+    const verification = verifyApsTxt(doc, opts.publisherPublicKey)
+    signed = verification.valid
+  }
+
+  // Check for blanket block on default terms
+  const defaultAllDenied = isAllDenied(doc.default_terms)
+  if (defaultAllDenied) {
+    risk = 'high'
+    warnings.push('blanket_block')
+  }
+
+  // Check path overrides for wildcard agent blocks
+  if (doc.path_overrides) {
+    for (const override of doc.path_overrides) {
+      const isWildcard = override.user_agent === '*' || override.user_agent === 'did:*'
+      const isFullPath = override.pattern === '/*' || override.pattern === '/**' || override.pattern === '/'
+      if (isWildcard && isFullPath && isAllDenied(override.terms)) {
+        risk = 'high'
+        warnings.push('blanket_block')
+        break
+      }
+    }
+  }
+
+  // Unsigned restrictive rules
+  if (!signed && (defaultAllDenied || hasRestrictiveOverrides(doc))) {
+    if (risk !== 'high') risk = 'medium'
+    warnings.push('unsigned_restrictive')
+  }
+
+  // Unknown author (no publisher name or generic) with restrictive rules
+  if ((!doc.publisher_name || doc.publisher_name.trim() === '') && hasAnyRestriction(doc)) {
+    if (risk !== 'high') risk = 'medium'
+    warnings.push('new_author_restrictive')
+  }
+
+  return { risk, warnings: [...new Set(warnings)] }
+}
+
+/** Check if any path override has restrictive terms */
+function hasRestrictiveOverrides(doc: ApsTxt): boolean {
+  if (!doc.path_overrides) return false
+  return doc.path_overrides.some(o => isAllDenied(o.terms))
+}
+
+/** Check if any terms have at least one prohibited field */
+function hasAnyRestriction(doc: ApsTxt): boolean {
+  const fields = ['inference', 'training', 'redistribution', 'derivative', 'caching'] as const
+  if (fields.some(f => doc.default_terms[f] === 'prohibited')) return true
+  if (doc.path_overrides) {
+    return doc.path_overrides.some(o => fields.some(f => o.terms[f] === 'prohibited'))
+  }
+  return false
 }
 
 /** Check if governance terms deny all usage types */

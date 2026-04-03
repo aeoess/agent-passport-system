@@ -25,12 +25,12 @@ export function applyReputationEvent(score: ReputationScore, event: ReputationEv
       updated.tasksCompleted++
       break
     case 'task_failed':
-      // Small penalty
-      updated.overall = Math.max(FLOOR, updated.overall - 0.1)
+      // Small penalty — tracked as cumulative deduction
+      updated.penaltyDeductions = (updated.penaltyDeductions || 0) + 0.1
       break
     case 'incident':
-      // Larger penalty
-      updated.overall = Math.max(FLOOR, updated.overall - 0.5)
+      // Larger penalty — tracked as cumulative deduction
+      updated.penaltyDeductions = (updated.penaltyDeductions || 0) + 0.5
       break
   }
 
@@ -39,12 +39,13 @@ export function applyReputationEvent(score: ReputationScore, event: ReputationEv
 }
 
 export function calculateOverallScore(score: ReputationScore): number {
-  // Weighted formula
+  // Weighted formula with penalty deductions
   const collabScore = Math.min(score.collaborationsCompleted * 0.3, 3)
   const proposalScore = Math.min(score.proposalsApproved * 0.2, 2)
   const taskScore = Math.min(score.tasksCompleted * 0.1, 3)
   const tokenScore = Math.min(score.tokensContributed / 500000, 2)
+  const penalties = score.penaltyDeductions || 0
 
-  const raw = FLOOR + collabScore + proposalScore + taskScore + tokenScore
+  const raw = FLOOR + collabScore + proposalScore + taskScore + tokenScore - penalties
   return Math.min(CEILING, Math.max(FLOOR, Math.round(raw * 100) / 100))
 }

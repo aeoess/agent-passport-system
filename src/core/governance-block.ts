@@ -75,6 +75,10 @@ export interface GovernanceBlock {
   signature: string
   /** When the governance block expires (AV-3: replay prevention) */
   expires_at?: string
+  /** AV-5: SHA-256 hash of the skill implementation this block governs.
+   *  Binds the governance declaration to a specific skill, preventing
+   *  one skill from presenting another skill's governance block. */
+  skill_hash?: string
 }
 
 // ═══════════════════════════════════════
@@ -108,6 +112,9 @@ export interface GenerateGovernanceBlockInput {
   publishedAt?: string
   /** Expiry timestamp (AV-3: replay prevention). If set, the block is invalid after this time */
   expiresAt?: string
+  /** AV-5: Skill implementation content. If provided, SHA-256 hash is computed and included
+   *  in the block, binding governance to this specific implementation. */
+  skillContent?: string
 }
 
 export function generateGovernanceBlock(input: GenerateGovernanceBlockInput): GovernanceBlock {
@@ -125,6 +132,7 @@ export function generateGovernanceBlock(input: GenerateGovernanceBlockInput): Go
     terms: input.terms,
     revocation_policy: input.revocationPolicy || DEFAULT_REVOCATION_POLICY,
     ...(input.expiresAt ? { expires_at: input.expiresAt } : {}),
+    ...(input.skillContent ? { skill_hash: `sha256:${createHash('sha256').update(input.skillContent).digest('hex')}` } : {}),
   }
 
   const payload = canonicalize(block)
@@ -154,6 +162,10 @@ export function verifyGovernanceBlock(
   block: GovernanceBlock,
   content: string,
   publicKey: string,
+  options?: {
+    /** AV-5: If provided, verify the block's skill_hash matches this content */
+    skillContent?: string
+  },
 ): GovernanceBlockVerification {
   const errors: string[] = []
 
@@ -173,11 +185,24 @@ export function verifyGovernanceBlock(
   const didConsistent = block.source_did === expectedDid
   if (!didConsistent) errors.push(`DID mismatch: expected ${expectedDid}, got ${block.source_did}`)
 
+  // 4. AV-5: Verify skill hash if skill content provided
+  let skillHashValid = true
+  if (options?.skillContent) {
+    const expectedSkillHash = `sha256:${createHash('sha256').update(options.skillContent).digest('hex')}`
+    if (!block.skill_hash) {
+      skillHashValid = false
+      errors.push('Skill content provided but block has no skill_hash')
+    } else if (block.skill_hash !== expectedSkillHash) {
+      skillHashValid = false
+      errors.push(`Skill hash mismatch: expected ${expectedSkillHash}, got ${block.skill_hash}`)
+    }
+  }
+
   return {
     signatureValid,
     contentHashValid,
     didConsistent,
-    valid: signatureValid && contentHashValid && didConsistent,
+    valid: signatureValid && contentHashValid && didConsistent && skillHashValid,
     errors,
   }
 }

@@ -25,7 +25,7 @@ export type {
 } from './contract.js'
 
 // ── Layer 1: Identity & Accountability ──
-export { createPassport, signPassport, updatePassport, isExpired, isPassportValid, countersignPassport, verifyIssuerSignature, isIssuerVerified } from './core/passport.js'
+export { createPassport, signPassport, updatePassport, isExpired, isPassportValid, countersignPassport, verifyIssuerSignature, isIssuerVerified, isIssuerSigned } from './core/passport.js'
 export { canonicalize } from './core/canonical.js'
 
 // ── Agent Attestation Architecture (Phase 1 — Consilium Build) ──
@@ -1006,10 +1006,14 @@ export {
   generateApsTxt, verifyApsTxt, serializeApsTxt, parseApsTxt,
   resolveTermsForPath, governanceHeaders, parseGovernanceHeaders,
   createChainedGovernanceBlock, verifyChainedBlock,
+  enforceApsTxt, evaluateApsTxtRisk,
 } from './core/aps-txt.js'
 export type {
   ApsTxt, PathOverride, GenerateApsTxtInput,
   ChainedGovernanceBlock,
+  VerifyApsTxtOptions, VerifyApsTxtResult,
+  ApsTxtEnforcementMode, ApsTxtEnforcementResult,
+  ApsTxtRiskLevel, ApsTxtRiskResult,
 } from './core/aps-txt.js'
 
 

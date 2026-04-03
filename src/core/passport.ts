@@ -173,8 +173,14 @@ export function verifyIssuerSignature(
 }
 
 /**
- * Check if a passport has a valid issuer countersignature from any known authority.
+ * Quick presence check: does this passport have an issuer countersignature attached?
+ * NOTE: This does NOT verify the signature cryptographically.
+ * Use verifyIssuerSignature(passport, issuerPublicKey) for real verification.
+ * @deprecated Use verifyIssuerSignature() for security-critical checks.
  */
 export function isIssuerVerified(signedPassport: SignedPassport): boolean {
   return !!signedPassport.issuerSignature && signedPassport.issuerSignature.signature.length === 128
 }
+
+/** Alias: presence check for issuer signature (not cryptographic verification) */
+export const isIssuerSigned = isIssuerVerified
