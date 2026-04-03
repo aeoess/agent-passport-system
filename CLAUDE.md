@@ -214,3 +214,33 @@ Identity Sybil is unsolvable in open protocols. The protocol's job is making act
 Use /browse from gstack for all web browsing. Never use mcp__claude-in-chrome__* tools.
 Available skills: /office-hours, /plan-ceo-review, /plan-eng-review, /plan-design-review, /design-consultation, /design-shotgun, /design-html, /review, /ship, /land-and-deploy, /canary, /benchmark, /browse, /connect-chrome, /qa, /qa-only, /design-review, /setup-browser-cookies, /setup-deploy, /retro, /investigate, /document-release, /codex, /cso, /autoplan, /careful, /freeze, /guard, /unfreeze, /gstack-upgrade, /learn.
 If gstack skills aren't working, run `cd ~/.claude/skills/gstack && ./setup` to rebuild.
+
+## Claude Code MCP Demo Instructions
+
+### MCP Tools (aeoess server)
+You have access to 125+ APS tools via the `aeoess` MCP server. Use these tools directly — do NOT explore source code or run node scripts.
+
+### Issue a passport
+1. Call `issue_passport` with name, owner, mission, capabilities
+2. Save the returned agent_id, public_key, and private_key
+3. Call `get_passport_grade` with the agent_id to check the grade
+
+### Create a delegation (IMPORTANT: must identify first)
+1. Call `identify` with the public_key, private_key, and agent_id from the passport
+2. THEN call `create_delegation` with the delegated_to (public key), scope, spend_limit
+
+### Check trust on the public gateway
+- Trust profile: `GET https://gateway.aeoess.com/api/v1/public/trust/{agentId}`
+- Signed attestation: `GET https://gateway.aeoess.com/api/v1/public/trust/{agentId}/attestation`
+- JWKS: `GET https://gateway.aeoess.com/.well-known/jwks.json`
+
+### Demo flow (passport → delegation → gateway verification)
+1. `issue_passport` → save agent_id, public_key, private_key
+2. `identify` with those keys
+3. `create_delegation` with scope and spend_limit
+4. Fetch `https://gateway.aeoess.com/api/v1/public/trust/{agentId}` to show live trust profile
+
+### Do NOT
+- Explore source code to understand how tools work — just call them
+- Run node scripts manually — use MCP tools
+- Guess API endpoints — use the URLs listed above
