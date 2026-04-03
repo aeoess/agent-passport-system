@@ -268,13 +268,14 @@ export { ProxyGateway, createProxyGateway } from './core/gateway.js'
 export {
   scoreFidelityResponse, aggregateFidelityScores,
   createFidelityAttestation, verifyFidelityAttestation,
-  shouldProbe, fidelityDelta,
+  shouldProbe, fidelityDelta, measureCompactionDrift,
   DEFAULT_PROBE_SCHEDULE,
 } from './core/fidelity-probe.js'
 
 export type {
   FidelityChallenge, FidelityResponse, FidelityOutcome, FidelityScore,
   ProbeSchedule, PressureType, SpecificationClarity,
+  CompactionProbePoint, CompactionDriftResult,
 } from './core/fidelity-probe.js'
 
 // ── Gateway Identity: DID + Principal + Entity Verification ──

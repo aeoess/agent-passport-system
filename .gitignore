@@ -10,3 +10,4 @@ seed-agora.mjs
 .DS_Store
 *.tgz
 oatr/
+.mcp.json
