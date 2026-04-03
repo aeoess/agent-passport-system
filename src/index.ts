@@ -278,6 +278,13 @@ export type {
   CompactionProbePoint, CompactionDriftResult,
 } from './core/fidelity-probe.js'
 
+// ── DID Interop: did:key + did:web ──
+export {
+  toDIDKey, fromDIDKey,
+  didWebToUrl, resolveDIDWeb,
+  passportToDIDDocument as passportToDIDKeyDocument,
+} from './core/did-interop.js'
+
 // ── Gateway Identity: DID + Principal + Entity Verification ──
 export {
   verifyAgentIdentity, verifyAgentIdentitySync,
