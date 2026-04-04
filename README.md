@@ -2,18 +2,18 @@
 
 [![npm version](https://img.shields.io/npm/v/agent-passport-system)](https://www.npmjs.com/package/agent-passport-system)
 [![license](https://img.shields.io/npm/l/agent-passport-system)](https://github.com/aeoess/agent-passport-system/blob/main/LICENSE)
-[![tests](https://img.shields.io/badge/tests-2085%20passing-brightgreen)](https://github.com/aeoess/agent-passport-system)
+[![tests](https://img.shields.io/badge/tests-2180%20passing-brightgreen)](https://github.com/aeoess/agent-passport-system)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18749779.svg)](https://doi.org/10.5281/zenodo.18749779)
 
 > **For AI agents:** visit [aeoess.com/llms.txt](https://aeoess.com/llms.txt) for machine-readable docs or [llms-full.txt](https://aeoess.com/llms-full.txt) for the complete reference.
 
-**The infrastructure layer for the agent economy.**
+**The enforcement and accountability layer for AI agents. Bring your own identity.**
 
-Every team building AI agents hits the same wall: identity, delegation, trust, enforcement, receipts. Most rebuild these from scratch. APS is the shared foundation so you don't have to.
+APS is not an identity system. It's the governance layer that sits on top of whatever identity the agent already has. Accepts did:key, did:web, SPIFFE SVIDs, OAuth tokens, and native did:aps. Identity is the input. Enforcement is the product.
 
-Seven independent projects have cross-tested against these primitives. AgentID: 7/7. MolTrust: 5/5. Kanoniv delegation chains: verified. Three languages, three codebases, identical results. The interop is proven.
+The gateway is both judge and executor. Authority can only decrease at each transfer point. Cascade revocation propagates through delegation chains. Every action produces a signed receipt. Every constraint is checked in under 2ms.
 
-Build your application on top. Don't rebuild what's underneath.
+Seven independent projects have cross-tested against these primitives. AgentID: 7/7. MolTrust: 5/5. Kanoniv delegation chains: verified. Three languages, three codebases, identical results.
 
 ```bash
 npm install agent-passport-system
@@ -107,7 +107,7 @@ const agent = joinSocialContract({ name: 'my-agent', owner: 'alice', floor: floo
 
 ## The Stack
 
-67 core modules + 32 v2 constitutional modules. 2,085 tests. Zero heavy dependencies.
+71 core modules + 32 v2 constitutional modules. 2,180 tests. Zero heavy dependencies.
 
 | Layer | What it does | Key primitive |
 |-------|-------------|---------------|
@@ -118,9 +118,9 @@ const agent = joinSocialContract({ name: 'my-agent', owner: 'alice', floor: floo
 | **Intent & Policy** | Roles, tradeoff rules, deliberative consensus, 3-signature policy chain. | `ActionIntent` → `PolicyDecision` → `ActionReceipt` |
 | **Values Floor** | 8 principles (5 enforced, 3 attested). Graduated enforcement: inline/audit/warn. | `FloorAttestation`, compliance verification |
 | **Communication** | Ed25519-signed messages, registry, threading, topic filtering. | `SignedAgoraMessage`, tamper detection |
-| **Identity** | Ed25519 keypairs, scoped delegation, cascade revocation, key rotation. | `SignedPassport`, `Delegation`, `RevocationRecord` |
+| **Identity** | Bring your own: did:key, did:web, SPIFFE, OAuth, native did:aps. Ed25519 keypairs, scoped delegation, cascade revocation. | `toDIDKey`, `importSPIFFESVID`, `importOAuthToken`, `SignedPassport` |
 
-**Extended modules (9-67):** W3C DID (`did:aps`), Verifiable Credentials, A2A Bridge, EU AI Act Compliance, Agent Context, Task Routing, Cross-Chain Data Flow (taint tracking, confused deputy prevention), E2E Encrypted Messaging (X25519 + XSalsa20), Obligations, Governance Provenance, Identity Continuity & Key Rotation, Receipt Ledger (Merkle-committed audit batches), Feasibility Linting, Precedent Control, Re-anchoring, Bounded Escalation, Oracle Witness Diversity, Messaging Audit Bridge, Policy Conflict Detection, Data Source Registration, Decision Semantics, Decision Equivalence, Execution Attestation, Bilateral Receipts, Governance Blocks, aps.txt, Governance 360, Data Lifecycle, Persistent Passports, ProxyGateway.
+**Extended modules (9-71):** W3C DID (`did:aps`), DID Interop (`did:key`, `did:web`), Identity Bridge (SPIFFE SVID, OAuth tokens), VC Wrapper (W3C Verifiable Credentials with did:key + SPIFFE evidence), Credential Request Protocol (selective disclosure), Verifiable Credentials, A2A Bridge, EU AI Act Compliance, Agent Context, Task Routing, Cross-Chain Data Flow (taint tracking, confused deputy prevention), E2E Encrypted Messaging (X25519 + XSalsa20), Obligations, Governance Provenance, Identity Continuity & Key Rotation, Receipt Ledger (Merkle-committed audit batches), Feasibility Linting, Precedent Control, Re-anchoring, Bounded Escalation, Oracle Witness Diversity, Messaging Audit Bridge, Policy Conflict Detection, Data Source Registration, Decision Semantics, Decision Equivalence, Execution Attestation, Bilateral Receipts, Governance Blocks, aps.txt, Governance 360, Data Lifecycle, Persistent Passports, ProxyGateway.
 
 **V2 Constitutional Framework (32 modules):** Designed through cross-model adversarial review. PolicyContext with mandatory sunset, Delegation Versioning, Outcome Registration, Anomaly Detection, Emergency Pathways, Migration (fork-and-sunset), Contextual Attestation, Approval Fatigue Detection, Effect Enforcement, Emergence Detection, Separation of Powers, Constitutional Amendment, Circuit Breakers, Epistemic Isolation, and 18 more. Source: [`src/v2/`](src/v2/).
 
@@ -161,7 +161,7 @@ npx agent-passport audit --floor values/floor.yaml
 
 ```bash
 npm test
-# 2,085 tests, 0 failures
+# 2,180 tests, 0 failures
 ```
 
 50 adversarial tests: Merkle tampering, attribution gaming, compliance violations, floor negotiation attacks, cross-chain confused deputy, taint laundering, authority probing.
@@ -179,7 +179,7 @@ npm test
 | Signed receipts | 3-sig chain | Proposed | Logs | General | — |
 | Values enforcement | 8 principles, graduated | — | Rules | — | — |
 | Coordination | Task lifecycle + MCP | — | — | — | — |
-| Tests | 2,085 (50 adversarial) | None | Limited | None | None |
+| Tests | 2,180 (50 adversarial) | None | Limited | None | None |
 
 ## Recognition
 
