@@ -308,6 +308,17 @@ export type {
   PassportVCInput, VCVerifyResult, VPVerifyResult,
 } from './core/vc-wrapper.js'
 
+// ── Credential Request: Selective Disclosure Protocol ──
+export {
+  createCredentialRequest,
+  fulfillCredentialRequest,
+  verifyCredentialResponse,
+} from './core/credential-request.js'
+
+export type {
+  CredentialRequest, CredentialResponseResult, SelectivePassport,
+} from './core/credential-request.js'
+
 // ── Gateway Identity: DID + Principal + Entity Verification ──
 export {
   verifyAgentIdentity, verifyAgentIdentitySync,
