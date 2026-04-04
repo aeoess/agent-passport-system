@@ -296,6 +296,18 @@ export type {
   OAuthTokenInput, OAuthImportResult,
 } from './core/identity-bridge.js'
 
+// ── VC Wrapper: Interop Bridge (did:key + SPIFFE evidence) ──
+export {
+  passportToVerifiableCredential,
+  verifyVerifiableCredential,
+  createVerifiablePresentation,
+  verifyVerifiablePresentation,
+} from './core/vc-wrapper.js'
+
+export type {
+  PassportVCInput, VCVerifyResult, VPVerifyResult,
+} from './core/vc-wrapper.js'
+
 // ── Gateway Identity: DID + Principal + Entity Verification ──
 export {
   verifyAgentIdentity, verifyAgentIdentitySync,
