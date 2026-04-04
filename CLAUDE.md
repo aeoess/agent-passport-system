@@ -4,7 +4,7 @@
 Enforcement and accountability layer for AI agents. Bring your own identity (did:key, did:web, SPIFFE SVIDs, OAuth tokens, native did:aps). The gateway is both judge and executor. Authority can only decrease at each transfer point. Monotonic narrowing, cascade revocation, data lifecycle, Merkle attribution, signed coordination. Solo founder: Tima (Tymofii Pidlisnyi).
 
 ## Current State (auto-updated by propagation)
-- SDK: v1.31.0 — 2180 tests, 559 suites, 103 modules (71 core + 32 v2)
+- SDK: v1.32.0 — 2180 tests, 559 suites, 103 modules (71 core + 32 v2)
 - MCP: v2.19.1 — 125 tools
 - Gateway: v0.3.3 — 36 routes + context continuity score
 - Python SDK: v0.7.0 on PyPI
