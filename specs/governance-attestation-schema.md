@@ -170,7 +170,7 @@ Canonicalization follows RFC 8785 (JCS) with `src/core/canonical.ts`:
 
 ## 3. Live Payload Example
 
-> **Note:** This section describes the **target envelope shape** for the `governance_attestation` signal type. The current gateway endpoint (`/api/v1/public/trust/:agentId`) returns a `passport_grade` envelope with embedded `active_constraints`. The standalone `governance_attestation` envelope described below is the next gateway build. The schema contract (§1) and verification snippet (§4) are written against this target shape.
+> **Endpoint:** `GET /api/v1/public/trust/:agentId?signal=governance_attestation` on `gateway.aeoess.com`. The default response (no `signal` param) returns the existing `passport_grade` shape for backward compatibility.
 
 The following is a realistic attestation envelope. Keys, agent IDs, and signatures are illustrative — they are not drawn from a production tenant.
 
@@ -199,7 +199,7 @@ The following is a realistic attestation envelope. Keys, agent IDs, and signatur
 }
 ```
 
-### 3.2 Signed envelope (JWS compact, target shape for `/api/v1/public/trust/:agentId/attestation`)
+### 3.2 Signed envelope (JWS compact, from `GET /api/v1/public/trust/:agentId?signal=governance_attestation`)
 
 ```json
 {
