@@ -24,9 +24,11 @@ signal_type: "governance_attestation"
 
 | Field | Type | Description |
 |---|---|---|
+| `signal_type` | `string` | Must be `"governance_attestation"`. Required per §1.6 JSON Schema. |
 | `active_constraints` | `object` | The enforceable constraint set at attestation time. See §1.4. |
 | `delegation_chain_hash` | `string` | SHA-256 hex digest of the canonicalized delegation chain (root → current). Stable request identity. |
 | `evaluation_timestamp` | `string` | RFC 3339 / ISO 8601 UTC timestamp, second-precision, at which constraints were evaluated. |
+| `iss` | `string` | Issuer identifier (gateway URL). Required by JWS verification (`issuer` option). |
 
 ### 1.3 Optional fields
 
@@ -46,7 +48,7 @@ interface ActiveConstraints {
   scopes: string[]                    // granted delegation scopes, e.g. ["read:docs", "write:issues"]
   spend_limit: number | null          // cumulative cap; null = unlimited (not recommended)
   spend_used: number                  // cumulative spent so far
-  spend_currency?: string             // ISO 4217, e.g. "USD"; XNO for Nano
+  spend_currency?: string             // ISO 4217 (e.g. "USD") or cryptocurrency ticker (e.g. "XNO")
   tool_restrictions?: string[]        // optional denylist of tool IDs
   max_depth?: number                  // sub-delegation depth ceiling
   current_depth?: number              // depth at evaluation time
@@ -168,6 +170,8 @@ Canonicalization follows RFC 8785 (JCS) with `src/core/canonical.ts`:
 
 ## 3. Live Payload Example
 
+> **Note:** This section describes the **target envelope shape** for the `governance_attestation` signal type. The current gateway endpoint (`/api/v1/public/trust/:agentId`) returns a `passport_grade` envelope with embedded `active_constraints`. The standalone `governance_attestation` envelope described below is the next gateway build. The schema contract (§1) and verification snippet (§4) are written against this target shape.
+
 The following is a realistic attestation envelope. Keys, agent IDs, and signatures are illustrative — they are not drawn from a production tenant.
 
 ### 3.1 Unsigned claim
@@ -175,6 +179,7 @@ The following is a realistic attestation envelope. Keys, agent IDs, and signatur
 ```json
 {
   "signal_type": "governance_attestation",
+  "iss": "https://gateway.aeoess.com",
   "gateway_id": "gateway.aeoess.com",
   "policy_version": "floor-v1.2.0",
   "attestation_grade": 2,
@@ -194,7 +199,7 @@ The following is a realistic attestation envelope. Keys, agent IDs, and signatur
 }
 ```
 
-### 3.2 Signed envelope (JWS compact, as emitted by `/api/v1/public/trust/:agentId/attestation`)
+### 3.2 Signed envelope (JWS compact, target shape for `/api/v1/public/trust/:agentId/attestation`)
 
 ```json
 {
