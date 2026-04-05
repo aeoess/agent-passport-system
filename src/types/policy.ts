@@ -33,6 +33,11 @@ export interface ActionIntent {
   }
   context?: string          // optional: why the agent wants to do this
   contentHash?: ContentHash // Module 37: content-addressable hash of unsigned intent
+  /** Content-addressed request identity (A2A#1672 xsa520/desiorac).
+   *  SHA-256(canonical(agentId + action.type + action.scopeRequired + second-precision timestamp)).
+   *  Two receipts with the same actionRef describe the same REQUEST.
+   *  Compare with PolicyReceipt.compoundDigest (same evaluated DECISION). */
+  actionRef?: string
   /** Routing context at intent time — for divergence detection (desiorac OATR#2) */
   routingContext?: {
     intentDid?: string                // DID at intent declaration time
@@ -93,6 +98,9 @@ export interface PolicyReceipt {
     receiptSignature: string
   }
   verifiedAt: string
+  /** Content-addressed request identity, copied from the ActionIntent at receipt creation.
+   *  Request identity (actionRef) is orthogonal to decision identity (compoundDigest). */
+  actionRef?: string
   /** Compound digest binding intent + receipt + frame (desiorac A2A#1672) */
   compoundDigest?: string   // SHA-256(hash(ActionIntent) + hash(PolicyReceipt) + executionFrameId + timestamp)
   /** Routing context at execution time — compared against intent routingContext for divergence */

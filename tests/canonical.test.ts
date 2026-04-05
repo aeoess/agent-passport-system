@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { canonicalize } from '../src/core/canonical.js'
+import { canonicalize, canonicalJson, canonicalHash, normalizeTimestamp } from '../src/core/canonical.js'
 
 describe('Canonical Serialization — Cross-Language Compatibility', () => {
   // These test vectors MUST match the Python implementation in docs/canonical.py
@@ -101,5 +101,39 @@ describe('Canonical Serialization — Cross-Language Compatibility', () => {
     // Only whitespace should be inside string values
     const withoutStrings = result.replace(/"[^"]*"/g, '""')
     assert.ok(!withoutStrings.includes(' '), `Unexpected whitespace: ${withoutStrings}`)
+  })
+})
+
+describe('canonicalJson + canonicalHash + normalizeTimestamp (A2A#1672)', () => {
+  it('canonicalJson produces identical output regardless of key insertion order', () => {
+    const a = { z: 1, a: 2, m: 3 }
+    const b = { m: 3, a: 2, z: 1 }
+    assert.equal(canonicalJson(a), canonicalJson(b))
+  })
+
+  it('canonicalHash is deterministic and 64-char hex SHA-256', () => {
+    const obj = { agentId: 'agent_x', actionType: 'code_execution', scope: 'repo:write', timestamp: '2026-04-05T03:39:31Z' }
+    const h = canonicalHash(obj)
+    assert.equal(h.length, 64)
+    assert.match(h, /^[0-9a-f]{64}$/)
+    assert.equal(canonicalHash(obj), canonicalHash(obj))
+  })
+
+  it('canonicalHash differs when any input field differs', () => {
+    const base = { a: 'x', b: 'y' }
+    assert.notEqual(canonicalHash(base), canonicalHash({ ...base, b: 'z' }))
+  })
+
+  it('normalizeTimestamp strips fractional seconds', () => {
+    assert.equal(normalizeTimestamp('2026-04-05T03:39:31.123Z'), '2026-04-05T03:39:31Z')
+    assert.equal(normalizeTimestamp('2026-04-05T03:39:31Z'), '2026-04-05T03:39:31Z')
+  })
+
+  it('normalizeTimestamp coerces offset timestamps to UTC', () => {
+    assert.equal(normalizeTimestamp('2026-04-05T06:39:31+03:00'), '2026-04-05T03:39:31Z')
+  })
+
+  it('normalizeTimestamp throws on invalid input', () => {
+    assert.throws(() => normalizeTimestamp('not-a-date'))
   })
 })

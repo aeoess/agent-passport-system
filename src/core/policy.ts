@@ -21,6 +21,7 @@ import { createHash } from 'crypto'
 import { sign, verify } from '../crypto/keys.js'
 import { canonicalize } from './canonical.js'
 import { scopeAuthorizes } from './delegation.js'
+import { computeActionRef } from './action-ref.js'
 import type { EnforcementMode } from '../types/passport.js'
 import type {
   ActionIntent, PolicyDecision, PolicyReceipt,
@@ -54,6 +55,8 @@ export function createActionIntent(opts: {
     context: opts.context,
     createdAt: new Date().toISOString()
   }
+  // Content-addressed request identity (A2A#1672)
+  intent.actionRef = computeActionRef(intent)
 
   const signature = sign(canonicalize(intent), opts.privateKey)
   return { ...intent, signature }
@@ -175,7 +178,9 @@ export function createPolicyReceipt(opts: {
       decisionSignature: opts.decision.signature,
       receiptSignature: opts.receipt.signature
     },
-    verifiedAt: new Date().toISOString()
+    verifiedAt: new Date().toISOString(),
+    // Request identity copied from intent (A2A#1672)
+    actionRef: opts.intent.actionRef ?? computeActionRef(opts.intent)
   }
 
   const signature = sign(canonicalize(pr), opts.verifierPrivateKey)

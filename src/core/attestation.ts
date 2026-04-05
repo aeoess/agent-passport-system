@@ -6,7 +6,7 @@ import { createHash } from 'crypto'
 import { sign, verify, publicKeyFromPrivate } from '../crypto/keys.js'
 import { canonicalize } from './canonical.js'
 import type {
-  PassportGrade, AttestationFlag,
+  PassportGrade, AttestationFlag, EvidenceQuality,
   IssuanceChallenge, IssuanceChallengeResponse,
   IssuanceEvidenceRecord, IssuanceAssessment,
   IssuanceContext, PassportAttestationSummary,
@@ -128,6 +128,81 @@ export function verifyRuntimeAttestation(
     detail: `Verified by trusted attester ${attestation.attester}`,
     verifiedAt: now.toISOString(),
   }
+}
+
+// ── Evidence-Based Grade Assignment (A2A#1712 — VCOne-AI) ──
+// VCOne-AI flagged on A2A#1712: the original grade mapping was method-prefix
+// driven. A TPM-backed did:key was Grade 0 because it's did:key; a SPIFFE SVID
+// from a misconfigured cluster was Grade 2 because it's SPIFFE. That's backwards.
+//
+// The fix: classify by EVIDENCE QUALITY, not identity method. A did:key with
+// TPM attestation evidence reaches Grade 2, same as a verified SPIFFE SVID.
+// Evidence quality determines grade; method is only a fallback signal.
+
+/** Map evidence quality level to passport grade number. */
+export function evidenceQualityToGrade(quality: EvidenceQuality): PassportGrade {
+  switch (quality) {
+    case 'none': return 0
+    case 'issuer_vouched': return 1
+    case 'infrastructure': return 2
+    case 'principal_bound': return 3
+  }
+}
+
+// Evidence field keys that indicate infrastructure/hardware binding.
+// External attestations come in many shapes — check loosely.
+const INFRASTRUCTURE_EVIDENCE_KEYS = [
+  'tpm_quote', 'tpmQuote',
+  'hardware_attestation', 'hardwareAttestation',
+  'tee_proof', 'teeProof',
+  'infrastructure_binding', 'infrastructureBinding',
+  'sgx_quote', 'sgxQuote',
+  'sev_attestation', 'sevAttestation',
+  'workload_attestation', 'workloadAttestation',
+] as const
+
+/**
+ * Classify evidence quality from attestation metadata.
+ *
+ * Precedence (highest to lowest):
+ *   1. Principal binding → 'principal_bound'
+ *   2. Infrastructure evidence (SPIFFE method, TPM quote, hardware attestation,
+ *      TEE proof, or any known infrastructure-binding key in evidence) → 'infrastructure'
+ *   3. Issuer signature → 'issuer_vouched'
+ *   4. None
+ *
+ * This is where a did:key with TPM evidence gets elevated to Grade 2.
+ */
+export function classifyEvidenceQuality(opts: {
+  /** Identity method prefix (e.g. "did:key", "spiffe", "oauth"). Fallback signal. */
+  method?: string
+  hasIssuerSignature?: boolean
+  hasPrincipalBinding?: boolean
+  /** Raw evidence payload — checked loosely for infrastructure-binding keys. */
+  evidence?: Record<string, unknown>
+}): EvidenceQuality {
+  // Principal binding takes precedence
+  if (opts.hasPrincipalBinding) return 'principal_bound'
+
+  // Infrastructure evidence: method-based signal for SPIFFE, plus evidence-key detection
+  if (opts.method) {
+    const m = opts.method.toLowerCase()
+    if (m === 'spiffe' || m.startsWith('spiffe:') || m.startsWith('spiffe://')) {
+      return 'infrastructure'
+    }
+  }
+  if (opts.evidence) {
+    for (const key of INFRASTRUCTURE_EVIDENCE_KEYS) {
+      if (opts.evidence[key] !== undefined && opts.evidence[key] !== null) {
+        return 'infrastructure'
+      }
+    }
+  }
+
+  // Issuer vouched
+  if (opts.hasIssuerSignature) return 'issuer_vouched'
+
+  return 'none'
 }
 
 // ── computePassportGrade ──
@@ -318,6 +393,8 @@ export function importProviderAttestation(
     subjectClass?: string
     /** Verification method used by the provider */
     verificationMethod?: string
+    /** Typed staleness metadata (A2A#1712): snapshot (TPM) vs rotating (SPIFFE) vs static. */
+    freshness?: import('../types/passport.js').AttestationFreshness
   }
 ): ProviderAttestation {
   let payload: Record<string, unknown>
@@ -358,6 +435,7 @@ export function importProviderAttestation(
     issuedAt: String(payload.iat ? new Date(Number(payload.iat) * 1000).toISOString() : payload.issued_at || new Date().toISOString()),
     expiresAt: payload.exp ? new Date(Number(payload.exp) * 1000).toISOString() : (payload.expires_at ? String(payload.expires_at) : undefined),
     signature,
+    freshness: input.freshness,
   }
 }
 

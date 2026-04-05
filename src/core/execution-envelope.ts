@@ -77,6 +77,7 @@ export function createExecutionEnvelope(opts: {
     agent_did: opts.agentDid,
     run_id: opts.runId,
     action_id: opts.intent.intentId,
+    ...(opts.intent.actionRef ? { action_ref: opts.intent.actionRef } : {}),
 
     capability_ref: {
       manifest_hash: `sha256:${manifestHash}`,

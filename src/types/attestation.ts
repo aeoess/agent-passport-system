@@ -24,6 +24,17 @@ export const PASSPORT_GRADE_LABELS: Record<PassportGrade, string> = {
   3: 'principal_bound',     // runtime_bound + verified human/org principal
 };
 
+// ── Evidence Quality (A2A#1712 — VCOne-AI) ──
+// Classifies the QUALITY of evidence supporting a passport's key binding,
+// independent of the identity method prefix. A did:key with TPM attestation
+// reaches 'infrastructure' quality; a SPIFFE SVID from a misconfigured cluster
+// without verification does not.
+export type EvidenceQuality =
+  | 'none'              // bare keypair, no proof of generation/storage
+  | 'issuer_vouched'    // third party signed the key (countersignature)
+  | 'infrastructure'    // evidence of hardware/runtime binding (TPM, SPIFFE, TEE)
+  | 'principal_bound';  // verified human or legal entity linked to key
+
 // ── Attestation Provenance (Four-Tier Model) ──
 // Universal convergence across all consilium models
 export type AttestationProvenance =
@@ -102,6 +113,8 @@ export interface RuntimeAttestation {
   issuedAt: string;                  // ISO 8601
   expiresAt: string;                 // ISO 8601
   signature: string;                 // Ed25519 signature by the attesting gateway
+  /** Typed staleness metadata (A2A#1712). Snapshot (TPM) vs rotating (SPIFFE) vs static. */
+  freshness?: import('./passport.js').AttestationFreshness
 }
 
 // ── Provider Attestation (Tier 2 — Third-Party Confirmation) ──
@@ -116,6 +129,8 @@ export interface ProviderAttestation {
   issuedAt: string;                  // ISO 8601
   expiresAt?: string;                // ISO 8601 (some attestations don't expire)
   signature?: string;                // provider's signature (if they support signing)
+  /** Typed staleness metadata (A2A#1712). */
+  freshness?: import('./passport.js').AttestationFreshness
 }
 
 // ── Issuance Evidence Record ──

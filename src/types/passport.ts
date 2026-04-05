@@ -1,5 +1,20 @@
 // Agent Passport System — Type Definitions
 
+// ── Attestation Freshness ──
+// Typed staleness metadata for attestation evidence (A2A#1712).
+// Distinguishes snapshot (TPM), rotating (SPIFFE SVID), and static evidence.
+export interface AttestationFreshness {
+  /** 'snapshot' = point-in-time (TPM), 'rotating' = lifetime-bound (SPIFFE),
+   *  'static' = managed externally (CA certificate) */
+  type: 'snapshot' | 'rotating' | 'static'
+  /** ISO 8601 — when the evidence was produced */
+  validAt: string
+  /** Evidence lifetime in seconds (required for rotating). */
+  ttl?: number
+  /** Recommended staleness window in seconds (for snapshot). */
+  maxAge?: number
+}
+
 export interface KeyPair {
   privateKey: string  // hex-encoded Ed25519 private key
   publicKey: string   // hex-encoded Ed25519 public key

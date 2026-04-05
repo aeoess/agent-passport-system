@@ -22,6 +22,8 @@ export interface ExecutionEnvelope {
   run_id: string
   /** Unique identifier for this specific action */
   action_id: string
+  /** Content-addressed request identity (A2A#1672). Optional for backward compat. */
+  action_ref?: string
 
   capability_ref: {
     /** Hash of the capability manifest (delegation scope) at evaluation time */

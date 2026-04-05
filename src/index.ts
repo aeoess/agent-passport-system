@@ -26,7 +26,14 @@ export type {
 
 // ── Layer 1: Identity & Accountability ──
 export { createPassport, signPassport, updatePassport, isExpired, isPassportValid, countersignPassport, verifyIssuerSignature, isIssuerVerified, isIssuerSigned } from './core/passport.js'
-export { canonicalize } from './core/canonical.js'
+export { canonicalize, canonicalJson, canonicalHash, normalizeTimestamp } from './core/canonical.js'
+
+// ── action_ref (A2A#1672) — Content-Addressed Request Identity ──
+export { computeActionRef, actionRefsMatch } from './core/action-ref.js'
+
+// ── Attestation Freshness (A2A#1712) ──
+export { computeEvidenceAge, isEvidenceFresh, createSnapshotFreshness, createRotatingFreshness } from './core/freshness.js'
+export type { AttestationFreshness } from './types/passport.js'
 
 // ── Agent Attestation Architecture (Phase 1 — Consilium Build) ──
 export {
@@ -36,10 +43,11 @@ export {
   createWorkspaceManifest, createEmptyEvidenceRecord,
   isChallengeFresh, isGradeAtLeast,
   importProviderAttestation, addIdentityBoundary,
+  classifyEvidenceQuality, evidenceQualityToGrade,
 } from './core/attestation.js'
 
 export type {
-  PassportGrade, AttestationProvenance, SignalStability, VerificationStatus,
+  PassportGrade, EvidenceQuality, AttestationProvenance, SignalStability, VerificationStatus,
   AttestedSignal, ObservedContext,
   RuntimeAttestation, ProviderAttestation,
   IssuanceEvidenceRecord, IssuanceAssessment, IssuanceContext,
