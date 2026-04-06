@@ -1,0 +1,44 @@
+{
+  "spec": "draft-farley-acta-signed-receipts-01",
+  "receipt_id": "sha256:a8e51ec9240a9e209ffb2a4454c747a868ed5dfdee0fbb5789aead40c34a969c",
+  "issued_at": "2026-04-06T17:52:42.852Z",
+  "issuer_id": "did:aps:z6MkmAWAje6E2baGbKY7vNUAhDdAEkJFXn4Q6fhhZ7xsUaXA",
+  "previousReceiptHash": null,
+  "payload": {
+    "agentId": "agent-ietf-demo-001",
+    "delegationId": "del_042723ba-d4c",
+    "action": {
+      "tool": "code_execution",
+      "scopeUsed": "code_execution",
+      "params": {
+        "language": "python",
+        "code": "print(\"hello\")"
+      }
+    },
+    "result": {
+      "success": true,
+      "output": "hello"
+    },
+    "extensions": {
+      "aps": {
+        "delegationChain": "del_042723ba-d4c",
+        "scope": [
+          "code_execution",
+          "data:read"
+        ],
+        "spend": {
+          "amount": 0,
+          "currency": "usd"
+        },
+        "finality": "executed",
+        "intentSignature": "856f6722df8b806a00dc45693a5a81c1a52fe50377c9faa187467fb6dbe018f1ee2044eb93fe6d50832fedfe933c8b629b52438f735b122b11afacc66b604903",
+        "decisionSignature": "fc6f7f6bc963e8042d1eb105fe0e864106e7e969864d8aa21e17fe17cd0c8d42ab3c69f9cf056b8df2914a7d334c2e041080caa086b952e8f455056a99014e08"
+      }
+    }
+  },
+  "signature": {
+    "alg": "EdDSA",
+    "kid": "did:aps:z6MkmAWAje6E2baGbKY7vNUAhDdAEkJFXn4Q6fhhZ7xsUaXA",
+    "sig": "5b4ffa1ade7c6cc71cd28faa55b4eebd4d76aa613de5f4baf1bf00958f003379936ac5b436c08269ff558dbf746067f0a8ec7b7035ccb61e679270807fff5d0b"
+  }
+}

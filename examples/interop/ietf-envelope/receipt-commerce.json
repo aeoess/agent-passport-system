@@ -1,0 +1,46 @@
+{
+  "spec": "draft-farley-acta-signed-receipts-01",
+  "receipt_id": "sha256:e86382da88291a45c3156fa5abf4dd956bf58f02534b1aa2d0fcacaa091f6342",
+  "issued_at": "2026-04-06T17:52:42.854Z",
+  "issuer_id": "did:aps:z6MkmAWAje6E2baGbKY7vNUAhDdAEkJFXn4Q6fhhZ7xsUaXA",
+  "previousReceiptHash": "sha256:7449fd3d1ec298d7fff8ac54c0428b3e3ac6bc01dc0f5ca7551ca7e7c178b463",
+  "payload": {
+    "agentId": "agent-ietf-demo-001",
+    "delegationId": "del_042723ba-d4c",
+    "action": {
+      "tool": "commerce:checkout",
+      "scopeUsed": "data:read",
+      "params": {
+        "merchant": "api.openai.com",
+        "amount": 4999,
+        "currency": "usd"
+      }
+    },
+    "result": {
+      "success": true,
+      "authorized": true,
+      "remainingBudget": 45001
+    },
+    "extensions": {
+      "aps": {
+        "delegationChain": "del_042723ba-d4c",
+        "scope": [
+          "code_execution",
+          "data:read"
+        ],
+        "spend": {
+          "amount": 4999,
+          "currency": "usd"
+        },
+        "finality": "executed",
+        "intentSignature": "8f9dc3253f3b36793cbd73ce9f2d9f6a258bca4e005cfe184c87467ae53c475e6e234b3c3ae5698fe7245616949356dfcd0fa203e22a21149ab2278f3cf4b304",
+        "decisionSignature": "0df0f6472faed199496d036b260843fa414dad847bfaacda831df84542b7c20ae3c6063b2461235cee3627bf7ff319f485d6c377b24f0d492680ca946e0d130f"
+      }
+    }
+  },
+  "signature": {
+    "alg": "EdDSA",
+    "kid": "did:aps:z6MkmAWAje6E2baGbKY7vNUAhDdAEkJFXn4Q6fhhZ7xsUaXA",
+    "sig": "9abf384e7a2e0e177c28ba3f73b91895845334aa621f425310ece1d64cbac12abe78c77d2f8bff951afc10629c02045bd1c39b49f445cd9673a3f089ab224f09"
+  }
+}
