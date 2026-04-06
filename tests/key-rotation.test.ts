@@ -542,6 +542,73 @@ describe('Key Rotation — Edge Cases', () => {
     assert.equal(isKeyActive(doc, kpD.publicKey), true)
   })
 
+  it('emergency rotation with zero delegations succeeds', () => {
+    const kpOld = generateKeyPair()
+    const kpNew = generateKeyPair()
+    const doc = createDIDDocument(makePassport(kpOld))
+
+    const result = rotateAndInvalidate(doc, kpOld.privateKey, kpNew, [], { mode: 'emergency' })
+
+    assert.equal(result.rotationState, 'activated')
+    assert.deepEqual(result.revocationResults, [])
+    assert.equal(result.didDocument.rotationLog.length, 1)
+  })
+
+  it('emergency after planned: planned completed first', () => {
+    const kpA = generateKeyPair()
+    const kpB = generateKeyPair()
+    const kpC = generateKeyPair()
+
+    let doc = createDIDDocument(makePassport(kpA))
+    // First: planned rotation A→B with immediate activation
+    doc = announceKeyRotation(doc, kpA.privateKey, kpB, { mode: 'planned', activationDelayMs: 0 })
+    doc = activateKeyRotation(doc, new Date(Date.now() + 1000))
+    // Then: emergency rotation B→C
+    doc = announceKeyRotation(doc, kpB.privateKey, kpC, { mode: 'emergency' })
+
+    assert.equal(doc.rotationLog.length, 2)
+    assert.equal(isKeyActive(doc, kpA.publicKey), false)
+    assert.equal(isKeyActive(doc, kpB.publicKey), false)
+    assert.equal(isKeyActive(doc, kpC.publicKey), true)
+  })
+
+  it('verificationMethod preserves all historical keys', () => {
+    const kpA = generateKeyPair()
+    const kpB = generateKeyPair()
+    const kpC = generateKeyPair()
+
+    let doc = createDIDDocument(makePassport(kpA))
+    doc = announceKeyRotation(doc, kpA.privateKey, kpB, { mode: 'emergency' })
+    doc = announceKeyRotation(doc, kpB.privateKey, kpC, { mode: 'emergency' })
+
+    // All 3 keys in verificationMethod (A retired, B retired, C active)
+    assert.equal(doc.verificationMethod.length, 3)
+    const retired = doc.verificationMethod.filter(vm => vm.retiredAt)
+    assert.equal(retired.length, 2)
+  })
+
+  it('rotateAndInvalidate planned mode with no delegations stays announced', () => {
+    const kpOld = generateKeyPair()
+    const kpNew = generateKeyPair()
+    const doc = createDIDDocument(makePassport(kpOld))
+
+    const result = rotateAndInvalidate(doc, kpOld.privateKey, kpNew, [], {
+      mode: 'planned',
+      activationDelayMs: 86400000,
+    })
+
+    assert.equal(result.rotationState, 'announced')
+    assert.ok(result.didDocument.pendingRotation)
+    assert.equal(result.didDocument.pendingRotation!.mode, 'planned')
+  })
+
+  it('createDIDDocument sets @context correctly', () => {
+    const kp = generateKeyPair()
+    const doc = createDIDDocument(makePassport(kp))
+    assert.ok(doc['@context'].includes('https://www.w3.org/ns/did/v1'))
+    assert.ok(doc['@context'].includes('https://w3id.org/security/suites/ed25519-2020/v1'))
+  })
+
   it('isKeyActive considers pendingRotation activationTime for old key', () => {
     const kpOld = generateKeyPair()
     const kpNew = generateKeyPair()
