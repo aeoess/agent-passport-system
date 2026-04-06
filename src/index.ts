@@ -123,6 +123,7 @@ export type {
   // Key Rotation
   RotationMode, RotationState, DIDRotationEntry,
   RotatableDIDDocument, RotatableVerificationMethod,
+  AgentPostureStatus,
   // Layer 2
   ValuesFloor, FloorPrinciple, FloorAttestation,
   ComplianceCheck, ComplianceReport, SharedGround, FloorReference,

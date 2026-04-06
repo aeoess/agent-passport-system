@@ -1,5 +1,10 @@
 // Agent Passport System — Type Definitions
 
+// ── Agent Posture (gateway-enforced, NOT passport-embedded) ──
+// Posture is a mutable operational overlay applied by the gateway.
+// The passport credential stays immutable. Gateway checks its DB for posture.
+export type AgentPostureStatus = 'active' | 'restricted' | 'suspended'
+
 // ── Attestation Freshness ──
 // Typed staleness metadata for attestation evidence (A2A#1712).
 // Distinguishes snapshot (TPM), rotating (SPIFFE SVID), and static evidence.
