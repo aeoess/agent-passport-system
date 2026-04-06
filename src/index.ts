@@ -1043,6 +1043,14 @@ export type { A2AAgentCardV2 } from './adapters/a2a.js'
 export { governMCPToolCall, createMCPGovernanceInterceptor, mcpToolToScope } from './adapters/mcp.js'
 export type { MCPToolCall, MCPGovernanceConfig } from './adapters/mcp.js'
 
+export {
+  verifyGonkaHost, governGonkaInference, createDevshardReceipt,
+  delegationToAllowlistEntry, epochToDelegationExpiry, verifyPoCParticipation,
+} from './adapters/gonka.js'
+export type {
+  GonkaInferenceRequest, GonkaHostConfig, GonkaInferenceReceipt, GonkaHostVerification,
+} from './adapters/gonka.js'
+
 export { delegationToPolicy, policyToYaml, extractEffectiveScopes } from './adapters/openshell.js'
 export type { OpenShellPolicy, NetworkPolicyEntry, ScopeMapping } from './adapters/openshell.js'
 
