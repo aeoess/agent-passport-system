@@ -1,0 +1,63 @@
+{
+  "id": "signet-aps-v1-issuance",
+  "title": "Issuance: Signet link containing APS delegation",
+  "description": "Create a combined credential. Verify from both APS and Signet sides.",
+  "signet_link": {
+    "linkId": "signet-link-001",
+    "chain": "signet-chain-abc",
+    "status": "active",
+    "created_at": "2026-04-06T17:57:56.278Z",
+    "metadata": {
+      "aps_delegation": {
+        "delegationId": "del_14f66787-ffb",
+        "delegatedTo": "13f318d4e1cde3aa3bf547927b39cc092ceee3f24fc6ffa0e508cbf74330c540",
+        "delegatedBy": "0670efe5987644c79ee5d7b2d6ed6a44b8b6b11104bf40d68deb6c26e038c68f",
+        "scope": [
+          "tools:readFile",
+          "tools:writeFile"
+        ],
+        "spendLimit": 0,
+        "expiresAt": "2026-04-07T17:57:56.272Z",
+        "maxDepth": 1,
+        "currentDepth": 0,
+        "createdAt": "2026-04-06T17:57:56.272Z",
+        "signature": "1afa79f9b9c041dabbdd6a7b0f8f2797d4983ca3bf315bd21c23019a87aec6976c6c1a1f93309215b155202160bfbd595bf2ca23bd4e3521e05faad075595809"
+      },
+      "aps_delegation_hash": "sha256:e088221c4424dc9d7835e53c9e4f2a3911aa547af54262788ae7a086edb804b6"
+    }
+  },
+  "verification": {
+    "aps_only": {
+      "steps": [
+        "Extract metadata.aps_delegation",
+        "Verify Ed25519 signature against delegatedBy public key",
+        "Check scope covers requested action",
+        "Check expiresAt is in the future"
+      ],
+      "expected": {
+        "valid": true
+      },
+      "principal_public_key": "0670efe5987644c79ee5d7b2d6ed6a44b8b6b11104bf40d68deb6c26e038c68f"
+    },
+    "signet_only": {
+      "steps": [
+        "Verify chain integrity (Signet verification)",
+        "Check link status is active"
+      ],
+      "expected": {
+        "status": "active"
+      }
+    },
+    "full": {
+      "steps": [
+        "Signet verifies chain integrity",
+        "APS verifies delegation signature",
+        "Cross-check: aps_delegation_hash matches sha256(canonicalize(aps_delegation))"
+      ],
+      "expected": {
+        "valid": true,
+        "hash_matches": true
+      }
+    }
+  }
+}

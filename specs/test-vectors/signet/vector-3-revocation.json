@@ -1,0 +1,66 @@
+{
+  "id": "signet-aps-v3-revocation",
+  "title": "Revocation: Signet revokes link, APS-only service rejects",
+  "description": "Signet revokes the chain link. An APS-only service that cached the delegation queries the Signet status endpoint and rejects the credential.",
+  "sequence": [
+    {
+      "step": 1,
+      "action": "Initial state: link active, delegation valid",
+      "signet_link_status": "active",
+      "aps_delegation_valid": true,
+      "access_decision": "granted"
+    },
+    {
+      "step": 2,
+      "action": "Signet revokes the chain link",
+      "signet_link_status": "revoked",
+      "revoked_at": "2026-04-06T17:57:56.279Z",
+      "aps_delegation_valid": true,
+      "note": "APS delegation signature still verifies, but Signet link is revoked"
+    },
+    {
+      "step": 3,
+      "action": "APS-only service queries Signet status endpoint",
+      "cross_protocol_call": {
+        "method": "GET",
+        "url": "/chain/signet-chain-abc/link/signet-link-001/status",
+        "response": {
+          "status": "revoked",
+          "revokedAt": "2026-04-06T17:57:56.279Z"
+        }
+      },
+      "access_decision": "rejected",
+      "reason": "Signet link revoked, credential no longer valid despite valid APS signature"
+    }
+  ],
+  "signet_link": {
+    "linkId": "signet-link-001",
+    "chain": "signet-chain-abc",
+    "status": "revoked",
+    "created_at": "2026-04-06T17:57:56.278Z",
+    "metadata": {
+      "aps_delegation": {
+        "delegationId": "del_14f66787-ffb",
+        "delegatedTo": "13f318d4e1cde3aa3bf547927b39cc092ceee3f24fc6ffa0e508cbf74330c540",
+        "delegatedBy": "0670efe5987644c79ee5d7b2d6ed6a44b8b6b11104bf40d68deb6c26e038c68f",
+        "scope": [
+          "tools:readFile",
+          "tools:writeFile"
+        ],
+        "spendLimit": 0,
+        "expiresAt": "2026-04-07T17:57:56.272Z",
+        "maxDepth": 1,
+        "currentDepth": 0,
+        "createdAt": "2026-04-06T17:57:56.272Z",
+        "signature": "1afa79f9b9c041dabbdd6a7b0f8f2797d4983ca3bf315bd21c23019a87aec6976c6c1a1f93309215b155202160bfbd595bf2ca23bd4e3521e05faad075595809"
+      },
+      "aps_delegation_hash": "sha256:e088221c4424dc9d7835e53c9e4f2a3911aa547af54262788ae7a086edb804b6"
+    }
+  },
+  "expected": {
+    "aps_signature_valid": true,
+    "signet_status": "revoked",
+    "access_granted": false,
+    "reason": "Cross-protocol revocation check: Signet link revoked"
+  }
+}
