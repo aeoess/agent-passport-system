@@ -1119,3 +1119,12 @@ export {
 export type {
   ToolRegistryEntry, ToolRequirements, ToolIntegrityResult,
 } from './core/tool-integrity.js'
+
+// ── Recovery Policy (Standard Failure Patterns) ──
+export {
+  evaluateRecovery, createRecoveryEvent, createDefaultRecoveryPolicy,
+} from './core/recovery.js'
+export type {
+  RecoveryPolicy, RecoveryRule, RecoveryEvent,
+  RecoveryStrategy, RecoveryTrigger,
+} from './types/recovery.js'
