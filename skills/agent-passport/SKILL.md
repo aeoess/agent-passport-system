@@ -1,6 +1,6 @@
 ---
 name: agent-passport-system
-description: "Enforcement and accountability layer for AI agents. Bring your own identity (did:key, did:web, SPIFFE, OAuth, did:aps). Gateway enforcement boundary, monotonic narrowing, cascade revocation, spending controls, data lifecycle. Use when agents need scoped delegation, trust scoring, constraint enforcement, or cryptographic audit trails. 103 modules, 131 MCP tools, 2306 tests."
+description: "Enforcement and accountability layer for AI agents. Bring your own identity (did:key, did:web, SPIFFE, OAuth, did:aps). Gateway enforcement boundary, monotonic narrowing, cascade revocation, spending controls, data lifecycle. Use when agents need scoped delegation, trust scoring, constraint enforcement, or cryptographic audit trails. 103 modules, 131 MCP tools, 2468 tests. 7 framework adapters: Stripe, Composio, IBAC/Cedar, LangChain, CrewAI, MCP, A2A."
 metadata:
   clawdbot:
     emoji: "🔑"
@@ -37,7 +37,7 @@ metadata:
 
 ```bash
 npm install agent-passport-system        # SDK (103 modules)
-npm install agent-passport-system-mcp    # MCP server (125 tools)
+npm install agent-passport-system-mcp    # MCP server (131 tools)
 ```
 
 Remote MCP (zero install): `https://mcp.aeoess.com/sse`
@@ -76,7 +76,7 @@ npx agent-passport prove --beneficiary alice
 
 Output: Merkle root + inclusion proofs. 100K receipts provable with ~17 hashes.
 
-## MCP tools (125 total)
+## MCP tools (131 total)
 
 Setup: `npx agent-passport-system-mcp setup` (auto-configures Claude Desktop + Cursor)
 
@@ -103,6 +103,34 @@ register_data_source, create_access_receipt, create_derivation_receipt, create_d
 
 **Intent Network (5):**
 publish_intent_card, remove_intent_card, search_matches, request_intro, respond_to_intro
+
+## Framework adapters (7)
+
+One-function governance for every major agent framework. Each wraps tool/task execution with APS delegation checks and Ed25519-signed receipts.
+
+```typescript
+import {
+  governLangChainTool,              // LangChain/LangGraph
+  governCrewTask,                   // CrewAI
+  governMCPToolCall,                // Any MCP server
+  governIBACIntent,                 // IBAC (Cedar/OPA)
+  passportToA2ACard,                // A2A Agent Cards
+} from 'agent-passport-system'
+
+// Also available as standalone packages:
+// npm install @aeoess/stripe-governance
+// npm install @aeoess/composio-governance
+```
+
+| Adapter | Function | What it wraps |
+|---------|----------|--------------|
+| LangChain | `governLangChainTool()` | BaseTool.invoke() |
+| CrewAI | `governCrewTask()` | Crew task execution |
+| MCP | `governMCPToolCall()` | Any MCP tool call |
+| IBAC/Cedar | `governIBACIntent()` | Cedar/OPA policy tuples |
+| A2A | `passportToA2ACard()` | Agent Card ↔ passport bridge |
+| Stripe | `governMPPPayment()` | Stripe agent payments |
+| Composio | `governComposioAction()` | 250+ tool integrations |
 
 ## Programmatic API
 
@@ -131,7 +159,7 @@ Grade travels with the passport. Any consumer reads it without understanding sco
 ## Key facts
 
 - **103 modules** (71 core + 32 v2 constitutional)
-- **2,180 tests** including 50 adversarial attack scenarios
+- **2,468 tests** including 50 adversarial attack scenarios
 - **131 MCP tools** with role-scoped profiles
 - **Policy eval <2ms**, 403 ops/sec, 15 constraint dimensions
 - **Zero heavy dependencies** — Node.js crypto + uuid only
