@@ -78,6 +78,14 @@ export interface OutcomeRecord {
   assurance_class: AssuranceClass
 }
 
+// ── Behavioral Evidence (Issue #9 wire-up) ──
+export interface BehavioralEvidenceMetadata {
+  evaluationContextHash: string
+  aggregateScore: number
+  classification: 'hold' | 'bend' | 'break'
+  confidence: number
+}
+
 // ── Artifact Provenance ──
 export interface ArtifactProvenance {
   artifact_id: string
@@ -93,6 +101,7 @@ export interface ArtifactProvenance {
   policy_context: PolicyContext
   signature: string
   assurance_class: AssuranceClass
+  behavioralEvidence?: BehavioralEvidenceMetadata
 }
 
 // ── Emergency Pathway ──

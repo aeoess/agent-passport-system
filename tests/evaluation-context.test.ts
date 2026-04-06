@@ -7,6 +7,10 @@ import {
   createEvaluationContext,
   createBehavioralAttestationResult,
   validateAttestationResult,
+  createArtifactProvenance,
+  verifyArtifactIntegrity,
+  createPolicyContext,
+  generateKeyPair,
 } from '../src/index.js'
 import type { EvaluationContext, BehavioralAttestationResult } from '../src/index.js'
 
@@ -205,5 +209,100 @@ describe('validateAttestationResult', () => {
     const validation = validateAttestationResult(deserialized)
     assert.equal(validation.valid, true)
     assert.equal(validation.errors.length, 0)
+  })
+})
+
+describe('Provenance + BehavioralAttestationResult wire-up (Issue #9)', () => {
+  const keys = generateKeyPair()
+  const content = 'SELECT * FROM agents WHERE status = active'
+
+  function makeProvParams(extra?: Record<string, unknown>) {
+    const ctx = createPolicyContext({
+      issuer_id: keys.publicKey,
+      valid_until: new Date(Date.now() + 86400000).toISOString(),
+      trust_epoch: 1,
+    })
+    return {
+      authoring_agent: keys.publicKey,
+      authority_scope: { action_categories: ['data_retrieval'] },
+      delegation_ref: 'del-test-001',
+      intended_use: 'Query agent status',
+      risk_class: 'low' as const,
+      requires_human_execution: false,
+      content,
+      artifact_type: 'database_query',
+      policy_context: ctx,
+      agent_private_key: keys.privateKey,
+      ...extra,
+    }
+  }
+
+  it('backward compat: provenance without attestation still works', () => {
+    const prov = createArtifactProvenance(makeProvParams())
+    assert.ok(prov.artifact_id)
+    assert.ok(prov.signature)
+    assert.equal(prov.behavioralEvidence, undefined)
+    assert.ok(verifyArtifactIntegrity(prov, content))
+  })
+
+  it('provenance with valid attestation includes evidence in metadata', () => {
+    const attestation = createBehavioralAttestationResult({
+      context: sampleContext,
+      dimensionScores: {
+        coherence: { score: 0.85, weight: 0.5 },
+        accuracy: { score: 0.90, weight: 0.5 },
+      },
+      classification: 'hold',
+      confidence: 0.92,
+      formatArtifactCorrected: false,
+    })
+    const prov = createArtifactProvenance(makeProvParams({ behavioralAttestation: attestation }))
+    assert.ok(prov.behavioralEvidence)
+    assert.equal(prov.behavioralEvidence!.evaluationContextHash, attestation.evaluationContextHash)
+    assert.equal(prov.behavioralEvidence!.aggregateScore, attestation.aggregateScore)
+    assert.equal(prov.behavioralEvidence!.classification, 'hold')
+    assert.equal(prov.behavioralEvidence!.confidence, 0.92)
+    assert.ok(verifyArtifactIntegrity(prov, content))
+  })
+
+  it('provenance with invalid attestation (mismatched aggregate) throws', () => {
+    const attestation = createBehavioralAttestationResult({
+      context: sampleContext,
+      dimensionScores: {
+        coherence: { score: 0.85, weight: 0.5 },
+        accuracy: { score: 0.90, weight: 0.5 },
+      },
+      classification: 'hold',
+      confidence: 0.92,
+      formatArtifactCorrected: false,
+    })
+    // Tamper aggregate
+    const tampered = { ...attestation, aggregateScore: 0.99 }
+    assert.throws(
+      () => createArtifactProvenance(makeProvParams({ behavioralAttestation: tampered })),
+      /Invalid behavioral attestation/,
+    )
+  })
+
+  it('round-trip: provenance with attestation -> verify -> evidence present', () => {
+    const attestation = createBehavioralAttestationResult({
+      context: sampleContext,
+      dimensionScores: {
+        coherence: { score: 0.8, weight: 0.4 },
+        accuracy: { score: 0.7, weight: 0.3 },
+        faithfulness: { score: 0.9, weight: 0.3 },
+      },
+      classification: 'hold',
+      confidence: 0.85,
+      formatArtifactCorrected: true,
+    })
+    const prov = createArtifactProvenance(makeProvParams({ behavioralAttestation: attestation }))
+
+    // Serialize and deserialize (simulates wire transport)
+    const wire = JSON.parse(JSON.stringify(prov))
+    assert.ok(verifyArtifactIntegrity(wire, content))
+    assert.ok(wire.behavioralEvidence)
+    assert.equal(wire.behavioralEvidence.classification, 'hold')
+    assert.equal(wire.behavioralEvidence.confidence, 0.85)
   })
 })

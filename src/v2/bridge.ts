@@ -12,9 +12,11 @@ import { canonicalize } from '../core/canonical.js'
 import type { Delegation } from '../types/passport.js'
 import type {
   PolicyContext, V2Delegation, V2ScopeDefinition, V2DelegationStatus,
-  AssuranceClass, ArtifactProvenance, RiskClass,
+  AssuranceClass, ArtifactProvenance, RiskClass, BehavioralEvidenceMetadata,
   SemanticUncertainty, Condition, ConditionSet,
 } from './types.js'
+import type { BehavioralAttestationResult } from '../types/attestation.js'
+import { validateAttestationResult } from '../core/evaluation-context.js'
 
 
 // ═══════════════════════════════════════════════
@@ -143,6 +145,7 @@ export function createArtifactProvenance(params: {
   artifact_type: string
   policy_context: PolicyContext
   agent_private_key: string
+  behavioralAttestation?: BehavioralAttestationResult
 }): ArtifactProvenance {
   const contentHash = sha256(params.content)
   const contentSize = Buffer.byteLength(params.content, 'utf-8')
@@ -160,6 +163,21 @@ export function createArtifactProvenance(params: {
     policy_context: params.policy_context,
     assurance_class: 'evidentially_auditable',
   }
+
+  // Wire BehavioralAttestationResult into provenance (Issue #9)
+  if (params.behavioralAttestation) {
+    const validation = validateAttestationResult(params.behavioralAttestation)
+    if (!validation.valid) {
+      throw new Error(`Invalid behavioral attestation: ${validation.errors.join(', ')}`)
+    }
+    provenanceData.behavioralEvidence = {
+      evaluationContextHash: params.behavioralAttestation.evaluationContextHash,
+      aggregateScore: params.behavioralAttestation.aggregateScore,
+      classification: params.behavioralAttestation.classification,
+      confidence: params.behavioralAttestation.confidence,
+    } satisfies BehavioralEvidenceMetadata
+  }
+
   const signature = signObject(provenanceData, params.agent_private_key)
   return { ...provenanceData, signature } as ArtifactProvenance
 }

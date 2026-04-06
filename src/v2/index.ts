@@ -10,7 +10,7 @@ export type {
   AssuranceClass, SemanticUncertainty, OutcomeClass, EarningContext,
   RiskClass, ReputationInheritance, ReviewMode, AnomalyType,
   ActivationStatus, OutcomePerspective, OutcomeRecord,
-  ArtifactProvenance,
+  ArtifactProvenance, BehavioralEvidenceMetadata,
   Condition, ConditionSet,
   ActionRecord, AnomalyFlag, ConcentrationMetrics,
   MigrationRequest, MigrationRecord,
