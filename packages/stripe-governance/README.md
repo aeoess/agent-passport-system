@@ -1,8 +1,5 @@
 # APS Governance Adapter for Stripe Agent Payments
 
-> **For production use:** `npm install @aeoess/stripe-governance agent-passport-system`
-> See [`packages/stripe-governance/`](../../packages/stripe-governance/) for the standalone npm package.
-
 **The authorization layer between your agent and Stripe.**
 
 Stripe handles money movement. APS handles who authorized it, within what limits, and produces the audit trail. Neither replaces the other.
@@ -52,12 +49,12 @@ Agent wants to pay for API credits
 ## Quick Start
 
 ```bash
-npm install agent-passport-system
+npm install @aeoess/stripe-governance agent-passport-system
 ```
 
 ```typescript
-import { governMPPPayment } from './stripe-governance-adapter'
-import { generateKeys, issuePassport, createCommerceDelegation } from 'agent-passport-system'
+import { governMPPPayment } from '@aeoess/stripe-governance'
+import { createPassport, createCommerceDelegation } from 'agent-passport-system'
 
 // Human principal sets up agent with commerce authority
 const delegation = createCommerceDelegation({
@@ -88,7 +85,7 @@ const result = await governMPPPayment(config, {
 
 ```typescript
 import { createStripeAgentToolkit } from '@stripe/agent-toolkit/langchain'
-import { governStripeTools } from './stripe-governance-adapter'
+import { governStripeTools } from '@aeoess/stripe-governance'
 
 // Standard Stripe setup
 const toolkit = await createStripeAgentToolkit({
@@ -116,7 +113,7 @@ const governedTools = governStripeTools(toolkit.getTools(), {
 ## Financial Observability
 
 ```typescript
-import { getAgentBudgetStatus } from './stripe-governance-adapter'
+import { getAgentBudgetStatus } from '@aeoess/stripe-governance'
 
 const status = getAgentBudgetStatus(config)
 // {
