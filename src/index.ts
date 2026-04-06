@@ -467,6 +467,13 @@ export type {
   PublicProofSurface, EntityVerificationResult,
 } from './types/did.js'
 
+// ── Trust Bootstrap Adapters ──
+export {
+  bootstrapFromAPIKey, bootstrapFromGitHub, bootstrapFromCIKey,
+  upgradeBootstrappedPassport,
+} from './core/trust-adapters.js'
+export type { ImportEvidence, BootstrapResult } from './core/trust-adapters.js'
+
 
 // ── Layer 10: A2A Protocol Bridge ──
 export {
