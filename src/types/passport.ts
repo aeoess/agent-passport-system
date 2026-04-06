@@ -178,6 +178,59 @@ export interface IssuerSignature {
   signedAt: string
 }
 
+// ── Key Rotation Types ──
+
+export type RotationMode = 'planned' | 'emergency'
+
+export type RotationState =
+  | 'announced'              // old key signed rotation, both keys valid
+  | 'revocation_in_progress' // cascade revoke started
+  | 'revocation_complete'    // all old-key delegations revoked
+  | 'activated'              // new key is sole authority
+
+export interface DIDRotationEntry {
+  previousKey: string              // hex Ed25519 public key being rotated FROM
+  newKey: string                   // hex Ed25519 public key being rotated TO
+  mode: RotationMode
+  announcedAt: string              // ISO 8601
+  activationTime: string           // ISO 8601 — when new key becomes sole authority
+  state: RotationState
+  rotationSignature: string        // old key signs canonicalized {previousKey, newKey, mode, activationTime}
+  revokedDelegations?: string[]    // delegation IDs revoked during this rotation
+  completedAt?: string             // ISO 8601 — when state reached 'activated'
+}
+
+export interface RotatableVerificationMethod {
+  id: string
+  type: 'Ed25519VerificationKey2020'
+  controller: string
+  publicKeyMultibase: string
+  /** Set when key is rotated out. Present = key is historical only. */
+  retiredAt?: string
+}
+
+export interface RotatableDIDDocument {
+  '@context': string[]
+  id: string
+  controller: string
+  alsoKnownAs?: string[]
+  verificationMethod: RotatableVerificationMethod[]
+  authentication: string[]         // key IDs currently authorized for auth
+  assertionMethod: string[]        // key IDs currently authorized for assertions
+  capabilityDelegation: string[]   // key IDs currently authorized for delegation
+  pendingRotation?: {
+    newKeyId: string
+    mode: RotationMode
+    activationTime: string
+    state: RotationState
+    rotationSignature: string
+  }
+  rotationLog: DIDRotationEntry[]
+  service?: Array<{ id: string; type: string; serviceEndpoint: unknown }>
+  created: string
+  updated: string
+}
+
 export interface SignedPassport {
   passport: AgentPassport
   signature: string
@@ -185,6 +238,8 @@ export interface SignedPassport {
   issuerSignature?: IssuerSignature
   /** Agent attestation summary (Phase 1 attestation architecture). Optional for backward compatibility. */
   attestation?: import('./attestation.js').PassportAttestationSummary
+  /** DID Document with rotation support. Optional for backward compat. */
+  didDocument?: RotatableDIDDocument
 }
 
 export interface VerificationResult {

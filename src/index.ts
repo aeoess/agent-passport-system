@@ -120,6 +120,9 @@ export type {
   // v1.4 — Cascade Revocation
   CascadeRevocationResult, DelegationChainValidation,
   DelegationChainLink, RevocationEvent,
+  // Key Rotation
+  RotationMode, RotationState, DIDRotationEntry,
+  RotatableDIDDocument, RotatableVerificationMethod,
   // Layer 2
   ValuesFloor, FloorPrinciple, FloorAttestation,
   ComplianceCheck, ComplianceReport, SharedGround, FloorReference,
@@ -432,6 +435,13 @@ export {
   signWithDID, verifyWithDID,
   hexToMultibase, multibaseToHex
 } from './core/did.js'
+
+// ── Key Rotation — DID Document + Identity Continuity ──
+export {
+  createDIDDocument, announceKeyRotation, activateKeyRotation,
+  verifyRotationChain, isKeyActive, rotateAndInvalidate,
+} from './core/key-rotation.js'
+export type { RotationResult } from './core/key-rotation.js'
 
 export {
   verifyEntityChain,
