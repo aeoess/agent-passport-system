@@ -1,5 +1,8 @@
 # APS Governance Adapter for Composio Tool Execution
 
+> **For production use:** `npm install @aeoess/composio-governance agent-passport-system`
+> See [`packages/composio-governance/`](../../packages/composio-governance/) for the standalone npm package.
+
 **The authorization layer between your agent and 250+ tools.**
 
 Composio handles authentication and connectivity. APS handles who authorized which tool, within what scope, and produces the audit trail. Neither replaces the other.
