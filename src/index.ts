@@ -1024,15 +1024,24 @@ export type {
 
 export { createCrewAIGovernance } from './adapters/crewai.js'
 export type { CrewAIGovernance, CrewAITaskOutput } from './adapters/crewai.js'
+export { verifyCrewMember, governCrewTask, crewTaskToScopes } from './adapters/crewai.js'
+export type { CrewTask, CrewGovernanceConfig, GovernedTaskResult } from './adapters/crewai.js'
 
 export { createADKGovernancePlugin } from './adapters/adk.js'
 export type { ADKGovernancePlugin, ADKActionContext } from './adapters/adk.js'
 
 export { createLangChainGovernanceHandler } from './adapters/langchain.js'
 export type { LangChainGovernanceHandler } from './adapters/langchain.js'
+export { governLangChainTool, createLangGraphGovernance, langchainToolToScope } from './adapters/langchain.js'
+export type { LangChainToolCall, GovernedToolResult, DeniedToolResult, LangChainGovernanceConfig } from './adapters/langchain.js'
 
 export { createA2AGovernance } from './adapters/a2a.js'
 export type { A2AGovernance } from './adapters/a2a.js'
+export { passportToA2ACard, a2aCardToPassportMeta, verifyA2AIdentity, a2aSkillsToScope, embedA2ATrustSignal } from './adapters/a2a.js'
+export type { A2AAgentCardV2 } from './adapters/a2a.js'
+
+export { governMCPToolCall, createMCPGovernanceInterceptor, mcpToolToScope } from './adapters/mcp.js'
+export type { MCPToolCall, MCPGovernanceConfig } from './adapters/mcp.js'
 
 export { delegationToPolicy, policyToYaml, extractEffectiveScopes } from './adapters/openshell.js'
 export type { OpenShellPolicy, NetworkPolicyEntry, ScopeMapping } from './adapters/openshell.js'
