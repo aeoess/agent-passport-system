@@ -1,6 +1,6 @@
 ---
 name: agent-passport-system
-description: "Enforcement and accountability layer for AI agents. Bring your own identity (did:key, did:web, SPIFFE, OAuth, did:aps). Gateway enforcement boundary, monotonic narrowing, cascade revocation, spending controls, data lifecycle. Use when agents need scoped delegation, trust scoring, constraint enforcement, or cryptographic audit trails. 103 modules, 125 MCP tools, 2180 tests."
+description: "Enforcement and accountability layer for AI agents. Bring your own identity (did:key, did:web, SPIFFE, OAuth, did:aps). Gateway enforcement boundary, monotonic narrowing, cascade revocation, spending controls, data lifecycle. Use when agents need scoped delegation, trust scoring, constraint enforcement, or cryptographic audit trails. 103 modules, 131 MCP tools, 2306 tests."
 metadata:
   clawdbot:
     emoji: "🔑"
@@ -132,7 +132,7 @@ Grade travels with the passport. Any consumer reads it without understanding sco
 
 - **103 modules** (71 core + 32 v2 constitutional)
 - **2,180 tests** including 50 adversarial attack scenarios
-- **125 MCP tools** with role-scoped profiles
+- **131 MCP tools** with role-scoped profiles
 - **Policy eval <2ms**, 403 ops/sec, 15 constraint dimensions
 - **Zero heavy dependencies** — Node.js crypto + uuid only
 - **Apache-2.0** license

@@ -107,7 +107,7 @@ const agent = joinSocialContract({ name: 'my-agent', owner: 'alice', floor: floo
 
 ## The Stack
 
-71 core modules + 32 v2 constitutional modules. 2,230 tests. Zero heavy dependencies.
+71 core modules + 32 v2 constitutional modules. 2,306 tests. Zero heavy dependencies.
 
 | Layer | What it does | Key primitive |
 |-------|-------------|---------------|
@@ -126,7 +126,7 @@ const agent = joinSocialContract({ name: 'my-agent', owner: 'alice', floor: floo
 
 ## MCP Server
 
-128 tools across all modules. Any MCP client connects agents directly.
+131 tools across all modules. Any MCP client connects agents directly.
 
 ```bash
 npm install -g agent-passport-system-mcp
@@ -161,7 +161,7 @@ npx agent-passport audit --floor values/floor.yaml
 
 ```bash
 npm test
-# 2,230 tests, 0 failures
+# 2,306 tests, 0 failures
 ```
 
 50 adversarial tests: Merkle tampering, attribution gaming, compliance violations, floor negotiation attacks, cross-chain confused deputy, taint laundering, authority probing.
