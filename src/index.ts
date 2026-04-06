@@ -1142,3 +1142,11 @@ export {
 export type {
   EvaluationContext, BehavioralAttestationResult,
 } from './types/attestation.js'
+
+
+// ══════════════════════════════════════
+// Agent Health Status (Enterprise Monitoring)
+// ══════════════════════════════════════
+
+export type { AgentHealthStatus } from './types/health.js'
+export { deriveHealthStatus } from './types/health.js'
