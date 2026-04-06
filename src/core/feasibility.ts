@@ -239,3 +239,102 @@ export function lintTaskFeasibility(opts: {
 
   return result(issues)
 }
+
+// ══════════════════════════════════════
+// GATEWAY-COMPATIBLE DELEGATION LINTING
+// ══════════════════════════════════════
+// Only 2 checks that work against current gateway schema.
+// Advisory only. Does NOT emit reputation signals.
+// Infeasible delegations are ADMIN mistakes, not agent misbehavior.
+
+export interface GatewayLintResult {
+  severity: 'error' | 'warning'
+  code: string
+  message: string
+}
+
+export interface GatewayLintReport {
+  delegation_id?: string
+  checks_run: number
+  checks_skipped: number
+  skipped_reasons: string[]
+  errors: number
+  warnings: number
+  results: GatewayLintResult[]
+}
+
+/**
+ * Lint a delegation against a task context using only checks
+ * that the gateway can actually enforce.
+ *
+ * When context is not provided, checks that depend on it are skipped
+ * and listed in skipped_reasons. An empty-context call returns a report
+ * that says "N checks skipped" — not a false "clean" report.
+ */
+export function lintDelegationForGateway(
+  delegation: Delegation,
+  context?: {
+    requiredScopes?: string[]
+    estimatedSpend?: number
+  },
+): GatewayLintReport {
+  const results: GatewayLintResult[] = []
+  let checksRun = 0
+  let checksSkipped = 0
+  const skippedReasons: string[] = []
+
+  // ── Check 1: SPEND_TOO_LOW ──
+  if (delegation.spendLimit !== undefined && context?.estimatedSpend !== undefined) {
+    checksRun++
+    if (delegation.spendLimit < context.estimatedSpend) {
+      results.push({
+        severity: 'error',
+        code: 'SPEND_TOO_LOW',
+        message: `Spend limit ($${delegation.spendLimit}) is below estimated task cost ($${context.estimatedSpend}).`,
+      })
+    }
+  } else {
+    checksSkipped++
+    if (context?.estimatedSpend === undefined) {
+      skippedReasons.push('estimatedSpend not provided')
+    } else {
+      skippedReasons.push('spendLimit not set on delegation')
+    }
+  }
+
+  // ── Check 2: SCOPE_MISSING ──
+  if (context?.requiredScopes && context.requiredScopes.length > 0) {
+    checksRun++
+    const missingScopes = context.requiredScopes.filter(
+      required => !delegation.scope.some(granted => scopeCovers(granted, required)),
+    )
+    if (missingScopes.length > 0) {
+      results.push({
+        severity: 'error',
+        code: 'SCOPE_MISSING',
+        message: `Task requires scope '${missingScopes.join("', '")}' but delegation grants [${delegation.scope.map(s => `'${s}'`).join(', ')}].`,
+      })
+    }
+  } else {
+    checksSkipped++
+    skippedReasons.push('requiredScopes not provided')
+  }
+
+  // ── Skipped checks (gateway schema limitations) ──
+  checksSkipped += 3
+  skippedReasons.push(
+    'ALREADY_EXPIRED: expiresAt not in gateway delegations table',
+    'DEADLINE_IMPOSSIBLE: expiresAt not available',
+    'DEPTH_MAXED: currentDepth not tracked by gateway',
+  )
+
+  return {
+    delegation_id: delegation.delegationId,
+    checks_run: checksRun,
+    checks_skipped: checksSkipped,
+    skipped_reasons: skippedReasons,
+    errors: results.filter(r => r.severity === 'error').length,
+    warnings: results.filter(r => r.severity === 'warning').length,
+    results,
+  }
+}

@@ -645,8 +645,9 @@ export type {
 // ── Feasibility Linting (Module 24, Gap 7) ──
 
 export {
-  lintDelegation, lintTaskFeasibility,
+  lintDelegation, lintTaskFeasibility, lintDelegationForGateway,
 } from './core/feasibility.js'
+export type { GatewayLintResult, GatewayLintReport } from './core/feasibility.js'
 
 export type {
   FeasibilitySeverity, FeasibilityIssue, FeasibilityResult,
