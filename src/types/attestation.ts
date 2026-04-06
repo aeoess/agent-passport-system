@@ -320,3 +320,33 @@ export interface RecoveryResult {
   recoveryAuthorized: boolean;                 // false if no crypto proof provided
   authorizationMethod?: 'prior_key' | 'recovery_key' | 'principal';
 }
+
+
+// ══════════════════════════════════════════════════════════════════
+// Behavioral Evaluation Types (Issue #9 — lowkey-divine schema)
+// Separates evaluation INPUT conditions from evaluation OUTPUT results.
+// ══════════════════════════════════════════════════════════════════
+
+/** Input conditions for a behavioral evaluation. Immutable after creation. */
+export interface EvaluationContext {
+  substrate: string                    // model/runtime identifier
+  responseFormatSchema: string         // expected output format
+  normalizationMethod: string          // how cross-substrate results are aligned
+  evaluationProtocolVersion: string    // sha256:<hash> of methodology
+  sampleSize: number                   // MANDATORY: 1 run != 50 runs
+  evaluatedAt: string                  // ISO 8601
+}
+
+/** Output of a behavioral evaluation. References context by hash. */
+export interface BehavioralAttestationResult {
+  evaluationContextHash: string        // sha256 of canonical EvaluationContext
+  dimensionScores: Record<string, {
+    score: number
+    weight: number                     // MUST reconstruct aggregate via weights
+  }>
+  aggregateScore: number
+  classification: 'hold' | 'bend' | 'break'
+  confidence: number                   // 0.0-1.0
+  formatArtifactCorrected: boolean
+  dimensionalInversionDetected: boolean  // MUST be derivable from dimensionScores
+}

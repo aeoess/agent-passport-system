@@ -1128,3 +1128,17 @@ export type {
   RecoveryPolicy, RecoveryRule, RecoveryEvent,
   RecoveryStrategy, RecoveryTrigger,
 } from './types/recovery.js'
+
+
+// ══════════════════════════════════════
+// Behavioral Evaluation Context (Issue #9)
+// ══════════════════════════════════════
+
+export {
+  createEvaluationContext, createBehavioralAttestationResult,
+  validateAttestationResult,
+} from './core/evaluation-context.js'
+
+export type {
+  EvaluationContext, BehavioralAttestationResult,
+} from './types/attestation.js'
