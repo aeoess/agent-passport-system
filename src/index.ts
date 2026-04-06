@@ -1037,6 +1037,16 @@ export type { A2AGovernance } from './adapters/a2a.js'
 export { delegationToPolicy, policyToYaml, extractEffectiveScopes } from './adapters/openshell.js'
 export type { OpenShellPolicy, NetworkPolicyEntry, ScopeMapping } from './adapters/openshell.js'
 
+export {
+  ibacIntentToScope, ibacTuplesToDelegation,
+  evaluateIBACTuples, governIBACIntent,
+} from './adapters/ibac.js'
+export type {
+  IBACIntent, IBACAction, IBACTuple, IBACEvaluationResult,
+} from './adapters/ibac.js'
+
+export { cedarPolicyToTuples, delegationToCedarPolicy } from './adapters/ibac-cedar.js'
+
 
 // ══════════════════════════════════════
 // Conformance Test Suite
