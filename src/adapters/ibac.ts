@@ -12,6 +12,7 @@ import { createDelegation, scopeAuthorizes } from '../core/delegation.js'
 import { sign } from '../crypto/keys.js'
 import { canonicalize } from '../core/canonical.js'
 import type { Delegation, ActionReceipt, SignedPassport } from '../types/passport.js'
+import { reportReceipt, type GatewayReporterConfig } from './gateway-reporter.js'
 
 // ── Types ──
 
@@ -138,6 +139,7 @@ export function governIBACIntent(
     passport: SignedPassport
     delegation: Delegation
     privateKey: string
+    gateway?: GatewayReporterConfig
     onReceipt?: (r: ActionReceipt) => void
   },
 ): IBACEvaluationResult {
@@ -181,6 +183,7 @@ export function governIBACIntent(
   const receipt = { ...receiptData, signature } as ActionReceipt
 
   if (config.onReceipt) config.onReceipt(receipt)
+  if (config.gateway) reportReceipt(receipt, config.gateway).catch(() => {})
 
   return { intent, delegation: config.delegation, tupleResults, receipt }
 }

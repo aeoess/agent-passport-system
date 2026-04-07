@@ -15,6 +15,7 @@ import { verifyPassport } from '../verification/verify.js'
 import { sign } from '../crypto/keys.js'
 import { canonicalize } from '../core/canonical.js'
 import type { Delegation, ActionReceipt, SignedPassport } from '../types/passport.js'
+import { reportReceipt, type GatewayReporterConfig } from './gateway-reporter.js'
 
 // ── Types ──
 
@@ -33,6 +34,7 @@ export interface GonkaHostConfig {
   privateKey: string
   allowedModels?: string[]
   maxInferencesPerEpoch?: number
+  gateway?: GatewayReporterConfig
   onReceipt?: (r: ActionReceipt) => void
   onDenied?: (info: { host: string; reason: string }) => void
 }
@@ -129,6 +131,7 @@ export async function governGonkaInference(
     if (config.onDenied) config.onDenied({ host, reason: check.reason })
     const receipt = buildReceipt(config.passport.passport.agentId, config.delegation.delegationId, config.privateKey, request.model, scope, 'failure', check.reason)
     if (config.onReceipt) config.onReceipt(receipt)
+    if (config.gateway) reportReceipt(receipt, config.gateway).catch(() => {})
     return { denied: true, reason: check.reason, receipt }
   }
 
@@ -141,6 +144,7 @@ export async function governGonkaInference(
       if (config.onDenied) config.onDenied({ host, reason })
       const receipt = buildReceipt(config.passport.passport.agentId, config.delegation.delegationId, config.privateKey, request.model, scope, 'failure', reason)
       if (config.onReceipt) config.onReceipt(receipt)
+      if (config.gateway) reportReceipt(receipt, config.gateway).catch(() => {})
       return { denied: true, reason, receipt }
     }
     epochCounters.set(key, count + 1)
@@ -158,6 +162,7 @@ export async function governGonkaInference(
     `Inference completed: ${result.tokensUsed} tokens, hash: ${inferenceHash.slice(0, 16)}`,
   )
   if (config.onReceipt) config.onReceipt(receipt)
+  if (config.gateway) reportReceipt(receipt, config.gateway).catch(() => {})
 
   return {
     result,

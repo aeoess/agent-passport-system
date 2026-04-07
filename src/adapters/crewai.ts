@@ -93,6 +93,7 @@ import { verifyPassport } from '../verification/verify.js'
 import { sign } from '../crypto/keys.js'
 import { canonicalize } from '../core/canonical.js'
 import type { Delegation, ActionReceipt, SignedPassport } from '../types/passport.js'
+import { reportReceipt, type GatewayReporterConfig } from './gateway-reporter.js'
 
 export interface CrewTask {
   description: string
@@ -105,6 +106,7 @@ export interface CrewGovernanceConfig {
   passport: SignedPassport
   delegation: Delegation
   privateKey: string
+  gateway?: GatewayReporterConfig
   onReceipt?: (r: ActionReceipt) => void
   onDenied?: (info: { task: string; agent: string; reason: string }) => void
 }
@@ -180,6 +182,7 @@ export async function governCrewTask(
     if (config.onDenied) config.onDenied({ task: task.description, agent: task.agent, reason: check.reason })
     const receipt = buildCrewReceipt(passport.passport.agentId, delegation.delegationId, privateKey, task.description, check.scope, 'failure', check.reason)
     if (config.onReceipt) config.onReceipt(receipt)
+    if (config.gateway) reportReceipt(receipt, config.gateway).catch(() => {})
     return { denied: true, reason: check.reason, receipt }
   }
 
@@ -194,6 +197,10 @@ export async function governCrewTask(
   const mainScope = crewTaskToScopes(task).join(', ')
   const receipt = buildCrewReceipt(passport.passport.agentId, delegation.delegationId, privateKey, task.description, mainScope, 'success', `Task completed with ${(task.tools || []).length} tools`)
   if (config.onReceipt) config.onReceipt(receipt)
+  if (config.gateway) {
+    reportReceipt(receipt, config.gateway).catch(() => {})
+    for (const tr of toolReceipts) { reportReceipt(tr, config.gateway).catch(() => {}) }
+  }
   for (const tr of toolReceipts) { if (config.onReceipt) config.onReceipt(tr) }
 
   return { output, receipt, toolReceipts }

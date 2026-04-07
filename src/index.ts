@@ -1064,6 +1064,9 @@ export type {
 
 export { cedarPolicyToTuples, delegationToCedarPolicy } from './adapters/ibac-cedar.js'
 
+export { reportReceipt, reportEvaluation } from './adapters/gateway-reporter.js'
+export type { GatewayReporterConfig } from './adapters/gateway-reporter.js'
+
 
 // ══════════════════════════════════════
 // Conformance Test Suite

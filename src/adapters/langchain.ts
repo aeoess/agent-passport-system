@@ -90,6 +90,7 @@ import { verifyPassport } from '../verification/verify.js'
 import { sign } from '../crypto/keys.js'
 import { canonicalize } from '../core/canonical.js'
 import type { Delegation, ActionReceipt, SignedPassport } from '../types/passport.js'
+import { reportReceipt, type GatewayReporterConfig } from './gateway-reporter.js'
 
 export interface LangChainToolCall {
   name: string
@@ -113,6 +114,7 @@ export interface LangChainGovernanceConfig {
   delegation: Delegation
   privateKey: string
   scopeMapping?: Record<string, string>
+  gateway?: GatewayReporterConfig
   onReceipt?: (r: ActionReceipt) => void
   onDenied?: (info: { tool: string; reason: string }) => void
 }
@@ -159,6 +161,7 @@ export async function governLangChainTool(
     if (config.onDenied) config.onDenied({ tool: call.name, reason })
     const receipt = buildLCReceipt(passport.passport.agentId, delegation.delegationId, privateKey, call.name, scope, 'failure', reason)
     if (config.onReceipt) config.onReceipt(receipt)
+    if (config.gateway) reportReceipt(receipt, config.gateway).catch(() => {})
     return { denied: true, reason, receipt }
   }
 
@@ -169,6 +172,7 @@ export async function governLangChainTool(
     if (config.onDenied) config.onDenied({ tool: call.name, reason })
     const receipt = buildLCReceipt(passport.passport.agentId, delegation.delegationId, privateKey, call.name, scope, 'failure', reason)
     if (config.onReceipt) config.onReceipt(receipt)
+    if (config.gateway) reportReceipt(receipt, config.gateway).catch(() => {})
     return { denied: true, reason, receipt }
   }
 
@@ -178,6 +182,7 @@ export async function governLangChainTool(
     if (config.onDenied) config.onDenied({ tool: call.name, reason })
     const receipt = buildLCReceipt(passport.passport.agentId, delegation.delegationId, privateKey, call.name, scope, 'failure', reason)
     if (config.onReceipt) config.onReceipt(receipt)
+    if (config.gateway) reportReceipt(receipt, config.gateway).catch(() => {})
     return { denied: true, reason, receipt }
   }
 
@@ -185,6 +190,7 @@ export async function governLangChainTool(
   const output = await execute(call.args)
   const receipt = buildLCReceipt(passport.passport.agentId, delegation.delegationId, privateKey, call.name, scope, 'success', 'Tool executed successfully')
   if (config.onReceipt) config.onReceipt(receipt)
+  if (config.gateway) reportReceipt(receipt, config.gateway).catch(() => {})
   return { output, receipt }
 }
 
