@@ -1,6 +1,6 @@
 ---
 name: agent-passport-system
-description: "Enforcement and accountability layer for AI agents. Bring your own identity (did:key, did:web, SPIFFE, OAuth, did:aps). Gateway enforcement boundary, monotonic narrowing, cascade revocation, spending controls, data lifecycle. Use when agents need scoped delegation, trust scoring, constraint enforcement, or cryptographic audit trails. 103 modules, 131 MCP tools, 2468 tests. 7 framework adapters: Stripe, Composio, IBAC/Cedar, LangChain, CrewAI, MCP, A2A."
+description: "Enforcement and accountability layer for AI agents. Bring your own identity (did:key, did:web, SPIFFE, OAuth, did:aps). Gateway enforcement boundary, monotonic narrowing, cascade revocation, spending controls, data lifecycle. Use when agents need scoped delegation, trust scoring, constraint enforcement, or cryptographic audit trails. 103 modules, 131 MCP tools, 2486 tests. 8 framework adapters: Stripe, Composio, IBAC/Cedar, LangChain, CrewAI, MCP, A2A, Gonka."
 metadata:
   clawdbot:
     emoji: "🔑"
@@ -131,6 +131,7 @@ import {
 | A2A | `passportToA2ACard()` | Agent Card ↔ passport bridge |
 | Stripe | `governMPPPayment()` | Stripe agent payments |
 | Composio | `governComposioAction()` | 250+ tool integrations |
+| Gonka | `governGonkaInference()` | Decentralized GPU compute |
 
 ## Programmatic API
 
@@ -159,7 +160,7 @@ Grade travels with the passport. Any consumer reads it without understanding sco
 ## Key facts
 
 - **103 modules** (71 core + 32 v2 constitutional)
-- **2,468 tests** including 50 adversarial attack scenarios
+- **2,486 tests** including 50 adversarial attack scenarios
 - **131 MCP tools** with role-scoped profiles
 - **Policy eval <2ms**, 403 ops/sec, 15 constraint dimensions
 - **Zero heavy dependencies** — Node.js crypto + uuid only
