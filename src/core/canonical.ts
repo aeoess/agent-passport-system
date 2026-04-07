@@ -1,14 +1,22 @@
 // Canonical JSON — deterministic serialization for signing
-// Sorts keys alphabetically, omits null/undefined in object keys (not arrays)
+// Sorts keys alphabetically, omits null/undefined in object keys (not arrays).
+// SECURITY NOTE: Null-stripping is intentional and consistent across all APS implementations
+// (SDK, Gateway, Python). {a:1} and {a:1,b:null} produce the same canonical form.
+// This means no security-critical field should use null as a meaningful value.
+// All implementations MUST strip nulls identically. See also: canonicalizeJCS() for RFC 8785.
 
 import { createHash } from 'node:crypto'
 
-export function canonicalize(obj: unknown): string {
+export function canonicalize(obj: unknown, _seen?: WeakSet<object>): string {
   if (obj === null || obj === undefined) return 'null'
   if (obj instanceof Date) return JSON.stringify(obj)
   if (typeof obj !== 'object') return JSON.stringify(obj)
+  // Cycle detection
+  const seen = _seen ?? new WeakSet()
+  if (seen.has(obj as object)) throw new Error('Circular reference detected in canonicalize()')
+  seen.add(obj as object)
   if (Array.isArray(obj)) {
-    return '[' + obj.map(item => canonicalize(item)).join(',') + ']'
+    return '[' + obj.map(item => canonicalize(item, seen)).join(',') + ']'
   }
   const sorted = Object.keys(obj as Record<string, unknown>)
     .sort()
@@ -18,7 +26,7 @@ export function canonicalize(obj: unknown): string {
     })
     .map(key => {
       const val = (obj as Record<string, unknown>)[key]
-      return `${JSON.stringify(key)}:${canonicalize(val)}`
+      return `${JSON.stringify(key)}:${canonicalize(val, seen)}`
     })
   return '{' + sorted.join(',') + '}'
 }

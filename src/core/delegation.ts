@@ -28,6 +28,17 @@ const chainRegistry = new Map<string, {
 // v1.4: Revocation event listeners
 const revocationListeners: ((event: RevocationEvent) => void)[] = []
 
+// Spend tracker — keyed on delegationId (string) to survive serialization round-trips
+const spendTracker = new Map<string, number>()
+
+/** Get cumulative spend for a delegation */
+export function getSpent(delegation: Delegation): number {
+  return spendTracker.get(delegation.delegationId) ?? (delegation.spentAmount ?? 0)
+}
+
+// Registry size cap
+const MAX_REGISTRY_SIZE = 100_000
+
 export function onRevocation(listener: (event: RevocationEvent) => void): () => void {
   revocationListeners.push(listener)
   return () => {
@@ -61,6 +72,16 @@ export interface CreateDelegationOptions {
 }
 
 export function createDelegation(opts: CreateDelegationOptions): Delegation {
+  // Runtime input validation (TypeScript types don't exist at runtime for JS callers)
+  if (!opts || typeof opts !== 'object') throw new Error('createDelegation: opts must be an object')
+  if (!opts.delegatedTo || typeof opts.delegatedTo !== 'string') throw new Error('createDelegation: delegatedTo must be a non-empty string')
+  if (!opts.delegatedBy || typeof opts.delegatedBy !== 'string') throw new Error('createDelegation: delegatedBy must be a non-empty string')
+  if (!Array.isArray(opts.scope)) throw new Error('createDelegation: scope must be an array')
+  if (!opts.privateKey || typeof opts.privateKey !== 'string') throw new Error('createDelegation: privateKey must be a non-empty string')
+  if (opts.spendLimit !== undefined && opts.spendLimit !== null && (typeof opts.spendLimit !== 'number' || opts.spendLimit < 0 || !Number.isFinite(opts.spendLimit))) {
+    throw new Error(`createDelegation: spendLimit must be a non-negative finite number, got ${opts.spendLimit}`)
+  }
+
   const now = new Date()
   const expiry = new Date(now)
   expiry.setHours(expiry.getHours() + (opts.expiresInHours || 24))
@@ -84,8 +105,15 @@ export function createDelegation(opts: CreateDelegationOptions): Delegation {
   const signature = sign(canonical, opts.privateKey)
 
   const signed = { ...delegation, signature }
+  Object.freeze(signed.scope)
+  Object.freeze(signed)
 
   // v1.4: Register in chain registry (root delegation — no parent)
+  if (chainRegistry.size >= MAX_REGISTRY_SIZE) {
+    // Evict oldest entry
+    const oldest = chainRegistry.keys().next().value
+    if (oldest) chainRegistry.delete(oldest)
+  }
   chainRegistry.set(signed.delegationId, {
     delegation: signed,
     parentId: null,
@@ -126,23 +154,31 @@ export function subDelegate(opts: SubDelegateOptions): Delegation {
     )
   }
 
-  // Enforce spend limit
-  const parentRemaining = (parent.spendLimit || Infinity) - (parent.spentAmount || 0)
-  if (opts.spendLimit && opts.spendLimit > parentRemaining) {
+  // Enforce spend limit (use ?? not || so spendLimit: 0 is a valid no-spend limit)
+  const parentRemaining = (parent.spendLimit ?? Infinity) - (parent.spentAmount ?? 0)
+  if (opts.spendLimit !== undefined && opts.spendLimit !== null && opts.spendLimit > parentRemaining) {
     throw new Error(
       `Spend limit ${opts.spendLimit} exceeds parent remaining ${parentRemaining}`
     )
   }
+
+  // Clamp child expiry to parent expiry (monotonic narrowing of time bounds)
+  const parentExpiry = new Date(parent.expiresAt)
+  const now = new Date()
+  const parentRemainingMs = parentExpiry.getTime() - now.getTime()
+  const parentRemainingHours = Math.max(0, parentRemainingMs / 3600000)
+  const childExpiryHours = Math.min(24, parentRemainingHours)
 
   const child = createDelegation({
     delegatedTo: opts.delegatedTo,
     delegatedBy: parent.delegatedTo, // the current delegate becomes delegator
     scope: opts.scope,
     scopeInterpretation: parent.scopeInterpretation,  // Module 37: inherit from parent
-    spendLimit: opts.spendLimit || parentRemaining,
+    spendLimit: opts.spendLimit ?? parentRemaining,
     maxDepth: parent.maxDepth,
     currentDepth: parent.currentDepth + 1,
-    expiresInHours: 24,
+    expiresInHours: childExpiryHours,
+    notBefore: parent.notBefore, // inherit parent notBefore (child cannot start earlier)
     privateKey: opts.privateKey
   })
 
@@ -182,6 +218,8 @@ export function verifyDelegation(delegation: Delegation, opts?: {
   cachedRevocationState?: { revoked: boolean; checkedAt: string }
   /** Cache grace period in ms (for cache_grace mode). Default: 300000 (5 min) */
   cacheGraceMs?: number
+  /** Walk parent chain and check each ancestor's revocation status. Default: false */
+  checkAncestors?: boolean
 }): DelegationStatus {
   const policy = opts?.revocationCheckPolicy ?? 'fail_open'
   const errors: string[] = []
@@ -192,15 +230,28 @@ export function verifyDelegation(delegation: Delegation, opts?: {
   const sigValid = verify(canonical, signature, delegation.delegatedBy)
   if (!sigValid) errors.push('Invalid delegation signature')
 
-  // Check expiry
-  const expired = new Date(delegation.expiresAt) < new Date()
-  if (expired) errors.push('Delegation expired')
+  // Check expiry (validate date first — NaN/invalid dates must fail, not pass)
+  let expired = false
+  const expiryDate = new Date(delegation.expiresAt)
+  if (isNaN(expiryDate.getTime())) {
+    errors.push(`Invalid expiresAt: "${delegation.expiresAt}"`)
+    expired = true
+  } else if (expiryDate < new Date()) {
+    errors.push('Delegation expired')
+    expired = true
+  }
 
-  // Check notBefore (timestamp freshness — B-8 security hardening)
-  const notYetValid = delegation.notBefore
-    ? new Date(delegation.notBefore) > new Date()
-    : false
-  if (notYetValid) errors.push(`Delegation not yet valid (notBefore: ${delegation.notBefore})`)
+  // Check notBefore (validate date — same NaN guard)
+  let notYetValid = false
+  if (delegation.notBefore) {
+    const notBeforeDate = new Date(delegation.notBefore)
+    if (isNaN(notBeforeDate.getTime())) {
+      errors.push(`Invalid notBefore: "${delegation.notBefore}"`)
+    } else if (notBeforeDate > new Date()) {
+      errors.push(`Delegation not yet valid (notBefore: ${delegation.notBefore})`)
+      notYetValid = true
+    }
+  }
 
   // Check revocation (with policy for check failures)
   let revocation: RevocationRecord | undefined
@@ -232,6 +283,27 @@ export function verifyDelegation(delegation: Delegation, opts?: {
 
   if (revoked && !revocationCheckFailed) errors.push(`Revoked at ${revocation!.revokedAt}: ${revocation!.reason}`)
 
+  // Check ancestor revocation (optional — catches non-cascaded parent revocations)
+  if (opts?.checkAncestors) {
+    const entry = chainRegistry.get(delegation.delegationId)
+    if (entry) {
+      const visited = new Set<string>()
+      let parentId = entry.parentId
+      while (parentId) {
+        if (visited.has(parentId)) break // cycle guard
+        visited.add(parentId)
+        const parentRevocation = revocationRegistry.get(parentId)
+        if (parentRevocation) {
+          errors.push(`Ancestor delegation ${parentId} revoked at ${parentRevocation.revokedAt}`)
+          revoked = true
+          break
+        }
+        const parentEntry = chainRegistry.get(parentId)
+        parentId = parentEntry?.parentId ?? null
+      }
+    }
+  }
+
   // Check depth
   const depthExceeded = delegation.currentDepth > delegation.maxDepth
   if (depthExceeded) errors.push('Depth limit exceeded')
@@ -257,6 +329,26 @@ export function revokeDelegation(
   reason: string,
   privateKey: string
 ): RevocationRecord {
+  // Authorization: only the delegator (or chain ancestor) should revoke
+  const entry = chainRegistry.get(delegationId)
+  if (!entry) {
+    // Delegation not in local registry — cannot verify chain ancestry,
+    // so require revokedBy to match the delegation's signature origin.
+    // Revocation still recorded but cannot verify chain authorization.
+  } else if (entry.delegation.delegatedBy !== revokedBy) {
+    // Check if revoker is an ancestor in the chain
+    let parentId = entry.parentId
+    let authorized = false
+    while (parentId) {
+      const parent = chainRegistry.get(parentId)
+      if (parent?.delegation.delegatedBy === revokedBy) { authorized = true; break }
+      parentId = parent?.parentId ?? null
+    }
+    if (!authorized) {
+      throw new Error(`Revocation denied: "${revokedBy}" is not the delegator or chain ancestor`)
+    }
+  }
+
   const record: Omit<RevocationRecord, 'signature'> = {
     revocationId: 'rev_' + uuidv4().slice(0, 12),
     delegationId,
@@ -512,14 +604,21 @@ export function createReceipt(opts: CreateReceiptOptions): ActionReceipt {
     )
   }
 
-  // Verify spend
+  // Verify spend (use ?? not || so spendLimit:0 = no spending allowed)
   if (opts.action.spend) {
-    const remaining = (opts.delegation.spendLimit || Infinity) -
-      (opts.delegation.spentAmount || 0)
+    const currentSpent = getSpent(opts.delegation)
+    const remaining = (opts.delegation.spendLimit ?? Infinity) - currentSpent
     if (opts.action.spend.amount > remaining) {
       throw new Error(
         `Spend ${opts.action.spend.amount} exceeds remaining ${remaining}`
       )
+    }
+    // Track cumulative spend (delegation is frozen, so use external tracker)
+    spendTracker.set(opts.delegation.delegationId, currentSpent + opts.action.spend.amount)
+    // Evict oldest spend entries if tracker exceeds limit
+    if (spendTracker.size > MAX_REGISTRY_SIZE) {
+      const oldest = spendTracker.keys().next().value
+      if (oldest) spendTracker.delete(oldest)
     }
   }
 

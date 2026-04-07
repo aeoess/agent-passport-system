@@ -7,7 +7,16 @@ import type { SignedPassport, VerificationResult, Challenge } from '../types/pas
 import { randomBytes } from 'node:crypto'
 import { v4 as uuidv4 } from 'uuid'
 
-export function verifyPassport(signed: SignedPassport): VerificationResult {
+/**
+ * Verify passport structural integrity and signature.
+ * WARNING: Without trustedIssuers, this trusts self-signed passports.
+ * For production, pass trustedIssuers to verify the passport was issued
+ * by a known authority, not just self-signed.
+ */
+export function verifyPassport(
+  signed: SignedPassport,
+  opts?: { trustedIssuers?: string[] },
+): VerificationResult {
   const errors: string[] = []
   const warnings: string[] = []
 
@@ -23,6 +32,29 @@ export function verifyPassport(signed: SignedPassport): VerificationResult {
   const sigValid = verify(canonical, signature, passport.publicKey)
   if (!sigValid) {
     errors.push('Invalid signature — passport may have been tampered with')
+  }
+
+  // If trustedIssuers provided, verify issuer countersignature
+  if (opts?.trustedIssuers && opts.trustedIssuers.length > 0) {
+    const issuerSig = (signed as any).issuerSignature
+    if (!issuerSig?.signature || !issuerSig?.issuerPublicKey) {
+      errors.push('No issuer countersignature — passport is self-signed')
+    } else if (!opts.trustedIssuers.includes(issuerSig.issuerPublicKey)) {
+      errors.push(`Issuer ${issuerSig.issuerPublicKey.slice(0, 16)}... not in trusted issuers list`)
+    } else {
+      // countersignPassport() signs {passport, signature, signedAt} — must match
+      const issuerPayload = canonicalize({
+        passport: signed.passport,
+        signature: signed.signature,
+        signedAt: (signed as any).signedAt,
+      })
+      const issuerValid = verify(issuerPayload, issuerSig.signature, issuerSig.issuerPublicKey)
+      if (!issuerValid) {
+        errors.push('Invalid issuer countersignature')
+      }
+    }
+  } else {
+    warnings.push('No trustedIssuers provided — self-signed passports are accepted')
   }
 
   // Check expiration

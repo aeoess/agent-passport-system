@@ -1,0 +1,180 @@
+{
+  "description": "Stale replay: delegation has a 5-second validity window (2026-01-01T00:00:00Z to 2026-01-01T00:00:05Z). Receipt created at T=1s (valid). Fixture includes verify_at of T=10s (after expiry). Receipt signature is cryptographically valid, but temporal validation fails because the delegation expired before the verification time.",
+  "generated_at": "2026-04-07T18:13:50.177Z",
+  "protocol_version": "1.0.0",
+  "objects": {
+    "passport": {
+      "passport": {
+        "version": "1.0.0",
+        "agentId": "fixture-agent-003",
+        "agentName": "Stale Replay Test Agent",
+        "ownerAlias": "fixture-owner",
+        "publicKey": "a97b00c3b17e25d6755b024ba30326754a33d95506c8232ed7bf6adf1bdd9f13",
+        "mission": "Test temporal validation after expiry",
+        "capabilities": [
+          "data_access"
+        ],
+        "createdAt": "2026-04-07T18:13:50.172Z",
+        "expiresAt": "2027-04-07T18:13:50.172Z",
+        "voteWeight": 1,
+        "reputation": {
+          "overall": 1,
+          "collaborationsCompleted": 0,
+          "proposalsSubmitted": 0,
+          "proposalsApproved": 0,
+          "tokensContributed": 0,
+          "tasksCompleted": 0,
+          "lastUpdated": "2026-04-07T18:13:50.172Z"
+        },
+        "delegations": [],
+        "metadata": {}
+      },
+      "signature": "61f22125bbe7ffbf8320bb1d398ff51e3dae4562e5eb906f17329cfe84cdf31902635aa12d8a3877a37cf28085d4d1d87cc0904c286fae0bb79a115d36d35b05",
+      "signedAt": "2026-04-07T18:13:50.173Z"
+    },
+    "delegation": {
+      "delegationId": "del_stale-replay",
+      "delegatedTo": "7baea408726a8723c0ec4de3eb48f5f1fe5caceed2f13cf01235a7f66d91f58c",
+      "delegatedBy": "4d52c76fd0e1160335cfe8d4fedd7c7dd4a2c5881afcfa9aa3e5088357aa6a99",
+      "scope": [
+        "data:read",
+        "api:get"
+      ],
+      "expiresAt": "2026-01-01T00:00:05.000Z",
+      "spendLimit": 10000,
+      "spentAmount": 0,
+      "maxDepth": 1,
+      "currentDepth": 0,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "notBefore": "2026-01-01T00:00:00.000Z",
+      "signature": "c116988a36eb85590ed8f518cad5326b895f48a4eee7b104197d486b53528c4d73f4d7f261b6ed3289454e47055defdca52a97c4e7dd78368158b2d5906a1103"
+    },
+    "receipt": {
+      "receiptId": "rcpt_stale-replay",
+      "version": "1.1",
+      "timestamp": "2026-01-01T00:00:01.000Z",
+      "agentId": "fixture-agent-003",
+      "delegationId": "del_stale-replay",
+      "action": {
+        "type": "data:read",
+        "target": "customer-db",
+        "scopeUsed": "data:read",
+        "timestamp": "2026-01-01T00:00:01.000Z"
+      },
+      "result": {
+        "success": true,
+        "output": "Read 5 records"
+      },
+      "delegationChain": [
+        "4d52c76fd0e1160335cfe8d4fedd7c7dd4a2c5881afcfa9aa3e5088357aa6a99",
+        "7baea408726a8723c0ec4de3eb48f5f1fe5caceed2f13cf01235a7f66d91f58c"
+      ],
+      "signature": "df33a8e94c5fa28991377233a572c954344311b0208b2cc15a1dbc845c26e642d75b75885450292d4a2cf98de92dd71d84c40c189af43243e004387fd99b6303"
+    }
+  },
+  "temporal": {
+    "delegation_created_at": "2026-01-01T00:00:00.000Z",
+    "delegation_expires_at": "2026-01-01T00:00:05.000Z",
+    "receipt_created_at": "2026-01-01T00:00:01.000Z",
+    "verify_at": "2026-01-01T00:00:10.000Z",
+    "delegation_valid_window_seconds": 5,
+    "receipt_within_window": true,
+    "verify_at_after_expiry": true
+  },
+  "canonicalized": {
+    "delegation": {
+      "input": {
+        "delegationId": "del_stale-replay",
+        "delegatedTo": "7baea408726a8723c0ec4de3eb48f5f1fe5caceed2f13cf01235a7f66d91f58c",
+        "delegatedBy": "4d52c76fd0e1160335cfe8d4fedd7c7dd4a2c5881afcfa9aa3e5088357aa6a99",
+        "scope": [
+          "data:read",
+          "api:get"
+        ],
+        "expiresAt": "2026-01-01T00:00:05.000Z",
+        "spendLimit": 10000,
+        "spentAmount": 0,
+        "maxDepth": 1,
+        "currentDepth": 0,
+        "createdAt": "2026-01-01T00:00:00.000Z",
+        "notBefore": "2026-01-01T00:00:00.000Z"
+      },
+      "canonical_string": "{\"createdAt\":\"2026-01-01T00:00:00.000Z\",\"currentDepth\":0,\"delegatedBy\":\"4d52c76fd0e1160335cfe8d4fedd7c7dd4a2c5881afcfa9aa3e5088357aa6a99\",\"delegatedTo\":\"7baea408726a8723c0ec4de3eb48f5f1fe5caceed2f13cf01235a7f66d91f58c\",\"delegationId\":\"del_stale-replay\",\"expiresAt\":\"2026-01-01T00:00:05.000Z\",\"maxDepth\":1,\"notBefore\":\"2026-01-01T00:00:00.000Z\",\"scope\":[\"data:read\",\"api:get\"],\"spendLimit\":10000,\"spentAmount\":0}",
+      "canonical_hex": "7b22637265617465644174223a22323032362d30312d30315430303a30303a30302e3030305a222c2263757272656e744465707468223a302c2264656c6567617465644279223a2234643532633736666430653131363033333563666538643466656464376337646434613263353838316166636661396161336535303838333537616136613939222c2264656c656761746564546f223a2237626165613430383732366138373233633065633464653365623438663566316665356361636565643266313363663031323335613766363664393166353863222c2264656c65676174696f6e4964223a2264656c5f7374616c652d7265706c6179222c22657870697265734174223a22323032362d30312d30315430303a30303a30352e3030305a222c226d61784465707468223a312c226e6f744265666f7265223a22323032362d30312d30315430303a30303a30302e3030305a222c2273636f7065223a5b22646174613a72656164222c226170693a676574225d2c227370656e644c696d6974223a31303030302c227370656e74416d6f756e74223a307d",
+      "method": "APS canonical (sorted keys, null-stripped)"
+    },
+    "receipt": {
+      "input": {
+        "receiptId": "rcpt_stale-replay",
+        "version": "1.1",
+        "timestamp": "2026-01-01T00:00:01.000Z",
+        "agentId": "fixture-agent-003",
+        "delegationId": "del_stale-replay",
+        "action": {
+          "type": "data:read",
+          "target": "customer-db",
+          "scopeUsed": "data:read",
+          "timestamp": "2026-01-01T00:00:01.000Z"
+        },
+        "result": {
+          "success": true,
+          "output": "Read 5 records"
+        },
+        "delegationChain": [
+          "4d52c76fd0e1160335cfe8d4fedd7c7dd4a2c5881afcfa9aa3e5088357aa6a99",
+          "7baea408726a8723c0ec4de3eb48f5f1fe5caceed2f13cf01235a7f66d91f58c"
+        ]
+      },
+      "canonical_string": "{\"action\":{\"scopeUsed\":\"data:read\",\"target\":\"customer-db\",\"timestamp\":\"2026-01-01T00:00:01.000Z\",\"type\":\"data:read\"},\"agentId\":\"fixture-agent-003\",\"delegationChain\":[\"4d52c76fd0e1160335cfe8d4fedd7c7dd4a2c5881afcfa9aa3e5088357aa6a99\",\"7baea408726a8723c0ec4de3eb48f5f1fe5caceed2f13cf01235a7f66d91f58c\"],\"delegationId\":\"del_stale-replay\",\"receiptId\":\"rcpt_stale-replay\",\"result\":{\"output\":\"Read 5 records\",\"success\":true},\"timestamp\":\"2026-01-01T00:00:01.000Z\",\"version\":\"1.1\"}",
+      "canonical_hex": "7b22616374696f6e223a7b2273636f706555736564223a22646174613a72656164222c22746172676574223a22637573746f6d65722d6462222c2274696d657374616d70223a22323032362d30312d30315430303a30303a30312e3030305a222c2274797065223a22646174613a72656164227d2c226167656e744964223a22666978747572652d6167656e742d303033222c2264656c65676174696f6e436861696e223a5b2234643532633736666430653131363033333563666538643466656464376337646434613263353838316166636661396161336535303838333537616136613939222c2237626165613430383732366138373233633065633464653365623438663566316665356361636565643266313363663031323335613766363664393166353863225d2c2264656c65676174696f6e4964223a2264656c5f7374616c652d7265706c6179222c22726563656970744964223a22726370745f7374616c652d7265706c6179222c22726573756c74223a7b226f7574707574223a22526561642035207265636f726473222c2273756363657373223a747275657d2c2274696d657374616d70223a22323032362d30312d30315430303a30303a30312e3030305a222c2276657273696f6e223a22312e31227d",
+      "method": "APS canonical (sorted keys, null-stripped)"
+    }
+  },
+  "signatures": {
+    "delegation": {
+      "signature": "c116988a36eb85590ed8f518cad5326b895f48a4eee7b104197d486b53528c4d73f4d7f261b6ed3289454e47055defdca52a97c4e7dd78368158b2d5906a1103",
+      "signed_by": "principal",
+      "algorithm": "Ed25519"
+    },
+    "receipt": {
+      "signature": "df33a8e94c5fa28991377233a572c954344311b0208b2cc15a1dbc845c26e642d75b75885450292d4a2cf98de92dd71d84c40c189af43243e004387fd99b6303",
+      "signed_by": "agent",
+      "algorithm": "Ed25519"
+    }
+  },
+  "keys": {
+    "passport_owner": {
+      "public_key": "a97b00c3b17e25d6755b024ba30326754a33d95506c8232ed7bf6adf1bdd9f13",
+      "role": "Passport holder"
+    },
+    "principal": {
+      "public_key": "4d52c76fd0e1160335cfe8d4fedd7c7dd4a2c5881afcfa9aa3e5088357aa6a99",
+      "role": "Delegator"
+    },
+    "agent": {
+      "public_key": "7baea408726a8723c0ec4de3eb48f5f1fe5caceed2f13cf01235a7f66d91f58c",
+      "role": "Delegate, receipt signer"
+    }
+  },
+  "expected": {
+    "receipt_signature_valid": true,
+    "delegation_signature_valid": true,
+    "delegation_expired_at_verify_time": true,
+    "temporal_validation_fails": true,
+    "reasoning": "The receipt was created within the delegation validity window (T=1s < T=5s expiry), so the action was authorized at execution time. However, at verify_at (T=10s), the delegation has expired. A verifier checking \"is this delegation currently valid?\" should return false. The receipt signature itself is still cryptographically valid because Ed25519 signatures do not expire."
+  },
+  "verification_results": {
+    "receipt_signature_check": true,
+    "delegation_check_now": {
+      "valid": false,
+      "revoked": false,
+      "expired": true,
+      "notYetValid": false,
+      "depthExceeded": false,
+      "errors": [
+        "Delegation expired"
+      ]
+    },
+    "note": "delegation_check_now runs against Date.now(), which is after the 2026-01-01 expiry, so it correctly reports expired."
+  }
+}

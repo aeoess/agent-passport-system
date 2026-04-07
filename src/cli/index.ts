@@ -19,7 +19,7 @@
 //   .passport/receipts/      — signed action receipts
 //   .passport/proofs/        — generated proofs
 
-import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync } from 'node:fs'
+import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, chmodSync } from 'node:fs'
 import { join } from 'node:path'
 import { execSync } from 'node:child_process'
 import { createInterface } from 'node:readline'
@@ -64,6 +64,8 @@ function ensureDirs(): void {
 
 function saveJSON(path: string, data: unknown): void {
   writeFileSync(path, JSON.stringify(data, null, 2))
+  // Restrict file permissions to owner only (private keys may be in the data)
+  try { chmodSync(path, 0o600) } catch { /* Windows no-op */ }
 }
 
 function loadJSON<T>(path: string): T {

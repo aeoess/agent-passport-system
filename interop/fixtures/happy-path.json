@@ -1,0 +1,241 @@
+{
+  "description": "Happy path: passport issued, delegation created (scope: [data:read, api:get], spendLimit: 10000, 24h expiry), action executed, receipt stored. Full chain, all signatures valid.",
+  "generated_at": "2026-04-07T18:13:50.135Z",
+  "protocol_version": "1.0.0",
+  "objects": {
+    "passport": {
+      "passport": {
+        "version": "1.0.0",
+        "agentId": "fixture-agent-001",
+        "agentName": "Fixture Agent",
+        "ownerAlias": "fixture-owner",
+        "publicKey": "3b4ebbc0e514bf7aa72bcf2172606124a57abe43e508ef9712b6cd1027861f5a",
+        "mission": "Interop verification fixture",
+        "capabilities": [
+          "data_access",
+          "api_calls"
+        ],
+        "createdAt": "2026-04-07T18:13:50.123Z",
+        "expiresAt": "2027-04-07T18:13:50.123Z",
+        "voteWeight": 1,
+        "reputation": {
+          "overall": 1,
+          "collaborationsCompleted": 0,
+          "proposalsSubmitted": 0,
+          "proposalsApproved": 0,
+          "tokensContributed": 0,
+          "tasksCompleted": 0,
+          "lastUpdated": "2026-04-07T18:13:50.126Z"
+        },
+        "delegations": [],
+        "metadata": {}
+      },
+      "signature": "25ca5bd3bcb9d1ac64868c3310682f083c90715f75a16181f83e125e9cca69fb5bd8d0bd60d5e01e05d7046f0dfa2fb417a187eeaca191d7ef3ff21fa421b609",
+      "signedAt": "2026-04-07T18:13:50.128Z"
+    },
+    "delegation": {
+      "delegationId": "del_3a5361db-f81",
+      "delegatedTo": "ea563973be4170aa26cfb75f59c0bea8735542297842b6e5f31200b1d441c7f8",
+      "delegatedBy": "bc1776b1d05bcef0e8ead1f139b1dffd67a050c8fb859776662b7ef334f2db8d",
+      "scope": [
+        "data:read",
+        "api:get"
+      ],
+      "expiresAt": "2026-04-08T18:13:50.129Z",
+      "spendLimit": 10000,
+      "spentAmount": 0,
+      "maxDepth": 1,
+      "currentDepth": 0,
+      "createdAt": "2026-04-07T18:13:50.129Z",
+      "notBefore": "2026-04-07T18:13:50.129Z",
+      "signature": "b8ae1fb40acfbbeeea967764f49b4def9741c593f1399742bf28e9c2a5ca2ae3b81554c4bb1b17ffb2d62a0d48a8a50e2a69ed9d0eacba39151af6f43fc5de06"
+    },
+    "receipt": {
+      "receiptId": "rcpt_b47bf0b6-6a6",
+      "version": "1.1",
+      "timestamp": "2026-04-07T18:13:50.133Z",
+      "agentId": "fixture-agent-001",
+      "delegationId": "del_3a5361db-f81",
+      "action": {
+        "type": "data:read",
+        "target": "customer-db",
+        "scopeUsed": "data:read",
+        "timestamp": "2026-04-07T18:13:50.131Z"
+      },
+      "result": {
+        "success": true,
+        "output": "Query returned 42 rows"
+      },
+      "delegationChain": [
+        "bc1776b1d05bcef0e8ead1f139b1dffd67a050c8fb859776662b7ef334f2db8d",
+        "ea563973be4170aa26cfb75f59c0bea8735542297842b6e5f31200b1d441c7f8"
+      ],
+      "signature": "88eedb15fcaf9249e26ea8deea0ae1d382c50ae1d508ad586c18873001974e693e358fe93e48068962ab6931626ca77dbe6d8d82bb564fd9a6cf19d83bbab00b"
+    }
+  },
+  "canonicalized": {
+    "passport": {
+      "input": {
+        "version": "1.0.0",
+        "agentId": "fixture-agent-001",
+        "agentName": "Fixture Agent",
+        "ownerAlias": "fixture-owner",
+        "publicKey": "3b4ebbc0e514bf7aa72bcf2172606124a57abe43e508ef9712b6cd1027861f5a",
+        "mission": "Interop verification fixture",
+        "capabilities": [
+          "data_access",
+          "api_calls"
+        ],
+        "createdAt": "2026-04-07T18:13:50.123Z",
+        "expiresAt": "2027-04-07T18:13:50.123Z",
+        "voteWeight": 1,
+        "reputation": {
+          "overall": 1,
+          "collaborationsCompleted": 0,
+          "proposalsSubmitted": 0,
+          "proposalsApproved": 0,
+          "tokensContributed": 0,
+          "tasksCompleted": 0,
+          "lastUpdated": "2026-04-07T18:13:50.126Z"
+        },
+        "delegations": [],
+        "metadata": {}
+      },
+      "canonical_string": "{\"agentId\":\"fixture-agent-001\",\"agentName\":\"Fixture Agent\",\"capabilities\":[\"data_access\",\"api_calls\"],\"createdAt\":\"2026-04-07T18:13:50.123Z\",\"delegations\":[],\"expiresAt\":\"2027-04-07T18:13:50.123Z\",\"metadata\":{},\"mission\":\"Interop verification fixture\",\"ownerAlias\":\"fixture-owner\",\"publicKey\":\"3b4ebbc0e514bf7aa72bcf2172606124a57abe43e508ef9712b6cd1027861f5a\",\"reputation\":{\"collaborationsCompleted\":0,\"lastUpdated\":\"2026-04-07T18:13:50.126Z\",\"overall\":1,\"proposalsApproved\":0,\"proposalsSubmitted\":0,\"tasksCompleted\":0,\"tokensContributed\":0},\"version\":\"1.0.0\",\"voteWeight\":1}",
+      "canonical_hex": "7b226167656e744964223a22666978747572652d6167656e742d303031222c226167656e744e616d65223a2246697874757265204167656e74222c226361706162696c6974696573223a5b22646174615f616363657373222c226170695f63616c6c73225d2c22637265617465644174223a22323032362d30342d30375431383a31333a35302e3132335a222c2264656c65676174696f6e73223a5b5d2c22657870697265734174223a22323032372d30342d30375431383a31333a35302e3132335a222c226d65746164617461223a7b7d2c226d697373696f6e223a22496e7465726f7020766572696669636174696f6e2066697874757265222c226f776e6572416c696173223a22666978747572652d6f776e6572222c227075626c69634b6579223a2233623465626263306535313462663761613732626366323137323630363132346135376162653433653530386566393731326236636431303237383631663561222c2272657075746174696f6e223a7b22636f6c6c61626f726174696f6e73436f6d706c65746564223a302c226c61737455706461746564223a22323032362d30342d30375431383a31333a35302e3132365a222c226f766572616c6c223a312c2270726f706f73616c73417070726f766564223a302c2270726f706f73616c735375626d6974746564223a302c227461736b73436f6d706c65746564223a302c22746f6b656e73436f6e7472696275746564223a307d2c2276657273696f6e223a22312e302e30222c22766f7465576569676874223a317d",
+      "method": "APS canonical (sorted keys, null-stripped)"
+    },
+    "delegation": {
+      "input": {
+        "delegationId": "del_3a5361db-f81",
+        "delegatedTo": "ea563973be4170aa26cfb75f59c0bea8735542297842b6e5f31200b1d441c7f8",
+        "delegatedBy": "bc1776b1d05bcef0e8ead1f139b1dffd67a050c8fb859776662b7ef334f2db8d",
+        "scope": [
+          "data:read",
+          "api:get"
+        ],
+        "expiresAt": "2026-04-08T18:13:50.129Z",
+        "spendLimit": 10000,
+        "spentAmount": 0,
+        "maxDepth": 1,
+        "currentDepth": 0,
+        "createdAt": "2026-04-07T18:13:50.129Z",
+        "notBefore": "2026-04-07T18:13:50.129Z"
+      },
+      "canonical_string": "{\"createdAt\":\"2026-04-07T18:13:50.129Z\",\"currentDepth\":0,\"delegatedBy\":\"bc1776b1d05bcef0e8ead1f139b1dffd67a050c8fb859776662b7ef334f2db8d\",\"delegatedTo\":\"ea563973be4170aa26cfb75f59c0bea8735542297842b6e5f31200b1d441c7f8\",\"delegationId\":\"del_3a5361db-f81\",\"expiresAt\":\"2026-04-08T18:13:50.129Z\",\"maxDepth\":1,\"notBefore\":\"2026-04-07T18:13:50.129Z\",\"scope\":[\"data:read\",\"api:get\"],\"spendLimit\":10000,\"spentAmount\":0}",
+      "canonical_hex": "7b22637265617465644174223a22323032362d30342d30375431383a31333a35302e3132395a222c2263757272656e744465707468223a302c2264656c6567617465644279223a2262633137373662316430356263656630653865616431663133396231646666643637613035306338666238353937373636363262376566333334663264623864222c2264656c656761746564546f223a2265613536333937336265343137306161323663666237356635396330626561383733353534323239373834326236653566333132303062316434343163376638222c2264656c65676174696f6e4964223a2264656c5f33613533363164622d663831222c22657870697265734174223a22323032362d30342d30385431383a31333a35302e3132395a222c226d61784465707468223a312c226e6f744265666f7265223a22323032362d30342d30375431383a31333a35302e3132395a222c2273636f7065223a5b22646174613a72656164222c226170693a676574225d2c227370656e644c696d6974223a31303030302c227370656e74416d6f756e74223a307d",
+      "method": "APS canonical (sorted keys, null-stripped)"
+    },
+    "receipt": {
+      "input": {
+        "receiptId": "rcpt_b47bf0b6-6a6",
+        "version": "1.1",
+        "timestamp": "2026-04-07T18:13:50.133Z",
+        "agentId": "fixture-agent-001",
+        "delegationId": "del_3a5361db-f81",
+        "action": {
+          "type": "data:read",
+          "target": "customer-db",
+          "scopeUsed": "data:read",
+          "timestamp": "2026-04-07T18:13:50.131Z"
+        },
+        "result": {
+          "success": true,
+          "output": "Query returned 42 rows"
+        },
+        "delegationChain": [
+          "bc1776b1d05bcef0e8ead1f139b1dffd67a050c8fb859776662b7ef334f2db8d",
+          "ea563973be4170aa26cfb75f59c0bea8735542297842b6e5f31200b1d441c7f8"
+        ]
+      },
+      "canonical_string": "{\"action\":{\"scopeUsed\":\"data:read\",\"target\":\"customer-db\",\"timestamp\":\"2026-04-07T18:13:50.131Z\",\"type\":\"data:read\"},\"agentId\":\"fixture-agent-001\",\"delegationChain\":[\"bc1776b1d05bcef0e8ead1f139b1dffd67a050c8fb859776662b7ef334f2db8d\",\"ea563973be4170aa26cfb75f59c0bea8735542297842b6e5f31200b1d441c7f8\"],\"delegationId\":\"del_3a5361db-f81\",\"receiptId\":\"rcpt_b47bf0b6-6a6\",\"result\":{\"output\":\"Query returned 42 rows\",\"success\":true},\"timestamp\":\"2026-04-07T18:13:50.133Z\",\"version\":\"1.1\"}",
+      "canonical_hex": "7b22616374696f6e223a7b2273636f706555736564223a22646174613a72656164222c22746172676574223a22637573746f6d65722d6462222c2274696d657374616d70223a22323032362d30342d30375431383a31333a35302e3133315a222c2274797065223a22646174613a72656164227d2c226167656e744964223a22666978747572652d6167656e742d303031222c2264656c65676174696f6e436861696e223a5b2262633137373662316430356263656630653865616431663133396231646666643637613035306338666238353937373636363262376566333334663264623864222c2265613536333937336265343137306161323663666237356635396330626561383733353534323239373834326236653566333132303062316434343163376638225d2c2264656c65676174696f6e4964223a2264656c5f33613533363164622d663831222c22726563656970744964223a22726370745f62343762663062362d366136222c22726573756c74223a7b226f7574707574223a2251756572792072657475726e656420343220726f7773222c2273756363657373223a747275657d2c2274696d657374616d70223a22323032362d30342d30375431383a31333a35302e3133335a222c2276657273696f6e223a22312e31227d",
+      "method": "APS canonical (sorted keys, null-stripped)"
+    }
+  },
+  "signatures": {
+    "passport": {
+      "signature": "25ca5bd3bcb9d1ac64868c3310682f083c90715f75a16181f83e125e9cca69fb5bd8d0bd60d5e01e05d7046f0dfa2fb417a187eeaca191d7ef3ff21fa421b609",
+      "signed_by": "passport_owner (self-signed)",
+      "algorithm": "Ed25519"
+    },
+    "delegation": {
+      "signature": "b8ae1fb40acfbbeeea967764f49b4def9741c593f1399742bf28e9c2a5ca2ae3b81554c4bb1b17ffb2d62a0d48a8a50e2a69ed9d0eacba39151af6f43fc5de06",
+      "signed_by": "principal (delegatedBy)",
+      "algorithm": "Ed25519"
+    },
+    "receipt": {
+      "signature": "88eedb15fcaf9249e26ea8deea0ae1d382c50ae1d508ad586c18873001974e693e358fe93e48068962ab6931626ca77dbe6d8d82bb564fd9a6cf19d83bbab00b",
+      "signed_by": "agent (executing agent)",
+      "algorithm": "Ed25519"
+    }
+  },
+  "keys": {
+    "passport_owner": {
+      "public_key": "3b4ebbc0e514bf7aa72bcf2172606124a57abe43e508ef9712b6cd1027861f5a",
+      "role": "Passport holder, self-signs passport"
+    },
+    "principal": {
+      "public_key": "bc1776b1d05bcef0e8ead1f139b1dffd67a050c8fb859776662b7ef334f2db8d",
+      "role": "Delegator, signs delegation"
+    },
+    "agent": {
+      "public_key": "ea563973be4170aa26cfb75f59c0bea8735542297842b6e5f31200b1d441c7f8",
+      "role": "Delegate, signs receipt"
+    }
+  },
+  "expected": {
+    "passport_signature_valid": true,
+    "delegation_signature_valid": true,
+    "delegation_not_expired": true,
+    "delegation_not_revoked": true,
+    "receipt_signature_valid": true,
+    "full_chain_valid": true,
+    "reasoning": "All objects are freshly created, within validity windows, and properly signed. Every verification step should return true."
+  },
+  "verification_results": {
+    "passport": {
+      "valid": true,
+      "errors": [],
+      "warnings": [],
+      "passport": {
+        "version": "1.0.0",
+        "agentId": "fixture-agent-001",
+        "agentName": "Fixture Agent",
+        "ownerAlias": "fixture-owner",
+        "publicKey": "3b4ebbc0e514bf7aa72bcf2172606124a57abe43e508ef9712b6cd1027861f5a",
+        "mission": "Interop verification fixture",
+        "capabilities": [
+          "data_access",
+          "api_calls"
+        ],
+        "createdAt": "2026-04-07T18:13:50.123Z",
+        "expiresAt": "2027-04-07T18:13:50.123Z",
+        "voteWeight": 1,
+        "reputation": {
+          "overall": 1,
+          "collaborationsCompleted": 0,
+          "proposalsSubmitted": 0,
+          "proposalsApproved": 0,
+          "tokensContributed": 0,
+          "tasksCompleted": 0,
+          "lastUpdated": "2026-04-07T18:13:50.126Z"
+        },
+        "delegations": [],
+        "metadata": {}
+      }
+    },
+    "delegation": {
+      "valid": true,
+      "revoked": false,
+      "expired": false,
+      "notYetValid": false,
+      "depthExceeded": false,
+      "errors": []
+    },
+    "receipt": {
+      "valid": true,
+      "errors": []
+    }
+  }
+}
