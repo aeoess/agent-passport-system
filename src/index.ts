@@ -82,6 +82,10 @@ export {
 } from './core/delegation.js'
 export type { RevocationCheckPolicy } from './core/delegation.js'
 
+// ── Bilateral Completion Receipts ──
+export { createCompletionReceipt, verifyCompletionReceipt, linkPermitAndCompletion } from './core/completion.js'
+export type { CompletionReceiptOptions, CompletionReceipt } from './core/completion.js'
+
 // ── Layer 2: Human Values Floor ──
 export {
   loadFloor, loadFloorFromFile,

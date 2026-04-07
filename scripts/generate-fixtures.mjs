@@ -7,6 +7,7 @@ import {
   createPassport, signPassport, verifyPassport,
   createDelegation, verifyDelegation, revokeDelegation,
   createReceipt, verifyReceipt,
+  createCompletionReceipt, verifyCompletionReceipt, linkPermitAndCompletion,
   generateKeyPair, sign, verify, publicKeyFromPrivate,
   canonicalize,
   canonicalizeJCS,
@@ -438,6 +439,146 @@ function generateStaleReplay() {
 }
 
 // ═══════════════════════════════════════════════════════════
+// Fixture 4: Completion Chain — full permit-execute-complete lifecycle
+// ═══════════════════════════════════════════════════════════
+
+function generateCompletionChain() {
+  const principal = generateKeyPair()
+  const agent = generateKeyPair()
+
+  // 1. Passport
+  const { signedPassport, keyPair: passportKeys } = createPassport({
+    agentId: 'fixture-agent-004',
+    agentName: 'Completion Chain Agent',
+    ownerAlias: 'fixture-owner',
+    mission: 'Test bilateral completion receipt lifecycle',
+    capabilities: ['data_access', 'api_calls'],
+  })
+
+  // 2. Delegation
+  const delegation = createDelegation({
+    delegatedTo: agent.publicKey,
+    delegatedBy: principal.publicKey,
+    scope: ['data:read', 'api:get'],
+    spendLimit: 5000,
+    expiresInHours: 24,
+    privateKey: principal.privateKey,
+  })
+
+  // 3. Permit receipt (action authorized and executed)
+  const permitReceipt = createReceipt({
+    agentId: 'fixture-agent-004',
+    delegationId: delegation.delegationId,
+    delegation,
+    action: {
+      type: 'data:read',
+      target: 'analytics-db',
+      scopeUsed: 'data:read',
+      timestamp: new Date().toISOString(),
+    },
+    result: { success: true, output: 'Query completed' },
+    delegationChain: [principal.publicKey, agent.publicKey],
+    privateKey: agent.privateKey,
+  })
+
+  // 4. Hash the permit receipt for linking
+  const { signature: _permitSig, ...permitUnsigned } = permitReceipt
+  const permitCanonical = canonicalize(permitUnsigned)
+  const permitHash = createHash('sha256').update(permitCanonical).digest('hex')
+
+  // 5. Completion receipt — agent attests to execution outcome
+  const completionReceipt = createCompletionReceipt({
+    permitReceiptHash: permitHash,
+    executionResult: 'success',
+    resultSummary: 'Query returned 128 rows from analytics-db in 42ms',
+    resultHash: createHash('sha256').update('Query returned 128 rows').digest('hex'),
+    executedAt: new Date().toISOString(),
+    durationMs: 42,
+    privateKey: agent.privateKey,
+  })
+
+  // 6. Verify everything
+  const permitVerification = verifyReceipt(permitReceipt, agent.publicKey)
+  const completionVerification = verifyCompletionReceipt(completionReceipt, agent.publicKey)
+  const linkResult = linkPermitAndCompletion(permitReceipt, completionReceipt)
+
+  // Canonicalize for cross-impl verification
+  const { signature: cmpSig, ...cmpUnsigned } = completionReceipt
+  const cmpCanonical = canonicalize(cmpUnsigned)
+
+  const fixture = {
+    description: 'Completion chain: full permit-execute-complete lifecycle. Delegation authorizes action, permit receipt proves authorization, completion receipt proves execution outcome, linkPermitAndCompletion binds them cryptographically via SHA-256 hash of canonicalized permit receipt.',
+    generated_at: new Date().toISOString(),
+    protocol_version: '1.0.0',
+
+    objects: {
+      passport: signedPassport,
+      delegation,
+      permit_receipt: permitReceipt,
+      completion_receipt: completionReceipt,
+    },
+
+    canonicalized: {
+      delegation: {
+        input: (() => { const { signature: _s, ...u } = delegation; return u })(),
+        canonical_string: (() => { const { signature: _s, ...u } = delegation; return canonicalize(u) })(),
+        canonical_hex: (() => { const { signature: _s, ...u } = delegation; return toHex(canonicalize(u)) })(),
+        method: 'APS canonical (sorted keys, null-stripped)',
+      },
+      permit_receipt: {
+        input: permitUnsigned,
+        canonical_string: permitCanonical,
+        canonical_hex: toHex(permitCanonical),
+        sha256_hash: permitHash,
+        method: 'APS canonical (sorted keys, null-stripped)',
+      },
+      completion_receipt: {
+        input: cmpUnsigned,
+        canonical_string: cmpCanonical,
+        canonical_hex: toHex(cmpCanonical),
+        method: 'APS canonical (sorted keys, null-stripped)',
+      },
+    },
+
+    signatures: {
+      delegation: { signature: delegation.signature, signed_by: 'principal', algorithm: 'Ed25519' },
+      permit_receipt: { signature: permitReceipt.signature, signed_by: 'agent', algorithm: 'Ed25519' },
+      completion_receipt: { signature: completionReceipt.signature, signed_by: 'agent', algorithm: 'Ed25519' },
+    },
+
+    keys: {
+      passport_owner: { public_key: passportKeys.publicKey, role: 'Passport holder' },
+      principal: { public_key: principal.publicKey, role: 'Delegator' },
+      agent: { public_key: agent.publicKey, role: 'Delegate, signs both receipts' },
+    },
+
+    linking: {
+      permit_receipt_hash: permitHash,
+      completion_claims_hash: completionReceipt.permitReceiptHash,
+      hashes_match: permitHash === completionReceipt.permitReceiptHash,
+      method: 'SHA-256 of canonicalized permit receipt (signature stripped)',
+    },
+
+    expected: {
+      permit_receipt_signature_valid: true,
+      completion_receipt_signature_valid: true,
+      permit_completion_linked: true,
+      execution_result: 'success',
+      reasoning: 'Both receipts are signed by the same agent. The completion receipt references the permit receipt by SHA-256 hash of its canonicalized form. linkPermitAndCompletion confirms the hash match. This proves the agent that was authorized (permit) is the same agent that attests to execution (completion).',
+    },
+
+    verification_results: {
+      permit_receipt: permitVerification,
+      completion_receipt: completionVerification,
+      link: linkResult,
+    },
+  }
+
+  writeFileSync(FIXTURES_DIR + 'completion-chain.json', JSON.stringify(fixture, null, 2))
+  console.log('wrote completion-chain.json')
+}
+
+// ═══════════════════════════════════════════════════════════
 // Generate all fixtures
 // ═══════════════════════════════════════════════════════════
 
@@ -445,4 +586,5 @@ console.log('Generating interop fixtures...')
 generateHappyPath()
 generateRevokedAncestor()
 generateStaleReplay()
+generateCompletionChain()
 console.log('Done. Files in interop/fixtures/')

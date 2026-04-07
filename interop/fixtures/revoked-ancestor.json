@@ -1,6 +1,6 @@
 {
   "description": "Revoked ancestor: delegation is revoked after a valid receipt was created. Receipt signature remains valid (it was valid when issued), but chain verification fails because the delegation is now revoked.",
-  "generated_at": "2026-04-07T18:13:50.168Z",
+  "generated_at": "2026-04-07T19:21:12.555Z",
   "protocol_version": "1.0.0",
   "objects": {
     "passport": {
@@ -9,13 +9,13 @@
         "agentId": "fixture-agent-002",
         "agentName": "Revocation Test Agent",
         "ownerAlias": "fixture-owner",
-        "publicKey": "d34208ebdd7e5be2b89eb70279aeb3548fc3b17b01c9d9ce8c4b338da7883dd2",
+        "publicKey": "6b5671daab3206cde682daf8f9a9a6aa281fa802227643c0fd512576b9105ad0",
         "mission": "Test revocation after receipt issuance",
         "capabilities": [
           "data_access"
         ],
-        "createdAt": "2026-04-07T18:13:50.149Z",
-        "expiresAt": "2027-04-07T18:13:50.149Z",
+        "createdAt": "2026-04-07T19:21:12.552Z",
+        "expiresAt": "2027-04-07T19:21:12.552Z",
         "voteWeight": 1,
         "reputation": {
           "overall": 1,
@@ -24,151 +24,151 @@
           "proposalsApproved": 0,
           "tokensContributed": 0,
           "tasksCompleted": 0,
-          "lastUpdated": "2026-04-07T18:13:50.149Z"
+          "lastUpdated": "2026-04-07T19:21:12.552Z"
         },
         "delegations": [],
         "metadata": {}
       },
-      "signature": "93f887141886d48b7a84585e944e0ff64c130c66cd43cc8bba45e4d2c549b2b80943926a600729103e7ff223dcd610a258f083016fe32b8975188b08f7573d0b",
-      "signedAt": "2026-04-07T18:13:50.150Z"
+      "signature": "d1a694dd4004c70004fa5dc9e65600958439e15e657e795eced9b6b6044aab4d048c6c836145a1920cc40c68c1760abaf4ecec59bc2321ee69b0e39402bcdf08",
+      "signedAt": "2026-04-07T19:21:12.553Z"
     },
     "delegation": {
-      "delegationId": "del_265144ee-81c",
-      "delegatedTo": "95662c7125f5ad6a2aa4ac7c6d8131a6320a2f0094dff5a0a41313d5e917b334",
-      "delegatedBy": "a1a3024ebdb172138f1ac2a7c5a08051338f2c9a3be533e1c84d1322040a8176",
+      "delegationId": "del_73122d8b-896",
+      "delegatedTo": "2705c1dc861cb566df90f15b39eac4ee512ee9f5ff39842e45e2ffc3628d1d1f",
+      "delegatedBy": "86ccd15a9fa7b91925bf23f26f5797b854b8db9a2e434772450202abb22d2980",
       "scope": [
         "data:read",
         "api:get"
       ],
-      "expiresAt": "2026-04-08T18:13:50.150Z",
+      "expiresAt": "2026-04-08T19:21:12.553Z",
       "spendLimit": 10000,
       "spentAmount": 0,
       "maxDepth": 1,
       "currentDepth": 0,
-      "createdAt": "2026-04-07T18:13:50.150Z",
-      "notBefore": "2026-04-07T18:13:50.150Z",
-      "signature": "61a14cb58c0e28804484638f1de4c75390b6e4cfc4a3539669ea6a4b343ceb0c2fad00f4e7959e8f080f7bbd5163b3289ed5c3a7b2d7a079a914d8ebfde5ea04"
+      "createdAt": "2026-04-07T19:21:12.553Z",
+      "notBefore": "2026-04-07T19:21:12.553Z",
+      "signature": "81232c95631e768f20110f1131f796ad2b4a7d0d4029a8136fc61e102d8e57171f6129aef2e548f427a542f12383db220a2701693013dd50ff422adc5970c10b"
     },
     "receipt": {
-      "receiptId": "rcpt_da6adbf8-3ae",
+      "receiptId": "rcpt_f405fbe0-898",
       "version": "1.1",
-      "timestamp": "2026-04-07T18:13:50.150Z",
+      "timestamp": "2026-04-07T19:21:12.554Z",
       "agentId": "fixture-agent-002",
-      "delegationId": "del_265144ee-81c",
+      "delegationId": "del_73122d8b-896",
       "action": {
         "type": "data:read",
         "target": "customer-db",
         "scopeUsed": "data:read",
-        "timestamp": "2026-04-07T18:13:50.150Z"
+        "timestamp": "2026-04-07T19:21:12.553Z"
       },
       "result": {
         "success": true,
         "output": "Read 10 records"
       },
       "delegationChain": [
-        "a1a3024ebdb172138f1ac2a7c5a08051338f2c9a3be533e1c84d1322040a8176",
-        "95662c7125f5ad6a2aa4ac7c6d8131a6320a2f0094dff5a0a41313d5e917b334"
+        "86ccd15a9fa7b91925bf23f26f5797b854b8db9a2e434772450202abb22d2980",
+        "2705c1dc861cb566df90f15b39eac4ee512ee9f5ff39842e45e2ffc3628d1d1f"
       ],
-      "signature": "624670e59f5e4db6eb43ab977da299fcd2e8bebb93a799e6614ff8781f9078e92da437ea7193fe1086620ce810b36a7ecd5c1c18193a48845f6f2e9b6398870e"
+      "signature": "176e977d11d24121f9f45ca7840e2f231e4556f2fa2b215dfd74c88a8bc0543f19ed1c841ff86da4a960db8a79fecc2e05d1be45c3c36e0c9296e13924587900"
     },
     "revocation": {
-      "revocationId": "rev_9fd0535c-d85",
-      "delegationId": "del_265144ee-81c",
-      "revokedBy": "a1a3024ebdb172138f1ac2a7c5a08051338f2c9a3be533e1c84d1322040a8176",
-      "revokedAt": "2026-04-07T18:13:50.151Z",
+      "revocationId": "rev_fd7d1fa0-d97",
+      "delegationId": "del_73122d8b-896",
+      "revokedBy": "86ccd15a9fa7b91925bf23f26f5797b854b8db9a2e434772450202abb22d2980",
+      "revokedAt": "2026-04-07T19:21:12.554Z",
       "reason": "Testing revocation after receipt issuance",
-      "signature": "f887b8ecce18fae2c25f779fa357474b469d93dd769fc740cf8e88b5e36f2b9a799c8832694ca5bef8ef1609f3231475426db0166cbdd4ca521e5533894c110c"
+      "signature": "41b2fe3885d4a62e0c689b151e05ea3e5d7c076ddfda3f30990bb3b0c0f9dac9eec16528d28d9e01cda5522b102fd5d810494b4d72516c794cc2bec8a8e09900"
     }
   },
   "canonicalized": {
     "delegation": {
       "input": {
-        "delegationId": "del_265144ee-81c",
-        "delegatedTo": "95662c7125f5ad6a2aa4ac7c6d8131a6320a2f0094dff5a0a41313d5e917b334",
-        "delegatedBy": "a1a3024ebdb172138f1ac2a7c5a08051338f2c9a3be533e1c84d1322040a8176",
+        "delegationId": "del_73122d8b-896",
+        "delegatedTo": "2705c1dc861cb566df90f15b39eac4ee512ee9f5ff39842e45e2ffc3628d1d1f",
+        "delegatedBy": "86ccd15a9fa7b91925bf23f26f5797b854b8db9a2e434772450202abb22d2980",
         "scope": [
           "data:read",
           "api:get"
         ],
-        "expiresAt": "2026-04-08T18:13:50.150Z",
+        "expiresAt": "2026-04-08T19:21:12.553Z",
         "spendLimit": 10000,
         "spentAmount": 0,
         "maxDepth": 1,
         "currentDepth": 0,
-        "createdAt": "2026-04-07T18:13:50.150Z",
-        "notBefore": "2026-04-07T18:13:50.150Z"
+        "createdAt": "2026-04-07T19:21:12.553Z",
+        "notBefore": "2026-04-07T19:21:12.553Z"
       },
-      "canonical_string": "{\"createdAt\":\"2026-04-07T18:13:50.150Z\",\"currentDepth\":0,\"delegatedBy\":\"a1a3024ebdb172138f1ac2a7c5a08051338f2c9a3be533e1c84d1322040a8176\",\"delegatedTo\":\"95662c7125f5ad6a2aa4ac7c6d8131a6320a2f0094dff5a0a41313d5e917b334\",\"delegationId\":\"del_265144ee-81c\",\"expiresAt\":\"2026-04-08T18:13:50.150Z\",\"maxDepth\":1,\"notBefore\":\"2026-04-07T18:13:50.150Z\",\"scope\":[\"data:read\",\"api:get\"],\"spendLimit\":10000,\"spentAmount\":0}",
-      "canonical_hex": "7b22637265617465644174223a22323032362d30342d30375431383a31333a35302e3135305a222c2263757272656e744465707468223a302c2264656c6567617465644279223a2261316133303234656264623137323133386631616332613763356130383035313333386632633961336265353333653163383464313332323034306138313736222c2264656c656761746564546f223a2239353636326337313235663561643661326161346163376336643831333161363332306132663030393464666635613061343133313364356539313762333334222c2264656c65676174696f6e4964223a2264656c5f32363531343465652d383163222c22657870697265734174223a22323032362d30342d30385431383a31333a35302e3135305a222c226d61784465707468223a312c226e6f744265666f7265223a22323032362d30342d30375431383a31333a35302e3135305a222c2273636f7065223a5b22646174613a72656164222c226170693a676574225d2c227370656e644c696d6974223a31303030302c227370656e74416d6f756e74223a307d",
+      "canonical_string": "{\"createdAt\":\"2026-04-07T19:21:12.553Z\",\"currentDepth\":0,\"delegatedBy\":\"86ccd15a9fa7b91925bf23f26f5797b854b8db9a2e434772450202abb22d2980\",\"delegatedTo\":\"2705c1dc861cb566df90f15b39eac4ee512ee9f5ff39842e45e2ffc3628d1d1f\",\"delegationId\":\"del_73122d8b-896\",\"expiresAt\":\"2026-04-08T19:21:12.553Z\",\"maxDepth\":1,\"notBefore\":\"2026-04-07T19:21:12.553Z\",\"scope\":[\"data:read\",\"api:get\"],\"spendLimit\":10000,\"spentAmount\":0}",
+      "canonical_hex": "7b22637265617465644174223a22323032362d30342d30375431393a32313a31322e3535335a222c2263757272656e744465707468223a302c2264656c6567617465644279223a2238366363643135613966613762393139323562663233663236663537393762383534623864623961326534333437373234353032303261626232326432393830222c2264656c656761746564546f223a2232373035633164633836316362353636646639306631356233396561633465653531326565396635666633393834326534356532666663333632386431643166222c2264656c65676174696f6e4964223a2264656c5f37333132326438622d383936222c22657870697265734174223a22323032362d30342d30385431393a32313a31322e3535335a222c226d61784465707468223a312c226e6f744265666f7265223a22323032362d30342d30375431393a32313a31322e3535335a222c2273636f7065223a5b22646174613a72656164222c226170693a676574225d2c227370656e644c696d6974223a31303030302c227370656e74416d6f756e74223a307d",
       "method": "APS canonical (sorted keys, null-stripped)"
     },
     "receipt": {
       "input": {
-        "receiptId": "rcpt_da6adbf8-3ae",
+        "receiptId": "rcpt_f405fbe0-898",
         "version": "1.1",
-        "timestamp": "2026-04-07T18:13:50.150Z",
+        "timestamp": "2026-04-07T19:21:12.554Z",
         "agentId": "fixture-agent-002",
-        "delegationId": "del_265144ee-81c",
+        "delegationId": "del_73122d8b-896",
         "action": {
           "type": "data:read",
           "target": "customer-db",
           "scopeUsed": "data:read",
-          "timestamp": "2026-04-07T18:13:50.150Z"
+          "timestamp": "2026-04-07T19:21:12.553Z"
         },
         "result": {
           "success": true,
           "output": "Read 10 records"
         },
         "delegationChain": [
-          "a1a3024ebdb172138f1ac2a7c5a08051338f2c9a3be533e1c84d1322040a8176",
-          "95662c7125f5ad6a2aa4ac7c6d8131a6320a2f0094dff5a0a41313d5e917b334"
+          "86ccd15a9fa7b91925bf23f26f5797b854b8db9a2e434772450202abb22d2980",
+          "2705c1dc861cb566df90f15b39eac4ee512ee9f5ff39842e45e2ffc3628d1d1f"
         ]
       },
-      "canonical_string": "{\"action\":{\"scopeUsed\":\"data:read\",\"target\":\"customer-db\",\"timestamp\":\"2026-04-07T18:13:50.150Z\",\"type\":\"data:read\"},\"agentId\":\"fixture-agent-002\",\"delegationChain\":[\"a1a3024ebdb172138f1ac2a7c5a08051338f2c9a3be533e1c84d1322040a8176\",\"95662c7125f5ad6a2aa4ac7c6d8131a6320a2f0094dff5a0a41313d5e917b334\"],\"delegationId\":\"del_265144ee-81c\",\"receiptId\":\"rcpt_da6adbf8-3ae\",\"result\":{\"output\":\"Read 10 records\",\"success\":true},\"timestamp\":\"2026-04-07T18:13:50.150Z\",\"version\":\"1.1\"}",
-      "canonical_hex": "7b22616374696f6e223a7b2273636f706555736564223a22646174613a72656164222c22746172676574223a22637573746f6d65722d6462222c2274696d657374616d70223a22323032362d30342d30375431383a31333a35302e3135305a222c2274797065223a22646174613a72656164227d2c226167656e744964223a22666978747572652d6167656e742d303032222c2264656c65676174696f6e436861696e223a5b2261316133303234656264623137323133386631616332613763356130383035313333386632633961336265353333653163383464313332323034306138313736222c2239353636326337313235663561643661326161346163376336643831333161363332306132663030393464666635613061343133313364356539313762333334225d2c2264656c65676174696f6e4964223a2264656c5f32363531343465652d383163222c22726563656970744964223a22726370745f64613661646266382d336165222c22726573756c74223a7b226f7574707574223a2252656164203130207265636f726473222c2273756363657373223a747275657d2c2274696d657374616d70223a22323032362d30342d30375431383a31333a35302e3135305a222c2276657273696f6e223a22312e31227d",
+      "canonical_string": "{\"action\":{\"scopeUsed\":\"data:read\",\"target\":\"customer-db\",\"timestamp\":\"2026-04-07T19:21:12.553Z\",\"type\":\"data:read\"},\"agentId\":\"fixture-agent-002\",\"delegationChain\":[\"86ccd15a9fa7b91925bf23f26f5797b854b8db9a2e434772450202abb22d2980\",\"2705c1dc861cb566df90f15b39eac4ee512ee9f5ff39842e45e2ffc3628d1d1f\"],\"delegationId\":\"del_73122d8b-896\",\"receiptId\":\"rcpt_f405fbe0-898\",\"result\":{\"output\":\"Read 10 records\",\"success\":true},\"timestamp\":\"2026-04-07T19:21:12.554Z\",\"version\":\"1.1\"}",
+      "canonical_hex": "7b22616374696f6e223a7b2273636f706555736564223a22646174613a72656164222c22746172676574223a22637573746f6d65722d6462222c2274696d657374616d70223a22323032362d30342d30375431393a32313a31322e3535335a222c2274797065223a22646174613a72656164227d2c226167656e744964223a22666978747572652d6167656e742d303032222c2264656c65676174696f6e436861696e223a5b2238366363643135613966613762393139323562663233663236663537393762383534623864623961326534333437373234353032303261626232326432393830222c2232373035633164633836316362353636646639306631356233396561633465653531326565396635666633393834326534356532666663333632386431643166225d2c2264656c65676174696f6e4964223a2264656c5f37333132326438622d383936222c22726563656970744964223a22726370745f66343035666265302d383938222c22726573756c74223a7b226f7574707574223a2252656164203130207265636f726473222c2273756363657373223a747275657d2c2274696d657374616d70223a22323032362d30342d30375431393a32313a31322e3535345a222c2276657273696f6e223a22312e31227d",
       "method": "APS canonical (sorted keys, null-stripped)"
     },
     "revocation": {
       "input": {
-        "revocationId": "rev_9fd0535c-d85",
-        "delegationId": "del_265144ee-81c",
-        "revokedBy": "a1a3024ebdb172138f1ac2a7c5a08051338f2c9a3be533e1c84d1322040a8176",
-        "revokedAt": "2026-04-07T18:13:50.151Z",
+        "revocationId": "rev_fd7d1fa0-d97",
+        "delegationId": "del_73122d8b-896",
+        "revokedBy": "86ccd15a9fa7b91925bf23f26f5797b854b8db9a2e434772450202abb22d2980",
+        "revokedAt": "2026-04-07T19:21:12.554Z",
         "reason": "Testing revocation after receipt issuance"
       },
-      "canonical_string": "{\"delegationId\":\"del_265144ee-81c\",\"reason\":\"Testing revocation after receipt issuance\",\"revocationId\":\"rev_9fd0535c-d85\",\"revokedAt\":\"2026-04-07T18:13:50.151Z\",\"revokedBy\":\"a1a3024ebdb172138f1ac2a7c5a08051338f2c9a3be533e1c84d1322040a8176\"}",
-      "canonical_hex": "7b2264656c65676174696f6e4964223a2264656c5f32363531343465652d383163222c22726561736f6e223a2254657374696e67207265766f636174696f6e20616674657220726563656970742069737375616e6365222c227265766f636174696f6e4964223a227265765f39666430353335632d643835222c227265766f6b65644174223a22323032362d30342d30375431383a31333a35302e3135315a222c227265766f6b65644279223a2261316133303234656264623137323133386631616332613763356130383035313333386632633961336265353333653163383464313332323034306138313736227d",
+      "canonical_string": "{\"delegationId\":\"del_73122d8b-896\",\"reason\":\"Testing revocation after receipt issuance\",\"revocationId\":\"rev_fd7d1fa0-d97\",\"revokedAt\":\"2026-04-07T19:21:12.554Z\",\"revokedBy\":\"86ccd15a9fa7b91925bf23f26f5797b854b8db9a2e434772450202abb22d2980\"}",
+      "canonical_hex": "7b2264656c65676174696f6e4964223a2264656c5f37333132326438622d383936222c22726561736f6e223a2254657374696e67207265766f636174696f6e20616674657220726563656970742069737375616e6365222c227265766f636174696f6e4964223a227265765f66643764316661302d643937222c227265766f6b65644174223a22323032362d30342d30375431393a32313a31322e3535345a222c227265766f6b65644279223a2238366363643135613966613762393139323562663233663236663537393762383534623864623961326534333437373234353032303261626232326432393830227d",
       "method": "APS canonical (sorted keys, null-stripped)"
     }
   },
   "signatures": {
     "delegation": {
-      "signature": "61a14cb58c0e28804484638f1de4c75390b6e4cfc4a3539669ea6a4b343ceb0c2fad00f4e7959e8f080f7bbd5163b3289ed5c3a7b2d7a079a914d8ebfde5ea04",
+      "signature": "81232c95631e768f20110f1131f796ad2b4a7d0d4029a8136fc61e102d8e57171f6129aef2e548f427a542f12383db220a2701693013dd50ff422adc5970c10b",
       "signed_by": "principal",
       "algorithm": "Ed25519"
     },
     "receipt": {
-      "signature": "624670e59f5e4db6eb43ab977da299fcd2e8bebb93a799e6614ff8781f9078e92da437ea7193fe1086620ce810b36a7ecd5c1c18193a48845f6f2e9b6398870e",
+      "signature": "176e977d11d24121f9f45ca7840e2f231e4556f2fa2b215dfd74c88a8bc0543f19ed1c841ff86da4a960db8a79fecc2e05d1be45c3c36e0c9296e13924587900",
       "signed_by": "agent",
       "algorithm": "Ed25519"
     },
     "revocation": {
-      "signature": "f887b8ecce18fae2c25f779fa357474b469d93dd769fc740cf8e88b5e36f2b9a799c8832694ca5bef8ef1609f3231475426db0166cbdd4ca521e5533894c110c",
+      "signature": "41b2fe3885d4a62e0c689b151e05ea3e5d7c076ddfda3f30990bb3b0c0f9dac9eec16528d28d9e01cda5522b102fd5d810494b4d72516c794cc2bec8a8e09900",
       "signed_by": "principal (revoker)",
       "algorithm": "Ed25519"
     }
   },
   "keys": {
     "passport_owner": {
-      "public_key": "d34208ebdd7e5be2b89eb70279aeb3548fc3b17b01c9d9ce8c4b338da7883dd2",
+      "public_key": "6b5671daab3206cde682daf8f9a9a6aa281fa802227643c0fd512576b9105ad0",
       "role": "Passport holder"
     },
     "principal": {
-      "public_key": "a1a3024ebdb172138f1ac2a7c5a08051338f2c9a3be533e1c84d1322040a8176",
+      "public_key": "86ccd15a9fa7b91925bf23f26f5797b854b8db9a2e434772450202abb22d2980",
       "role": "Delegator and revoker"
     },
     "agent": {
-      "public_key": "95662c7125f5ad6a2aa4ac7c6d8131a6320a2f0094dff5a0a41313d5e917b334",
+      "public_key": "2705c1dc861cb566df90f15b39eac4ee512ee9f5ff39842e45e2ffc3628d1d1f",
       "role": "Delegate, receipt signer"
     }
   },
@@ -188,9 +188,9 @@
       "expired": false,
       "notYetValid": false,
       "depthExceeded": false,
-      "revokedAt": "2026-04-07T18:13:50.151Z",
+      "revokedAt": "2026-04-07T19:21:12.554Z",
       "errors": [
-        "Revoked at 2026-04-07T18:13:50.151Z: Testing revocation after receipt issuance"
+        "Revoked at 2026-04-07T19:21:12.554Z: Testing revocation after receipt issuance"
       ]
     },
     "receipt": {

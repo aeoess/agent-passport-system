@@ -1,0 +1,212 @@
+{
+  "description": "Completion chain: full permit-execute-complete lifecycle. Delegation authorizes action, permit receipt proves authorization, completion receipt proves execution outcome, linkPermitAndCompletion binds them cryptographically via SHA-256 hash of canonicalized permit receipt.",
+  "generated_at": "2026-04-07T19:21:12.584Z",
+  "protocol_version": "1.0.0",
+  "objects": {
+    "passport": {
+      "passport": {
+        "version": "1.0.0",
+        "agentId": "fixture-agent-004",
+        "agentName": "Completion Chain Agent",
+        "ownerAlias": "fixture-owner",
+        "publicKey": "0eb2fbbb2874b8b28cac911d8530f420a40353a688305bd1efd4363a94e48182",
+        "mission": "Test bilateral completion receipt lifecycle",
+        "capabilities": [
+          "data_access",
+          "api_calls"
+        ],
+        "createdAt": "2026-04-07T19:21:12.572Z",
+        "expiresAt": "2027-04-07T19:21:12.572Z",
+        "voteWeight": 1,
+        "reputation": {
+          "overall": 1,
+          "collaborationsCompleted": 0,
+          "proposalsSubmitted": 0,
+          "proposalsApproved": 0,
+          "tokensContributed": 0,
+          "tasksCompleted": 0,
+          "lastUpdated": "2026-04-07T19:21:12.572Z"
+        },
+        "delegations": [],
+        "metadata": {}
+      },
+      "signature": "8713cb72e349d838afff56c3d7e3502e99e06d0b93214d6141a84bcd471b9ce95c626ecee369df2066609e0c3c01daa44120134f4dadeeba3cd614fa16d2d10c",
+      "signedAt": "2026-04-07T19:21:12.572Z"
+    },
+    "delegation": {
+      "delegationId": "del_3b238c01-fca",
+      "delegatedTo": "0d0db935d12757cbe18a670580c9af810e0f421193ff6ca120c498e8c69cc93b",
+      "delegatedBy": "d8fc604ebd401c61b89d0b1b0f6227f9060a405b042b0dbd389297938d3973c1",
+      "scope": [
+        "data:read",
+        "api:get"
+      ],
+      "expiresAt": "2026-04-08T19:21:12.572Z",
+      "spendLimit": 5000,
+      "spentAmount": 0,
+      "maxDepth": 1,
+      "currentDepth": 0,
+      "createdAt": "2026-04-07T19:21:12.572Z",
+      "notBefore": "2026-04-07T19:21:12.572Z",
+      "signature": "73e75f0a851fe9c22c7bae6a04c7f5b883cea8aab863f3ee3d3e3d90a16c8d43b5a2b8de8701cc8b79cd65d6957eae7220ee9681d303cf441d2e9c25fa622800"
+    },
+    "permit_receipt": {
+      "receiptId": "rcpt_ad3ff436-6c3",
+      "version": "1.1",
+      "timestamp": "2026-04-07T19:21:12.578Z",
+      "agentId": "fixture-agent-004",
+      "delegationId": "del_3b238c01-fca",
+      "action": {
+        "type": "data:read",
+        "target": "analytics-db",
+        "scopeUsed": "data:read",
+        "timestamp": "2026-04-07T19:21:12.576Z"
+      },
+      "result": {
+        "success": true,
+        "output": "Query completed"
+      },
+      "delegationChain": [
+        "d8fc604ebd401c61b89d0b1b0f6227f9060a405b042b0dbd389297938d3973c1",
+        "0d0db935d12757cbe18a670580c9af810e0f421193ff6ca120c498e8c69cc93b"
+      ],
+      "signature": "97b35eb81ce53b8a91d5a3c4cf3b075ca7b87b9707e5a57cb84748ab4ac5437b04ea1a2e809e6d7b3e0c1d19ab7b0a7baa0eb9c831a80430546410445a829c05"
+    },
+    "completion_receipt": {
+      "completionId": "cmp_5d86ff84-e67",
+      "permitReceiptHash": "a23c8ce704c3b172932c3819e2c2d47546f999c581c9666814795ec3f3abc675",
+      "executionResult": "success",
+      "resultSummary": "Query returned 128 rows from analytics-db in 42ms",
+      "resultHash": "7e693cac5eb049c29923a10aa102a96dbe8969e3480bf8a51dde427d8c29f1b0",
+      "executedAt": "2026-04-07T19:21:12.582Z",
+      "durationMs": 42,
+      "signedAt": "2026-04-07T19:21:12.582Z",
+      "signature": "906bf52a91926ec9b666b70caaa362e4106a5d9f9f7143388d61a2aca02f114075fe3d1fc69eae9326ecedb5fef7218ec5d97d237ba138c140037d6e32572f07"
+    }
+  },
+  "canonicalized": {
+    "delegation": {
+      "input": {
+        "delegationId": "del_3b238c01-fca",
+        "delegatedTo": "0d0db935d12757cbe18a670580c9af810e0f421193ff6ca120c498e8c69cc93b",
+        "delegatedBy": "d8fc604ebd401c61b89d0b1b0f6227f9060a405b042b0dbd389297938d3973c1",
+        "scope": [
+          "data:read",
+          "api:get"
+        ],
+        "expiresAt": "2026-04-08T19:21:12.572Z",
+        "spendLimit": 5000,
+        "spentAmount": 0,
+        "maxDepth": 1,
+        "currentDepth": 0,
+        "createdAt": "2026-04-07T19:21:12.572Z",
+        "notBefore": "2026-04-07T19:21:12.572Z"
+      },
+      "canonical_string": "{\"createdAt\":\"2026-04-07T19:21:12.572Z\",\"currentDepth\":0,\"delegatedBy\":\"d8fc604ebd401c61b89d0b1b0f6227f9060a405b042b0dbd389297938d3973c1\",\"delegatedTo\":\"0d0db935d12757cbe18a670580c9af810e0f421193ff6ca120c498e8c69cc93b\",\"delegationId\":\"del_3b238c01-fca\",\"expiresAt\":\"2026-04-08T19:21:12.572Z\",\"maxDepth\":1,\"notBefore\":\"2026-04-07T19:21:12.572Z\",\"scope\":[\"data:read\",\"api:get\"],\"spendLimit\":5000,\"spentAmount\":0}",
+      "canonical_hex": "7b22637265617465644174223a22323032362d30342d30375431393a32313a31322e3537325a222c2263757272656e744465707468223a302c2264656c6567617465644279223a2264386663363034656264343031633631623839643062316230663632323766393036306134303562303432623064626433383932393739333864333937336331222c2264656c656761746564546f223a2230643064623933356431323735376362653138613637303538306339616638313065306634323131393366663663613132306334393865386336396363393362222c2264656c65676174696f6e4964223a2264656c5f33623233386330312d666361222c22657870697265734174223a22323032362d30342d30385431393a32313a31322e3537325a222c226d61784465707468223a312c226e6f744265666f7265223a22323032362d30342d30375431393a32313a31322e3537325a222c2273636f7065223a5b22646174613a72656164222c226170693a676574225d2c227370656e644c696d6974223a353030302c227370656e74416d6f756e74223a307d",
+      "method": "APS canonical (sorted keys, null-stripped)"
+    },
+    "permit_receipt": {
+      "input": {
+        "receiptId": "rcpt_ad3ff436-6c3",
+        "version": "1.1",
+        "timestamp": "2026-04-07T19:21:12.578Z",
+        "agentId": "fixture-agent-004",
+        "delegationId": "del_3b238c01-fca",
+        "action": {
+          "type": "data:read",
+          "target": "analytics-db",
+          "scopeUsed": "data:read",
+          "timestamp": "2026-04-07T19:21:12.576Z"
+        },
+        "result": {
+          "success": true,
+          "output": "Query completed"
+        },
+        "delegationChain": [
+          "d8fc604ebd401c61b89d0b1b0f6227f9060a405b042b0dbd389297938d3973c1",
+          "0d0db935d12757cbe18a670580c9af810e0f421193ff6ca120c498e8c69cc93b"
+        ]
+      },
+      "canonical_string": "{\"action\":{\"scopeUsed\":\"data:read\",\"target\":\"analytics-db\",\"timestamp\":\"2026-04-07T19:21:12.576Z\",\"type\":\"data:read\"},\"agentId\":\"fixture-agent-004\",\"delegationChain\":[\"d8fc604ebd401c61b89d0b1b0f6227f9060a405b042b0dbd389297938d3973c1\",\"0d0db935d12757cbe18a670580c9af810e0f421193ff6ca120c498e8c69cc93b\"],\"delegationId\":\"del_3b238c01-fca\",\"receiptId\":\"rcpt_ad3ff436-6c3\",\"result\":{\"output\":\"Query completed\",\"success\":true},\"timestamp\":\"2026-04-07T19:21:12.578Z\",\"version\":\"1.1\"}",
+      "canonical_hex": "7b22616374696f6e223a7b2273636f706555736564223a22646174613a72656164222c22746172676574223a22616e616c79746963732d6462222c2274696d657374616d70223a22323032362d30342d30375431393a32313a31322e3537365a222c2274797065223a22646174613a72656164227d2c226167656e744964223a22666978747572652d6167656e742d303034222c2264656c65676174696f6e436861696e223a5b2264386663363034656264343031633631623839643062316230663632323766393036306134303562303432623064626433383932393739333864333937336331222c2230643064623933356431323735376362653138613637303538306339616638313065306634323131393366663663613132306334393865386336396363393362225d2c2264656c65676174696f6e4964223a2264656c5f33623233386330312d666361222c22726563656970744964223a22726370745f61643366663433362d366333222c22726573756c74223a7b226f7574707574223a22517565727920636f6d706c65746564222c2273756363657373223a747275657d2c2274696d657374616d70223a22323032362d30342d30375431393a32313a31322e3537385a222c2276657273696f6e223a22312e31227d",
+      "sha256_hash": "a23c8ce704c3b172932c3819e2c2d47546f999c581c9666814795ec3f3abc675",
+      "method": "APS canonical (sorted keys, null-stripped)"
+    },
+    "completion_receipt": {
+      "input": {
+        "completionId": "cmp_5d86ff84-e67",
+        "permitReceiptHash": "a23c8ce704c3b172932c3819e2c2d47546f999c581c9666814795ec3f3abc675",
+        "executionResult": "success",
+        "resultSummary": "Query returned 128 rows from analytics-db in 42ms",
+        "resultHash": "7e693cac5eb049c29923a10aa102a96dbe8969e3480bf8a51dde427d8c29f1b0",
+        "executedAt": "2026-04-07T19:21:12.582Z",
+        "durationMs": 42,
+        "signedAt": "2026-04-07T19:21:12.582Z"
+      },
+      "canonical_string": "{\"completionId\":\"cmp_5d86ff84-e67\",\"durationMs\":42,\"executedAt\":\"2026-04-07T19:21:12.582Z\",\"executionResult\":\"success\",\"permitReceiptHash\":\"a23c8ce704c3b172932c3819e2c2d47546f999c581c9666814795ec3f3abc675\",\"resultHash\":\"7e693cac5eb049c29923a10aa102a96dbe8969e3480bf8a51dde427d8c29f1b0\",\"resultSummary\":\"Query returned 128 rows from analytics-db in 42ms\",\"signedAt\":\"2026-04-07T19:21:12.582Z\"}",
+      "canonical_hex": "7b22636f6d706c6574696f6e4964223a22636d705f35643836666638342d653637222c226475726174696f6e4d73223a34322c2265786563757465644174223a22323032362d30342d30375431393a32313a31322e3538325a222c22657865637574696f6e526573756c74223a2273756363657373222c227065726d69745265636569707448617368223a2261323363386365373034633362313732393332633338313965326332643437353436663939396335383163393636363831343739356563336633616263363735222c22726573756c7448617368223a2237653639336361633565623034396332393932336131306161313032613936646265383936396533343830626638613531646465343237643863323966316230222c22726573756c7453756d6d617279223a2251756572792072657475726e65642031323820726f77732066726f6d20616e616c79746963732d646220696e2034326d73222c227369676e65644174223a22323032362d30342d30375431393a32313a31322e3538325a227d",
+      "method": "APS canonical (sorted keys, null-stripped)"
+    }
+  },
+  "signatures": {
+    "delegation": {
+      "signature": "73e75f0a851fe9c22c7bae6a04c7f5b883cea8aab863f3ee3d3e3d90a16c8d43b5a2b8de8701cc8b79cd65d6957eae7220ee9681d303cf441d2e9c25fa622800",
+      "signed_by": "principal",
+      "algorithm": "Ed25519"
+    },
+    "permit_receipt": {
+      "signature": "97b35eb81ce53b8a91d5a3c4cf3b075ca7b87b9707e5a57cb84748ab4ac5437b04ea1a2e809e6d7b3e0c1d19ab7b0a7baa0eb9c831a80430546410445a829c05",
+      "signed_by": "agent",
+      "algorithm": "Ed25519"
+    },
+    "completion_receipt": {
+      "signature": "906bf52a91926ec9b666b70caaa362e4106a5d9f9f7143388d61a2aca02f114075fe3d1fc69eae9326ecedb5fef7218ec5d97d237ba138c140037d6e32572f07",
+      "signed_by": "agent",
+      "algorithm": "Ed25519"
+    }
+  },
+  "keys": {
+    "passport_owner": {
+      "public_key": "0eb2fbbb2874b8b28cac911d8530f420a40353a688305bd1efd4363a94e48182",
+      "role": "Passport holder"
+    },
+    "principal": {
+      "public_key": "d8fc604ebd401c61b89d0b1b0f6227f9060a405b042b0dbd389297938d3973c1",
+      "role": "Delegator"
+    },
+    "agent": {
+      "public_key": "0d0db935d12757cbe18a670580c9af810e0f421193ff6ca120c498e8c69cc93b",
+      "role": "Delegate, signs both receipts"
+    }
+  },
+  "linking": {
+    "permit_receipt_hash": "a23c8ce704c3b172932c3819e2c2d47546f999c581c9666814795ec3f3abc675",
+    "completion_claims_hash": "a23c8ce704c3b172932c3819e2c2d47546f999c581c9666814795ec3f3abc675",
+    "hashes_match": true,
+    "method": "SHA-256 of canonicalized permit receipt (signature stripped)"
+  },
+  "expected": {
+    "permit_receipt_signature_valid": true,
+    "completion_receipt_signature_valid": true,
+    "permit_completion_linked": true,
+    "execution_result": "success",
+    "reasoning": "Both receipts are signed by the same agent. The completion receipt references the permit receipt by SHA-256 hash of its canonicalized form. linkPermitAndCompletion confirms the hash match. This proves the agent that was authorized (permit) is the same agent that attests to execution (completion)."
+  },
+  "verification_results": {
+    "permit_receipt": {
+      "valid": true,
+      "errors": []
+    },
+    "completion_receipt": {
+      "valid": true,
+      "errors": []
+    },
+    "link": {
+      "linked": true,
+      "permitHash": "a23c8ce704c3b172932c3819e2c2d47546f999c581c9666814795ec3f3abc675",
+      "completionClaimsHash": "a23c8ce704c3b172932c3819e2c2d47546f999c581c9666814795ec3f3abc675",
+      "errors": []
+    }
+  }
+}
