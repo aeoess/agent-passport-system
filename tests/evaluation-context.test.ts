@@ -15,6 +15,7 @@ import {
 import type { EvaluationContext, BehavioralAttestationResult } from '../src/index.js'
 
 const sampleContext: EvaluationContext = {
+  measurementType: 'behavioral_fidelity',
   substrate: 'claude-opus-4-20250514',
   responseFormatSchema: 'relational-fidelity-v0.1.0',
   normalizationMethod: 'z-score-cross-substrate',
