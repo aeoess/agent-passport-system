@@ -1,6 +1,6 @@
 ---
 name: agent-passport-system
-description: "Enforcement and accountability layer for AI agents. Bring your own identity (did:key, did:web, SPIFFE, OAuth, did:aps). Gateway enforcement boundary, monotonic narrowing, cascade revocation, spending controls, data lifecycle. Use when agents need scoped delegation, trust scoring, constraint enforcement, or cryptographic audit trails. 103 modules, 131 MCP tools, 2486 tests. 8 framework adapters: Stripe, Composio, IBAC/Cedar, LangChain, CrewAI, MCP, A2A, Gonka."
+description: "Enforcement and accountability layer for AI agents. Bring your own identity (did:key, did:web, SPIFFE, OAuth, did:aps). Gateway enforcement boundary, monotonic narrowing, cascade revocation, spending controls, data lifecycle. Use when agents need scoped delegation, trust scoring, constraint enforcement, or cryptographic audit trails. 103 modules, 132 MCP tools, 2497 tests. 8 framework adapters: Stripe, Composio, IBAC/Cedar, LangChain, CrewAI, MCP, A2A, Gonka."
 metadata:
   clawdbot:
     emoji: "🔑"
@@ -37,7 +37,7 @@ metadata:
 
 ```bash
 npm install agent-passport-system        # SDK (103 modules)
-npm install agent-passport-system-mcp    # MCP server (131 tools)
+npm install agent-passport-system-mcp    # MCP server (132 tools)
 ```
 
 Remote MCP (zero install): `https://mcp.aeoess.com/sse`
@@ -76,7 +76,7 @@ npx agent-passport prove --beneficiary alice
 
 Output: Merkle root + inclusion proofs. 100K receipts provable with ~17 hashes.
 
-## MCP tools (131 total)
+## MCP tools (132 total)
 
 Setup: `npx agent-passport-system-mcp setup` (auto-configures Claude Desktop + Cursor)
 
@@ -104,7 +104,7 @@ register_data_source, create_access_receipt, create_derivation_receipt, create_d
 **Intent Network (5):**
 publish_intent_card, remove_intent_card, search_matches, request_intro, respond_to_intro
 
-## Framework adapters (7)
+## Framework adapters (8)
 
 One-function governance for every major agent framework. Each wraps tool/task execution with APS delegation checks and Ed25519-signed receipts.
 
@@ -160,8 +160,8 @@ Grade travels with the passport. Any consumer reads it without understanding sco
 ## Key facts
 
 - **103 modules** (71 core + 32 v2 constitutional)
-- **2,486 tests** including 50 adversarial attack scenarios
-- **131 MCP tools** with role-scoped profiles
+- **2,497 tests** including 50 adversarial attack scenarios
+- **132 MCP tools** with role-scoped profiles
 - **Policy eval <2ms**, 403 ops/sec, 15 constraint dimensions
 - **Zero heavy dependencies** — Node.js crypto + uuid only
 - **Apache-2.0** license
