@@ -329,6 +329,7 @@ export interface RecoveryResult {
 
 /** Input conditions for a behavioral evaluation. Immutable after creation. */
 export interface EvaluationContext {
+  measurementType?: 'protocol_enforcement' | 'behavioral_fidelity' | 'hybrid'  // discriminator: what kind of evaluation produced this
   substrate: string                    // model/runtime identifier
   responseFormatSchema: string         // expected output format
   normalizationMethod: string          // how cross-substrate results are aligned

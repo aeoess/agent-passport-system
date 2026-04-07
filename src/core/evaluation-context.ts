@@ -16,6 +16,7 @@ export function createEvaluationContext(opts: EvaluationContext): {
   hash: string
 } {
   const context: EvaluationContext = {
+    measurementType: opts.measurementType || 'behavioral_fidelity',
     substrate: opts.substrate,
     responseFormatSchema: opts.responseFormatSchema,
     normalizationMethod: opts.normalizationMethod,
