@@ -28,6 +28,9 @@ export type {
 export { createPassport, signPassport, updatePassport, isExpired, isPassportValid, countersignPassport, verifyIssuerSignature, isIssuerVerified, isIssuerSigned } from './core/passport.js'
 export { canonicalize, canonicalJson, canonicalHash, normalizeTimestamp } from './core/canonical.js'
 
+// ── Scope Version Hash (MCP#1763) — bilateral receipt pre-commitment ──
+export { computeScopeVersionHash, verifyScopeVersionMatch } from './core/scope-version.js'
+
 // ── action_ref (A2A#1672) — Content-Addressed Request Identity ──
 export { computeActionRef, actionRefsMatch } from './core/action-ref.js'
 
