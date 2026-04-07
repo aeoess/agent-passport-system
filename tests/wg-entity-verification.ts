@@ -188,7 +188,7 @@ describe('WG Entity Verification v1.0 — Boyd Joint Test (APS)', () => {
     log(`  Reason: ${denied.denialReason?.substring(0, 80)}`)
 
     // ── Step 7: Revocation propagation ──
-    revokeDelegation(del.delegationId, agent.agentId, 'Boyd test: revocation propagation', agent.keyPair.privateKey)
+    revokeDelegation(del.delegationId, agent.keyPair.publicKey, 'Boyd test: revocation propagation', agent.keyPair.privateKey)
 
     const postRevoke = await gateway.processToolCall(makeRequest())
     assert.ok(!postRevoke.executed, 'Same action denied after revocation')

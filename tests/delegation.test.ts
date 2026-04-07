@@ -56,9 +56,9 @@ describe('Delegation Creation', () => {
       scope: ['code_execution'],
       privateKey: human.privateKey
     })
-    // Tamper with the delegation
-    d.scope = ['system_control']
-    const status = verifyDelegation(d)
+    // Tamper with the delegation (spread since frozen)
+    const forged = { ...d, scope: ['system_control'] }
+    const status = verifyDelegation(forged)
     assert.ok(!status.valid)
     assert.ok(status.errors.some(e => e.includes('Invalid delegation signature')))
   })
@@ -105,6 +105,7 @@ describe('Sub-delegation & Depth Limits', () => {
       delegatedTo: agentA.publicKey,
       delegatedBy: human.publicKey,
       scope: ['code_execution'],
+      spendLimit: 1000,
       maxDepth: 1,
       privateKey: human.privateKey
     })
@@ -112,6 +113,7 @@ describe('Sub-delegation & Depth Limits', () => {
       parentDelegation: parent,
       delegatedTo: agentB.publicKey,
       scope: ['code_execution'],
+      spendLimit: 500,
       privateKey: agentA.privateKey
     })
     // child is at depth 1, maxDepth 1 — try to sub-delegate again

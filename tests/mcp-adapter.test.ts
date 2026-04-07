@@ -89,8 +89,7 @@ describe('MCP Adapter', () => {
   })
 
   it('expired delegation denial', async () => {
-    const del = mkDel(['tools:read'])
-    del.expiresAt = new Date(Date.now() - 1000).toISOString()
+    const del = { ...mkDel(['tools:read']), expiresAt: new Date(Date.now() - 1000).toISOString() }
     const r = await governMCPToolCall(
       { name: 'read', arguments: {} }, mockExec,
       { passport: signedPassport, delegation: del, privateKey: ak.privateKey },

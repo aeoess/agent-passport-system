@@ -103,13 +103,11 @@ describe('Task Assignment', () => {
     })
 
     const delegation = createDelegation({
-      delegatorId: 'operator-001',
-      delegateId: 'researcher-001',
+      delegatedTo: researcher.publicKey,
+      delegatedBy: operator.publicKey,
       scope: ['web:search'],
       spendLimit: 100,
       maxDepth: 1,
-      expiresAt: new Date(Date.now() + 3600000).toISOString(),
-      delegatorKey: operator.publicKey,
       privateKey: operator.privateKey,
     })
 
@@ -143,9 +141,9 @@ describe('Task Assignment', () => {
     })
 
     const delegation = createDelegation({
-      delegatorId: 'op', delegateId: 'res', scope: ['web:search'], spendLimit: 100,
-      maxDepth: 1, expiresAt: new Date(Date.now() + 3600000).toISOString(),
-      delegatorKey: operator.publicKey, privateKey: operator.privateKey,
+      delegatedTo: researcher.publicKey, delegatedBy: operator.publicKey,
+      scope: ['web:search'], spendLimit: 100, maxDepth: 1,
+      privateKey: operator.privateKey,
     })
 
     const { assignment } = assignTask({
@@ -168,9 +166,9 @@ describe('Task Assignment', () => {
     })
 
     const delegation = createDelegation({
-      delegatorId: 'op', delegateId: 'res', scope: ['web:search'], spendLimit: 100,
-      maxDepth: 1, expiresAt: new Date(Date.now() + 3600000).toISOString(),
-      delegatorKey: operator.publicKey, privateKey: operator.privateKey,
+      delegatedTo: researcher.publicKey, delegatedBy: operator.publicKey,
+      scope: ['web:search'], spendLimit: 100, maxDepth: 1,
+      privateKey: operator.privateKey,
     })
 
     const { updatedBrief } = assignTask({
@@ -406,10 +404,9 @@ describe('Full Coordination Lifecycle', () => {
 
     // 2. Operator assigns researcher
     const resDelegation = createDelegation({
-      delegatorId: 'operator-001', delegateId: 'researcher-001',
+      delegatedTo: researcher.publicKey, delegatedBy: operator.publicKey,
       scope: ['web:search', 'data:extract'], spendLimit: 200, maxDepth: 1,
-      expiresAt: new Date(Date.now() + 3600000).toISOString(),
-      delegatorKey: operator.publicKey, privateKey: operator.privateKey,
+      privateKey: operator.privateKey,
     })
 
     const { assignment: resAssign, updatedBrief: brief2 } = assignTask({
@@ -421,10 +418,9 @@ describe('Full Coordination Lifecycle', () => {
 
     // 3. Operator assigns analyst
     const anlDelegation = createDelegation({
-      delegatorId: 'operator-001', delegateId: 'analyst-001',
+      delegatedTo: analyst.publicKey, delegatedBy: operator.publicKey,
       scope: ['data:synthesize'], spendLimit: 150, maxDepth: 1,
-      expiresAt: new Date(Date.now() + 3600000).toISOString(),
-      delegatorKey: operator.publicKey, privateKey: operator.privateKey,
+      privateKey: operator.privateKey,
     })
 
     const { assignment: anlAssign, updatedBrief: brief3 } = assignTask({

@@ -207,9 +207,9 @@ describe('Feasibility Linting (Gap 7)', () => {
         expiresInHours: 48,
         privateKey: kp1.privateKey,
       })
-      // Simulate exhausted budget
-      del.spentAmount = 100
-      const r = lintTaskFeasibility({ delegation: del, role })
+      // Simulate exhausted budget (spread since frozen)
+      const exhausted = { ...del, spentAmount: 100 }
+      const r = lintTaskFeasibility({ delegation: exhausted, role })
       assert.equal(r.feasible, false)
       assert.ok(r.issues.some(i => i.code === 'BUDGET_EXHAUSTED'))
     })
@@ -252,11 +252,11 @@ describe('Feasibility Linting (Gap 7)', () => {
         expiresInHours: 48,
         privateKey: kp1.privateKey,
       })
-      del.spentAmount = 50 // budget exhausted
+      const exhaustedDel = { ...del, spentAmount: 50 } // budget exhausted (spread since frozen)
       const futureDeadline = new Date()
       futureDeadline.setHours(futureDeadline.getHours() + 96)
       const r = lintTaskFeasibility({
-        delegation: del,
+        delegation: exhaustedDel,
         role,
         taskDeadline: futureDeadline.toISOString(),
       })

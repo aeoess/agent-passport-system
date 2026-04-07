@@ -179,7 +179,7 @@ test('Adversarial: Attribution gaming', async (t) => {
     delegatedTo: agentA.signedPassport.passport.publicKey,
     delegatedBy: humanKeys.publicKey,
     scope: ['code_execution', 'web_search'],
-    spendLimit: 10000,
+    spendLimit: 20000,
     maxDepth: 1,
     privateKey: humanKeys.privateKey
   })

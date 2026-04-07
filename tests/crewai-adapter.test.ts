@@ -36,8 +36,7 @@ describe('CrewAI Adapter v2', () => {
   })
 
   it('crew member denied (expired delegation)', () => {
-    const del = mkDel(['crew:execute:researcher'])
-    del.expiresAt = new Date(Date.now() - 1000).toISOString()
+    const del = { ...mkDel(['crew:execute:researcher']), expiresAt: new Date(Date.now() - 1000).toISOString() }
     const task: CrewTask = { description: 'Research', agent: 'researcher' }
     const r = verifyCrewMember('researcher', task, {
       passport: signedPassport, delegation: del, privateKey: ak.privateKey,

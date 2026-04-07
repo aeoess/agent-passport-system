@@ -43,8 +43,7 @@ describe('LangChain Adapter v2', () => {
   })
 
   it('denied tool call (expired delegation)', async () => {
-    const del = mkDel(['tools:search'])
-    del.expiresAt = new Date(Date.now() - 1000).toISOString()
+    const del = { ...mkDel(['tools:search']), expiresAt: new Date(Date.now() - 1000).toISOString() }
     const r = await governLangChainTool(
       { name: 'search', args: {} }, mockExec,
       { passport: signedPassport, delegation: del, privateKey: ak.privateKey },

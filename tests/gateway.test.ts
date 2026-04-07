@@ -167,7 +167,7 @@ describe('ProxyGateway — Property 2: Exact Parameter Binding', () => {
 describe('ProxyGateway — Property 3: Revocation Recheck', () => {
   it('should deny when delegation is revoked between registration and call', async () => {
     const { gateway, makeRequest, delegation, principal, principalKeys } = await setupGatewayWithAgent()
-    revokeDelegation(delegation.delegationId, principal.agentId, 'Compromised', principalKeys.privateKey)
+    revokeDelegation(delegation.delegationId, principalKeys.publicKey, 'Compromised', principalKeys.privateKey)
     const result = await gateway.processToolCall(makeRequest())
     assert.equal(result.executed, false)
   })

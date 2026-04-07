@@ -38,8 +38,7 @@ describe('Gonka Adapter', () => {
     })
 
     it('host denied (expired delegation)', () => {
-      const del = mkDel(['inference:serve:Qwen/Qwen3-235B'])
-      del.expiresAt = new Date(Date.now() - 1000).toISOString()
+      const del = { ...mkDel(['inference:serve:Qwen/Qwen3-235B']), expiresAt: new Date(Date.now() - 1000).toISOString() }
       const r = verifyGonkaHost('gonka1-host-1', 'Qwen/Qwen3-235B', {
         passport: signedPassport, delegation: del, privateKey: ak.privateKey,
       })

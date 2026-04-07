@@ -184,9 +184,7 @@ describe('evaluateIBACTuples', () => {
   })
 
   it('denied tuple (expired delegation)', () => {
-    const delegation = makeDelegation(['data:read:table:logs'])
-    // Manually expire
-    delegation.expiresAt = new Date(Date.now() - 1000).toISOString()
+    const delegation = { ...makeDelegation(['data:read:table:logs']), expiresAt: new Date(Date.now() - 1000).toISOString() }
     const tuples: IBACTuple[] = [
       { principal: 'agent:agent-001', action: 'tool:read', resource: 'table:logs' },
     ]
@@ -328,6 +326,6 @@ describe('delegationToCedarPolicy', () => {
     assert.equal(tuples.length, 2)
     const d2 = ibacTuplesToDelegation(tuples, principalKeys.publicKey, agentKeys.publicKey, principalKeys.privateKey)
     // Scopes should match original
-    assert.deepStrictEqual(d2.scope.sort(), d1.scope.sort())
+    assert.deepStrictEqual([...d2.scope].sort(), [...d1.scope].sort())
   })
 })

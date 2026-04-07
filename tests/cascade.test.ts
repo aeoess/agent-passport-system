@@ -141,6 +141,7 @@ describe('Cascade Revocation', () => {
       delegatedTo: agentA.publicKey,
       delegatedBy: human.publicKey,
       scope: ['code_execution', 'web_search'],
+      spendLimit: 10000,
       maxDepth: 2,
       privateKey: human.privateKey
     })
@@ -148,12 +149,14 @@ describe('Cascade Revocation', () => {
       parentDelegation: d1,
       delegatedTo: agentB.publicKey,
       scope: ['code_execution'],
+      spendLimit: 5000,
       privateKey: agentA.privateKey
     })
     const d3 = subDelegate({
       parentDelegation: d1,
       delegatedTo: agentC.publicKey,
       scope: ['web_search'],
+      spendLimit: 5000,
       privateKey: agentA.privateKey
     })
     const result = cascadeRevoke(
