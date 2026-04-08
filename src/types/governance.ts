@@ -35,6 +35,7 @@ export interface GovernanceArtifact {
   additions: string[]                // new principles/rules added
   modifications: string[]            // changed principles/rules
   removals: string[]                 // removed principles/rules (triggers higher threshold)
+  credentialLifecycle?: CredentialLifecyclePolicy  // #1717: session/TTL/revocation policy
   metadata: Record<string, unknown>  // extensible
   createdAt: string
   signature: string                  // Ed25519 over canonical form (excludes signature + content)
@@ -85,4 +86,17 @@ export const DEFAULT_LOAD_POLICY: GovernanceLoadPolicy = {
   requireApprovalsForWeakening: 1,
   requireApprovalsForRemoval: 2,
   blockWeakeningWithoutApproval: true,
+}
+
+// ── Credential Lifecycle Policy (#1717) ──
+
+export interface CredentialLifecyclePolicy {
+  /** Maximum session duration in seconds before re-authentication required */
+  maxSessionDurationSeconds: number
+  /** Optional URL for real-time revocation checks */
+  revocationEndpoint?: string
+  /** Credential time-to-live in seconds from issuance */
+  credentialTTLSeconds: number
+  /** How often (seconds) to poll revocation endpoint */
+  revocationCheckFrequencySeconds: number
 }

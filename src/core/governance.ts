@@ -10,7 +10,7 @@ import { createHash } from 'crypto'
 import type {
   GovernanceArtifact, GovernanceApproval, GovernanceVerification,
   GovernanceEnvelope, GovernanceLoadPolicy, GovernanceChangeType,
-  GovernanceDiff,
+  GovernanceDiff, CredentialLifecyclePolicy,
 } from '../types/governance.js'
 
 export { DEFAULT_LOAD_POLICY } from '../types/governance.js'
@@ -340,4 +340,35 @@ export function upgradeGovernanceArtifact(
     modifications: opts.modifications ?? [],
     removals: opts.removals ?? [],
   })
+}
+
+// ── Credential Lifecycle Validation (#1717) ──
+
+export function validateCredentialLifecycle(
+  policy: CredentialLifecyclePolicy,
+  currentTime: { sessionStartedAt: string; credentialIssuedAt: string; now?: string },
+): { valid: boolean; reason?: string } {
+  const now = new Date(currentTime.now || new Date().toISOString())
+
+  // (a) Session duration check
+  const sessionStart = new Date(currentTime.sessionStartedAt)
+  const sessionDurationSec = (now.getTime() - sessionStart.getTime()) / 1000
+  if (sessionDurationSec > policy.maxSessionDurationSeconds) {
+    return {
+      valid: false,
+      reason: `Session duration ${Math.round(sessionDurationSec)}s exceeds max ${policy.maxSessionDurationSeconds}s`,
+    }
+  }
+
+  // (b) Credential TTL check
+  const issued = new Date(currentTime.credentialIssuedAt)
+  const credentialAgeSec = (now.getTime() - issued.getTime()) / 1000
+  if (credentialAgeSec > policy.credentialTTLSeconds) {
+    return {
+      valid: false,
+      reason: `Credential TTL expired: age ${Math.round(credentialAgeSec)}s exceeds TTL ${policy.credentialTTLSeconds}s`,
+    }
+  }
+
+  return { valid: true }
 }

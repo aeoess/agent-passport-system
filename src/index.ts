@@ -676,6 +676,7 @@ export {
   approveArtifact, verifyApproval,
   createGovernanceEnvelope, loadGovernanceArtifact,
   upgradeGovernanceArtifact, classifyGovernanceChange,
+  validateCredentialLifecycle,
   DEFAULT_LOAD_POLICY,
 } from './core/governance.js'
 
@@ -683,6 +684,7 @@ export type {
   GovernanceArtifact, GovernanceApproval, GovernanceVerification,
   GovernanceEnvelope, GovernanceLoadPolicy,
   GovernanceChangeType, GovernanceDiff,
+  CredentialLifecyclePolicy,
 } from './types/governance.js'
 
 
