@@ -80,7 +80,24 @@ export interface Delegation {
   obligationBundleHash?: string
   /** Optional: URL that gateways should poll for revocation status (enables future multi-gateway) */
   revocationCheckUrl?: string
+  /** Observation governance: what behavioral patterns may be derived from telemetry */
+  derivation_rights?: DerivationRights
+  /** Observation governance: how continuous observation is managed */
+  observation_policy?: ObservationPolicy
   signature: string  // signed by delegator
+}
+
+export interface DerivationRights {
+  retention_permitted: boolean
+  retention_ttl?: number
+  derivation_classes?: string[]
+  export_permitted: boolean
+}
+
+export interface ObservationPolicy {
+  continuous_access: boolean
+  review_interval?: number
+  revocation_behavior: 'purge' | 'freeze' | 'decay'
 }
 
 export interface ActionReceipt {

@@ -1189,3 +1189,18 @@ export type {
 
 export type { AgentHealthStatus } from './types/health.js'
 export { deriveHealthStatus } from './types/health.js'
+
+
+// ══════════════════════════════════════
+// Observation Governance — Behavioral Memory
+// ══════════════════════════════════════
+
+export type { DerivationRights, ObservationPolicy } from './types/passport.js'
+export type { BehavioralMemoryObject, BMOReceipt, BMOExportBundle } from './types/behavioral-memory.js'
+
+export {
+  createBehavioralMemoryObject, verifyBehavioralMemoryObject,
+  isBMOExpired, exportBehavioralMemory, importBehavioralMemory,
+} from './core/behavioral-memory.js'
+
+export { createBMOReceipt, verifyBMOReceipt } from './core/behavioral-memory-receipt.js'

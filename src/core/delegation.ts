@@ -68,6 +68,8 @@ export interface CreateDelegationOptions {
   expiresInHours?: number
   /** Optional: delegation not valid before this ISO timestamp (replay mitigation) */
   notBefore?: string
+  derivation_rights?: import('../types/passport.js').DerivationRights
+  observation_policy?: import('../types/passport.js').ObservationPolicy
   privateKey: string        // delegator's private key for signing
 }
 
@@ -80,6 +82,12 @@ export function createDelegation(opts: CreateDelegationOptions): Delegation {
   if (!opts.privateKey || typeof opts.privateKey !== 'string') throw new Error('createDelegation: privateKey must be a non-empty string')
   if (opts.spendLimit !== undefined && opts.spendLimit !== null && (typeof opts.spendLimit !== 'number' || opts.spendLimit < 0 || !Number.isFinite(opts.spendLimit))) {
     throw new Error(`createDelegation: spendLimit must be a non-negative finite number, got ${opts.spendLimit}`)
+  }
+
+  // Telemetry scopes require derivation_rights
+  const hasTelemetryScope = opts.scope.some(s => s.startsWith('telemetry:'))
+  if (hasTelemetryScope && !opts.derivation_rights) {
+    throw new Error('createDelegation: telemetry scopes require derivation_rights to be defined')
   }
 
   const now = new Date()
@@ -99,6 +107,8 @@ export function createDelegation(opts: CreateDelegationOptions): Delegation {
     currentDepth: opts.currentDepth ?? 0,
     createdAt: now.toISOString(),
     notBefore: opts.notBefore ?? now.toISOString(),
+    ...(opts.derivation_rights && { derivation_rights: opts.derivation_rights }),
+    ...(opts.observation_policy && { observation_policy: opts.observation_policy }),
   }
 
   const canonical = canonicalize(delegation)
@@ -132,6 +142,7 @@ export interface SubDelegateOptions {
   delegatedTo: string     // public key of new delegate
   scope: string[]         // must be subset of parent scope
   spendLimit?: number     // must be <= parent remaining
+  derivation_rights?: import('../types/passport.js').DerivationRights
   privateKey: string      // current delegate's private key
 }
 
@@ -152,6 +163,27 @@ export function subDelegate(opts: SubDelegateOptions): Delegation {
     throw new Error(
       `Scope violation: [${invalidScopes}] not in parent scope [${parent.scope}]`
     )
+  }
+
+  // Enforce derivation_rights monotonic narrowing
+  if (opts.derivation_rights && parent.derivation_rights) {
+    const pr = parent.derivation_rights
+    const cr = opts.derivation_rights
+    if (!pr.retention_permitted && cr.retention_permitted) {
+      throw new Error('Derivation rights violation: parent does not permit retention')
+    }
+    if (pr.retention_ttl !== undefined && cr.retention_ttl !== undefined && cr.retention_ttl > pr.retention_ttl) {
+      throw new Error(`Derivation rights violation: child retention_ttl (${cr.retention_ttl}) exceeds parent (${pr.retention_ttl})`)
+    }
+    if (!pr.export_permitted && cr.export_permitted) {
+      throw new Error('Derivation rights violation: parent does not permit export')
+    }
+    if (pr.derivation_classes && cr.derivation_classes) {
+      const invalid = cr.derivation_classes.filter(c => !pr.derivation_classes!.includes(c))
+      if (invalid.length > 0) {
+        throw new Error(`Derivation rights violation: classes [${invalid}] not in parent [${pr.derivation_classes}]`)
+      }
+    }
   }
 
   // Enforce spend limit (use ?? not || so spendLimit: 0 is a valid no-spend limit)
@@ -179,6 +211,8 @@ export function subDelegate(opts: SubDelegateOptions): Delegation {
     currentDepth: parent.currentDepth + 1,
     expiresInHours: childExpiryHours,
     notBefore: parent.notBefore, // inherit parent notBefore (child cannot start earlier)
+    derivation_rights: opts.derivation_rights ?? parent.derivation_rights,
+    observation_policy: parent.observation_policy,
     privateKey: opts.privateKey
   })
 
