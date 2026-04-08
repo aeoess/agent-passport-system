@@ -166,4 +166,26 @@ describe('Derivation Rights Monotonic Narrowing', () => {
       privateKey: ak.privateKey,
     }), /parent does not permit export/)
   })
+
+  it('child cannot introduce derivation_rights when parent has none', () => {
+    const noRightsParent = createDelegation({
+      delegatedTo: ak.publicKey,
+      delegatedBy: pk.publicKey,
+      scope: ['data:read'],
+      spendLimit: 100,
+      maxDepth: 2,
+      privateKey: pk.privateKey,
+    })
+    assert.throws(() => subDelegate({
+      parentDelegation: noRightsParent,
+      delegatedTo: bk.publicKey,
+      scope: ['data:read'],
+      spendLimit: 50,
+      derivation_rights: {
+        retention_permitted: true,
+        export_permitted: false,
+      },
+      privateKey: ak.privateKey,
+    }), /parent delegation has no derivation_rights/)
+  })
 })

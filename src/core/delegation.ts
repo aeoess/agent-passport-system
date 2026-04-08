@@ -185,6 +185,10 @@ export function subDelegate(opts: SubDelegateOptions): Delegation {
       }
     }
   }
+  // Child cannot introduce derivation_rights if parent has none
+  if (opts.derivation_rights && !parent.derivation_rights) {
+    throw new Error('Derivation rights violation: parent delegation has no derivation_rights — child cannot introduce them')
+  }
 
   // Enforce spend limit (use ?? not || so spendLimit: 0 is a valid no-spend limit)
   const parentRemaining = (parent.spendLimit ?? Infinity) - (parent.spentAmount ?? 0)

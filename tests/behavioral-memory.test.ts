@@ -93,6 +93,18 @@ describe('Behavioral Memory Objects', () => {
     const bmo = makeBMO({ portable: false })
     assert.equal(bmo.portable, false)
   })
+
+  it('isBMOExpired returns true for undefined expires_at', () => {
+    const bmo = makeBMO()
+    const broken = { ...bmo, retention_policy: { ttl: 100, expires_at: undefined as any } }
+    assert.ok(isBMOExpired(broken))
+  })
+
+  it('isBMOExpired returns true for invalid date string', () => {
+    const bmo = makeBMO()
+    const broken = { ...bmo, retention_policy: { ttl: 100, expires_at: 'not-a-date' } }
+    assert.ok(isBMOExpired(broken))
+  })
 })
 
 describe('BMO Receipts', () => {
@@ -121,5 +133,19 @@ describe('BMO Receipts', () => {
     })
     const tampered = { ...receipt, event_type: 'delete' as const }
     assert.ok(!verifyBMOReceipt(tampered, issuer.publicKey))
+  })
+
+  it('rejects empty bmo_id', () => {
+    assert.throws(() => createBMOReceipt({
+      bmo_id: '', event_type: 'create',
+      actor_id: issuer.publicKey, private_key: issuer.privateKey,
+    }), /bmo_id must be a non-empty string/)
+  })
+
+  it('rejects empty actor_id', () => {
+    assert.throws(() => createBMOReceipt({
+      bmo_id: 'bmo_test', event_type: 'create',
+      actor_id: '', private_key: issuer.privateKey,
+    }), /actor_id must be a non-empty string/)
   })
 })

@@ -43,7 +43,11 @@ export function verifyBehavioralMemoryObject(bmo: BehavioralMemoryObject, public
 }
 
 export function isBMOExpired(bmo: BehavioralMemoryObject): boolean {
-  return new Date(bmo.retention_policy.expires_at) < new Date()
+  const expiresAt = bmo.retention_policy?.expires_at
+  if (!expiresAt) return true // missing expiry = expired
+  const d = new Date(expiresAt)
+  if (isNaN(d.getTime())) return true // invalid date = expired
+  return d < new Date()
 }
 
 export function exportBehavioralMemory(

@@ -12,6 +12,8 @@ export function createBMOReceipt(opts: {
   actor_id: string
   private_key: string
 }): BMOReceipt {
+  if (!opts.bmo_id || typeof opts.bmo_id !== 'string') throw new Error('createBMOReceipt: bmo_id must be a non-empty string')
+  if (!opts.actor_id || typeof opts.actor_id !== 'string') throw new Error('createBMOReceipt: actor_id must be a non-empty string')
   const receipt: Omit<BMOReceipt, 'signature'> = {
     receipt_id: `bmo_rcpt_${uuidv4().slice(0, 12)}`,
     bmo_id: opts.bmo_id,
