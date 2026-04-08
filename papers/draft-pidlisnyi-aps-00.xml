@@ -147,6 +147,48 @@
       result). The policy engine splits into a deterministic gate (scope, signature,
       revocation, attribution, spend) and an advisory evaluation path (deception,
       proportionality).</t>
+
+      <section numbered="true" toc="default">
+        <name>Action Reference Computation</name>
+        <t>Each action in the policy chain is identified by a deterministic
+        action reference (action_ref) that serves as a cross-engine correlation
+        anchor. The action_ref is computed as:</t>
+
+        <t>action_ref = SHA-256(canonicalize(input_object))</t>
+
+        <t>where input_object is a JSON object with exactly four fields:</t>
+
+        <dl>
+          <dt>agentId</dt>
+          <dd>The DID of the acting agent (e.g., "did:aps:z6Mk...").</dd>
+
+          <dt>actionType</dt>
+          <dd>The tool or action identifier string (e.g., "commerce_preflight").</dd>
+
+          <dt>scopeRequired</dt>
+          <dd>An array of scope strings required for this action, sorted
+          lexicographically (e.g., ["commerce:read", "commerce:write"]).
+          Implementations MUST sort the array before canonicalization.</dd>
+
+          <dt>timestamp</dt>
+          <dd>An ISO 8601 UTC timestamp with no timezone offset other than "Z"
+          (e.g., "2026-04-08T12:00:00Z").</dd>
+        </dl>
+
+        <t>The canonicalize function MUST follow RFC 8785 (JSON Canonicalization
+        Scheme) <xref target="RFC8785"/>. The SHA-256 hash is computed over the
+        UTF-8 encoding of the canonicalized JSON string.</t>
+
+        <t>The action_ref MUST be deterministic: the same inputs MUST produce
+        the same hash regardless of implementation language, JSON library, or
+        field insertion order. This property enables cross-engine correlation,
+        where two independent governance engines evaluating the same action
+        produce the same action_ref without prior coordination.</t>
+
+        <t>Implementations MUST NOT include additional fields in the input
+        object. Implementations MUST NOT apply any transformation to field
+        values beyond the lexicographic sorting of scopeRequired.</t>
+      </section>
     </section>
 
     <section numbered="true" toc="default">
