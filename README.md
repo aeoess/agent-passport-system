@@ -195,6 +195,8 @@ npm test
 
 **"Monotonic Narrowing for Agent Authority"** — Published on [Zenodo](https://doi.org/10.5281/zenodo.18749779). [Read →](papers/agent-social-contract.md)
 
+📄 **"From Access to Derivation: Behavioral Derivation Rights"** — Published on [Zenodo](https://doi.org/10.5281/zenodo.19476002). Governing what agents learn from authorized access.
+
 ## Authorship
 
 Built by **Tymofii Pidlisnyi** ([@tima](https://github.com/aeoess)). Protocol designed with AI assistance from Claude (Anthropic), GPT (OpenAI), and Gemini (Google) through adversarial cross-model review.
