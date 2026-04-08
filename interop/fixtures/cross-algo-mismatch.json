@@ -1,0 +1,114 @@
+{
+  "description": "Cross-algorithm mismatch verification fixtures (A2A #1672)",
+  "generated_at": "2026-04-08T13:52:49.660Z",
+  "did_document": {
+    "@context": "https://www.w3.org/ns/did/v1",
+    "id": "did:aps:z6MkfevtWEsFmvxMpNVYRt8wCPEN7B233W3nD43kMcqQwipA",
+    "verificationMethod": [
+      {
+        "id": "did:aps:z6MkfevtWEsFmvxMpNVYRt8wCPEN7B233W3nD43kMcqQwipA#key-1",
+        "type": "Ed25519VerificationKey2020",
+        "controller": "did:aps:z6MkfevtWEsFmvxMpNVYRt8wCPEN7B233W3nD43kMcqQwipA",
+        "publicKeyHex": "11d8ff025f3fa32af94a14bf6af197bdd448075a36f137bb266e3813ff2f2c13"
+      }
+    ],
+    "authentication": [
+      "did:aps:z6MkfevtWEsFmvxMpNVYRt8wCPEN7B233W3nD43kMcqQwipA#key-1"
+    ]
+  },
+  "public_key_hex": "11d8ff025f3fa32af94a14bf6af197bdd448075a36f137bb266e3813ff2f2c13",
+  "cases": [
+    {
+      "id": "case-1-valid-ed25519",
+      "description": "Valid Ed25519 receipt — should verify",
+      "header": {
+        "alg": "EdDSA",
+        "kid": "did:aps:z6MkfevtWEsFmvxMpNVYRt8wCPEN7B233W3nD43kMcqQwipA#key-1"
+      },
+      "payload": {
+        "receiptId": "rcpt_crossalgo_001",
+        "version": "1.1",
+        "timestamp": "2026-04-08T13:52:49.649Z",
+        "agentId": "agent-crossalgo-test",
+        "delegationId": "del_crossalgo_001",
+        "action": {
+          "type": "tool:web_search",
+          "target": "web_search",
+          "scopeUsed": "tool:web_search"
+        },
+        "result": {
+          "status": "success",
+          "summary": "Cross-algorithm verification test"
+        },
+        "delegationChain": []
+      },
+      "canonical": "{\"action\":{\"scopeUsed\":\"tool:web_search\",\"target\":\"web_search\",\"type\":\"tool:web_search\"},\"agentId\":\"agent-crossalgo-test\",\"delegationChain\":[],\"delegationId\":\"del_crossalgo_001\",\"receiptId\":\"rcpt_crossalgo_001\",\"result\":{\"status\":\"success\",\"summary\":\"Cross-algorithm verification test\"},\"timestamp\":\"2026-04-08T13:52:49.649Z\",\"version\":\"1.1\"}",
+      "signature": "3d7925015b60ffd22ad89b0c50d7f815dae17cd9b5591f18c3ba0e2d914b63392dcb018fafacfaded619cf312902cd820b8f8f72b1d6c5103024e2dedfce1a0f",
+      "expected": {
+        "valid": true
+      }
+    },
+    {
+      "id": "case-2-alg-claim-mismatch",
+      "description": "Header claims ES256 but signature is Ed25519 — should reject (algorithm mismatch)",
+      "header": {
+        "alg": "ES256",
+        "kid": "did:aps:z6MkfevtWEsFmvxMpNVYRt8wCPEN7B233W3nD43kMcqQwipA#key-1"
+      },
+      "payload": {
+        "receiptId": "rcpt_crossalgo_001",
+        "version": "1.1",
+        "timestamp": "2026-04-08T13:52:49.649Z",
+        "agentId": "agent-crossalgo-test",
+        "delegationId": "del_crossalgo_001",
+        "action": {
+          "type": "tool:web_search",
+          "target": "web_search",
+          "scopeUsed": "tool:web_search"
+        },
+        "result": {
+          "status": "success",
+          "summary": "Cross-algorithm verification test"
+        },
+        "delegationChain": []
+      },
+      "canonical": "{\"action\":{\"scopeUsed\":\"tool:web_search\",\"target\":\"web_search\",\"type\":\"tool:web_search\"},\"agentId\":\"agent-crossalgo-test\",\"delegationChain\":[],\"delegationId\":\"del_crossalgo_001\",\"receiptId\":\"rcpt_crossalgo_001\",\"result\":{\"status\":\"success\",\"summary\":\"Cross-algorithm verification test\"},\"timestamp\":\"2026-04-08T13:52:49.649Z\",\"version\":\"1.1\"}",
+      "signature": "3d7925015b60ffd22ad89b0c50d7f815dae17cd9b5591f18c3ba0e2d914b63392dcb018fafacfaded619cf312902cd820b8f8f72b1d6c5103024e2dedfce1a0f",
+      "expected": {
+        "valid": false,
+        "error": "algorithm_mismatch"
+      }
+    },
+    {
+      "id": "case-3-wrong-sig-type",
+      "description": "Header claims EdDSA but signature is random ECDSA-length bytes — should reject",
+      "header": {
+        "alg": "EdDSA",
+        "kid": "did:aps:z6MkfevtWEsFmvxMpNVYRt8wCPEN7B233W3nD43kMcqQwipA#key-1"
+      },
+      "payload": {
+        "receiptId": "rcpt_crossalgo_001",
+        "version": "1.1",
+        "timestamp": "2026-04-08T13:52:49.649Z",
+        "agentId": "agent-crossalgo-test",
+        "delegationId": "del_crossalgo_001",
+        "action": {
+          "type": "tool:web_search",
+          "target": "web_search",
+          "scopeUsed": "tool:web_search"
+        },
+        "result": {
+          "status": "success",
+          "summary": "Cross-algorithm verification test"
+        },
+        "delegationChain": []
+      },
+      "canonical": "{\"action\":{\"scopeUsed\":\"tool:web_search\",\"target\":\"web_search\",\"type\":\"tool:web_search\"},\"agentId\":\"agent-crossalgo-test\",\"delegationChain\":[],\"delegationId\":\"del_crossalgo_001\",\"receiptId\":\"rcpt_crossalgo_001\",\"result\":{\"status\":\"success\",\"summary\":\"Cross-algorithm verification test\"},\"timestamp\":\"2026-04-08T13:52:49.649Z\",\"version\":\"1.1\"}",
+      "signature": "63f3f6fc63089b1036d6906a96790aff2e8345a8cd4d8491cd5386730f95e62f4bc5e3e8bb7e7fd8e2947dcade7bdec2c18160a718a58242dbfe0cf5611b11e8",
+      "expected": {
+        "valid": false,
+        "error": "signature_invalid"
+      }
+    }
+  ]
+}
