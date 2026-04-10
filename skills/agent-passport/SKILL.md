@@ -1,6 +1,6 @@
 ---
 name: agent-passport-system
-description: "Enforcement and accountability layer for AI agents. Bring your own identity (did:key, did:web, SPIFFE, OAuth, did:aps). Gateway enforcement boundary, monotonic narrowing, cascade revocation, spending controls, data lifecycle, observation governance (telemetry scopes, derivation rights, behavioral memory). Use when agents need scoped delegation, trust scoring, constraint enforcement, or cryptographic audit trails. 103 modules, 132 MCP tools, 2,591 tests. 8 framework adapters: Stripe, Composio, IBAC/Cedar, LangChain, CrewAI, MCP, A2A, Gonka."
+description: "Enforcement and accountability layer for AI agents. Bring your own identity (did:key, did:web, SPIFFE, OAuth, did:aps). Gateway enforcement boundary, monotonic narrowing, cascade revocation, spending controls, data lifecycle, observation governance (telemetry scopes, derivation rights, behavioral memory). Use when agents need scoped delegation, trust scoring, constraint enforcement, or cryptographic audit trails. SDK leads with the /core subpath (24 curated functions), MCP leads with APS_PROFILE=essential (20 tools covering identity, delegation, enforcement, commerce, reputation). 2,552 tests. 8 framework adapters: Stripe, Composio, IBAC/Cedar, LangChain, CrewAI, MCP, A2A, Gonka. Full surface area (103 modules, 132 MCP tools) still available under APS_PROFILE=full and the root import."
 metadata:
   clawdbot:
     emoji: "🔑"
@@ -36,8 +36,23 @@ metadata:
 ## Install
 
 ```bash
-npm install agent-passport-system        # SDK (103 modules)
-npm install agent-passport-system-mcp    # MCP server (132 tools)
+npm install agent-passport-system        # SDK — /core subpath is the curated default
+npm install agent-passport-system-mcp    # MCP server — APS_PROFILE=essential is the default
+```
+
+Minimal SDK import (lead with the curated essentials):
+
+```typescript
+import {
+  createPassport, createDelegation,
+  evaluateIntent, commercePreflight, generateKeyPair
+} from 'agent-passport-system/core'
+```
+
+Minimal MCP install (essential profile is the default; `APS_PROFILE=full` for all 132 tools):
+
+```bash
+npx agent-passport-system-mcp
 ```
 
 Remote MCP (zero install): `https://mcp.aeoess.com/sse`
@@ -159,12 +174,14 @@ Grade travels with the passport. Any consumer reads it without understanding sco
 
 ## Key facts
 
-- **103 modules** (71 core + 32 v2 constitutional)
-- **2,497 tests** including 50 adversarial attack scenarios
-- **132 MCP tools** with role-scoped profiles
+- **Enforcement and accountability layer** — bring your own identity, gateway does the rest
+- **SDK `/core` subpath**: 24 curated functions for 90% of integrations
+- **MCP `essential` profile**: 20 tools by default (identity, delegation, enforcement, commerce, reputation)
 - **Policy eval <2ms**, 403 ops/sec, 15 constraint dimensions
+- **2,552 tests** including 50 adversarial attack scenarios
 - **Zero heavy dependencies** — Node.js crypto + uuid only
 - **Apache-2.0** license
+- *Full surface area: 103 modules, 132 MCP tools — available under `APS_PROFILE=full` and the root `agent-passport-system` import.*
 
 ## Links
 

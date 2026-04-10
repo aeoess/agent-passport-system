@@ -7,9 +7,9 @@
 
 > **For AI agents:** visit [aeoess.com/llms.txt](https://aeoess.com/llms.txt) for machine-readable docs.
 
-**Governance infrastructure for AI agents. Gateway evaluation under 2ms.**
+**Enforcement and accountability layer for AI agents. Bring your own identity.**
 
-Authority can only decrease at each transfer point. The gateway is both judge and executor. Every action produces a signed receipt.
+Accepts did:key, did:web, SPIFFE SVIDs, OAuth tokens, and native did:aps. Authority can only decrease at each transfer point. The gateway is both judge and executor. Every action produces a signed receipt. Gateway evaluation under 2ms.
 
 ```bash
 npm install agent-passport-system
@@ -17,10 +17,16 @@ npm install agent-passport-system
 
 ## Quick Start
 
+Lead with the curated essentials. `agent-passport-system/core` exposes the ~25 functions that 90% of integrations need — identity, delegation, enforcement, commerce, reputation, key management. The full `agent-passport-system` root import is unchanged and backward compatible: pull from it when Core does not cover your case.
+
 ```typescript
 import {
-  createPassport, createDelegation, evaluateIntent, commercePreflight
+  createPassport, createDelegation,
+  evaluateIntent, commercePreflight, generateKeyPair
 } from 'agent-passport-system/core'
+
+// Full 936-export API still available — use when Core does not cover your case.
+// import { ... } from 'agent-passport-system'
 ```
 
 ## Core Protocol
