@@ -5,211 +5,77 @@
 [![tests](https://img.shields.io/badge/tests-2552%20passing-brightgreen)](https://github.com/aeoess/agent-passport-system)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18749779.svg)](https://doi.org/10.5281/zenodo.18749779)
 
-> **For AI agents:** visit [aeoess.com/llms.txt](https://aeoess.com/llms.txt) for machine-readable docs or [llms-full.txt](https://aeoess.com/llms-full.txt) for the complete reference.
+> **For AI agents:** visit [aeoess.com/llms.txt](https://aeoess.com/llms.txt) for machine-readable docs.
 
-**The enforcement and accountability layer for AI agents. Bring your own identity.**
+**Governance infrastructure for AI agents. Gateway evaluation under 2ms.**
 
-APS is not an identity system. It's the governance layer that sits on top of whatever identity the agent already has. Accepts did:key, did:web, SPIFFE SVIDs, OAuth tokens, and native did:aps. Identity is the input. Enforcement is the product.
-
-The gateway is both judge and executor. Authority can only decrease at each transfer point. Cascade revocation propagates through delegation chains. Every action produces a signed receipt. Every constraint is checked in under 2ms.
-
-Seven independent projects have cross-tested against these primitives. AgentID: 7/7. MolTrust: 5/5. Kanoniv delegation chains: verified. Three languages, three codebases, identical results.
+Authority can only decrease at each transfer point. The gateway is both judge and executor. Every action produces a signed receipt.
 
 ```bash
 npm install agent-passport-system
 ```
 
-## Who's Building on APS
-
-| Project | What they do | What APS provides |
-|---------|-------------|-------------------|
-| [AgentID](https://github.com/haroldmalikfrimpong-ops/getagentid) | CA-issued identity, trust scoring | Self-sovereign identity, delegation chains |
-| [MolTrust](https://moltrust.ch) | On-chain constraint envelopes | Scope narrowing, spend limits, expiry |
-| [qntm](https://github.com/corpollc/qntm) | Encrypted relay transport | Identity keys, signed envelopes |
-| [Signet](https://github.com/Prismer-AI/signet) | MCP transport signing | Policy gate, execution attestation |
-| [ArkForge](https://arkforge.tech) | External proof anchoring | Receipts to anchor |
-| [Microsoft AGT](https://github.com/microsoft/agent-governance-toolkit) | Enterprise policy engine | Trust signals, scope verification |
-
-See [INTEGRATION.md](INTEGRATION.md) for how to compose your project with APS.
-
-## What It Does
-
-**Enforce constraints on agent actions** — the ProxyGateway is an enforcement boundary that sits between the agent and any tool. Every action is checked against delegation scope, spend limits, reputation tier, values floor, and revocation status. The gateway executes the action, not the agent. The gateway generates the receipt, not the agent. Agents cannot bypass, forge, or skip enforcement.
-
-**Track trust with uncertainty** — Bayesian reputation scoring where agents earn authority through verified task outcomes. Reputation decays over time. Authority tiers gate what actions an agent can take. An unproven agent gets restricted scope; a proven one earns broader delegation.
-
-**Produce cryptographic proof of everything** — every action generates a signed receipt linking agent identity, delegation authority, constraint evaluation, and execution result. Receipts chain via hash pointers. Merkle trees commit receipt sets in 32 bytes. Disputes are resolved with math, not arguments.
-
-**Control spending** — 4-gate commerce enforcement: passport verification, delegation scope check, spend limit enforcement, merchant allowlist. Human approval thresholds for high-value purchases. Cumulative budget tracking across sessions.
-
-**Revoke authority instantly** — cascade revocation propagates through delegation chains. Revoke a parent, all children are automatically revoked. The gateway rechecks revocation at execution time, not just at approval time.
-
-## Quick Example: Enforce, Don't Just Identify
+## Quick Start
 
 ```typescript
-import { createProxyGateway, generateKeyPair, joinSocialContract } from 'agent-passport-system'
-
-// 1. Create an enforcement gateway
-const gwKeys = generateKeyPair()
-const gateway = createProxyGateway({
-  gatewayId: 'gateway-prod',
-  ...gwKeys,
-  floor: loadFloor('values/floor.yaml'),
-  approvalTTLSeconds: 30,
-  recheckRevocationOnExecute: true,
-  enableReputationGating: true,
-}, toolExecutor)
-
-// 2. Agent joins with identity + values attestation
-const agent = joinSocialContract({ name: 'worker', owner: 'alice', floor: floorYaml })
-
-// 3. Register agent, add delegation
-gateway.registerAgent(agent.passport, agent.attestation)
-gateway.addDelegation(agent.agentId, delegation)
-
-// 4. Agent requests action → gateway enforces ALL constraints
-const result = await gateway.processToolCall({
-  requestId: 'req-001',
-  agentId: agent.agentId,
-  agentPublicKey: agent.publicKey,
-  tool: 'database_query',
-  params: { query: 'SELECT * FROM users' },
-  scopeRequired: 'data_read',
-  spend: { amount: 5, currency: 'usd' },
-  signature: sign(canonicalize({ requestId: 'req-001', tool: 'database_query', ... }), agent.privateKey)
-})
-
-// result.executed = true
-// result.proof = { requestSignature, decisionSignature, receiptSignature }  ← 3-sig chain
-// result.receipt = signed, tamper-proof, links to delegation chain
-// result.tierCheck = reputation tier was sufficient
+import {
+  createPassport, createDelegation, evaluateIntent, commercePreflight
+} from 'agent-passport-system/core'
 ```
 
-**What just happened:** The gateway verified the agent's identity, checked delegation scope, enforced spend limits, evaluated values floor compliance, verified reputation tier, checked revocation status, executed the tool, generated a signed receipt, and updated reputation. All in one call. The agent never touched the tool directly.
+## Core Protocol
 
-## Identity Is the Foundation, Not the Product
+What ships in every deployment.
 
-Everything above is built on Ed25519 cryptographic identity. But identity is the plumbing, not the value proposition.
+**Identity** -- Ed25519 passports, passport grades 0-3, key rotation, did:aps identifiers.
 
-```typescript
-// Identity creation is two lines
-const keys = generateKeyPair()
-const agent = joinSocialContract({ name: 'my-agent', owner: 'alice', floor: floorYaml })
+**Delegation** -- Scoped authority with monotonic narrowing. Sub-delegation can only reduce scope. Cascade revocation propagates through the full chain.
 
-// The value is what you do WITH identity:
-// → Scoped delegation with spend limits and time bounds
-// → Cascade revocation that propagates through chains
-// → Reputation scoring that gates authority
-// → Values floor enforcement at execution time
-// → Beneficiary attribution via Merkle proofs
-// → Commerce gates that prevent unauthorized purchases
-```
+**Enforcement** -- 3-signature action chain: agent signs intent, policy engine signs evaluation, agent signs execution receipt. The agent cannot skip the check.
 
-## The Stack
+**Commerce** -- 5-gate preflight: valid passport, scope check, spend limit, merchant allowlist, idempotency. Human approval thresholds for high-value transactions.
 
-71 core modules + 32 v2 constitutional modules. 2,535 tests. Zero heavy dependencies.
+**Reputation** -- Bayesian trust scoring across 5 tiers. Authority is earned per-scope, not global. Passport grades compound with behavioral history.
 
-| Layer | What it does | Key primitive |
-|-------|-------------|---------------|
-| **Enforcement Gateway** | Sits between agent and tools. Checks every constraint. Executes, generates receipts. | `ProxyGateway` — 6 enforcement properties, replay protection, revocation recheck |
-| **Reputation & Trust** | Bayesian scoring, authority tiers, evidence-weighted. Agents earn trust, don't claim it. | `ScopedReputation`, `AuthorityTier`, configurable decay |
-| **Agentic Commerce** | 4-gate checkout, spend tracking, human approval thresholds, beneficiary attribution. | `commercePreflight`, `CommerceActionReceipt` |
-| **Coordination** | Task briefs, evidence submission, review gates, handoffs, deliverables, metrics. | `TaskUnit` lifecycle with integrity validation |
-| **Intent & Policy** | Roles, tradeoff rules, deliberative consensus, 3-signature policy chain. | `ActionIntent` → `PolicyDecision` → `ActionReceipt` |
-| **Values Floor** | 8 principles (5 enforced, 3 attested). Graduated enforcement: inline/audit/warn. | `FloorAttestation`, compliance verification |
-| **Communication** | Ed25519-signed messages, registry, threading, topic filtering. | `SignedAgoraMessage`, tamper detection |
-| **Identity** | Bring your own: did:key, did:web, SPIFFE, OAuth, native did:aps. Ed25519 keypairs, scoped delegation, cascade revocation. | `toDIDKey`, `importSPIFFESVID`, `importOAuthToken`, `SignedPassport` |
+## Extended Modules
 
-**Extended modules (9-71):** W3C DID (`did:aps`), DID Interop (`did:key`, `did:web`), Identity Bridge (SPIFFE SVID, OAuth tokens), VC Wrapper (W3C Verifiable Credentials with did:key + SPIFFE evidence), Credential Request Protocol (selective disclosure), Verifiable Credentials, A2A Bridge, EU AI Act Compliance, Agent Context, Task Routing, Cross-Chain Data Flow (taint tracking, confused deputy prevention), E2E Encrypted Messaging (X25519 + XSalsa20), Obligations, Governance Provenance, Identity Continuity & Key Rotation, Receipt Ledger (Merkle-committed audit batches), Feasibility Linting, Precedent Control, Re-anchoring, Bounded Escalation, Oracle Witness Diversity, Messaging Audit Bridge, Policy Conflict Detection, Data Source Registration, Decision Semantics, Decision Equivalence, Execution Attestation, Bilateral Receipts, Governance Blocks, aps.txt, Governance 360, Data Lifecycle, Persistent Passports, ProxyGateway.
+Pick what you need. `import from 'agent-passport-system'` for the full API.
 
-**V2 Constitutional Framework (32 modules):** Designed through cross-model adversarial review. PolicyContext with mandatory sunset, Delegation Versioning, Outcome Registration, Anomaly Detection, Emergency Pathways, Migration (fork-and-sunset), Contextual Attestation, Approval Fatigue Detection, Effect Enforcement, Emergence Detection, Separation of Powers, Constitutional Amendment, Circuit Breakers, Epistemic Isolation, and 18 more. Source: [`src/v2/`](src/v2/).
+Coordination (task lifecycle with 9-state machine), EU AI Act compliance (signed evidence packets), framework adapters (CrewAI, LangChain, Google ADK, A2A, MCP), bilateral receipts, execution attestation, DID resolution, data lifecycle (access receipts, derivation tracking, consent revocation).
+
+## Research Primitives
+
+Forward-looking governance. Published, tested, available.
+
+32 v2 constitutional modules: approval fatigue detection, epistemic isolation, blind evaluation, separation of powers, affected-party standing, circuit breakers, constitutional amendment, authority laundering audit, emergence detection.
+
+Institutional governance: charters, offices, federation, reserves, multi-party approvals.
 
 ## MCP Server
 
-132 tools across all modules. Any MCP client connects agents directly.
-
 ```bash
-npm install -g agent-passport-system-mcp
-npx agent-passport-system-mcp setup
+npx agent-passport-system-mcp
 ```
 
-Every operation Ed25519 signed. Role-scoped access control. Auto-configures Claude Desktop and Cursor.
+20 essential tools by default. Set `APS_PROFILE=full` for all 132 tools. Profiles: essential, identity, governance, coordination, commerce, data, gateway, comms, minimal, full.
 
-npm: [agent-passport-system-mcp](https://www.npmjs.com/package/agent-passport-system-mcp) · GitHub: [aeoess/agent-passport-mcp](https://github.com/aeoess/agent-passport-mcp)
+## Numbers
 
-## Python SDK
+2,552 tests. 8 protocol layers. 11 framework adapters. Gateway evaluation under 2ms. Zero heavy dependencies. Apache-2.0.
 
-Full Python implementation. Signatures created in Python verify in TypeScript and vice versa.
+## Papers
 
-```bash
-pip install agent-passport-system
-```
+- [The Agent Social Contract](https://doi.org/10.5281/zenodo.18749779)
+- [Faceted Authority Attenuation](https://doi.org/10.5281/zenodo.19260073)
+- [Behavioral Derivation Rights](https://doi.org/10.5281/zenodo.19365841)
+- [Physics-Enforced Delegation](https://doi.org/10.5281/zenodo.19478584)
+- IETF Internet-Draft: draft-pidlisnyi-aps-00
 
-PyPI: [agent-passport-system](https://pypi.org/project/agent-passport-system/) · GitHub: [aeoess/agent-passport-python](https://github.com/aeoess/agent-passport-python)
+## Links
 
-## CLI
+- [aeoess.com](https://aeoess.com) -- Protocol home
+- [llms-full.txt](https://aeoess.com/llms-full.txt) -- Complete reference for AI agents
+- [Dev log](https://aeoess.com/blog.html) -- Day-by-day build record
+- [npm](https://www.npmjs.com/package/agent-passport-system) · [PyPI](https://pypi.org/project/agent-passport-system/) · [MCP](https://www.npmjs.com/package/agent-passport-system-mcp)
 
-14 commands: `join`, `delegate`, `work`, `prove`, `audit`, `verify`, `inspect`, `status`, `agora post`, `agora read`, `agora list`, `agora verify`, `agora register`, `agora topics`.
-
-```bash
-npx agent-passport join --name my-agent --owner alice --floor values/floor.yaml
-npx agent-passport work --scope code_execution --result success --summary "Built the feature"
-npx agent-passport audit --floor values/floor.yaml
-```
-
-## Tests
-
-```bash
-npm test
-# 2,535 tests, 0 failures
-```
-
-50 adversarial tests: Merkle tampering, attribution gaming, compliance violations, floor negotiation attacks, cross-chain confused deputy, taint laundering, authority probing.
-
-## How It Compares
-
-| | APS | DeepMind | GaaS | OpenAI | LOKA |
-|---|---|---|---|---|---|
-| Status | Running code | Paper | Simulated | Advisory | Paper |
-| Enforcement gateway | 6 properties, replay protection | — | — | — | — |
-| Reputation/trust scoring | Bayesian + tiers | — | — | — | Consensus |
-| Identity | Ed25519 | Proposed | External | — | Proposed |
-| Delegation | Scoped + cascade revoke | Proposed | N/A | — | — |
-| Commerce | 4-gate + spend tracking | — | — | — | — |
-| Signed receipts | 3-sig chain | Proposed | Logs | General | — |
-| Values enforcement | 8 principles, graduated | — | Rules | — | — |
-| Coordination | Task lifecycle + MCP | — | — | — | — |
-| Tests | 2,230 (50 adversarial) | None | Limited | None | None |
-
-## Recognition
-
-- **Working Group** with 4 founding members: APS, AgentID, qntm, OATR. Cross-protocol interop proven across three languages.
-- Integrated into [Microsoft agent-governance-toolkit](https://github.com/microsoft/agent-governance-toolkit) (PR #598)
-- Referenced in [MITRE ATLAS](https://github.com/mitre-atlas/atlas-data/issues/11) agent security techniques
-- Referenced in [MCP SEP-1763](https://github.com/modelcontextprotocol/modelcontextprotocol/issues/1763) interceptor framework
-- NIST NCCoE public comment on AI Agent Identity and Authorization
-- Collaboration with IETF DAAP draft author on delegation spec
-- Endorsed by Garry Tan (CEO, Y Combinator)
-
-## Paper
-
-**"Monotonic Narrowing for Agent Authority"** — Published on [Zenodo](https://doi.org/10.5281/zenodo.18749779). [Read →](papers/agent-social-contract.md)
-
-📄 **"From Access to Derivation: Behavioral Derivation Rights"** — Published on [Zenodo](https://doi.org/10.5281/zenodo.19476002). Governing what agents learn from authorized access.
-
-## Authorship
-
-Built by **Tymofii Pidlisnyi** ([@tima](https://github.com/aeoess)). Protocol designed with AI assistance from Claude (Anthropic), GPT (OpenAI), and Gemini (Google) through adversarial cross-model review.
-
-Website: [aeoess.com](https://aeoess.com) · npm: [agent-passport-system](https://www.npmjs.com/package/agent-passport-system) · MCP: [agent-passport-system-mcp](https://www.npmjs.com/package/agent-passport-system-mcp)
-
-## LLM Documentation
-
-- Index: [aeoess.com/llms.txt](https://aeoess.com/llms.txt)
-- Full docs: [aeoess.com/llms-full.txt](https://aeoess.com/llms-full.txt)
-- Quick start: [aeoess.com/llms/quickstart.txt](https://aeoess.com/llms/quickstart.txt)
-- API reference: [aeoess.com/llms/api.txt](https://aeoess.com/llms/api.txt)
-
-## License
-
-Apache-2.0 — see [LICENSE](LICENSE)
+Copyright 2024-2026 Tymofii Pidlisnyi. Apache-2.0.
