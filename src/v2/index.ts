@@ -291,3 +291,12 @@ export {
   listActiveProfiles, getProfile, clearPolicyProfileStores,
 } from './policy-profiles.js'
 export type { ProfileConstraint, PolicyProfile, ProfileAttachment } from './policy-profiles.js'
+
+
+// Wallet Binding (agent-native structural attestation)
+export {
+  bindWallet, unbindWallet, verifyBoundWallet, verifyUnbindEvent,
+} from "./wallet-binding/index.js"
+export type {
+  BoundWallet, WalletChain, WalletVerificationChallenge, UnbindEvent,
+} from "./wallet-binding/index.js"

@@ -41,6 +41,13 @@ export interface AgentPassport {
   reputation: ReputationScore
   delegations: Delegation[]
   metadata: Record<string, unknown>
+  /**
+   * Wallet binding (v2/wallet-binding): external chain addresses bound to this
+   * passport via Ed25519 binding signatures. Composes with issuer-attested wallet
+   * binding (behavioral) from the insumer-examples ecosystem. Optional for
+   * backward compatibility — passports without this field canonicalize unchanged.
+   */
+  bound_wallets?: import('../v2/wallet-binding/types.js').BoundWallet[]
 }
 
 export interface RuntimeInfo {

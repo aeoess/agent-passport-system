@@ -37,6 +37,33 @@ What ships in every deployment.
 
 **Reputation** -- Bayesian trust scoring across 5 tiers. Authority is earned per-scope, not global. Passport grades compound with behavioral history.
 
+## Wallet Binding
+
+Two layers, designed to compose.
+
+**Structural (agent-attested).** The agent's own passport private key signs `{ passport_id, chain, address, bound_at }` and appends the result to the passport's `bound_wallets` field. Verifiable offline with just the passport public key. Chain-agnostic: Nano is the native APS wallet, but the primitive accepts any chain identifier with an address.
+
+```typescript
+import { bindWallet, verifyBoundWallet } from 'agent-passport-system'
+
+const bound = bindWallet({
+  passport: signedPassport,
+  privateKey: agentPrivateKey,
+  chain: 'nano',
+  address: 'nano_3jb1...',
+})
+
+verifyBoundWallet(bound, 'nano', 'nano_3jb1...') // true
+```
+
+**Behavioral (issuer-attested).** Independent issuers (the [insumer-examples](https://github.com/insumerapi/insumer-examples) ecosystem and friends — skyemeta/skyeprofile and 8 others) sign attestations about wallet behavior, sybil signals, and on-chain history. Their signatures stand alone.
+
+The two layers compose: a verifier accepting both gets cryptographic proof that **this passport holder controls this address** (structural) **and** that **this address has these behavioral properties** (behavioral). Neither layer claims what the other proves. Multi-attestation envelopes carry both.
+
+`commercePreflight()` enforces the structural layer at gate 5: when the action references a `walletRef`, the gate denies with `WALLET_NOT_BOUND` unless the wallet is currently bound to the acting passport. The check is opt-in — actions without a `walletRef` skip it, so existing 5-gate flows are unaffected.
+
+`unbindWallet()` produces a separately signed unbind event so the bind/unbind history can be reconstructed independent of the passport's current `bound_wallets` snapshot.
+
 ## Extended Modules
 
 Pick what you need. `import from 'agent-passport-system'` for the full API.

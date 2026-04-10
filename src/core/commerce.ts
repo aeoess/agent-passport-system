@@ -19,6 +19,8 @@ import { sign, verify as ed25519Verify } from '../crypto/keys.js'
 import { canonicalize } from './canonical.js'
 import { verifyPassport } from '../verification/verify.js'
 import { scopeAuthorizes } from './delegation.js'
+import { verifyBoundWallet } from '../v2/wallet-binding/bind.js'
+import type { WalletChain } from '../v2/wallet-binding/types.js'
 import type { SignedPassport } from '../types/passport.js'
 import type {
   ACPCheckoutSession, ACPLineItem, ACPMoney, ACPAddress,
@@ -43,7 +45,9 @@ function hasScope(delegation: CommerceDelegation, required: CommerceScope): bool
   return scopeAuthorizes(delegation.scope, required)
 }
 
-// ── Preflight Check: 5-Gate Pipeline ──
+// ── Preflight Check: 6-Gate Pipeline ──
+// Gates: passport_valid → delegation_scope → spend_limit → merchant_approved
+//      → wallet_bound (optional, only when walletRef provided) → idempotency (optional)
 
 export function commercePreflight(opts: {
   signedPassport: SignedPassport
@@ -51,6 +55,7 @@ export function commercePreflight(opts: {
   merchantName: string
   estimatedTotal: ACPMoney
   config?: CommerceConfig
+  walletRef?: { chain: WalletChain; address: string }
   idempotencyKey: string
   idempotencyStore: IdempotencyStore
   idempotencyWindowSeconds?: number
@@ -61,6 +66,7 @@ export function commercePreflight(opts: {
   merchantName: string
   estimatedTotal: ACPMoney
   config?: CommerceConfig
+  walletRef?: { chain: WalletChain; address: string }
 }): CommercePreflightResult
 export function commercePreflight(opts: {
   signedPassport: SignedPassport
@@ -68,6 +74,7 @@ export function commercePreflight(opts: {
   merchantName: string
   estimatedTotal: ACPMoney
   config?: CommerceConfig
+  walletRef?: { chain: WalletChain; address: string }
   idempotencyKey?: string
   idempotencyStore?: IdempotencyStore
   idempotencyWindowSeconds?: number
@@ -128,7 +135,24 @@ export function commercePreflight(opts: {
     })
   }
 
-  // Gate 5: Idempotency check (async, only if key + store provided)
+  // Gate 5: Wallet binding (only when the action references a specific wallet)
+  // Existing 5-gate flows that don't pass walletRef are unaffected.
+  if (opts.walletRef) {
+    const isBound = verifyBoundWallet(
+      opts.signedPassport,
+      opts.walletRef.chain,
+      opts.walletRef.address
+    )
+    checks.push({
+      check: 'wallet_bound',
+      passed: isBound,
+      detail: isBound
+        ? `Wallet ${opts.walletRef.chain}:${opts.walletRef.address} is bound to passport ${opts.signedPassport.passport.agentId}`
+        : `WALLET_NOT_BOUND: ${opts.walletRef.chain}:${opts.walletRef.address} is not bound to passport ${opts.signedPassport.passport.agentId}`,
+    })
+  }
+
+  // Gate 6: Idempotency check (async, only if key + store provided)
   if (opts.idempotencyKey && opts.idempotencyStore) {
     const windowSeconds = opts.idempotencyWindowSeconds ?? 300
     return opts.idempotencyStore.check(opts.idempotencyKey, windowSeconds).then(result => {
