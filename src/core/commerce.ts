@@ -25,6 +25,7 @@ import type {
   CommerceConfig, CommerceDelegation,
   CommercePreflightResult, CommercePreflightCheck,
   CommerceActionReceipt, HumanApprovalRequest,
+  IdempotencyStore,
 } from '../types/commerce.js'
 
 // ── Commerce Scopes ──
@@ -42,7 +43,7 @@ function hasScope(delegation: CommerceDelegation, required: CommerceScope): bool
   return scopeAuthorizes(delegation.scope, required)
 }
 
-// ── Preflight Check: 4-Gate Pipeline ──
+// ── Preflight Check: 5-Gate Pipeline ──
 
 export function commercePreflight(opts: {
   signedPassport: SignedPassport
@@ -50,7 +51,27 @@ export function commercePreflight(opts: {
   merchantName: string
   estimatedTotal: ACPMoney
   config?: CommerceConfig
-}): CommercePreflightResult {
+  idempotencyKey: string
+  idempotencyStore: IdempotencyStore
+  idempotencyWindowSeconds?: number
+}): Promise<CommercePreflightResult>
+export function commercePreflight(opts: {
+  signedPassport: SignedPassport
+  delegation: CommerceDelegation
+  merchantName: string
+  estimatedTotal: ACPMoney
+  config?: CommerceConfig
+}): CommercePreflightResult
+export function commercePreflight(opts: {
+  signedPassport: SignedPassport
+  delegation: CommerceDelegation
+  merchantName: string
+  estimatedTotal: ACPMoney
+  config?: CommerceConfig
+  idempotencyKey?: string
+  idempotencyStore?: IdempotencyStore
+  idempotencyWindowSeconds?: number
+}): CommercePreflightResult | Promise<CommercePreflightResult> {
   const checks: CommercePreflightCheck[] = []
   const warnings: string[] = []
 
@@ -104,6 +125,36 @@ export function commercePreflight(opts: {
       detail: merchantApproved
         ? `Merchant "${opts.merchantName}" is on approved list`
         : `Merchant "${opts.merchantName}" is NOT on approved list: [${opts.delegation.approvedMerchants.join(', ')}]`,
+    })
+  }
+
+  // Gate 5: Idempotency check (async, only if key + store provided)
+  if (opts.idempotencyKey && opts.idempotencyStore) {
+    const windowSeconds = opts.idempotencyWindowSeconds ?? 300
+    return opts.idempotencyStore.check(opts.idempotencyKey, windowSeconds).then(result => {
+      if (result.duplicate) {
+        checks.push({
+          check: 'idempotency',
+          passed: false,
+          detail: `Duplicate operation within ${windowSeconds}s window (existing receipt: ${result.existingReceiptId})`,
+        })
+      } else {
+        checks.push({
+          check: 'idempotency',
+          passed: true,
+          detail: `No duplicate found for idempotency key`,
+        })
+      }
+
+      const permitted = checks.every(c => c.passed)
+      return {
+        permitted,
+        checks,
+        delegation: opts.delegation,
+        warnings,
+        blockedReason: permitted ? undefined : checks.find(c => !c.passed)?.detail,
+        existingReceiptId: result.duplicate ? result.existingReceiptId : undefined,
+      }
     })
   }
 

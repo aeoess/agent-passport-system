@@ -122,6 +122,7 @@ export interface CommercePreflightResult {
   delegation?: CommerceDelegation
   warnings: string[]
   blockedReason?: string
+  existingReceiptId?: string
 }
 
 export interface CommercePreflightCheck {
@@ -157,7 +158,19 @@ export interface CommerceActionReceipt {
   delegationChain: string[]
   beneficiary: string        // human principal traced via delegation chain
   valuesFloorVersion?: string
+  idempotencyKey?: string    // content-addressed dedup key (excludes timestamp)
   signature: string
+}
+
+export interface IdempotencyCheck {
+  idempotencyKey: string
+  windowSeconds: number
+  action: 'reject' | 'return_existing'
+}
+
+export interface IdempotencyStore {
+  check(key: string, windowSeconds: number): Promise<{ duplicate: boolean; existingReceiptId?: string }>
+  record(key: string, receiptId: string): Promise<void>
 }
 
 export interface HumanApprovalRequest {

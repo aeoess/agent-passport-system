@@ -33,6 +33,7 @@ export { computeScopeVersionHash, verifyScopeVersionMatch } from './core/scope-v
 
 // ── action_ref (A2A#1672) — Content-Addressed Request Identity ──
 export { computeActionRef, actionRefsMatch } from './core/action-ref.js'
+export { computeIdempotencyKey } from './core/idempotency.js'
 
 // ── Attestation Freshness (A2A#1712) ──
 export { computeEvidenceAge, isEvidenceFresh, createSnapshotFreshness, createRotatingFreshness } from './core/freshness.js'
@@ -229,6 +230,7 @@ export type {
   CommerceConfig, CommerceDelegation,
   CommercePreflightResult, CommercePreflightCheck,
   CommerceActionReceipt, HumanApprovalRequest,
+  IdempotencyCheck, IdempotencyStore,
 } from './types/commerce.js'
 
 // ── Layer Integration — Wiring ──
