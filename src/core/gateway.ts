@@ -441,6 +441,32 @@ export class ProxyGateway {
       }
     }
 
+    // Step 1.9: Advisor scope enforcement.
+    // Delegations with spendLimitUnit === 'invocations' are advisor delegations:
+    // they authorize bounded consultation, not tool execution. Reject any
+    // processToolCall that would resolve against an advisor delegation, with
+    // a distinct denial code so callers can distinguish this from a generic
+    // scope miss.
+    const explicitDelegation = request.delegationId
+      ? agent.delegations.get(request.delegationId)
+      : undefined
+    const agentDelegations = Array.from(agent.delegations.values())
+    const onlyAdvisors =
+      agentDelegations.length > 0 &&
+      agentDelegations.every(d => d.spendLimitUnit === 'invocations')
+    if (explicitDelegation?.spendLimitUnit === 'invocations' || onlyAdvisors) {
+      this.stats.totalDenied++
+      const reason = 'Advisor delegation cannot execute tools — consult via consultAdvisor instead'
+      const failure = this.buildConstraintFailure('scope', 'ADVISOR_SCOPE_VIOLATION', reason,
+        { actual: request.scopeRequired })
+      return {
+        executed: false, requestId: request.requestId,
+        denialReason: reason,
+        constraintFailures: [failure],
+        constraintVector: this.buildConstraintVector('denied', [{ facet: 'scope', status: 'fail', failure }], [failure]),
+      }
+    }
+
     // Step 2: Find and verify delegation
     let delegation = this.findDelegation(agent, request)
     let viaEscalation = false

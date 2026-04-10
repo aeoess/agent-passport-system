@@ -63,6 +63,8 @@ export interface CreateDelegationOptions {
   scope: string[]
   scopeInterpretation?: 'exact' | 'glob' | 'hierarchical'  // Module 37
   spendLimit?: number
+  /** Unit for spendLimit. Default 'currency'. 'invocations' for count-based bounds. */
+  spendLimitUnit?: 'currency' | 'invocations'
   maxDepth?: number
   currentDepth?: number
   expiresInHours?: number
@@ -103,6 +105,7 @@ export function createDelegation(opts: CreateDelegationOptions): Delegation {
     expiresAt: expiry.toISOString(),
     spendLimit: opts.spendLimit,
     spentAmount: 0,
+    ...(opts.spendLimitUnit && { spendLimitUnit: opts.spendLimitUnit }),
     maxDepth: opts.maxDepth ?? 1,
     currentDepth: opts.currentDepth ?? 0,
     createdAt: now.toISOString(),
@@ -141,7 +144,9 @@ export interface SubDelegateOptions {
   parentDelegation: Delegation
   delegatedTo: string     // public key of new delegate
   scope: string[]         // must be subset of parent scope
-  spendLimit?: number     // must be <= parent remaining
+  spendLimit?: number     // must be <= parent remaining (when unit matches)
+  /** Unit for spendLimit. Default inherits parent. 'invocations' enables count-based bounds. */
+  spendLimitUnit?: 'currency' | 'invocations'
   derivation_rights?: import('../types/passport.js').DerivationRights
   privateKey: string      // current delegate's private key
 }
@@ -190,9 +195,15 @@ export function subDelegate(opts: SubDelegateOptions): Delegation {
     throw new Error('Derivation rights violation: parent delegation has no derivation_rights — child cannot introduce them')
   }
 
-  // Enforce spend limit (use ?? not || so spendLimit: 0 is a valid no-spend limit)
+  // Enforce spend limit (use ?? not || so spendLimit: 0 is a valid no-spend limit).
+  // When child declares a unit that differs from parent (e.g. 'invocations' on a
+  // currency-based parent), parent-remaining comparison is skipped — the units
+  // are incommensurable and the child sets its own independent bound.
+  const parentUnit = parent.spendLimitUnit ?? 'currency'
+  const childUnit = opts.spendLimitUnit ?? parentUnit
+  const unitsMatch = childUnit === parentUnit
   const parentRemaining = (parent.spendLimit ?? Infinity) - (parent.spentAmount ?? 0)
-  if (opts.spendLimit !== undefined && opts.spendLimit !== null && opts.spendLimit > parentRemaining) {
+  if (unitsMatch && opts.spendLimit !== undefined && opts.spendLimit !== null && opts.spendLimit > parentRemaining) {
     throw new Error(
       `Spend limit ${opts.spendLimit} exceeds parent remaining ${parentRemaining}`
     )
@@ -210,7 +221,8 @@ export function subDelegate(opts: SubDelegateOptions): Delegation {
     delegatedBy: parent.delegatedTo, // the current delegate becomes delegator
     scope: opts.scope,
     scopeInterpretation: parent.scopeInterpretation,  // Module 37: inherit from parent
-    spendLimit: opts.spendLimit ?? parentRemaining,
+    spendLimit: opts.spendLimit ?? (unitsMatch ? parentRemaining : undefined),
+    spendLimitUnit: opts.spendLimitUnit,
     maxDepth: parent.maxDepth,
     currentDepth: parent.currentDepth + 1,
     expiresInHours: childExpiryHours,

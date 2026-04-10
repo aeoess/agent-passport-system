@@ -80,6 +80,10 @@ export interface Delegation {
   notBefore?: string
   spendLimit?: number
   spentAmount?: number
+  /** Unit discriminator for spendLimit. Default 'currency' (backward compat).
+   *  'invocations' enables count-based bounds used by consultation primitives
+   *  (e.g. bounded-escalation advisors where each consult decrements by 1). */
+  spendLimitUnit?: 'currency' | 'invocations'
   maxDepth: number
   currentDepth: number
   createdAt: string
@@ -91,6 +95,14 @@ export interface Delegation {
   derivation_rights?: DerivationRights
   /** Observation governance: how continuous observation is managed */
   observation_policy?: ObservationPolicy
+  /**
+   * Verification timing policy (v2/credential-check-policy). Declares WHEN
+   * the credential should be re-verified: at acceptance, at every action
+   * evaluation, or both. Optional — when unset, defaults to 'on-process'
+   * which preserves existing behavior. Proposed by @piiiico on
+   * a2aproject/A2A governance metadata thread.
+   */
+  credentialCheckPolicy?: import('../v2/credential-check-policy/types.js').CredentialCheckPolicy
   signature: string  // signed by delegator
 }
 

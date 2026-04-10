@@ -29,7 +29,7 @@ What ships in every deployment.
 
 **Identity** -- Ed25519 passports, passport grades 0-3, key rotation, did:aps identifiers.
 
-**Delegation** -- Scoped authority with monotonic narrowing. Sub-delegation can only reduce scope. Cascade revocation propagates through the full chain.
+**Delegation** -- Scoped authority with monotonic narrowing. Sub-delegation can only reduce scope. Cascade revocation propagates through the full chain. `subDelegateAdvisor` implements the bounded-escalation delegation pattern used in multi-model agent workflows where a lower-cost executor escalates to a higher-capability advisor at decision points -- the advisor delegation is count-bounded, cannot execute tools, and cascade-revokes with its parent.
 
 **Enforcement** -- 3-signature action chain: agent signs intent, policy engine signs evaluation, agent signs execution receipt. The agent cannot skip the check.
 

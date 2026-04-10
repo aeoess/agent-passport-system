@@ -292,6 +292,16 @@ export {
 } from './policy-profiles.js'
 export type { ProfileConstraint, PolicyProfile, ProfileAttachment } from './policy-profiles.js'
 
+// v2 Sub-Delegate Advisor (bounded-escalation delegation primitive)
+export {
+  subDelegateAdvisor, consultAdvisor,
+  getAdvisorUses, clearAdvisorUseTracker,
+} from './sub-delegate-advisor.js'
+export type {
+  SubDelegateAdvisorOptions, ConsultAdvisorOptions, ConsultAdvisorResult,
+  ValidityWindow,
+} from './sub-delegate-advisor.js'
+
 
 // Wallet Binding (agent-native structural attestation)
 export {
