@@ -1,6 +1,6 @@
 ---
 name: agent-passport-system
-description: "Enforcement and accountability layer for AI agents. Bring your own identity (did:key, did:web, SPIFFE, OAuth, did:aps). Gateway enforcement boundary, monotonic narrowing, cascade revocation, spending controls, data lifecycle, observation governance (telemetry scopes, derivation rights, behavioral memory). Use when agents need scoped delegation, trust scoring, constraint enforcement, or cryptographic audit trails. 103 modules, 132 MCP tools, 2535 tests. 8 framework adapters: Stripe, Composio, IBAC/Cedar, LangChain, CrewAI, MCP, A2A, Gonka."
+description: "Enforcement and accountability layer for AI agents. Bring your own identity (did:key, did:web, SPIFFE, OAuth, did:aps). Gateway enforcement boundary, monotonic narrowing, cascade revocation, spending controls, data lifecycle, observation governance (telemetry scopes, derivation rights, behavioral memory). Use when agents need scoped delegation, trust scoring, constraint enforcement, or cryptographic audit trails. 103 modules, 132 MCP tools, 2,552 tests. 8 framework adapters: Stripe, Composio, IBAC/Cedar, LangChain, CrewAI, MCP, A2A, Gonka."
 metadata:
   clawdbot:
     emoji: "🔑"
@@ -25,7 +25,7 @@ metadata:
 - Agent needs cryptographic identity (Ed25519 passport)
 - Delegate authority between agents with scope, spend limits, depth controls
 - Revoke access — one call kills all downstream delegations
-- Run agent commerce with 4-gate checkout (passport, delegation, merchant, spend)
+- Run agent commerce with 5-gate checkout (passport, delegation, merchant, spend)
 - Coordinate multi-agent tasks (assign, evidence, review, deliver)
 - Track data contributions with Merkle proofs
 - Encrypt agent-to-agent communication (E2E, forward secrecy)

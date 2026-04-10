@@ -1,10 +1,10 @@
 {
   "name": "agent-passport-system",
-  "version": "3.1.0",
-  "description": "Cryptographic identity, trust, delegation, governance, and commerce for AI agents. 17 modules, 534 tests, 61 MCP tools. Ed25519 signed, open source.",
+  "version": "5.3.0",
+  "description": "Governance infrastructure for AI agents. Ed25519 identity, scoped delegation, enforcement gateway under 2ms, 5-gate commerce, Merkle attribution. 103 modules, 2,552 tests, 132 MCP tools.",
   "author": "aeoess",
   "homepage": "https://github.com/aeoess/agent-passport-system",
   "license": "Apache-2.0",
   "category": "development",
-  "tags": ["agent", "identity", "governance", "cryptography", "multi-agent", "trust", "delegation", "passport", "ed25519", "coordination", "commerce", "mcp", "agora", "intent-network", "proxy-gateway"]
+  "tags": ["agent", "identity", "governance", "cryptography", "multi-agent", "trust", "delegation", "passport", "ed25519", "coordination", "commerce", "mcp", "enforcement", "compliance"]
 }
