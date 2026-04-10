@@ -72,6 +72,8 @@ export interface CreateDelegationOptions {
   notBefore?: string
   derivation_rights?: import('../types/passport.js').DerivationRights
   observation_policy?: import('../types/passport.js').ObservationPolicy
+  /** Verification timing policy (v2/credential-check-policy) */
+  credentialCheckPolicy?: import('../v2/credential-check-policy/types.js').CredentialCheckPolicy
   privateKey: string        // delegator's private key for signing
 }
 
@@ -112,6 +114,7 @@ export function createDelegation(opts: CreateDelegationOptions): Delegation {
     notBefore: opts.notBefore ?? now.toISOString(),
     ...(opts.derivation_rights && { derivation_rights: opts.derivation_rights }),
     ...(opts.observation_policy && { observation_policy: opts.observation_policy }),
+    ...(opts.credentialCheckPolicy && { credentialCheckPolicy: opts.credentialCheckPolicy }),
   }
 
   const canonical = canonicalize(delegation)

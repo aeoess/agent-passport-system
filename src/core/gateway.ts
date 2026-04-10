@@ -31,6 +31,7 @@ import { canonicalize } from './canonical.js'
 import type { StorageBackend, StoredAgentRecord } from '../storage/types.js'
 import { createActionIntent, evaluateIntent, createPolicyReceipt, FloorValidatorV1 } from './policy.js'
 import { verifyDelegation, createReceipt, scopeAuthorizes, getRevocation } from './delegation.js'
+import { evaluateCredentialCheck } from '../v2/credential-check-policy/check.js'
 import { verifyPassport } from '../verification/verify.js'
 import { verifyAttestation } from './values.js'
 import { createTaintLabel, createSAO, createExecutionFrame, recordAccess, checkDataFlow, mergeTaints, verifyCrossChainPermit, isFrameExpired, rotateFrame } from './cross-chain.js'
@@ -90,6 +91,12 @@ export class ProxyGateway {
   private usedRequestIds: Map<string, number> = new Map() // requestId → timestamp (NW-001: TTL-based pruning)
   private requestsSinceCleanup = 0 // V5-MED-4: auto-cleanup counter
   private agentLocks: Map<string, Promise<void>> = new Map() // Per-agent sequential execution (concurrency fix)
+  // ── Credential check policy (v2) ──
+  // Acceptance stamps produced by verifyOnAccept() at addDelegation time.
+  // Indexed by delegationId. Used by processToolCall to evaluate
+  // credentialCheckPolicy at process time. Proposed by @piiiico on
+  // a2aproject/A2A governance metadata thread.
+  private acceptanceStamps: Map<string, import('../v2/credential-check-policy/types.js').AcceptanceStamp> = new Map()
   private executor: ToolExecutor
   private storage?: StorageBackend
   // ── Transactional Integrity Layer ──
@@ -328,7 +335,25 @@ export class ProxyGateway {
     if (status.expired) return { added: false, error: 'Delegation expired' }
     if (status.revoked) return { added: false, error: 'Delegation revoked' }
     agent.delegations.set(delegation.delegationId, delegation)
+
+    // Credential Check Policy (v2): if the delegation declares a check
+    // policy of 'on-accept' or 'both', stamp it now so process-time
+    // evaluation has the acceptance record on file.
+    const ccpMode = delegation.credentialCheckPolicy?.mode
+    if (ccpMode === 'on-accept' || ccpMode === 'both') {
+      this.acceptanceStamps.set(delegation.delegationId, {
+        delegation_id: delegation.delegationId,
+        verified_at: new Date().toISOString(),
+        verifier_id: this.config.gatewayId,
+      })
+    }
+
     return { added: true }
+  }
+
+  /** Returns the acceptance stamp for a delegation if one is on file. */
+  getAcceptanceStamp(delegationId: string): import('../v2/credential-check-policy/types.js').AcceptanceStamp | undefined {
+    return this.acceptanceStamps.get(delegationId)
   }
 
   revokeDelegation(agentId: string, delegationId: string): boolean {
@@ -760,23 +785,41 @@ export class ProxyGateway {
       return result
     }
 
-    // Step 5: Revocation recheck (paranoid mode)
+    // Step 5: Revocation recheck — gated by credentialCheckPolicy (v2)
+    // Default behavior (no policy): perform the live recheck if
+    // recheckRevocationOnExecute is enabled. Same as before.
+    // With a credentialCheckPolicy on the delegation: branch on mode.
+    //   on-accept → skip live recheck if a valid acceptance stamp is on file
+    //   on-process → run the live recheck (current default)
+    //   both → require a valid acceptance stamp AND run the live recheck
     if (this.config.recheckRevocationOnExecute) {
       this.stats.revocationRechecksTriggered++
-      const revocation = getRevocation(delegation.delegationId)
-      if (revocation) {
+      const liveRevoked = getRevocation(delegation.delegationId)
+      const liveStateValid = !liveRevoked
+
+      const ccpResult = evaluateCredentialCheck({
+        delegation,
+        acceptanceStamp: this.acceptanceStamps.get(delegation.delegationId),
+        liveStateValid,
+      })
+
+      if (!ccpResult.permitted) {
         this.stats.totalDenied++
         this.usedRequestIds.set(request.requestId, Date.now())
-        const failure = this.buildConstraintFailure('revocation', 'REVOKED_AT_EXECUTION', 'Delegation was revoked between approval and execution')
+        const code = ccpResult.denialCode ?? 'REVOKED_AT_EXECUTION'
+        const reason = ccpResult.reason ?? 'Delegation was revoked between approval and execution'
+        const failure = this.buildConstraintFailure('revocation', code, reason)
         return {
           executed: false, requestId: request.requestId,
-          denialReason: 'Delegation was revoked between approval and execution', decision,
+          denialReason: reason, decision,
           constraintFailures: [failure],
           constraintVector: this.buildConstraintVector('denied',
             [{ facet: 'identity', status: 'pass' }, { facet: 'scope', status: 'pass' }, { facet: 'revocation', status: 'fail', failure }],
             [failure]),
         }
       }
+      // ccpResult.permitted === true reaches here. The live state was either
+      // good OR mode 'on-accept' explicitly trusted the snapshot.
     }
 
     // Step 5.5: Cross-chain data flow check (Module 18)
@@ -1211,7 +1254,19 @@ export class ProxyGateway {
     if (this.config.recheckRevocationOnExecute) {
       this.stats.revocationRechecksTriggered++
       const delegationStatus = verifyDelegation(delegation)
-      if (!delegationStatus.valid || delegationStatus.expired || delegationStatus.revoked) return { executed: false, requestId: approval.requestId, denialReason: 'Delegation invalidated since approval' }
+      const liveStateValid = delegationStatus.valid && !delegationStatus.expired && !delegationStatus.revoked
+      const ccpResult = evaluateCredentialCheck({
+        delegation,
+        acceptanceStamp: this.acceptanceStamps.get(delegation.delegationId),
+        liveStateValid,
+      })
+      if (!ccpResult.permitted) {
+        return {
+          executed: false,
+          requestId: approval.requestId,
+          denialReason: ccpResult.reason ?? 'Delegation invalidated since approval',
+        }
+      }
     }
 
     // ═══ V2-CRIT-1 FIX: All enforcement steps from processToolCall now applied here ═══

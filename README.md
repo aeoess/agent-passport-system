@@ -64,6 +64,39 @@ The two layers compose: a verifier accepting both gets cryptographic proof that 
 
 `unbindWallet()` produces a separately signed unbind event so the bind/unbind history can be reconstructed independent of the passport's current `bound_wallets` snapshot.
 
+## Credential Check Policy
+
+A credential needs to declare WHEN it should be re-verified. Different credential types have different trust decay profiles. APS lets the issuer set this on the delegation itself via `credentialCheckPolicy`.
+
+```typescript
+import { createDelegation } from 'agent-passport-system'
+
+const delegation = createDelegation({
+  delegatedTo: agentPublicKey,
+  delegatedBy: principalPublicKey,
+  scope: ['payments:wire'],
+  spendLimit: 1_000_000,
+  expiresInHours: 24,
+  privateKey: principalPrivateKey,
+  credentialCheckPolicy: {
+    mode: 'both',              // 'on-accept' | 'on-process' | 'both'
+    max_acceptance_age: 3600,  // optional, seconds
+  },
+})
+```
+
+Three modes:
+
+**`on-accept`** -- verify once at credential acceptance time, trust the snapshot afterward. Cheap. Use for long-lived session credentials where the live revocation cost is prohibitive and brief staleness is acceptable. Live revocation between accept and process will not be caught.
+
+**`on-process`** -- verify on every action evaluation. The default. Catches live revocation. This matches the existing APS recheck-on-execute behavior, so delegations without an explicit `credentialCheckPolicy` continue to work unchanged.
+
+**`both`** -- verify at acceptance AND at process time. Use for high-stakes actions (large spend, irreversible operations, cross-org transactions) where you want both the snapshot integrity check AND the live state check.
+
+Denial codes specific to this gate: `CREDENTIAL_NOT_ACCEPTED` (policy is `on-accept`/`both` but no acceptance stamp), `CREDENTIAL_ACCEPT_STALE` (stamp older than `max_acceptance_age`), `PROCESS_TIME_INVALID` (live state failed), `ACCEPT_TIME_INVALID` (acceptance check failed).
+
+Proposed by [@piiiico](https://github.com/piiiico) on the a2aproject/A2A governance metadata thread.
+
 ## Extended Modules
 
 Pick what you need. `import from 'agent-passport-system'` for the full API.

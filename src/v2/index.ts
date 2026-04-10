@@ -310,3 +310,13 @@ export {
 export type {
   BoundWallet, WalletChain, WalletVerificationChallenge, UnbindEvent,
 } from "./wallet-binding/index.js"
+
+// Credential Check Policy (verification timing for governance metadata)
+// Proposed by @piiiico on a2aproject/A2A governance metadata thread.
+export {
+  verifyOnAccept, evaluateCredentialCheck, resolveCheckMode,
+} from "./credential-check-policy/index.js"
+export type {
+  CredentialCheckMode, CredentialCheckPolicy, CredentialCheckResult,
+  CredentialCheckDenialCode, AcceptanceStamp,
+} from "./credential-check-policy/index.js"
