@@ -4,10 +4,10 @@
 Enforcement and accountability layer for AI agents. Bring your own identity (did:key, did:web, SPIFFE SVIDs, OAuth tokens, native did:aps). The gateway is both judge and executor. Authority can only decrease at each transfer point. Monotonic narrowing, cascade revocation, data lifecycle, Merkle attribution, signed coordination. Solo founder: Tima (Tymofii Pidlisnyi).
 
 ## Current State (auto-updated by propagation)
-- SDK: v1.36.2 — 2497 tests, 626 suites, 103 modules (71 core + 32 v2)
-- MCP: v2.21.0 — 132 tools
+- SDK: v1.41.0 — 2764 tests, 714 suites, 103 modules (71 core + 32 v2)
+- MCP: v2.23.0 — 132 tools
 - Gateway: v0.4.0 — 36 routes + context continuity score
-- Python SDK: v0.8.0 on PyPI
+- Python SDK: v0.11.0 on PyPI
 
 ## Repos
 | Repo | Path | Live |
@@ -140,7 +140,7 @@ You have full filesystem access to ALL repos. Read any file in any repo. The rep
 ### All Repo Paths
 ```
 ~/agent-passport-system        # SDK (this repo)
-~/agent-passport-mcp           # MCP server (125 tools)
+~/agent-passport-mcp           # MCP server (132 tools)
 ~/agent-passport-remote-mcp    # MCP remote (Railway → mcp.aeoess.com)
 ~/aeoess-gateway               # Private gateway (Railway → gateway.aeoess.com)
 ~/aeoess_web                   # Website + specs + build specs
@@ -205,7 +205,7 @@ Portal: draft exact text for Portal to post. Don't ask Tima to copy-paste.
 Identity Sybil is unsolvable in open protocols. The protocol's job is making actions attributable, scoped, monitored, and reversible — not preventing passport creation. Build the richest possible evidence record so that when regulations arrive, every scammer has a signed, Merkle-committed, chain-of-custody confession. "Cheap identities are fine. Cheap extraction is the bug." Gateway 4-gate Sybil pipeline on wallet provisioning is the enforcement layer.
 
 ## Tests
-`npm test` runs all 2497 tests. Test files are manually listed in package.json — new test files must be added to the list.
+`npm test` runs all 2764 tests. Test files are manually listed in package.json — new test files must be added to the list.
 
 ## Exports
 `src/index.ts` is the single source of truth for the public API. All new functions must be exported here.
@@ -218,7 +218,7 @@ If gstack skills aren't working, run `cd ~/.claude/skills/gstack && ./setup` to 
 ## Claude Code MCP Demo Instructions
 
 ### MCP Tools (aeoess server)
-You have access to 125+ APS tools via the `aeoess` MCP server. Use these tools directly — do NOT explore source code or run node scripts.
+You have access to 132 APS tools via the `aeoess` MCP server. Use these tools directly — do NOT explore source code or run node scripts.
 
 ### Issue a passport
 1. Call `issue_passport` with name, owner, mission, capabilities
