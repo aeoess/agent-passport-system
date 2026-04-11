@@ -526,8 +526,9 @@ export type {
 
 // ── Reputation-Gated Authority ──
 export {
-  DEFAULT_K, MAX_SIGMA, INITIAL_MU, INITIAL_SIGMA, SCARRING_PENALTY,
+  DEFAULT_K, MAX_SIGMA, MIN_SIGMA, INITIAL_MU, INITIAL_SIGMA, SCARRING_PENALTY,
   DEFAULT_TIERS, DEFAULT_PROMOTION_REQUIREMENTS,
+  DEFAULT_DECAY_DAYS, DEFAULT_DRIFT_RATE_PER_DAY,
   computeEffectiveScore, createScopedReputation, computeConfidence, createEvidenceDiversity,
   classifyEvidence, resolveAuthorityTier, shouldDemote,
   effectiveAutonomy, effectiveSpendLimit, effectiveDelegationDepth,
@@ -535,7 +536,8 @@ export {
   meetsPromotionRequirements,
   createPromotionReview, validatePromotionReview,
   triggerDemotion, checkTierForIntent, advisoryTierPrecheck,
-  updateReputationFromResult
+  updateReputationFromResult,
+  applyTemporalDecay, confidenceBreakdown
 } from './core/reputation-authority.js'
 
 export type {
@@ -546,6 +548,8 @@ export type {
   DemotionCause, DemotionEvent,
   TierEscalation, TierCheckContext
 } from './types/reputation-authority.js'
+
+export type { ConfidenceBreakdown } from './core/reputation-authority.js'
 
 // ── Behavioral Fingerprint ──
 // Three-axis joint measurement envelope: HBB fidelity (axis 1) +

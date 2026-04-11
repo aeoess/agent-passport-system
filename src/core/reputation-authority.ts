@@ -654,7 +654,7 @@ const REPUTATION_UPDATES: Record<EvidenceClass, {
 }
 
 /** Minimum sigma — we never have perfect certainty */
-const MIN_SIGMA = 1
+export const MIN_SIGMA = 1
 
 /**
  * Update reputation (mu, sigma) from an action result.
@@ -713,4 +713,162 @@ export function updateReputationFromResult(
   }
   updated.confidence = computeConfidence(updated)
   return updated
+}
+
+// ══════════════════════════════════════
+// Temporal Decay
+// Motivated by Nanook PDR v2.19 §7.6.1: the paper attributes a linear sigma
+// drift adapter to AEOESS (the first-order Euler discretization of Bhardwaj's
+// Riemannian Langevin diffusion). This function makes that claim concrete in
+// SDK code so callers can compute "what is this agent's reputation right now
+// if no new evidence arrived" without re-running the full update pipeline.
+// ══════════════════════════════════════
+
+/** How many days of inactivity it takes for sigma to drift from MIN_SIGMA to
+ *  MAX_SIGMA at the default rate. 180 days is a deliberate round number: it
+ *  matches the typical employee-review cadence and is long enough that an
+ *  agent operating weekly never reaches max uncertainty from inactivity alone. */
+export const DEFAULT_DECAY_DAYS = 180
+
+/** Default drift rate per day, derived so that sigma traverses the full
+ *  [MIN_SIGMA, MAX_SIGMA] range in DEFAULT_DECAY_DAYS. Linear, not exponential —
+ *  the function is the discrete first-order step of a continuous diffusion. */
+export const DEFAULT_DRIFT_RATE_PER_DAY = (MAX_SIGMA - MIN_SIGMA) / DEFAULT_DECAY_DAYS
+
+const SECONDS_PER_DAY = 86400
+
+/**
+ * Apply temporal decay to a reputation by growing sigma linearly with elapsed
+ * time. Pure function — does not mutate input.
+ *
+ * Semantics:
+ *   - sigma += driftRatePerDay * (elapsedSeconds / 86400), clamped to
+ *     [MIN_SIGMA, maxSigma]
+ *   - mu is unchanged. Decay is uncertainty growth, not capability change.
+ *   - lastUpdatedAt is advanced by elapsedSeconds. The function does NOT
+ *     consult the system clock; elapsedSeconds is the authoritative delta.
+ *   - receiptCount is unchanged. Decay does not consume evidence.
+ *   - Idempotent: applyTemporalDecay(applyTemporalDecay(r, t1), t2) equals
+ *     applyTemporalDecay(r, t1 + t2) within floating-point tolerance, as long
+ *     as no clamp is reached in the intermediate step.
+ *
+ * @param rep             Source reputation. Not mutated.
+ * @param elapsedSeconds  Non-negative seconds of elapsed time to apply.
+ * @param opts.maxSigma   Override the max sigma ceiling (default MAX_SIGMA = 25).
+ * @param opts.driftRatePerDay  Override the drift rate (default 24/180/day).
+ *
+ * Reference: Nanook PDR v2.19 §7.6.1, gap audit §5 rank 1.
+ */
+export function applyTemporalDecay(
+  rep: ScopedReputation,
+  elapsedSeconds: number,
+  opts?: { maxSigma?: number; driftRatePerDay?: number }
+): ScopedReputation {
+  if (typeof elapsedSeconds !== 'number' || !Number.isFinite(elapsedSeconds)) {
+    throw new Error('applyTemporalDecay: elapsedSeconds must be a finite number')
+  }
+  if (elapsedSeconds < 0) {
+    throw new Error('applyTemporalDecay: elapsedSeconds must be non-negative')
+  }
+
+  const maxSigma = opts?.maxSigma ?? MAX_SIGMA
+  const driftRatePerDay = opts?.driftRatePerDay ?? DEFAULT_DRIFT_RATE_PER_DAY
+
+  const elapsedDays = elapsedSeconds / SECONDS_PER_DAY
+  const sigmaDelta = driftRatePerDay * elapsedDays
+  // Clamp to [MIN_SIGMA, maxSigma]. No rounding — idempotency requires full precision.
+  const newSigma = Math.min(maxSigma, Math.max(MIN_SIGMA, rep.sigma + sigmaDelta))
+
+  // Advance lastUpdatedAt by elapsedSeconds without consulting wall clock.
+  const lastMs = new Date(rep.lastUpdatedAt).getTime()
+  const newLastUpdatedAt = new Date(lastMs + elapsedSeconds * 1000).toISOString()
+
+  return {
+    ...rep,
+    sigma: newSigma,
+    lastUpdatedAt: newLastUpdatedAt,
+  }
+}
+
+// ══════════════════════════════════════
+// Confidence Breakdown
+// Motivated by Nanook PDR v2.19 §6.4 / §7.6.1 and gap audit §3 row 17.
+// computeConfidence() returns a single 0-1 number computed as the geometric
+// mean of five sub-scores. Callers that want to inspect or re-weight the
+// dimensions had to recompute the math themselves. This exposes the same
+// five sub-scores plus the composite, with composite guaranteed equal to
+// computeConfidence(rep) by construction.
+// ══════════════════════════════════════
+
+export interface ConfidenceBreakdown {
+  /** Receipt-volume sub-score: log2(1+n) / log2(101). Range [0, 1]. */
+  volume: number
+  /** Distinct-principals sub-score: 0.2 + 0.2 * distinctPrincipals. Range [0, 1]. */
+  principal: number
+  /** Distinct-evidence-classes sub-score: 0.25 * distinctEvidenceClasses. Range [0, 1]. */
+  class: number
+  /** Failure-rate health sub-score. 1.0 in healthy 5-15% band, 0.2 above 50%, 0.5 if all-success and few interactions, 0.7 otherwise. */
+  health: number
+  /** Temporal-spread sub-score: 0.5 + 0.5 * min(spanDays/spreadDays, 1). Floor 0.5. */
+  temporal: number
+  /** Composite confidence equal to computeConfidence(rep). The 5-way geometric
+   *  mean of the sub-scores above (with rounding to 3 decimals as in computeConfidence). */
+  composite: number
+}
+
+/**
+ * Decompose computeConfidence(rep) into its five named sub-scores.
+ *
+ * The composite field is guaranteed equal to computeConfidence(rep) by
+ * construction. The sub-scores reproduce the same internal calculation
+ * computeConfidence performs, exposing them for inspection and re-weighting.
+ *
+ * In the early-exit cases where computeConfidence returns 0 (no diversity,
+ * zero receipts, or zero success+failure events), all sub-scores are reported
+ * as 0 so that any geometric or weighted mean over them also yields 0,
+ * preserving the "re-weighting reproduces composite" invariant.
+ *
+ * Reference: Nanook PDR v2.19 §6.4, gap audit §3 row 17.
+ */
+export function confidenceBreakdown(rep: ScopedReputation): ConfidenceBreakdown {
+  const composite = computeConfidence(rep)
+
+  const diversity = rep.evidenceDiversity
+  if (!diversity || rep.receiptCount === 0) {
+    return { volume: 0, principal: 0, class: 0, health: 0, temporal: 0, composite }
+  }
+  const total = diversity.successCount + diversity.failureCount
+  if (total === 0) {
+    return { volume: 0, principal: 0, class: 0, health: 0, temporal: 0, composite }
+  }
+
+  // Mirror the exact formulas from computeConfidence (above).
+  const volume = Math.min(1, Math.log2(1 + rep.receiptCount) / Math.log2(101))
+  const principal = Math.min(1, 0.2 + 0.2 * diversity.distinctPrincipals)
+  const cls = Math.min(1, diversity.distinctEvidenceClasses * 0.25)
+
+  const failRate = diversity.failureCount / total
+  let health: number
+  if (failRate === 0 && total < 20) {
+    health = 0.5
+  } else if (failRate >= 0.05 && failRate <= 0.15) {
+    health = 1.0
+  } else if (failRate > 0.5) {
+    health = 0.2
+  } else {
+    health = 0.7
+  }
+
+  let temporal = 1.0
+  if (rep.firstObservedAt && rep.lastUpdatedAt) {
+    const firstMs = new Date(rep.firstObservedAt).getTime()
+    const lastMs = new Date(rep.lastUpdatedAt).getTime()
+    const spanDays = Math.max(0, (lastMs - firstMs) / (1000 * 60 * 60 * 24))
+    const coverage = Math.min(spanDays / DEFAULT_TEMPORAL_SPREAD_DAYS, 1.0)
+    temporal = 0.5 + 0.5 * coverage
+  } else if (rep.receiptCount > 0) {
+    temporal = 0.5
+  }
+
+  return { volume, principal, class: cls, health, temporal, composite }
 }
