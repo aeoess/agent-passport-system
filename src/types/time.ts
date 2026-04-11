@@ -111,3 +111,26 @@ export interface TemporalValidation {
   effective: boolean
   errors: string[]
 }
+
+// ══════════════════════════════════════════════════════════════════
+// Session Boundary
+// ══════════════════════════════════════════════════════════════════
+// HLC-gap-derived session segmentation. Reference: Nanook PDR v2.19 §7.6.3,
+// gap audit §3 row 14 / row 29 / §5 rank 5. The paper credits APS with
+// "HLC gap detection as session boundary" as a deployable pattern; this
+// type is the wire format the extractSessions() utility produces.
+
+/** A contiguous run of HybridTimestamps that belong to the same session.
+ *  Sessions are derived from a time-ordered stamp sequence by detecting
+ *  wall-clock gaps that exceed a configurable threshold (default 5 min). */
+export interface SessionBoundary {
+  /** The first timestamp of this session. */
+  start: HybridTimestamp
+  /** The last timestamp of this session. */
+  end: HybridTimestamp
+  /** Number of timestamps in this session (inclusive of start and end). */
+  eventCount: number
+  /** Gap in milliseconds from the previous session's end to this
+   *  session's start. Zero for the first session in the sequence. */
+  gapFromPreviousMs: number
+}

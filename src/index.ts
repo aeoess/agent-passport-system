@@ -928,14 +928,15 @@ export type { CreateCharterOptions, CreateAmendmentOptions, CreateOfficeTransfer
 
 export type {
   HybridTimestamp, TemporalBound, TemporalRights,
-  TemporalOrdering, TemporalValidation,
+  TemporalOrdering, TemporalValidation, SessionBoundary,
 } from './types/time.js'
 
 export {
-  DEFAULT_NTP_DRIFT_MS,
+  DEFAULT_NTP_DRIFT_MS, DEFAULT_SESSION_GAP_MS,
   createHybridTimestamp, createTemporalBound,
   compareTimestamps, isTemporalBoundExpired,
   validateTemporalRights, resetLogicalCounter,
+  extractSessions,
 } from './core/time.js'
 
 
