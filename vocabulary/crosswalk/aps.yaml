@@ -1,0 +1,161 @@
+# Crosswalk: Agent Passport System (APS) → Canonical Vocabulary
+# Maps APS-specific type and function names to canonical governance terms.
+
+system:
+  name: Agent Passport System
+  version: ">=1.41.0"
+  repository: https://github.com/aeoess/agent-passport-system
+  spec-references:
+    - docs/governance/agent-charter.md
+    - docs/governance/restraint-spec.md
+    - docs/governance/deliberation-framework.md
+
+mappings:
+
+  # Identity
+  agent-identity:
+    type: AgentPassport
+    module: src/types/passport.ts
+    functions: [createPassport, verifyPassport]
+    notes: "Passport grades 0-3 based on attestation evidence"
+
+  principal:
+    type: Principal
+    module: src/types/principal.ts
+    functions: [createPrincipal, endorseAgent]
+    notes: "Human/org entity; agents cannot exist without a principal"
+
+  key-rotation:
+    type: RotationLog
+    module: src/core/identity.ts
+    functions: [rotateKey]
+    notes: "Dual-signed rotation: old key authorizes, new key activates"
+
+  endorsement:
+    type: PrincipalEndorsement
+    module: src/core/principal.ts
+    functions: [endorseAgent, verifyEndorsement]
+
+  # Delegation
+  delegation:
+    type: Delegation
+    module: src/core/delegation.ts
+    functions: [createDelegation, verifyDelegation]
+    notes: "Scoped authority with monotonic narrowing and depth limits"
+
+  scope:
+    type: "string[]"
+    module: src/types/passport.ts
+    notes: "Hierarchical/glob scope arrays on delegations"
+
+  authority-narrowing:
+    type: MonotonicNarrowingResult
+    module: src/core/delegation.ts
+    functions: [verifyMonotonicNarrowing]
+    notes: "Sub-delegation cannot grant more than parent holds"
+
+  revocation:
+    type: RevocationRecord
+    module: src/core/delegation.ts
+    functions: [revokeDelegation]
+
+  cascade-revocation:
+    type: CascadeRevocationResult
+    module: src/core/delegation.ts
+    functions: [cascadeRevoke, getDescendants]
+
+  # Policy & Enforcement
+  policy:
+    type: PolicyDefinition
+    module: src/types/policy.ts
+    functions: [evaluatePolicy]
+
+  enforcement-mode:
+    type: EnforcementMode
+    module: src/types/policy.ts
+    values: ["inline", "audit", "warn"]
+    notes: "inline=blocking, audit=logging, warn=advisory"
+
+  values-floor:
+    type: ValuesFloor
+    module: src/core/values.ts
+    functions: [checkValuesCompliance]
+
+  # Execution & Attestation
+  action-receipt:
+    type: ActionReceipt
+    module: src/types/execution-attestation.ts
+    functions: [createActionReceipt]
+
+  execution-envelope:
+    type: ExecutionEnvelope
+    module: src/types/execution-envelope.ts
+    functions: [createExecutionEnvelope, verifyEnvelope]
+    notes: "3-signature chain: intent → policy gate → receipt"
+
+  attestation:
+    type: Attestation
+    module: src/types/attestation.ts
+    functions: [createAttestation, verifyAttestation]
+
+  # Governance
+  governance-artifact:
+    type: GovernanceArtifact
+    module: src/types/governance.ts
+    functions: [createGovernanceArtifact, verifyGovernanceArtifact]
+
+  governance-change-type:
+    type: GovernanceChangeType
+    module: src/types/governance.ts
+    values: ["strengthening", "neutral", "weakening", "mixed", "initial"]
+
+  approval:
+    type: GovernanceApproval
+    module: src/types/governance.ts
+    functions: [approveGovernanceChange]
+
+  charter:
+    type: Charter
+    module: src/core/charter.ts
+    functions: [createCharter]
+
+  # Coordination
+  task:
+    type: Task
+    module: src/core/coordination.ts
+    functions: [createTask, advanceTaskState]
+    notes: "9-state lifecycle machine"
+
+  intent:
+    type: IntentCard
+    module: src/core/intent-network.ts
+    functions: [createIntentCard, evaluateIntent]
+    notes: "Double-opt-in before collaboration"
+
+  deliberation:
+    type: DeliberationSession
+    module: src/core/coordination.ts
+    functions: [initiateDeliberation]
+
+  # Reputation
+  trust-score:
+    type: TrustScore
+    module: src/core/reputation-authority.ts
+    functions: [computeTrustScore]
+    notes: "Bayesian trust scoring across tiers"
+
+  reputation-authority:
+    type: ReputationAuthority
+    module: src/core/reputation-authority.ts
+    functions: [createReputationAuthority, resolveAuthorityTier]
+
+  # Data Governance
+  derivation-rights:
+    type: DerivationRights
+    module: src/types/data-lifecycle.ts
+    notes: "Who can train on outputs, copy, distribute"
+
+  data-lifecycle:
+    type: DataLifecyclePolicy
+    module: src/types/data-lifecycle.ts
+    functions: [enforceDataLifecycle]

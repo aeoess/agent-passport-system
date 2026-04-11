@@ -1,0 +1,158 @@
+# Agent Governance Vocabulary — Canonical Terms
+# Modeled after IANA JWT Claims Registry and W3C DID Registries
+# Version: 0.1.0
+
+metadata:
+  title: Agent Governance Vocabulary
+  version: 0.1.0
+  status: draft
+  maintainer: agent-passport-system contributors
+  license: Apache-2.0
+  description: >
+    A shared vocabulary mapping governance primitives across agent governance
+    implementations. Not a new spec or renaming mandate — just a mapping layer.
+
+# Each canonical term maps a governance primitive to its definition.
+# Implementations provide their own crosswalk files in crosswalk/.
+
+terms:
+
+  # --- Identity ---
+  agent-identity:
+    definition: Persistent cryptographic identity of an autonomous agent
+    category: identity
+    related: [principal, key-rotation]
+
+  principal:
+    definition: Human or organizational entity that endorses an agent into existence
+    category: identity
+    related: [agent-identity, endorsement]
+
+  key-rotation:
+    definition: Process of replacing an agent's signing key while preserving identity continuity
+    category: identity
+    related: [agent-identity]
+
+  endorsement:
+    definition: Cryptographic attestation by a principal vouching for an agent
+    category: identity
+    related: [principal, attestation]
+
+  # --- Delegation ---
+  delegation:
+    definition: Scoped transfer of authority from one entity to another
+    category: delegation
+    related: [scope, authority-narrowing, revocation]
+
+  scope:
+    definition: Bounded set of permissions or capabilities granted in a delegation
+    category: delegation
+    related: [delegation]
+
+  authority-narrowing:
+    definition: Constraint that sub-delegations cannot exceed parent delegation authority
+    category: delegation
+    related: [delegation, scope]
+
+  revocation:
+    definition: Withdrawal of a previously granted delegation
+    category: delegation
+    related: [delegation, cascade-revocation]
+
+  cascade-revocation:
+    definition: Transitive revocation of all descendant delegations when a parent is revoked
+    category: delegation
+    related: [revocation, delegation]
+
+  # --- Policy & Enforcement ---
+  policy:
+    definition: Declarative rule governing what actions an agent may or must perform
+    category: enforcement
+    related: [enforcement-mode, values-floor]
+
+  enforcement-mode:
+    definition: How policy violations are handled (blocking, logging, or advisory)
+    category: enforcement
+    related: [policy]
+    typical-values: [inline, audit, warn]
+
+  values-floor:
+    definition: Minimum set of human values constraints that bound agent behavior
+    category: enforcement
+    related: [policy]
+
+  # --- Execution & Attestation ---
+  action-receipt:
+    definition: Signed record of an action taken by an agent
+    category: execution
+    related: [execution-envelope, attestation]
+
+  execution-envelope:
+    definition: Container wrapping an agent action with intent, authorization, and receipt
+    category: execution
+    related: [action-receipt]
+
+  attestation:
+    definition: Cryptographic proof of a claim about an agent or its actions
+    category: execution
+    related: [action-receipt, endorsement]
+
+  # --- Governance ---
+  governance-artifact:
+    definition: Signed, versioned governance document (policies, charters, configurations)
+    category: governance
+    related: [governance-change-type, approval]
+
+  governance-change-type:
+    definition: Classification of governance updates by their effect on constraints
+    category: governance
+    related: [governance-artifact]
+    typical-values: [strengthening, neutral, weakening, mixed, initial]
+
+  approval:
+    definition: Multi-party authorization for governance changes
+    category: governance
+    related: [governance-artifact, principal]
+
+  charter:
+    definition: Institutional identity document defining roles, offices, and federation rules
+    category: governance
+    related: [governance-artifact, principal]
+
+  # --- Coordination ---
+  task:
+    definition: Unit of work with a defined lifecycle and role-bound review
+    category: coordination
+    related: [intent, deliberation]
+
+  intent:
+    definition: Declared capability or need published by an agent for collaboration matching
+    category: coordination
+    related: [task]
+
+  deliberation:
+    definition: Structured disagreement resolution process between agents
+    category: coordination
+    related: [task, coordination]
+
+  # --- Reputation ---
+  trust-score:
+    definition: Quantitative measure of an agent's trustworthiness in a given scope
+    category: reputation
+    related: [reputation-authority]
+
+  reputation-authority:
+    definition: Entity that computes and maintains trust scores for agents
+    category: reputation
+    related: [trust-score, scope]
+
+  # --- Data Governance ---
+  derivation-rights:
+    definition: Permissions governing who can train on, copy, or distribute agent outputs
+    category: data
+    related: [data-lifecycle]
+
+  data-lifecycle:
+    definition: Governed stages of data from creation through access, consent, and deletion
+    category: data
+    related: [derivation-rights]

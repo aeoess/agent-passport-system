@@ -1,0 +1,41 @@
+{
+  "@context": {
+    "@version": 1.1,
+    "agov": "https://w3id.org/agent-governance-vocabulary#",
+    "aps": "https://github.com/aeoess/agent-passport-system/vocabulary#",
+
+    "agent-identity": "agov:agent-identity",
+    "principal": "agov:principal",
+    "key-rotation": "agov:key-rotation",
+    "endorsement": "agov:endorsement",
+
+    "delegation": "agov:delegation",
+    "scope": "agov:scope",
+    "authority-narrowing": "agov:authority-narrowing",
+    "revocation": "agov:revocation",
+    "cascade-revocation": "agov:cascade-revocation",
+
+    "policy": "agov:policy",
+    "enforcement-mode": "agov:enforcement-mode",
+    "values-floor": "agov:values-floor",
+
+    "action-receipt": "agov:action-receipt",
+    "execution-envelope": "agov:execution-envelope",
+    "attestation": "agov:attestation",
+
+    "governance-artifact": "agov:governance-artifact",
+    "governance-change-type": "agov:governance-change-type",
+    "approval": "agov:approval",
+    "charter": "agov:charter",
+
+    "task": "agov:task",
+    "intent": "agov:intent",
+    "deliberation": "agov:deliberation",
+
+    "trust-score": "agov:trust-score",
+    "reputation-authority": "agov:reputation-authority",
+
+    "derivation-rights": "agov:derivation-rights",
+    "data-lifecycle": "agov:data-lifecycle"
+  }
+}

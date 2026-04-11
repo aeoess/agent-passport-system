@@ -1,0 +1,48 @@
+# Worked Example: Cross-System Capability Validation
+#
+# Scenario: System B receives a delegation from System A (which uses APS)
+# and needs to verify the agent's capabilities using canonical vocabulary.
+
+steps:
+  - name: "Receive delegation from APS-based system"
+    canonical-term: delegation
+    aps-mapping:
+      type: Delegation
+      function: verifyDelegation
+    description: >
+      System B receives a delegation object. Using the crosswalk, it maps
+      the APS `Delegation` type to the canonical `delegation` term.
+
+  - name: "Check scope coverage"
+    canonical-term: scope
+    aps-mapping:
+      type: "string[]"
+      notes: "Hierarchical glob patterns like 'commerce/*'"
+    description: >
+      System B reads the delegation's scope array. The canonical `scope`
+      term tells it this represents bounded permissions. System B maps
+      these to its own permission model.
+
+  - name: "Verify authority narrowing"
+    canonical-term: authority-narrowing
+    aps-mapping:
+      type: MonotonicNarrowingResult
+      function: verifyMonotonicNarrowing
+    description: >
+      System B confirms the delegation doesn't exceed its parent's authority.
+      The canonical term `authority-narrowing` maps to APS's monotonic
+      narrowing verification.
+
+  - name: "Check trust score"
+    canonical-term: trust-score
+    aps-mapping:
+      type: TrustScore
+      function: computeTrustScore
+    description: >
+      System B queries the agent's trust score. The canonical `trust-score`
+      maps to APS's Bayesian trust scoring via `ReputationAuthority`.
+
+result: >
+  System B successfully validated the agent's capabilities using canonical
+  vocabulary terms, without needing to understand APS-specific type names
+  or function signatures directly.

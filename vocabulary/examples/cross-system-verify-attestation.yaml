@@ -1,0 +1,57 @@
+# Worked Example: Cross-System Attestation Verification
+#
+# Scenario: An auditor system needs to verify an execution record
+# produced by an APS-governed agent.
+
+steps:
+  - name: "Receive execution envelope"
+    canonical-term: execution-envelope
+    aps-mapping:
+      type: ExecutionEnvelope
+      function: verifyEnvelope
+    description: >
+      The auditor receives a wrapped action. The canonical `execution-envelope`
+      term tells it this contains intent, authorization, and receipt — the
+      3-signature chain pattern.
+
+  - name: "Extract action receipt"
+    canonical-term: action-receipt
+    aps-mapping:
+      type: ActionReceipt
+      function: createActionReceipt
+    description: >
+      The auditor extracts the signed action receipt. The canonical
+      `action-receipt` maps to APS's `ActionReceipt` type.
+
+  - name: "Verify attestation"
+    canonical-term: attestation
+    aps-mapping:
+      type: Attestation
+      function: verifyAttestation
+    description: >
+      The auditor verifies the cryptographic proof. The canonical
+      `attestation` term maps to APS's attestation verification.
+
+  - name: "Check governance compliance"
+    canonical-term: governance-change-type
+    aps-mapping:
+      type: GovernanceChangeType
+      values: [strengthening, neutral, weakening, mixed, initial]
+    description: >
+      The auditor classifies what kind of governance change this action
+      represents. The canonical `governance-change-type` maps directly
+      to APS's classification enum.
+
+  - name: "Verify principal endorsement"
+    canonical-term: endorsement
+    aps-mapping:
+      type: PrincipalEndorsement
+      function: verifyEndorsement
+    description: >
+      The auditor traces the action back to a human/org principal.
+      The canonical `endorsement` maps to APS's principal endorsement chain.
+
+result: >
+  The auditor verified the entire execution chain — from principal endorsement
+  through governance compliance to action receipt — using only canonical
+  vocabulary terms and the APS crosswalk file.
