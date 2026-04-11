@@ -540,7 +540,8 @@ export {
   triggerDemotion, checkTierForIntent, advisoryTierPrecheck,
   updateReputationFromResult,
   applyTemporalDecay, confidenceBreakdown,
-  computeReputationDrift
+  computeReputationDrift,
+  computeConsistencyScore
 } from './core/reputation-authority.js'
 
 export type {
@@ -553,7 +554,7 @@ export type {
   ReputationObservation
 } from './types/reputation-authority.js'
 
-export type { ConfidenceBreakdown, DriftAlert, ReputationDrift } from './core/reputation-authority.js'
+export type { ConfidenceBreakdown, DriftAlert, ReputationDrift, ConsistencyScore } from './core/reputation-authority.js'
 
 // ── Behavioral Fingerprint ──
 // Three-axis joint measurement envelope: HBB fidelity (axis 1) +

@@ -1099,3 +1099,180 @@ function buildDriftRecommendation(
   // threshold and direction is non-stable. Defensive default for type safety.
   return 'Reputation drift crossed alert threshold without a clear directional signal. Review recent events.'
 }
+
+// ══════════════════════════════════════════════════════════════════
+// Consistency Score — Predictability as a Separate Primitive
+// ══════════════════════════════════════════════════════════════════
+// Reference: Nanook PDR v2.19 §6.5 over-promiser robustness paradox,
+// gap audit §3 row 21 / §5 rank 6.
+//
+// Nanook §6.5 surfaces a counterintuitive finding: chronic over-promisers
+// score higher on NexusGuard's Robustness measure (R = 0.833) than
+// environment-sensitive agents (R = 0.057), because Robustness measures
+// condition-based variance and a consistent over-promiser has low
+// variance. The paper's framing is that "consistency of failure is itself
+// a measurable behavioral property" — predictability and performance are
+// orthogonal axes.
+//
+// APS already folds consistency implicitly into the 5-way geometric mean
+// in computeConfidence, but a dedicated primitive lets callers reason
+// about predictability separately from performance: a "consistently bad"
+// agent and a "flaky good" agent can have identical effective scores yet
+// warrant very different authority decisions.
+//
+// Why muDelta variance and not success/failure variance:
+//   muDelta already encodes both direction AND magnitude of each event's
+//   contribution. A consistent over-promiser produces uniformly small
+//   negative muDeltas; an environment-sensitive agent alternates between
+//   large positive (critical success) and large negative (critical
+//   failure) muDeltas. The stddev of muDelta captures exactly the paper's
+//   insight that "consistency of failure" is a measurable property.
+//   Using a bare success/failure counter would erase the magnitude signal
+//   and collapse "consistent trivial wins" and "consistent critical wins"
+//   to the same point.
+//
+// Why the 1/(1+stddev) mapping:
+//   Bounded to (0, 1], monotonically decreasing, smooth, requires no
+//   arbitrary cap or calibration. stddev=0 → 1.0, stddev=1 → 0.5,
+//   stddev=∞ → 0. Alternatives considered and rejected:
+//     • exp(-stddev) — decays too fast; stddev=1 maps to ~0.37 which
+//       overpenalizes the "single muDelta class difference" case that
+//       happens naturally across evidence classes.
+//     • 1 - stddev / maxSeen — requires knowing the worst possible
+//       stddev in the system, which depends on the REPUTATION_UPDATES
+//       table and is not a stable calibration constant we want to bake
+//       into the primitive.
+//
+// Why the 0.5 / 1.5 thresholds:
+//   Approximate alignment with REPUTATION_UPDATES table magnitudes:
+//   standard success muDelta is ~1.0; critical success ~3.0. stddev < 0.5
+//   means most events are close in outcome class (e.g. all standard);
+//   stddev > 1.5 means events span the full delta range (alternating
+//   critical success and critical failure). These are interop-friendly
+//   defaults; callers should calibrate per deployment.
+//
+// Why not read from computeConfidence:
+//   computeConfidence folds consistency into the geometric mean alongside
+//   volume, diversity, spread, and recency. This function surfaces it
+//   explicitly as a separate primitive so callers can reason about
+//   "predictable vs unpredictable" independently of "high vs low
+//   performance" — which is the entire point of Nanook §6.5.
+// ══════════════════════════════════════════════════════════════════
+
+/** A dedicated predictability primitive surfaced from the recent
+ *  observations ring buffer. Orthogonal to performance: a consistently
+ *  bad agent and a consistently good agent can both score 1.0. */
+export interface ConsistencyScore {
+  /** 0-1 score. 1.0 = perfectly consistent outcomes (all same); 0.0 =
+   *  maximally inconsistent. Based on variance of muDelta across the
+   *  recent observations window. */
+  score: number
+  /** Standard deviation of muDelta across the window. Lower = more
+   *  consistent. */
+  stddev: number
+  /** Mean muDelta across the window (signed). Informational;
+   *  consistency is independent of direction. */
+  mean: number
+  /** Number of observations used. */
+  observationsInWindow: number
+  /** Classification for callers that want a discrete signal. */
+  classification:
+    | 'no_history'
+    | 'insufficient_data'     // < 3 observations
+    | 'highly_consistent'     // stddev < 0.5
+    | 'moderately_consistent' // stddev 0.5 - 1.5
+    | 'inconsistent'          // stddev >= 1.5
+}
+
+/**
+ * Compute a consistency (predictability) score from a ScopedReputation's
+ * recent observations ring buffer. Orthogonal to performance.
+ *
+ * Reads rep.recentObservations (populated by updateReputationFromResult,
+ * capped at RECENT_OBSERVATIONS_CAP). Computes stddev of muDelta across
+ * the window, then maps to a (0, 1] score via 1 / (1 + stddev).
+ *
+ * @param rep         The scoped reputation to inspect.
+ * @param windowSize  Optional cap on how many recent observations to use.
+ *                    Defaults to all available observations. The effective
+ *                    window is min(windowSize ?? Infinity, recent.length).
+ *
+ * Degenerate cases:
+ *   • No ring buffer / empty buffer → classification='no_history', score=0.
+ *   • Fewer than 3 observations → classification='insufficient_data',
+ *     score=0.5 (neutral). stddev and mean are still computed from what
+ *     is available, for diagnostic visibility.
+ *
+ * Pure: does not mutate the input reputation.
+ *
+ * Reference: Nanook PDR v2.19 §6.5, gap audit §5 rank 6.
+ */
+export function computeConsistencyScore(
+  rep: ScopedReputation,
+  windowSize?: number,
+): ConsistencyScore {
+  const recent = rep.recentObservations
+
+  // No history at all: return a neutral-zero, clearly labelled.
+  if (!recent || recent.length === 0) {
+    return {
+      score: 0,
+      stddev: 0,
+      mean: 0,
+      observationsInWindow: 0,
+      classification: 'no_history',
+    }
+  }
+
+  // Take the tail of the ring buffer. Buffer is ordered oldest → newest.
+  const effectiveWindow = Math.min(windowSize ?? Infinity, recent.length)
+  const windowSlice = recent.slice(recent.length - effectiveWindow)
+  const observationsInWindow = windowSlice.length
+
+  // Mean of muDelta across the window (signed; informational only).
+  const sum = windowSlice.reduce((acc, obs) => acc + obs.muDelta, 0)
+  const mean = sum / observationsInWindow
+
+  // Variance of muDelta around the mean. Population variance (divide by
+  // N, not N-1) — we are describing the window, not estimating a
+  // parameter of a larger population.
+  const varianceSum = windowSlice.reduce(
+    (acc, obs) => acc + (obs.muDelta - mean) ** 2,
+    0,
+  )
+  const variance = varianceSum / observationsInWindow
+  const stddev = Math.sqrt(variance)
+
+  // Fewer than 3 observations is not enough to measure variance
+  // meaningfully (1 observation has no variance by construction; 2
+  // observations trivially have variance but no shape). Return a neutral
+  // score with the computed stddev/mean still exposed for diagnostics.
+  if (observationsInWindow < 3) {
+    return {
+      score: 0.5,
+      stddev,
+      mean,
+      observationsInWindow,
+      classification: 'insufficient_data',
+    }
+  }
+
+  // Score: 1 / (1 + stddev). stddev=0 → 1.0; stddev=1 → 0.5;
+  // stddev→∞ → 0. Monotonic decreasing, bounded, no calibration needed.
+  const score = 1 / (1 + stddev)
+
+  // Discrete classification thresholds roughly aligned with the
+  // REPUTATION_UPDATES table magnitudes. See module-level rationale.
+  let classification: ConsistencyScore['classification']
+  if (stddev < 0.5) classification = 'highly_consistent'
+  else if (stddev < 1.5) classification = 'moderately_consistent'
+  else classification = 'inconsistent'
+
+  return {
+    score,
+    stddev,
+    mean,
+    observationsInWindow,
+    classification,
+  }
+}
