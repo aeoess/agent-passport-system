@@ -573,6 +573,22 @@ export type {
   FingerprintVerificationResult,
 } from './core/behavioral-fingerprint.js'
 
+// ── Probe Identity ──
+// Content-addressable hashing for evaluation probes. Lets a downstream
+// scoring system prove that the probe it scored is byte-identical to
+// the probe the issuer published, by hashing canonical JSON of the
+// probe and binding the hash to scoring observations.
+// Reference: Nanook PDR v2.19 §5.9, gap audit §5 rank 7.
+export {
+  computeProbeIdentity,
+  verifyProbeIdentity,
+} from './core/probe-identity.js'
+
+export type {
+  ProbeIdentity,
+  ProbeIdentityVerification,
+} from './core/probe-identity.js'
+
 // ── Intent Network (Module 17) ──
 
 export {
