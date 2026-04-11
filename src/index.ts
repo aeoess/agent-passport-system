@@ -547,6 +547,24 @@ export type {
   TierEscalation, TierCheckContext
 } from './types/reputation-authority.js'
 
+// ── Behavioral Fingerprint ──
+// Three-axis joint measurement envelope: HBB fidelity (axis 1) +
+// PDR cross-session reliability (axis 2) + Saebo within-session
+// constraint compliance (axis 3). Composes all three into one signed
+// artifact. Reference: Nanook PDR v2.19 §2.2 / §8.10, gap audit §5 rank 2.
+export {
+  createBehavioralFingerprint,
+  verifyBehavioralFingerprint,
+  composeFingerprintAxes,
+} from './core/behavioral-fingerprint.js'
+
+export type {
+  BehavioralFingerprint,
+  PDRScoreRef,
+  SaeboScoreRef,
+  FingerprintVerificationResult,
+} from './core/behavioral-fingerprint.js'
+
 // ── Intent Network (Module 17) ──
 
 export {
