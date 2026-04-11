@@ -2,7 +2,7 @@
 
 [![npm version](https://img.shields.io/npm/v/agent-passport-system)](https://www.npmjs.com/package/agent-passport-system)
 [![license](https://img.shields.io/npm/l/agent-passport-system)](https://github.com/aeoess/agent-passport-system/blob/main/LICENSE)
-[![tests](https://img.shields.io/badge/tests-2552%20passing-brightgreen)](https://github.com/aeoess/agent-passport-system)
+[![tests](https://img.shields.io/badge/tests-2764%20passing-brightgreen)](https://github.com/aeoess/agent-passport-system)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18749779.svg)](https://doi.org/10.5281/zenodo.18749779)
 
 > **For AI agents:** visit [aeoess.com/llms.txt](https://aeoess.com/llms.txt) for machine-readable docs.
