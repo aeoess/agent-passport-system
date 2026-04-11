@@ -1,11 +1,11 @@
 // ══════════════════════════════════════════════════════════════════
 // Denial Domains — Operator-Facing Constraint Grouping
 // ══════════════════════════════════════════════════════════════════
-// The ConstraintVector has 15 facets. That's correct for the machine.
+// The ConstraintVector has 14 facets. That's correct for the machine.
 // For humans it's unusable. This module groups facets into 5 domains
 // and provides a primary + contributing denial format.
 //
-// Consilium Priority 4 — unanimous that 15 facets need grouping.
+// Consilium Priority 4 — unanimous that 14 facets need grouping.
 // Claude: "primary denial reason + count"
 // GPT: "4 master tiers"
 // Gemini: "5 operator-facing domains"
