@@ -529,6 +529,8 @@ export {
   DEFAULT_K, MAX_SIGMA, MIN_SIGMA, INITIAL_MU, INITIAL_SIGMA, SCARRING_PENALTY,
   DEFAULT_TIERS, DEFAULT_PROMOTION_REQUIREMENTS,
   DEFAULT_DECAY_DAYS, DEFAULT_DRIFT_RATE_PER_DAY,
+  RECENT_OBSERVATIONS_CAP,
+  DEFAULT_DRIFT_WARNING_THRESHOLD, DEFAULT_DRIFT_CRITICAL_THRESHOLD,
   computeEffectiveScore, createScopedReputation, computeConfidence, createEvidenceDiversity,
   classifyEvidence, resolveAuthorityTier, shouldDemote,
   effectiveAutonomy, effectiveSpendLimit, effectiveDelegationDepth,
@@ -537,7 +539,8 @@ export {
   createPromotionReview, validatePromotionReview,
   triggerDemotion, checkTierForIntent, advisoryTierPrecheck,
   updateReputationFromResult,
-  applyTemporalDecay, confidenceBreakdown
+  applyTemporalDecay, confidenceBreakdown,
+  computeReputationDrift
 } from './core/reputation-authority.js'
 
 export type {
@@ -546,10 +549,11 @@ export type {
   PromotionRequirements, PromotionReview,
   RuntimeProfile, RuntimeChangeClass,
   DemotionCause, DemotionEvent,
-  TierEscalation, TierCheckContext
+  TierEscalation, TierCheckContext,
+  ReputationObservation
 } from './types/reputation-authority.js'
 
-export type { ConfidenceBreakdown } from './core/reputation-authority.js'
+export type { ConfidenceBreakdown, DriftAlert, ReputationDrift } from './core/reputation-authority.js'
 
 // ── Behavioral Fingerprint ──
 // Three-axis joint measurement envelope: HBB fidelity (axis 1) +

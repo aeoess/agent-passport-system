@@ -16,7 +16,8 @@ import type {
   PromotionRequirements, PromotionReview,
   RuntimeProfile, RuntimeChangeClass,
   DemotionCause, DemotionEvent, TierOrigin,
-  TierEscalation, TierCheckContext
+  TierEscalation, TierCheckContext,
+  ReputationObservation,
 } from '../types/reputation-authority.js'
 import type { AutonomyLevel } from '../types/intent.js'
 
@@ -36,6 +37,21 @@ export const INITIAL_SIGMA = MAX_SIGMA
 
 /** Points added to promotion threshold per demotion (cryptographic scarring) */
 export const SCARRING_PENALTY = 5
+
+/** Maximum number of evidence events retained in the ScopedReputation
+ *  recentObservations ring buffer (FIFO eviction).
+ *
+ *  Default is 30. Rationale: NexusGuard's PDR sliding window analysis in
+ *  Nanook PDR v2.19 §6.6 finds that window sizes 5-30 cover the full
+ *  detection sensitivity range (5 catches drift in 5 events with
+ *  alert-fatigue risk; 30 dilutes brief degradation episodes but produces
+ *  stable signal). 30 is the upper end of that range, which means the
+ *  ring buffer holds enough history to support every window size the
+ *  paper explores without storing more than necessary. Memory cost per
+ *  reputation: ~30 × 5 fields ≈ 150 small primitives, negligible.
+ *
+ *  Reference: Nanook PDR v2.19 §6.6, gap audit §3 row 8 / §5 rank 3. */
+export const RECENT_OBSERVATIONS_CAP = 30
 
 /** Default tier definitions with hysteresis */
 export const DEFAULT_TIERS: TierDefinition[] = [
@@ -703,13 +719,40 @@ export function updateReputationFromResult(
     diversity.distinctTaskTypes = diversity.taskTypesSeen.length
   }
 
+  const roundedMu = Math.round(newMu * 100) / 100
+  const roundedSigma = Math.round(newSigma * 100) / 100
+
+  // Effective deltas: what actually changed on mu/sigma after rounding and
+  // clamping. Store these (not the raw REPUTATION_UPDATES table values) so
+  // that drift calculations summing recent muDeltas match the actual mu
+  // trajectory at boundary cases (mu near 0 or 100, sigma at MIN/MAX).
+  const effectiveMuDelta = roundedMu - rep.mu
+  const effectiveSigmaDelta = roundedSigma - rep.sigma
+  const observationTimestamp = new Date().toISOString()
+
+  // Append to the recent-observations ring buffer with FIFO eviction at
+  // RECENT_OBSERVATIONS_CAP. Spread to avoid mutating the input array.
+  const prevRecent = rep.recentObservations ?? []
+  const observation: ReputationObservation = {
+    timestamp: observationTimestamp,
+    success,
+    evidenceClass,
+    muDelta: effectiveMuDelta,
+    sigmaDelta: effectiveSigmaDelta,
+  }
+  let nextRecent = [...prevRecent, observation]
+  if (nextRecent.length > RECENT_OBSERVATIONS_CAP) {
+    nextRecent = nextRecent.slice(nextRecent.length - RECENT_OBSERVATIONS_CAP)
+  }
+
   const updated: ScopedReputation = {
     ...rep,
-    mu: Math.round(newMu * 100) / 100,
-    sigma: Math.round(newSigma * 100) / 100,
+    mu: roundedMu,
+    sigma: roundedSigma,
     receiptCount: rep.receiptCount + 1,
-    lastUpdatedAt: new Date().toISOString(),
+    lastUpdatedAt: observationTimestamp,
     evidenceDiversity: diversity,
+    recentObservations: nextRecent,
   }
   updated.confidence = computeConfidence(updated)
   return updated
@@ -871,4 +914,188 @@ export function confidenceBreakdown(rep: ScopedReputation): ConfidenceBreakdown 
   }
 
   return { volume, principal, class: cls, health, temporal, composite }
+}
+
+// ══════════════════════════════════════
+// Sliding Window Drift Detection
+// Reference: Nanook PDR v2.19 §6.6, gap audit §3 row 8 / §5 rank 3.
+//
+// Rests on the recentObservations ring buffer added to ScopedReputation in
+// the same change set. The cumulative score is rep.mu (the running Bayesian
+// aggregate). The windowed score reflects what the agent's recent behavior
+// has done to mu — specifically, the sum of effective muDeltas across the
+// last N observations. delta = sum(recent muDeltas) is signed: positive
+// means recent events pushed mu up (improving), negative means down
+// (degrading).
+//
+// This is the honest version of the function. An earlier draft tried to
+// approximate windowing from cumulative-only state (mu, sigma, receiptCount,
+// successCount, failureCount) and found that no such approximation actually
+// measures recent drift — every formula either returned delta=0 or relabeled
+// a non-windowed statistic as windowed. The ring buffer makes it real.
+// ══════════════════════════════════════
+
+/** Severity-graded drift alert. Null when severity === 'none'.
+ *
+ *  Default thresholds (0.15 warning / 0.30 critical) match NexusGuard AIP
+ *  v0.5.48 — the implementation Nanook PDR v2.19 §6.6 references — for
+ *  cross-system interop. They are NOT scientifically calibrated. Callers
+ *  should override for their own deployments based on the variance profile
+ *  of their fleet. */
+export interface DriftAlert {
+  severity: 'none' | 'warning' | 'critical'
+  /** Signed delta. Positive = improving, negative = degrading. Same units as mu (0-100). */
+  delta: number
+  warningThreshold: number
+  criticalThreshold: number
+  direction: 'improving' | 'degrading' | 'stable'
+  /** Short, actionable recommendation tied to severity + direction. */
+  recommendation: string
+}
+
+/** Result of computeReputationDrift. The cumulative side is the running mu;
+ *  the windowed side is the sum of effective muDeltas across the last N
+ *  observations from the ring buffer. delta = windowedScore - cumulativeScore
+ *  in this framing simplifies to "sum of recent muDeltas" with sign preserved. */
+export interface ReputationDrift {
+  /** Current cumulative mu (the running Bayesian aggregate). */
+  cumulativeScore: number
+  /** Sum of effective muDeltas across the last `observationsInWindow` events.
+   *  This is what recent behavior has contributed to mu. NOT a "what mu would
+   *  be in isolation" projection — it is the contribution of the window to
+   *  the current mu. The drift signal is the magnitude and sign of this
+   *  contribution. */
+  windowedScore: number
+  /** Signed: windowedScore - 0 = windowedScore. Positive = recent events
+   *  pushed mu up; negative = recent events pushed mu down. */
+  delta: number
+  /** The window size requested by the caller. */
+  windowSize: number
+  /** Actual number of observations the function used (= min(windowSize,
+   *  recentObservations.length)). Less than windowSize when history is sparse. */
+  observationsInWindow: number
+  /** Null when severity === 'none', otherwise the full alert. */
+  alert: DriftAlert | null
+}
+
+/** Default thresholds matching NexusGuard AIP v0.5.48 (Nanook PDR v2.19 §6.6).
+ *  Exposed as public constants so callers can override consistently. */
+export const DEFAULT_DRIFT_WARNING_THRESHOLD = 0.15
+export const DEFAULT_DRIFT_CRITICAL_THRESHOLD = 0.30
+
+/**
+ * Compute sliding window drift on a ScopedReputation by reading the
+ * recentObservations ring buffer and summing effective muDeltas across
+ * the last `windowSize` events.
+ *
+ * Backward compatibility: when `rep.recentObservations` is undefined or
+ * empty, the function returns a "no history available" early result with
+ * delta=0, severity=none, and alert=null. This means reputations created
+ * before the ring buffer was added (or reputations that have never been
+ * fed through updateReputationFromResult) read as "stable" rather than
+ * throwing. Callers can detect the no-history case by checking
+ * `observationsInWindow === 0`.
+ *
+ * Default thresholds (0.15 / 0.30) match NexusGuard AIP v0.5.48 for
+ * interop with the implementation Nanook PDR v2.19 §6.6 references.
+ * Override per deployment based on the variance profile of your fleet —
+ * these defaults are interop-friendly, not scientifically calibrated.
+ *
+ * @param rep         Source reputation. Not mutated.
+ * @param windowSize  Maximum number of recent events to consider.
+ * @param opts.warningThreshold   Override the warning threshold (default 0.15).
+ * @param opts.criticalThreshold  Override the critical threshold (default 0.30).
+ *
+ * Reference: Nanook PDR v2.19 §6.6, gap audit §3 row 8 / §5 rank 3.
+ */
+export function computeReputationDrift(
+  rep: ScopedReputation,
+  windowSize: number,
+  opts?: {
+    warningThreshold?: number
+    criticalThreshold?: number
+  },
+): ReputationDrift {
+  const warningThreshold = opts?.warningThreshold ?? DEFAULT_DRIFT_WARNING_THRESHOLD
+  const criticalThreshold = opts?.criticalThreshold ?? DEFAULT_DRIFT_CRITICAL_THRESHOLD
+  const cumulativeScore = rep.mu
+
+  // Backward-compat early return: no history available.
+  const recent = rep.recentObservations
+  if (!recent || recent.length === 0) {
+    return {
+      cumulativeScore,
+      windowedScore: 0,
+      delta: 0,
+      windowSize,
+      observationsInWindow: 0,
+      alert: null,
+    }
+  }
+
+  // Take the last min(windowSize, recent.length) entries. The ring buffer
+  // is ordered oldest-to-newest, so slice from the tail.
+  const observationsInWindow = Math.min(windowSize, recent.length)
+  const windowSlice = recent.slice(recent.length - observationsInWindow)
+
+  // delta = sum of effective muDeltas across the window.
+  // Positive: recent events pushed mu up (improving).
+  // Negative: recent events pushed mu down (degrading).
+  const delta = windowSlice.reduce((acc, obs) => acc + obs.muDelta, 0)
+  const windowedScore = delta
+
+  const absDelta = Math.abs(delta)
+  let severity: 'none' | 'warning' | 'critical'
+  if (absDelta >= criticalThreshold) severity = 'critical'
+  else if (absDelta >= warningThreshold) severity = 'warning'
+  else severity = 'none'
+
+  let direction: 'improving' | 'degrading' | 'stable'
+  if (delta > warningThreshold) direction = 'improving'
+  else if (delta < -warningThreshold) direction = 'degrading'
+  else direction = 'stable'
+
+  let alert: DriftAlert | null = null
+  if (severity !== 'none') {
+    alert = {
+      severity,
+      delta,
+      warningThreshold,
+      criticalThreshold,
+      direction,
+      recommendation: buildDriftRecommendation(severity, direction),
+    }
+  }
+
+  return {
+    cumulativeScore,
+    windowedScore,
+    delta,
+    windowSize,
+    observationsInWindow,
+    alert,
+  }
+}
+
+/** Static recommendation text per severity + direction combination.
+ *  Short, actionable, deployment-neutral. Caller-facing copy. */
+function buildDriftRecommendation(
+  severity: 'warning' | 'critical',
+  direction: 'improving' | 'degrading' | 'stable',
+): string {
+  if (direction === 'improving') {
+    return severity === 'critical'
+      ? 'Recent reputation gain is large. Consider whether the rapid improvement is real evidence or a small-window artifact before promoting authority.'
+      : 'Recent reputation gain is meaningful. Continue monitoring; promotion may be appropriate after window stabilizes.'
+  }
+  if (direction === 'degrading') {
+    return severity === 'critical'
+      ? 'Recent reputation loss is severe. Restrict authority and investigate root cause before allowing further high-stakes actions.'
+      : 'Recent reputation loss is meaningful. Watch the next several events; consider narrowing scope if the trend continues.'
+  }
+  // direction === 'stable' but severity !== 'none' is unreachable in
+  // practice because severity comes from |delta| and direction from sign-vs-
+  // threshold; if |delta| crosses warningThreshold then |delta| > warning
+  // threshold and direction is non-stable. Defensive default for type safety.
+  return 'Reputation drift crossed alert threshold without a clear directional signal. Review recent events.'
 }

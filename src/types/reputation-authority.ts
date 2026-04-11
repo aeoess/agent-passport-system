@@ -35,6 +35,29 @@ export interface ScopedReputation {
    *  Used for temporal spread calculation — confidence is penalized
    *  when all evidence is clustered in a short window. */
   firstObservedAt?: string
+  /** Ring buffer of most recent evidence events. Optional for backward
+   *  compatibility — existing reputations without this field return
+   *  no-history drift results from computeReputationDrift. New reputations
+   *  populate this automatically via updateReputationFromResult. Capped
+   *  at RECENT_OBSERVATIONS_CAP (FIFO eviction). Ordered oldest to newest. */
+  recentObservations?: ReputationObservation[]
+}
+
+/** A single evidence event captured in the ScopedReputation ring buffer.
+ *  Stores effective deltas — the actual change to mu/sigma after rounding
+ *  and clamping, not the raw REPUTATION_UPDATES table values — so that
+ *  drift calculations summing recent muDeltas match the actual mu trajectory. */
+export interface ReputationObservation {
+  /** ISO 8601 timestamp of the event */
+  timestamp: string
+  /** Whether the action succeeded */
+  success: boolean
+  /** Difficulty class assigned by the delegator */
+  evidenceClass: EvidenceClass
+  /** Effective mu change applied by this event (signed; post-rounding, post-clamp) */
+  muDelta: number
+  /** Effective sigma change applied by this event (signed; post-rounding, post-clamp) */
+  sigmaDelta: number
 }
 
 /**
