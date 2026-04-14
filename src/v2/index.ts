@@ -18,6 +18,7 @@ export type {
   TrustTier, DecayConfig, AttestationQuality,
   ApprovalRecord, ApprovalDecision, FatigueMetrics, FatigueAnomalyType,
   EffectDeclaration, EffectVerification, EffectPattern,
+  EscalationRequirement, ConfirmationRequest, OwnerConfirmation, ConfirmationScope,
   AgentActionSummary, SystemMetrics, EmergencePatternType, EmergenceFlag,
   GovernancePhase, AuthorityTransitionPlan,
   SemanticIntentRecord, SemanticDriftResult,
@@ -303,6 +304,18 @@ export type {
 } from './sub-delegate-advisor.js'
 
 
+// v2 HumanEscalationFlag (per-action-class owner confirmation)
+export {
+  checkEscalationRequired, requestOwnerConfirmation, recordOwnerConfirmation,
+  verifyOwnerConfirmation, isConfirmationValid, verifyV2DelegationForAction,
+  hashActionDetails, DEFAULT_FLAGGED_ACTION_CLASSES,
+} from './human-escalation.js'
+export type {
+  EscalationAction, EscalationCheck, RecordConfirmationParams,
+  ConfirmationVerdict, VerifyForActionResult,
+} from './human-escalation.js'
+
+
 // Wallet Binding (agent-native structural attestation)
 export {
   bindWallet, unbindWallet, verifyBoundWallet, verifyUnbindEvent,
@@ -320,3 +333,28 @@ export type {
   CredentialCheckMode, CredentialCheckPolicy, CredentialCheckResult,
   CredentialCheckDenialCode, AcceptanceStamp,
 } from "./credential-check-policy/index.js"
+
+// Attribution Consent (citation requires cited-principal sign-off)
+// Triggered by the Apr 14 A2A#1734 pattern.
+export {
+  createAttributionReceipt, signAttributionConsent,
+  verifyAttributionConsent, checkArtifactCitations, receiptCore,
+} from './attribution-consent/index.js'
+export type {
+  AttributionReceipt, AttributionConsentResult, ArtifactCitation,
+  CitingArtifact, CreateAttributionReceiptParams,
+} from './attribution-consent/index.js'
+
+// Provisional Statement — default for agent-to-agent negotiation statements.
+// Binding status requires explicit PromotionEvent satisfying a PromotionPolicy.
+export {
+  createProvisional, isBinding, verifyAuthorSignature,
+  withdrawProvisional, withdrawalPayload, statementSigningPayload,
+  promoteStatement, processDeadMan, promotionSigningPayload,
+  verifyPromotion,
+} from './provisional-statement/index.js'
+export type {
+  ProvisionalStatement, PromotionEvent, PromotionPolicy,
+  PromotionKind, ProvisionalStatus, PromotionVerifyResult,
+  CreateProvisionalParams,
+} from './provisional-statement/index.js'

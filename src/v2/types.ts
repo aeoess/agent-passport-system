@@ -34,6 +34,44 @@ export interface V2ScopeDefinition {
   resource_limits?: Record<string, number>
   domain?: string
   constraints?: Record<string, string>
+  /** HumanEscalationFlag: per-action-class owner-confirmation requirements. */
+  escalation_requirements?: EscalationRequirement[]
+}
+
+// ── HumanEscalationFlag ──
+export type ConfirmationScope = 'per_action' | 'per_session' | 'time_window'
+
+export interface EscalationRequirement {
+  action_class: string
+  requires_owner_confirmation: boolean
+  /** TTL of a recorded confirmation, in milliseconds. */
+  confirmation_ttl_ms: number
+  confirmation_scope: ConfirmationScope
+}
+
+export interface ConfirmationRequest {
+  id: string
+  delegation_id: string
+  action_class: string
+  action_details_hash: string
+  confirmation_scope: ConfirmationScope
+  session_id: string | null
+  confirmation_ttl_ms: number
+  created_at: string
+}
+
+export interface OwnerConfirmation {
+  id: string
+  request_id: string
+  delegation_id: string
+  action_class: string
+  action_details_hash: string
+  confirmation_scope: ConfirmationScope
+  session_id: string | null
+  confirmed_by: string
+  confirmed_at: string
+  expires_at: string
+  signature: string
 }
 
 // ── v2 Delegation ──
