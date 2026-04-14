@@ -11,3 +11,4 @@ seed-agora.mjs
 *.tgz
 oatr/
 .mcp.json
+experiments/cross-family-harness/.env
