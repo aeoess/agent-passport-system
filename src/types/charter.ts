@@ -230,6 +230,10 @@ export interface CharterCore {
   contentHash: string
   /** Ed25519 signature over contentHash by quorum of founding signatories */
   signature: string
+  /** Optional AttributionConsent citations. When present, verifyCharter()
+   *  requires a matching AttributionReceipt[] for each entry. See
+   *  src/v2/attribution-consent. */
+  citations?: import('../v2/attribution-consent/types.js').ArtifactCitation[]
 }
 
 // ══════════════════════════════════════════════════════════════════

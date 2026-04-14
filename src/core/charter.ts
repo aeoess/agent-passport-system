@@ -24,6 +24,8 @@ import type {
   ApprovalRequest, ApprovalSignature, ApprovalSubjectType,
   ApprovalEvaluation, KeyClassStatus, ApprovalPolicy,
 } from '../types/approval.js'
+import { checkArtifactCitations } from '../v2/attribution-consent/index.js'
+import type { AttributionReceipt } from '../v2/attribution-consent/index.js'
 
 // ══════════════════════════════════════
 // CONTENT HASHING
@@ -48,6 +50,8 @@ export interface CreateCharterOptions {
   founderPublicKey: string
   founderRole: string           // key class: 'board', 'recovery', etc.
   version?: string              // defaults to '1.0.0'
+  /** Optional AttributionConsent citations. See verifyCharter. */
+  citations?: import('../v2/attribution-consent/index.js').ArtifactCitation[]
 }
 
 /** Create a new charter. The founder signs it as the first founding signatory.
@@ -77,6 +81,7 @@ export function createCharter(opts: CreateCharterOptions): CharterCore {
     disputeVenue: opts.disputeVenue,
     createdAt: now,
     foundingSignatures: [],
+    ...(opts.citations ? { citations: opts.citations } : {}),
   }
 
   // Hash the charter content
@@ -137,7 +142,10 @@ export function signCharter(
 // ══════════════════════════════════════
 
 /** Verify a charter's integrity: content hash, signatures, office consistency. */
-export function verifyCharter(charter: CharterCore): CharterVerification {
+export function verifyCharter(
+  charter: CharterCore,
+  attributionReceipts?: AttributionReceipt[],
+): CharterVerification {
   const errors: string[] = []
 
   // 1. Content integrity — strip signature + contentHash + foundingSignatures, re-hash
@@ -206,6 +214,20 @@ export function verifyCharter(charter: CharterCore): CharterVerification {
           )
         }
       }
+    }
+  }
+
+  // 7. AttributionConsent gate — artifacts declaring citations must
+  //    present valid signed AttributionReceipts at verify time.
+  if (charter.citations && charter.citations.length > 0) {
+    if (!attributionReceipts) {
+      errors.push('citations present but no receipts supplied')
+    } else {
+      const r = checkArtifactCitations(
+        { citations: charter.citations },
+        attributionReceipts,
+      )
+      if (!r.valid) errors.push(`AttributionConsent: ${r.reason}`)
     }
   }
 

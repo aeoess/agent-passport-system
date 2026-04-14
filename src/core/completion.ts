@@ -7,6 +7,8 @@ import { v4 as uuidv4 } from 'uuid'
 import { sign, verify } from '../crypto/keys.js'
 import { canonicalize } from './canonical.js'
 import { createHash } from 'node:crypto'
+import { checkArtifactCitations } from '../v2/attribution-consent/index.js'
+import type { AttributionReceipt, ArtifactCitation } from '../v2/attribution-consent/index.js'
 
 export interface CompletionReceiptOptions {
   permitReceiptHash: string
@@ -16,6 +18,9 @@ export interface CompletionReceiptOptions {
   executedAt: string
   durationMs?: number
   privateKey: string
+  /** Optional AttributionConsent citations. When present, verification
+   *  requires a matching AttributionReceipt[]. */
+  citations?: ArtifactCitation[]
 }
 
 export interface CompletionReceipt {
@@ -28,6 +33,7 @@ export interface CompletionReceipt {
   durationMs: number
   signature: string
   signedAt: string
+  citations?: ArtifactCitation[]
 }
 
 const VALID_RESULTS = ['success', 'failure', 'partial', 'timeout']
@@ -48,6 +54,7 @@ export function createCompletionReceipt(opts: CompletionReceiptOptions): Complet
     executedAt: opts.executedAt,
     durationMs: opts.durationMs ?? 0,
     signedAt: new Date().toISOString(),
+    ...(opts.citations ? { citations: opts.citations } : {}),
   }
 
   const canonical = canonicalize(body)
@@ -59,6 +66,7 @@ export function createCompletionReceipt(opts: CompletionReceiptOptions): Complet
 export function verifyCompletionReceipt(
   receipt: CompletionReceipt,
   publicKey: string,
+  attributionReceipts?: AttributionReceipt[],
 ): { valid: boolean; errors: string[] } {
   const errors: string[] = []
 
@@ -70,6 +78,18 @@ export function verifyCompletionReceipt(
   if (!receipt.completionId) errors.push('Missing completionId')
   if (!receipt.permitReceiptHash) errors.push('Missing permitReceiptHash')
   if (!VALID_RESULTS.includes(receipt.executionResult)) errors.push(`Invalid executionResult: ${receipt.executionResult}`)
+
+  if (receipt.citations && receipt.citations.length > 0) {
+    if (!attributionReceipts) {
+      errors.push('citations present but no receipts supplied')
+    } else {
+      const r = checkArtifactCitations(
+        { citations: receipt.citations },
+        attributionReceipts,
+      )
+      if (!r.valid) errors.push(`AttributionConsent: ${r.reason}`)
+    }
+  }
 
   return { valid: errors.length === 0, errors }
 }

@@ -15,6 +15,8 @@ import {
   SettlementVerification, DataComplianceReport,
 } from '../types/data-contribution.js'
 import { ContributionLedger, queryContributions } from './data-contribution.js'
+import { checkArtifactCitations } from '../v2/attribution-consent/index.js'
+import type { AttributionReceipt } from '../v2/attribution-consent/index.js'
 
 // ── Merkle Root for Receipts ──
 
@@ -113,7 +115,10 @@ export function generateSettlement(
 
 // ── Verify Settlement ──
 
-export function verifySettlement(record: SettlementRecord): SettlementVerification {
+export function verifySettlement(
+  record: SettlementRecord,
+  attributionReceipts?: AttributionReceipt[],
+): SettlementVerification {
   const errors: string[] = []
 
   // Check signature exists
@@ -138,6 +143,19 @@ export function verifySettlement(record: SettlementRecord): SettlementVerificati
   const computedTotal = record.lineItems.reduce((s, li) => s + li.amount, 0)
   const totalConsistent = Math.abs(computedTotal - record.totalAmount) < 0.001
   if (!totalConsistent) errors.push('Total amount does not match sum of line items')
+
+  // AttributionConsent gate
+  if (record.citations && record.citations.length > 0) {
+    if (!attributionReceipts) {
+      errors.push('citations present but no receipts supplied')
+    } else {
+      const r = checkArtifactCitations(
+        { citations: record.citations },
+        attributionReceipts,
+      )
+      if (!r.valid) errors.push(`AttributionConsent: ${r.reason}`)
+    }
+  }
 
   return {
     valid: errors.length === 0 && signatureValid && merkleValid,

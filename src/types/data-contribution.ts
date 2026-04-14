@@ -132,6 +132,9 @@ export interface SettlementRecord {
   uniquePayers: number
   merkleRoot: string                   // Merkle root of all backing receipt IDs
   signature: string                    // Ed25519 by generatedBy
+  /** Optional AttributionConsent citations. When present, verifySettlement()
+   *  requires a matching AttributionReceipt[] for each entry. */
+  citations?: import('../v2/attribution-consent/types.js').ArtifactCitation[]
 }
 
 // ── Settlement Verification ──
