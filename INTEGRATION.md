@@ -102,3 +102,32 @@ const valid = verifyDelegation(delegation, principal.publicKey)
 103 modules. 2,764 tests. 132 MCP tools. Apache-2.0.
 
 Build your thing on top. Don't rebuild what's underneath.
+
+### Physical-World Enforcement (SINT Protocol)
+You handle digital-world constraints. SINT handles physical-world enforcement.
+```typescript
+import { apsScopeToSintMapping, sintTokenToApsProjection } from '@sint/bridge-a2a'
+
+// APS delegation → SINT capability token (with physical constraints)
+const mapping = apsScopeToSintMapping(delegation.scope, delegation.spendLimit)
+// mapping.resource: "ros2:///cmd_vel" | "mcp://filesystem/writeFile" | ...
+// mapping.physicalConstraints: { maxVelocityMps, maxForceNewtons, geofence }
+// mapping.tierDelta: 0 | +1 (attestationGrade < 2 raises effective tier)
+
+// SINT capability token → APS attestation projection
+const projection = sintTokenToApsProjection(sintToken)
+// projection.attestationGrade: 2 (always — physical constraints imply strong verification)
+// projection.dataAccessTerms: { "sint:maxVelocityMps": 0.5, "sint:geofence": {...} }
+```
+
+**Cross-verified: 9/9 tests passing — zero code changes on either side.**
+
+```
+SINT keyToDid(pubkeyHex) === motebit publicKeyToDidKey(pubkeyBytes)  // did:key:z6Mk...
+SINT keyToDid(pubkeyHex) === APS toDIDKey(publicKey)                 // did:key:z6Mk...
+```
+
+The physical constraint layer is the dimension missing from all other integrations. Force limits, velocity caps, and geofence boundaries follow the same monotonic narrowing invariant as digital scope: they can tighten at each delegation hop, never loosen. An APS delegation with `spendLimit: 5000` delegating to a SINT robot token automatically constrains the robot to the narrowed physical envelope.
+
+See: [`packages/bridge-a2a/src/aps-mapping.ts`](https://github.com/sint-ai/sint-protocol/tree/main/packages/bridge-a2a/src/aps-mapping.ts) — 38 tests
+See: [`packages/capability-tokens/__tests__/aps-crossverify.test.ts`](https://github.com/sint-ai/sint-protocol/tree/main/packages/capability-tokens/__tests__/aps-crossverify.test.ts) — 9 tests
