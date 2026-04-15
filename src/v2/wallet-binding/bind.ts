@@ -18,6 +18,23 @@ import type {
  * attest a binding. Verifiers reconstruct this exact payload to check
  * the binding_signature against the passport's public key.
  */
+const BASE58_ALPHABET = /^[1-9A-HJ-NP-Za-km-z]+$/
+
+/**
+ * Validate a Solana address: base58-encoded, 32-44 characters (ed25519 pubkey range).
+ * Throws with a clear error on mismatch. Other chains are not validated here.
+ */
+function validateSolanaAddress(address: string): void {
+  if (address.length < 32 || address.length > 44) {
+    throw new Error(
+      `bindWallet: invalid Solana address — expected 32-44 base58 chars, got ${address.length}`
+    )
+  }
+  if (!BASE58_ALPHABET.test(address)) {
+    throw new Error('bindWallet: invalid Solana address — not valid base58 (0, O, I, l forbidden)')
+  }
+}
+
 function bindingPayload(opts: {
   passport_id: string
   chain: WalletChain
@@ -70,6 +87,10 @@ export function bindWallet(opts: {
   }
   if (!opts.chain || typeof opts.chain !== 'string') {
     throw new Error('bindWallet: chain must be a non-empty string')
+  }
+
+  if (opts.chain === 'solana') {
+    validateSolanaAddress(opts.address)
   }
 
   const bound_at = opts.boundAt ?? new Date().toISOString()

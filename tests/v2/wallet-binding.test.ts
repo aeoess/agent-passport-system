@@ -200,20 +200,96 @@ describe('unbindWallet', () => {
     const { signedPassport, keyPair } = makeFixture()
     let p = signedPassport
     p = bindWallet({ passport: p, privateKey: keyPair.privateKey, chain: 'nano', address: 'nano_a' })
-    p = bindWallet({ passport: p, privateKey: keyPair.privateKey, chain: 'solana', address: 'sol_b' })
+    const solAddr = 'So11111111111111111111111111111111111111112'
+    p = bindWallet({ passport: p, privateKey: keyPair.privateKey, chain: 'solana', address: solAddr })
     p = bindWallet({ passport: p, privateKey: keyPair.privateKey, chain: 'ethereum', address: '0xC' })
 
     const { passport: after } = unbindWallet({
       passport: p,
       privateKey: keyPair.privateKey,
       chain: 'solana',
-      address: 'sol_b',
+      address: solAddr,
     })
 
     assert.equal(after.passport.bound_wallets!.length, 2)
     assert.ok(verifyBoundWallet(after, 'nano', 'nano_a'))
-    assert.equal(verifyBoundWallet(after, 'solana', 'sol_b'), false)
+    assert.equal(verifyBoundWallet(after, 'solana', solAddr), false)
     assert.ok(verifyBoundWallet(after, 'ethereum', '0xC'))
+  })
+})
+
+describe('bindWallet — Solana chain validation', () => {
+  it('accepts a valid Solana wallet_ref (base58, 32-44 chars)', () => {
+    const { signedPassport, keyPair } = makeFixture()
+    const solAddr = 'DRiP2Pn2K6fuMLKQmt5rZWxa91GPqgT4gJZN6fyUoF3z'
+    const bound = bindWallet({
+      passport: signedPassport,
+      privateKey: keyPair.privateKey,
+      chain: 'solana',
+      address: solAddr,
+      boundAt: '2026-04-15T10:00:00.000Z',
+    })
+    const w = bound.passport.bound_wallets![0]
+    assert.equal(w.chain, 'solana')
+    assert.equal(w.address, solAddr)
+    assert.equal(w.bound_at, '2026-04-15T10:00:00.000Z')
+    assert.ok(verifyBoundWallet(bound, 'solana', solAddr))
+  })
+
+  it('rejects invalid base58 (contains forbidden char "0")', () => {
+    const { signedPassport, keyPair } = makeFixture()
+    assert.throws(
+      () =>
+        bindWallet({
+          passport: signedPassport,
+          privateKey: keyPair.privateKey,
+          chain: 'solana',
+          address: '0000000000000000000000000000000000000000000',
+        }),
+      /not valid base58/
+    )
+  })
+
+  it('rejects Solana address outside the 32-44 char range', () => {
+    const { signedPassport, keyPair } = makeFixture()
+    assert.throws(
+      () =>
+        bindWallet({
+          passport: signedPassport,
+          privateKey: keyPair.privateKey,
+          chain: 'solana',
+          address: 'So11',
+        }),
+      /expected 32-44 base58 chars/
+    )
+  })
+
+  it('mixed chain array (EVM + Solana) accepted; bound_at preserved for Solana entries', () => {
+    const { signedPassport, keyPair } = makeFixture()
+    const solAddr = '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU'
+    const solAt = '2026-04-15T11:22:33.000Z'
+
+    let p = signedPassport
+    p = bindWallet({
+      passport: p,
+      privateKey: keyPair.privateKey,
+      chain: 'ethereum',
+      address: '0x1234567890abcdef1234567890abcdef12345678',
+    })
+    p = bindWallet({
+      passport: p,
+      privateKey: keyPair.privateKey,
+      chain: 'solana',
+      address: solAddr,
+      boundAt: solAt,
+    })
+
+    assert.equal(p.passport.bound_wallets!.length, 2)
+    const sol = p.passport.bound_wallets!.find(w => w.chain === 'solana')!
+    assert.equal(sol.bound_at, solAt, 'bound_at must be preserved exactly for Solana entries')
+    assert.ok(verifyBoundWallet(p, 'solana', solAddr))
+    assert.ok(verifyBoundWallet(p, 'ethereum', '0x1234567890abcdef1234567890abcdef12345678'))
+    assert.equal(verifyPassport(p).valid, true)
   })
 })
 
