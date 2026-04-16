@@ -359,6 +359,31 @@ export type {
   CreateProvisionalParams,
 } from './provisional-statement/index.js'
 
+// Attribution Weights — Build B fractional weight formulas for D and C
+// axes. Spec: BUILD-B-FRACTIONAL-WEIGHTS.md. Runs upstream of Build A
+// construction: callers compute weights from AccessReceipt/billing data
+// here and feed the resulting axis entries into constructAttributionPrimitive.
+export {
+  ATTRIBUTION_ROLES,
+  DEFAULT_WEIGHT_PROFILE,
+  computeComputeAxisWeights,
+  computeDataAxisWeights,
+  contentLengthWeight,
+  hashWeightProfile,
+  recencyDecay,
+  roleWeight,
+  validateWeightProfile,
+} from './attribution-weights/index.js'
+export type {
+  AccessReceiptWithRole,
+  AttributionRole,
+  ComputeComputeAxisOptions,
+  ComputeDataAxisOptions,
+  InferenceBillingRecord,
+  ValidationResult,
+  WeightProfile,
+} from './attribution-weights/index.js'
+
 // Attribution Primitive — unified four-axis (D, P, G, C) signed Merkle
 // receipt. Spec: ATTRIBUTION-PRIMITIVE-v1.1.md. Disjoint from
 // attribution-consent (that module's AttributionReceipt is a citation-
