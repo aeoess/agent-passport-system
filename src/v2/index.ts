@@ -358,3 +358,39 @@ export type {
   PromotionKind, ProvisionalStatus, PromotionVerifyResult,
   CreateProvisionalParams,
 } from './provisional-statement/index.js'
+
+// Attribution Primitive — unified four-axis (D, P, G, C) signed Merkle
+// receipt. Spec: ATTRIBUTION-PRIMITIVE-v1.1.md. Disjoint from
+// attribution-consent (that module's AttributionReceipt is a citation-
+// consent primitive; this one is the per-action cross-axis primitive).
+export {
+  ATTRIBUTION_AXIS_TAGS, DEFAULT_MIN_WEIGHT,
+  aggregateComputeAxis, aggregateDataAxis, aggregateProtocolAxis,
+  assertCanonicalTimestamp, buildMerkleFrame,
+  canonicalTimestamp as attributionCanonicalTimestamp,
+  canonicalHashHex as attributionCanonicalHashHex,
+  checkProjectionConsistency, computeAttributionActionRef,
+  constructAttributionPrimitive, envelopeBytes,
+  hashAxisLeaf, hashNode,
+  normalizeAxes, orderGovernanceAxis,
+  projectAllAxes, projectAttribution, projectionPath,
+  projectionDataAsC, projectionDataAsD,
+  projectionDataAsG, projectionDataAsP,
+  reconstructRoot, resignAttributionPrimitive,
+  sortComputeAxis, sortDataAxis, sortProtocolAxis,
+  toWeightString,
+  verifyAttributionPrimitive, verifyAttributionProjection,
+} from './attribution-primitive/index.js'
+export type {
+  AggregateOptions, AggregationResult,
+  AttributionAction, AttributionAxes, AttributionAxisTag,
+  AttributionConsistencyResult, AttributionEnvelope,
+  AttributionPrimitive, AttributionProjection, AttributionVerifyResult,
+  ComputeAxisEntry, ComputeAxisItem,
+  ConstructAttributionParams,
+  DataAxisEntry, DataAxisItem,
+  GovernanceAxisEntry,
+  MerkleFrame,
+  ProtocolAxisEntry, ProtocolAxisItem,
+  ResidualBucket,
+} from './attribution-primitive/index.js'
