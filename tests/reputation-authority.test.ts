@@ -1,28 +1,49 @@
 // Reputation-Gated Authority Tests
-// Coverage for all exported functions in src/core/reputation-authority.ts
-// Addresses the new Layer 9 extension: earned trust gates agent authority.
+// Coverage for primitive exports in src/core/reputation-authority.ts.
+// Drift analytics, consistency scoring, promotion review creation, and
+// demotion workflow moved to @aeoess/gateway on 2026-04-17; tests for
+// those live in aeoess-gateway/tests/sdk-migrated/core/reputation-analytics.test.ts.
 
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 
 import {
-  DEFAULT_K, MAX_SIGMA, INITIAL_MU, INITIAL_SIGMA, SCARRING_PENALTY,
-  DEFAULT_TIERS, DEFAULT_PROMOTION_REQUIREMENTS,
+  MAX_SIGMA, INITIAL_MU, INITIAL_SIGMA,
+  DEFAULT_PROMOTION_REQUIREMENTS,
   computeEffectiveScore, createScopedReputation,
   classifyEvidence, resolveAuthorityTier, shouldDemote,
   effectiveAutonomy, effectiveSpendLimit, effectiveDelegationDepth,
   classifyRuntimeChange, sigmaAfterRuntimeChange,
   meetsPromotionRequirements,
-  createPromotionReview, validatePromotionReview,
-  triggerDemotion, checkTierForIntent, advisoryTierPrecheck,
-  updateReputationFromResult, generateKeyPair
+  validatePromotionReview,
+  checkTierForIntent, advisoryTierPrecheck,
+  updateReputationFromResult, generateKeyPair,
+  canonicalize, sign,
 } from '../src/index.js'
 
 import type {
   TaskClassification, EvidencePortfolio,
-  RuntimeProfile, PromotionRequirements,
-  AuthorityTier, TierCheckContext
+  RuntimeProfile, PromotionReview,
+  AuthorityTier, TierCheckContext,
 } from '../src/index.js'
+
+// Local helper — previously this file used createPromotionReview (moved to
+// the gateway) to set up inputs for validatePromotionReview (pure primitive,
+// stays in the SDK). Build signed reviews here directly so the SDK test can
+// stay self-contained.
+function signReview(
+  payload: Omit<PromotionReview, 'signature'>,
+  privateKey: string,
+): PromotionReview {
+  const signature = sign(canonicalize(payload), privateKey)
+  return { ...payload, signature }
+}
+const BASE_EVIDENCE: EvidencePortfolio = {
+  scope: 's', totalReceipts: 60,
+  classCounts: { trivial: 30, standard: 18, complex: 9, critical: 3 },
+  distinctReviewers: 3, distinctTaskTypes: 4,
+  failureRate: 0.05, interventionRate: 0.1,
+}
 
 // ══════════════════════════════════════
 // 1. Bayesian Score
@@ -382,107 +403,33 @@ describe('meetsPromotionRequirements', () => {
 
 
 // ══════════════════════════════════════
-// Phase 2: Promotion Reviews
+// Phase 2: validatePromotionReview (signed-review primitive)
+// Review creation workflow (createPromotionReview) lives in the gateway.
 // ══════════════════════════════════════
 
-describe('createPromotionReview', () => {
-  const goodEvidence: EvidencePortfolio = {
-    scope: 'code_execution', totalReceipts: 60,
-    classCounts: { trivial: 30, standard: 18, complex: 9, critical: 3 },
-    distinctReviewers: 3, distinctTaskTypes: 4,
-    failureRate: 0.05, interventionRate: 0.1,
-  }
-
-  it('creates a signed promotion review', () => {
-    const reviewer = generateKeyPair()
-    const review = createPromotionReview({
-      agentId: 'agent-target', principalId: 'principal-1',
-      scope: 'code_execution', fromTier: 1, toTier: 2,
-      reviewerId: 'agent-reviewer', reviewerTier: 3, reviewerOrigin: 'earned',
-      evidence: goodEvidence, effectiveScore: 65,
-      verdict: 'promoted', reasoning: 'Strong evidence',
-      reviewerPrivateKey: reviewer.privateKey,
-    })
-    assert.ok(review.reviewId.startsWith('promo-'))
-    assert.equal(review.verdict, 'promoted')
-    assert.ok(review.signature)
-    assert.ok(review.probationEndsAt, 'Promoted reviews should have probation')
-  })
-
-  it('rejects fiat reviewer', () => {
-    const reviewer = generateKeyPair()
-    assert.throws(() => {
-      createPromotionReview({
-        agentId: 'agent-target', principalId: 'p1', scope: 's',
-        fromTier: 0, toTier: 1,
-        reviewerId: 'reviewer', reviewerTier: 3, reviewerOrigin: 'fiat',
-        evidence: goodEvidence, effectiveScore: 40,
-        verdict: 'promoted', reasoning: 'test',
-        reviewerPrivateKey: reviewer.privateKey,
-      })
-    }, /only 'earned' agents/)
-  })
-
-  it('rejects reviewer at same tier as target', () => {
-    const reviewer = generateKeyPair()
-    assert.throws(() => {
-      createPromotionReview({
-        agentId: 'agent-target', principalId: 'p1', scope: 's',
-        fromTier: 1, toTier: 2,
-        reviewerId: 'reviewer', reviewerTier: 2, reviewerOrigin: 'earned',
-        evidence: goodEvidence, effectiveScore: 65,
-        verdict: 'promoted', reasoning: 'test',
-        reviewerPrivateKey: reviewer.privateKey,
-      })
-    }, /not above target tier/)
-  })
-
-  it('rejects self-promotion', () => {
-    const reviewer = generateKeyPair()
-    assert.throws(() => {
-      createPromotionReview({
-        agentId: 'agent-same', principalId: 'p1', scope: 's',
-        fromTier: 1, toTier: 2,
-        reviewerId: 'agent-same', reviewerTier: 3, reviewerOrigin: 'earned',
-        evidence: goodEvidence, effectiveScore: 65,
-        verdict: 'promoted', reasoning: 'test',
-        reviewerPrivateKey: reviewer.privateKey,
-      })
-    }, /Self-promotion/)
-  })
-
-  it('denied verdict has no probation', () => {
-    const reviewer = generateKeyPair()
-    const review = createPromotionReview({
-      agentId: 'agent-target', principalId: 'p1', scope: 's',
-      fromTier: 1, toTier: 2,
-      reviewerId: 'reviewer', reviewerTier: 3, reviewerOrigin: 'earned',
-      evidence: goodEvidence, effectiveScore: 65,
-      verdict: 'denied', reasoning: 'Insufficient evidence',
-      reviewerPrivateKey: reviewer.privateKey,
-    })
-    assert.equal(review.probationEndsAt, undefined)
-  })
-})
-
 describe('validatePromotionReview', () => {
-  const goodEvidence: EvidencePortfolio = {
-    scope: 's', totalReceipts: 60,
-    classCounts: { trivial: 30, standard: 18, complex: 9, critical: 3 },
-    distinctReviewers: 3, distinctTaskTypes: 4,
-    failureRate: 0.05, interventionRate: 0.1,
+  function goodPayload(): Omit<PromotionReview, 'signature'> {
+    return {
+      reviewId: 'promo-test',
+      agentId: 'target',
+      principalId: 'p1',
+      scope: 's',
+      fromTier: 1,
+      toTier: 2,
+      reviewerId: 'reviewer',
+      reviewerTier: 3,
+      reviewerOrigin: 'earned',
+      evidence: BASE_EVIDENCE,
+      effectiveScore: 65,
+      verdict: 'promoted',
+      reasoning: 'Good',
+      timestamp: '2026-04-17T00:00:00.000Z',
+    }
   }
 
   it('validates a correctly signed review', () => {
     const reviewer = generateKeyPair()
-    const review = createPromotionReview({
-      agentId: 'target', principalId: 'p1', scope: 's',
-      fromTier: 1, toTier: 2,
-      reviewerId: 'reviewer', reviewerTier: 3, reviewerOrigin: 'earned',
-      evidence: goodEvidence, effectiveScore: 65,
-      verdict: 'promoted', reasoning: 'Good',
-      reviewerPrivateKey: reviewer.privateKey,
-    })
+    const review = signReview(goodPayload(), reviewer.privateKey)
     const result = validatePromotionReview(review, reviewer.publicKey)
     assert.equal(result.valid, true)
     assert.equal(result.errors.length, 0)
@@ -490,14 +437,7 @@ describe('validatePromotionReview', () => {
 
   it('rejects tampered review', () => {
     const reviewer = generateKeyPair()
-    const review = createPromotionReview({
-      agentId: 'target', principalId: 'p1', scope: 's',
-      fromTier: 1, toTier: 2,
-      reviewerId: 'reviewer', reviewerTier: 3, reviewerOrigin: 'earned',
-      evidence: goodEvidence, effectiveScore: 65,
-      verdict: 'promoted', reasoning: 'Good',
-      reviewerPrivateKey: reviewer.privateKey,
-    })
+    const review = signReview(goodPayload(), reviewer.privateKey)
     review.verdict = 'denied' // tamper
     const result = validatePromotionReview(review, reviewer.publicKey)
     assert.equal(result.valid, false)
@@ -506,61 +446,21 @@ describe('validatePromotionReview', () => {
 
   it('detects structural rule violations', () => {
     const reviewer = generateKeyPair()
-    const review = createPromotionReview({
-      agentId: 'target', principalId: 'p1', scope: 's',
-      fromTier: 1, toTier: 2,
-      reviewerId: 'reviewer', reviewerTier: 3, reviewerOrigin: 'earned',
-      evidence: goodEvidence, effectiveScore: 65,
-      verdict: 'promoted', reasoning: 'Good',
-      reviewerPrivateKey: reviewer.privateKey,
-    })
-    // Manually corrupt the structural fields (signature won't match, but test structural checks)
+    const review = signReview(goodPayload(), reviewer.privateKey)
     const corrupted = { ...review, reviewerOrigin: 'fiat' as const, reviewerTier: 1 }
     const result = validatePromotionReview(corrupted, reviewer.publicKey)
     assert.equal(result.valid, false)
     assert.ok(result.errors.some(e => e.includes('earned')))
     assert.ok(result.errors.some(e => e.includes('not above')))
   })
-})
 
-// ══════════════════════════════════════
-// Phase 2: Demotion
-// ══════════════════════════════════════
-
-describe('triggerDemotion', () => {
-  it('behavioral demotion affects reputation', () => {
-    const event = triggerDemotion({
-      agentId: 'a1', principalId: 'p1', scope: 's',
-      currentTier: 3, cause: 'behavioral', reason: 'Policy violation',
-    })
-    assert.equal(event.fromTier, 3)
-    assert.equal(event.toTier, 2)
-    assert.equal(event.affectsReputation, true)
-    assert.equal(event.cause, 'behavioral')
-  })
-
-  it('administrative demotion preserves reputation', () => {
-    const event = triggerDemotion({
-      agentId: 'a1', principalId: 'p1', scope: 's',
-      currentTier: 2, cause: 'administrative', reason: 'Policy changed',
-    })
-    assert.equal(event.affectsReputation, false)
-  })
-
-  it('environmental demotion preserves reputation', () => {
-    const event = triggerDemotion({
-      agentId: 'a1', principalId: 'p1', scope: 's',
-      currentTier: 1, cause: 'environmental', reason: 'Upstream revoked',
-    })
-    assert.equal(event.affectsReputation, false)
-  })
-
-  it('does not demote below tier 0', () => {
-    const event = triggerDemotion({
-      agentId: 'a1', principalId: 'p1', scope: 's',
-      currentTier: 0, cause: 'behavioral', reason: 'Failed',
-    })
-    assert.equal(event.toTier, 0)
+  it('flags self-promotion as structural violation', () => {
+    const reviewer = generateKeyPair()
+    const selfPayload = { ...goodPayload(), reviewerId: 'target' }
+    const review = signReview(selfPayload, reviewer.privateKey)
+    const result = validatePromotionReview(review, reviewer.publicKey)
+    assert.equal(result.valid, false)
+    assert.ok(result.errors.some(e => e.includes('Self-promotion')))
   })
 })
 

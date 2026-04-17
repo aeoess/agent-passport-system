@@ -102,13 +102,15 @@ export {
 export { ENFORCEMENT_ESCALATION_ORDER } from './types/passport.js'
 
 // ── Layer 3: Beneficiary Attribution ──
+// Primitives only. Weight-based report generators
+// (computeAttribution, computeCollaborationAttribution,
+// DEFAULT_SCOPE_WEIGHTS) moved to @aeoess/gateway.
+// See MIGRATION.md#attribution-reports.
 export {
   hashReceipt,
   traceBeneficiary,
-  computeAttribution, verifyAttributionReport,
+  verifyAttributionReport,
   buildMerkleRoot, generateMerkleProof, verifyMerkleProof,
-  computeCollaborationAttribution,
-  DEFAULT_SCOPE_WEIGHTS
 } from './core/attribution.js'
 
 // ── Layer 4: Agent Agora (Communication) ──
@@ -148,9 +150,6 @@ export type {
   AgoraMessage, AgoraMessageContent, AgoraVerification,
   AgoraFeed, AgoraAgent, AgoraRegistry
 } from './types/agora.js'
-
-// Re-export collaboration attribution type
-export type { CollaborationAttribution } from './core/attribution.js'
 
 // ── Layer 5: Intent Architecture ──
 export {
@@ -519,18 +518,15 @@ export {
   DEFAULT_TIERS, DEFAULT_PROMOTION_REQUIREMENTS,
   DEFAULT_DECAY_DAYS, DEFAULT_DRIFT_RATE_PER_DAY,
   RECENT_OBSERVATIONS_CAP,
-  DEFAULT_DRIFT_WARNING_THRESHOLD, DEFAULT_DRIFT_CRITICAL_THRESHOLD,
   computeEffectiveScore, createScopedReputation, computeConfidence, createEvidenceDiversity,
   classifyEvidence, resolveAuthorityTier, shouldDemote,
   effectiveAutonomy, effectiveSpendLimit, effectiveDelegationDepth,
   classifyRuntimeChange, sigmaAfterRuntimeChange,
   meetsPromotionRequirements,
-  createPromotionReview, validatePromotionReview,
-  triggerDemotion, checkTierForIntent, advisoryTierPrecheck,
+  validatePromotionReview,
+  checkTierForIntent, advisoryTierPrecheck,
   updateReputationFromResult,
   applyTemporalDecay, confidenceBreakdown,
-  computeReputationDrift,
-  computeConsistencyScore
 } from './core/reputation-authority.js'
 
 export type {
@@ -543,7 +539,19 @@ export type {
   ReputationObservation
 } from './types/reputation-authority.js'
 
-export type { ConfidenceBreakdown, DriftAlert, ReputationDrift, ConsistencyScore } from './core/reputation-authority.js'
+export type { ConfidenceBreakdown } from './core/reputation-authority.js'
+
+// Deprecation stubs: reputation analytics moved to @aeoess/gateway on 2026-04-17.
+// See MIGRATION.md#reputation-analytics.
+const REPUTATION_ANALYTICS_MOVED =
+  'Moved to @aeoess/gateway (src/sdk-migrated/core/reputation-analytics.ts). ' +
+  'See MIGRATION.md#reputation-analytics'
+export function createPromotionReview(..._args: unknown[]): never { throw new Error('createPromotionReview: ' + REPUTATION_ANALYTICS_MOVED) }
+export function triggerDemotion(..._args: unknown[]): never { throw new Error('triggerDemotion: ' + REPUTATION_ANALYTICS_MOVED) }
+export function computeReputationDrift(..._args: unknown[]): never { throw new Error('computeReputationDrift: ' + REPUTATION_ANALYTICS_MOVED) }
+export function computeConsistencyScore(..._args: unknown[]): never { throw new Error('computeConsistencyScore: ' + REPUTATION_ANALYTICS_MOVED) }
+export const DEFAULT_DRIFT_WARNING_THRESHOLD = 0.15
+export const DEFAULT_DRIFT_CRITICAL_THRESHOLD = 0.30
 
 // ── Behavioral Fingerprint ──
 // Three-axis joint measurement envelope: HBB fidelity (axis 1) +
