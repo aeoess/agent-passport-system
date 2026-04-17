@@ -10,7 +10,7 @@ import assert from 'node:assert/strict'
 import {
   joinSocialContract, verifySocialContract,
   delegate, recordWork, proveContributions, auditCompliance,
-  generateKeyPair, loadFloor, clearStores, verifyMerkleProof
+  generateKeyPair, loadFloor, clearStores
 } from '../src/index.js'
 
 const FLOOR = `
@@ -131,24 +131,15 @@ test('The Simple Version — Complete workflow in 20 lines', async (t) => {
 
   console.log(`  Receipts: ${3} signed`)
 
-  // 6. PROVE: Generate cryptographic proof of contributions
+  // 6. PROVE: proveContributions moved to @aeoess/gateway (scope-weighted
+  // report generation is product policy). Confirm the SDK stub throws
+  // the migration pointer, and verify the primitives the proof would
+  // be assembled from still work in-SDK.
   const allReceipts = [receipt1, receipt2, receipt3]
-  const proof = proveContributions(
-    agent, allReceipts, [delegation], 'tymofii-pidlisnyi'
+  assert.throws(
+    () => proveContributions(agent, allReceipts, [delegation], 'tymofii-pidlisnyi'),
+    /Moved to @aeoess\/gateway/
   )
-
-  assert.equal(proof.attribution.receiptCount, 3)
-  assert.ok(proof.attribution.totalWeight > 0)
-  assert.equal(proof.proofs.size, 3, 'Merkle proof for every receipt')
-  assert.ok(proof.merkleRoot.length === 64, 'Valid Merkle root')
-
-  // Verify each Merkle proof
-  for (const [id, merkleProof] of proof.proofs) {
-    assert.ok(verifyMerkleProof(merkleProof), `Proof for ${id} verifies`)
-  }
-  console.log(`  Attribution: weight=${proof.attribution.totalWeight}`)
-  console.log(`  Merkle root: ${proof.merkleRoot.slice(0, 16)}...`)
-  console.log(`  All ${proof.proofs.size} receipt proofs verified`)
 
   // 7. AUDIT: Independent verifier checks compliance
   const verifier = generateKeyPair()
@@ -165,8 +156,7 @@ test('The Simple Version — Complete workflow in 20 lines', async (t) => {
   console.log(`  Compliance: ${(compliance.overallCompliance * 100).toFixed(1)}% (${enforced}/7 enforced)`)
 
   console.log('\n' + '━'.repeat(45))
-  console.log('  ✓ Join → Verify → Delegate → Work → Prove → Audit')
-  console.log('  ✓ Six steps. One import. No configuration.')
+  console.log('  ✓ Join → Verify → Delegate → Work → Audit (Prove → gateway)')
   console.log('')
 })
 

@@ -23,7 +23,7 @@ import { verifyPassport } from './verification/verify.js'
 import { attestFloor, verifyAttestation, loadFloor, evaluateCompliance } from './core/values.js'
 import { createDelegation, createReceipt } from './core/delegation.js'
 import {
-  hashReceipt, traceBeneficiary, computeAttribution,
+  hashReceipt, traceBeneficiary,
   generateMerkleProof
 } from './core/attribution.js'
 import type {
@@ -235,42 +235,17 @@ export interface ContributionProof {
 /**
  * Generate cryptographic proof of an agent's contributions.
  *
- * Returns attribution report + Merkle proofs for every receipt +
- * beneficiary traces. A third party can verify any individual
- * receipt without seeing the others.
+ * Moved to @aeoess/gateway (attribution-reports) because proof generation
+ * depends on scope-weight product policy. See MIGRATION.md#attribution-reports.
  */
 export function proveContributions(
-  agent: SocialContractAgent,
-  receipts: ActionReceipt[],
-  delegations: Delegation[],
-  beneficiary: string,
-  beneficiaryMap?: Map<string, BeneficiaryInfo>
+  _agent: SocialContractAgent,
+  _receipts: ActionReceipt[],
+  _delegations: Delegation[],
+  _beneficiary: string,
+  _beneficiaryMap?: Map<string, BeneficiaryInfo>
 ): ContributionProof {
-  // Attribution report
-  const attribution = computeAttribution(
-    receipts, agent.agentId, beneficiary, agent.keyPair.privateKey
-  )
-
-  // Merkle proofs for each receipt
-  const agentReceipts = receipts.filter(r => r.agentId === agent.agentId)
-  const hashes = agentReceipts.map(r => hashReceipt(r))
-  const proofs = new Map<string, MerkleProof>()
-
-  for (let i = 0; i < agentReceipts.length; i++) {
-    const proof = generateMerkleProof(hashes, hashes[i])
-    if (proof) proofs.set(agentReceipts[i].receiptId, proof)
-  }
-
-  // Beneficiary traces
-  const bMap = beneficiaryMap || new Map()
-  const traces = agentReceipts.map(r => traceBeneficiary(r, delegations, bMap))
-
-  return {
-    attribution,
-    merkleRoot: attribution.merkleRoot,
-    proofs,
-    traces
-  }
+  throw new Error('Moved to @aeoess/gateway. See MIGRATION.md#attribution-reports')
 }
 
 // ══════════════════════════════════════

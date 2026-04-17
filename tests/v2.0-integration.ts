@@ -27,9 +27,7 @@ import {
   evaluateCompliance, negotiateCommonGround,
   // Layer 3
   hashReceipt, traceBeneficiary,
-  computeAttribution, verifyAttributionReport,
   buildMerkleRoot, generateMerkleProof, verifyMerkleProof,
-  computeCollaborationAttribution
 } from '../src/index.js'
 
 import type {
@@ -387,48 +385,9 @@ test('The Agent Social Contract — Full Stack', async (t) => {
   assert.equal(traceB.totalDepth, 2, 'Sub-delegation: depth 2')
   console.log('  ✓ Beta receipt → Alpha → Tymofii (depth 2, verified)')
 
-  // Compute attribution for Agent A
-  const attrA = computeAttribution(
-    receipts, 'agent-alpha-001', 'tymofii-pidlisnyi',
-    agentA.keyPair.privateKey
-  )
-  assert.equal(attrA.receiptCount, 3, 'Agent A: 3 receipts')
-  assert.ok(attrA.totalWeight > 0, 'Agent A has positive attribution')
-  assert.ok(attrA.merkleRoot.length === 64, 'Merkle root is SHA-256 (64 hex chars)')
-
-  // Verify the attribution report
-  const attrVerA = verifyAttributionReport(attrA, agentA.signedPassport.passport.publicKey)
-  assert.ok(attrVerA.valid, 'Agent A attribution report verified')
-  console.log(`  ✓ Alpha attribution: weight=${attrA.totalWeight}, receipts=${attrA.receiptCount}`)
-
-  // Compute attribution for Agent B
-  const attrB = computeAttribution(
-    receipts, 'agent-beta-001', 'tymofii-pidlisnyi',
-    agentB.keyPair.privateKey
-  )
-  assert.equal(attrB.receiptCount, 2, 'Agent B: 2 receipts')
-  assert.ok(attrB.totalWeight > 0, 'Agent B has positive attribution')
-
-  const attrVerB = verifyAttributionReport(attrB, agentB.signedPassport.passport.publicKey)
-  assert.ok(attrVerB.valid, 'Agent B attribution report verified')
-  console.log(`  ✓ Beta attribution: weight=${attrB.totalWeight}, receipts=${attrB.receiptCount}`)
-
-  // Collaboration attribution — who contributed what?
-  const collab = computeCollaborationAttribution(
-    receipts,
-    new Map([
-      ['agent-alpha-001', 'tymofii-pidlisnyi'],
-      ['agent-beta-001', 'tymofii-pidlisnyi']
-    ])
-  )
-  assert.equal(collab.participants.length, 2, 'Two participants in collaboration')
-  const totalPct = collab.participants.reduce((s, p) => s + p.percentage, 0)
-  assert.ok(Math.abs(totalPct - 100) < 0.1, 'Percentages sum to 100%')
-
-  for (const p of collab.participants) {
-    console.log(`  ✓ ${p.agentId}: ${p.percentage}% (weight=${p.weight}, receipts=${p.receiptCount})`)
-  }
-  console.log(`  ✓ All beneficiaries: ${collab.participants.map(p => p.beneficiary).join(', ')}`)
+  // Attribution report generation + collaboration attribution moved to
+  // @aeoess/gateway. Covered by gateway tests/sdk-migrated/core/attribution-reports.test.ts
+  console.log('  ✓ Attribution report generation → gateway (product policy)')
 
   // ══════════════════════════════════════
   // ACT 6: Merkle Proofs — O(log n) verification
@@ -556,7 +515,7 @@ test('The Agent Social Contract — Full Stack', async (t) => {
 
   Layer 3 — Beneficiary Attribution
     ✓ All receipts traced to beneficiary: tymofii-pidlisnyi
-    ✓ Attribution: Alpha ${collab.participants.find(p => p.agentId === 'agent-alpha-001')?.percentage}%, Beta ${collab.participants.find(p => p.agentId === 'agent-beta-001')?.percentage}%
+    ✓ Attribution report generation → gateway (product policy)
     ✓ Merkle root: ${root.slice(0, 16)}...
     ✓ Individual receipt proofs: verified
     ✓ Fake receipts: correctly rejected

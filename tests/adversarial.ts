@@ -12,9 +12,7 @@ import {
   loadFloor, attestFloor, verifyAttestation, evaluateCompliance,
   negotiateCommonGround,
   hashReceipt, traceBeneficiary,
-  computeAttribution, verifyAttributionReport,
   buildMerkleRoot, generateMerkleProof, verifyMerkleProof,
-  computeCollaborationAttribution
 } from '../src/index.js'
 
 import type { ActionReceipt, BeneficiaryInfo } from '../src/index.js'
@@ -165,132 +163,8 @@ test('Adversarial: Merkle tree edge cases', async (t) => {
   })
 })
 
-test('Adversarial: Attribution gaming', async (t) => {
-  clearStores()
-
-  const humanKeys = generateKeyPair()
-  const agentA = createPassport({
-    agentId: 'gamer-001', agentName: 'Gamer', ownerAlias: 'test',
-    mission: 'test', capabilities: ['code_execution', 'web_search'],
-    runtime: { platform: 'test', models: ['test'], toolsCount: 1, memoryType: 'none' }
-  })
-
-  const delegation = createDelegation({
-    delegatedTo: agentA.signedPassport.passport.publicKey,
-    delegatedBy: humanKeys.publicKey,
-    scope: ['code_execution', 'web_search'],
-    spendLimit: 20000,
-    maxDepth: 1,
-    privateKey: humanKeys.privateKey
-  })
-
-  await t.test('Zero-spend actions get minimal attribution', () => {
-    const receipt = createReceipt({
-      agentId: 'gamer-001',
-      delegationId: delegation.delegationId,
-      delegation,
-      action: {
-        type: 'spam', target: 'nothing', scopeUsed: 'web_search',
-        spend: { amount: 0, currency: 'USD' }
-      },
-      result: { status: 'success', summary: 'did nothing' },
-      delegationChain: [humanKeys.publicKey, agentA.signedPassport.passport.publicKey],
-      privateKey: agentA.keyPair.privateKey
-    })
-
-    const attr = computeAttribution(
-      [receipt], 'gamer-001', 'test-human', agentA.keyPair.privateKey
-    )
-    // web_search = 0.3 weight, success = 1.0, log(1+0) = 0, so 0.3 * 1 * 1 = 0.3
-    assert.ok(attr.totalWeight <= 0.5, `Zero spend gets low weight: ${attr.totalWeight}`)
-  })
-
-  await t.test('Huge spend gets logarithmic (not linear) weight', () => {
-    const smallSpend = createReceipt({
-      agentId: 'gamer-001',
-      delegationId: delegation.delegationId,
-      delegation,
-      action: {
-        type: 'work', target: 'task', scopeUsed: 'code_execution',
-        spend: { amount: 10, currency: 'USD' }
-      },
-      result: { status: 'success', summary: 'small task' },
-      delegationChain: [humanKeys.publicKey, agentA.signedPassport.passport.publicKey],
-      privateKey: agentA.keyPair.privateKey
-    })
-
-    const hugeSpend = createReceipt({
-      agentId: 'gamer-001',
-      delegationId: delegation.delegationId,
-      delegation,
-      action: {
-        type: 'work', target: 'task', scopeUsed: 'code_execution',
-        spend: { amount: 10000, currency: 'USD' }
-      },
-      result: { status: 'success', summary: 'huge task' },
-      delegationChain: [humanKeys.publicKey, agentA.signedPassport.passport.publicKey],
-      privateKey: agentA.keyPair.privateKey
-    })
-
-    const attrSmall = computeAttribution(
-      [smallSpend], 'gamer-001', 'test', agentA.keyPair.privateKey
-    )
-    const attrHuge = computeAttribution(
-      [hugeSpend], 'gamer-001', 'test', agentA.keyPair.privateKey
-    )
-
-    // 1000x more spend should NOT give 1000x more weight
-    const ratio = attrHuge.totalWeight / attrSmall.totalWeight
-    assert.ok(ratio < 5, `1000x spend only gives ${ratio.toFixed(1)}x weight (logarithmic)`)
-    console.log(`  Anti-gaming: 1000x spend → ${ratio.toFixed(1)}x attribution (not 1000x)`)
-  })
-
-  await t.test('Failed actions get zero attribution', () => {
-    const failed = createReceipt({
-      agentId: 'gamer-001',
-      delegationId: delegation.delegationId,
-      delegation,
-      action: {
-        type: 'work', target: 'task', scopeUsed: 'code_execution',
-        spend: { amount: 100, currency: 'USD' }
-      },
-      result: { status: 'failure', summary: 'crashed' },
-      delegationChain: [humanKeys.publicKey, agentA.signedPassport.passport.publicKey],
-      privateKey: agentA.keyPair.privateKey
-    })
-
-    const attr = computeAttribution(
-      [failed], 'gamer-001', 'test', agentA.keyPair.privateKey
-    )
-    assert.equal(attr.totalWeight, 0, 'Failed action = zero attribution')
-  })
-
-  await t.test('Tampered attribution report should fail verification', () => {
-    const receipt = createReceipt({
-      agentId: 'gamer-001',
-      delegationId: delegation.delegationId,
-      delegation,
-      action: {
-        type: 'work', target: 'task', scopeUsed: 'code_execution',
-        spend: { amount: 10, currency: 'USD' }
-      },
-      result: { status: 'success', summary: 'real work' },
-      delegationChain: [humanKeys.publicKey, agentA.signedPassport.passport.publicKey],
-      privateKey: agentA.keyPair.privateKey
-    })
-
-    const report = computeAttribution(
-      [receipt], 'gamer-001', 'test', agentA.keyPair.privateKey
-    )
-
-    // Tamper: inflate the weight
-    const tampered = { ...report, totalWeight: 999999 }
-    const ver = verifyAttributionReport(tampered, agentA.signedPassport.passport.publicKey)
-    assert.ok(!ver.valid, 'Tampered report rejected')
-    assert.ok(ver.errors.some(e => e.includes('signature') || e.includes('weight')),
-      'Detected tampering')
-  })
-})
+// Adversarial: Attribution gaming — migrated to gateway
+// tests/sdk-migrated/core/attribution-reports.test.ts
 
 test('Adversarial: Compliance edge cases', async (t) => {
   clearStores()
