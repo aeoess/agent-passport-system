@@ -10,8 +10,24 @@ import {
 } from '../src/core/key-rotation.js'
 import { generateKeyPair, publicKeyFromPrivate } from '../src/crypto/keys.js'
 import { createDID, hexToMultibase } from '../src/core/did.js'
-import { createDelegation, cascadeRevoke, clearStores } from '../src/core/delegation.js'
-import type { AgentPassport, KeyPair, RotatableDIDDocument } from '../src/types/passport.js'
+import { createDelegation, clearStores } from '../src/core/delegation.js'
+import type { AgentPassport, KeyPair, RotatableDIDDocument, CascadeRevocationResult, RevocationRecord } from '../src/types/passport.js'
+
+// Mock cascadeRevoke — simulates what DelegationStore.cascadeRevoke would
+// return. Real cascade behavior is exercised in gateway's DelegationStore
+// tests; here we only verify rotateAndInvalidate's state machine transitions.
+function mockCascadeRevoke(
+  delegationId: string, revokedBy: string, reason: string, _privateKey: string,
+): CascadeRevocationResult {
+  const rec: RevocationRecord = {
+    revocationId: 'rev_mock' + delegationId.slice(-6),
+    delegationId, revokedBy,
+    revokedAt: new Date().toISOString(),
+    reason,
+    signature: 'mock-signature',
+  }
+  return { rootRevocation: rec, cascadedRevocations: [], totalRevoked: 1, chainDepth: 0 }
+}
 
 function makePassport(keyPair: KeyPair): AgentPassport {
   return {
@@ -321,7 +337,7 @@ describe('Key Rotation — State Machine (rotateAndInvalidate)', () => {
     const result = rotateAndInvalidate(
       doc, kpOld.privateKey, kpNew,
       [del.delegationId],
-      { mode: 'emergency' },
+      { mode: 'emergency', cascadeRevoke: mockCascadeRevoke },
     )
 
     // Should have revoked the delegation
@@ -356,7 +372,7 @@ describe('Key Rotation — State Machine (rotateAndInvalidate)', () => {
     const result = rotateAndInvalidate(
       doc, kpOld.privateKey, kpNew,
       [del1.delegationId, del2.delegationId],
-      { mode: 'planned' },
+      { mode: 'planned', cascadeRevoke: mockCascadeRevoke },
     )
 
     assert.equal(result.revocationResults.length, 2)
@@ -382,7 +398,7 @@ describe('Key Rotation — State Machine (rotateAndInvalidate)', () => {
     const result = rotateAndInvalidate(
       doc, kpOld.privateKey, kpNew,
       [del.delegationId],
-      { mode: 'planned' },
+      { mode: 'planned', cascadeRevoke: mockCascadeRevoke },
     )
 
     assert.equal(result.rotationState, 'revocation_complete')
@@ -419,7 +435,7 @@ describe('Key Rotation — Delegation Invalidation', () => {
     const result = rotateAndInvalidate(
       doc, kpOld.privateKey, kpNew,
       [parentDel.delegationId],
-      { mode: 'emergency' },
+      { mode: 'emergency', cascadeRevoke: mockCascadeRevoke },
     )
 
     assert.equal(result.revocationResults[0].cascadeCount, 1) // just the parent

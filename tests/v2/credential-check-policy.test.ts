@@ -7,7 +7,6 @@ import assert from 'node:assert/strict'
 import {
   generateKeyPair,
   createDelegation,
-  revokeDelegation,
   verifyOnAccept,
   evaluateCredentialCheck,
   resolveCheckMode,
@@ -57,14 +56,11 @@ describe('verifyOnAccept', () => {
     assert.ok(stamp!.verified_at.length > 0)
   })
 
-  it('fails on a revoked delegation', () => {
-    const { delegation, delegator } = makeDelegation({ policy: { mode: 'both' } })
-    revokeDelegation(delegation.delegationId, delegator.publicKey, 'test revocation', delegator.privateKey)
-    const result = verifyOnAccept({ delegation })
-    assert.equal(result.valid, false)
-    assert.equal(result.stamp, undefined)
-    assert.ok(result.errors.some(e => /revoked/i.test(e)))
-  })
+  // The previously-here 'fails on a revoked delegation' case exercised the
+  // module-scope revocation registry; that state moved to gateway
+  // (DelegationStore). Equivalent coverage lives in
+  // aeoess-gateway/tests/sdk-migrated/core/delegation-store.test.ts under
+  // "rejects receipt on revoked delegation".
 })
 
 describe('evaluateCredentialCheck — on-accept mode', () => {

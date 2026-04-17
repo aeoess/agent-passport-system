@@ -21,7 +21,7 @@
  * advisor is authorized to be consulted, not to execute tools.
  */
 
-import { subDelegate, verifyDelegation, getRevocation } from '../core/delegation.js'
+import { subDelegate, verifyDelegation } from '../core/delegation.js'
 import { createDecisionLineageReceipt } from '../core/data-lifecycle.js'
 import type { Delegation } from '../types/passport.js'
 import type { DecisionLineageReceipt } from '../types/data-lifecycle.js'
@@ -140,15 +140,14 @@ export function consultAdvisor(opts: ConsultAdvisorOptions): ConsultAdvisorResul
     throw new Error('consultAdvisor: delegation is not an advisor delegation (spendLimitUnit !== invocations)')
   }
 
-  // Revocation + expiry check (picks up cascade revocations from parent)
+  // Signature + expiry check. Revocation is enforced by the caller's
+  // DelegationStore (gateway) via opts.cachedRevocationState; without it,
+  // `verifyDelegation` cannot observe revocation state from this primitive.
   const status = verifyDelegation(d)
   if (!status.valid || status.expired || status.revoked) {
     throw new Error(
       `consultAdvisor: delegation invalid — ${status.revoked ? 'revoked' : status.expired ? 'expired' : 'failed verification'}`
     )
-  }
-  if (getRevocation(d.delegationId)) {
-    throw new Error('consultAdvisor: delegation revoked')
   }
 
   const used = advisorUseTracker.get(d.delegationId) ?? 0

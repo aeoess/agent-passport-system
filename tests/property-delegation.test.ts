@@ -6,7 +6,10 @@
  */
 import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { generateKeyPair, createDelegation, subDelegate, verifyDelegation, cascadeRevoke, clearStores, scopeCovers, getDescendants } from '../src/index.js';
+import { generateKeyPair, createDelegation, subDelegate, verifyDelegation, clearStores, scopeCovers } from '../src/index.js';
+// INV-4 + INV-5 cascade revocation invariants now live in gateway tests
+// (DelegationStore). The narrowing invariants (INV-2 scope, INV-3 spend)
+// stay here because they're enforced by the pure `subDelegate` primitive.
 import type { KeyPair, Delegation } from '../src/index.js';
 
 const ALL_SCOPES = ['code_execution','data_analysis','commerce','commerce:purchase','commerce:purchase:supplies','commerce:purchase:equipment','communication','communication:email','communication:slack','file_management','file_management:read','file_management:write','git_operations','git_operations:commit','git_operations:push'];
@@ -92,29 +95,8 @@ describe('INV-3: Spend Limit Narrowing (property-based)', () => {
   });
 });
 
-// INV-4 + INV-5: Cascade Revocation
-describe('INV-4 + INV-5: Cascade Revocation (property-based)', () => {
-  beforeEach(() => clearStores());
-  it('random tree topology: revoking any node revokes all descendants', () => {
-    const root = generateKeyPair(); const children: KeyPair[] = []; const grandchildren: KeyPair[] = [];
-    for (let i = 0; i < 3; i++) children.push(generateKeyPair());
-    for (let i = 0; i < 6; i++) grandchildren.push(generateKeyPair());
-    const rootDel = createDelegation({ delegatedTo: children[0].publicKey, delegatedBy: root.publicKey, scope: ['code_execution', 'data_analysis'], spendLimit: 10000, maxDepth: 5, privateKey: root.privateKey });
-    const gc0 = subDelegate({ parentDelegation: rootDel, delegatedTo: grandchildren[0].publicKey, scope: ['code_execution'], spendLimit: 1000, privateKey: children[0].privateKey });
-    const gc1 = subDelegate({ parentDelegation: rootDel, delegatedTo: grandchildren[1].publicKey, scope: ['data_analysis'], spendLimit: 1000, privateKey: children[0].privateKey });
-    assert.equal(verifyDelegation(rootDel).valid, true); assert.equal(verifyDelegation(gc0).valid, true); assert.equal(verifyDelegation(gc1).valid, true);
-    cascadeRevoke(rootDel.delegationId, root.publicKey, 'Compromised', root.privateKey);
-    assert.equal(verifyDelegation(rootDel).revoked, true); assert.equal(verifyDelegation(gc0).revoked, true); assert.equal(verifyDelegation(gc1).revoked, true);
-  });
-  it('revoking a leaf does not affect parent or siblings', () => {
-    clearStores(); const root = generateKeyPair(); const child = generateKeyPair(); const sib1 = generateKeyPair(); const sib2 = generateKeyPair();
-    const parentDel = createDelegation({ delegatedTo: child.publicKey, delegatedBy: root.publicKey, scope: ['code_execution', 'data_analysis'], spendLimit: 10000, maxDepth: 5, privateKey: root.privateKey });
-    const sib1Del = subDelegate({ parentDelegation: parentDel, delegatedTo: sib1.publicKey, scope: ['code_execution'], spendLimit: 1000, privateKey: child.privateKey });
-    const sib2Del = subDelegate({ parentDelegation: parentDel, delegatedTo: sib2.publicKey, scope: ['data_analysis'], spendLimit: 1000, privateKey: child.privateKey });
-    cascadeRevoke(sib1Del.delegationId, child.publicKey, 'Leaf revoke', child.privateKey);
-    assert.equal(verifyDelegation(sib1Del).revoked, true); assert.equal(verifyDelegation(parentDel).valid, true); assert.equal(verifyDelegation(sib2Del).valid, true);
-  });
-});
+// INV-4 + INV-5 (cascade revocation property tests) moved to gateway —
+// see aeoess-gateway/tests/sdk-migrated/core/delegation-store.test.ts.
 
 // Compound: INV-2 + INV-3 + chain integrity simultaneously
 describe('Compound: Full chain invariants hold simultaneously', () => {

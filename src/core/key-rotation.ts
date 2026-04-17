@@ -12,8 +12,7 @@
 import { canonicalize } from './canonical.js'
 import { sign, verify, publicKeyFromPrivate } from '../crypto/keys.js'
 import { createDID, hexToMultibase, multibaseToHex } from './did.js'
-import { cascadeRevoke } from './delegation.js'
-import type { AgentPassport, KeyPair } from '../types/passport.js'
+import type { AgentPassport, KeyPair, CascadeRevocationResult } from '../types/passport.js'
 import type {
   RotatableDIDDocument, RotatableVerificationMethod,
   RotationMode, RotationState, DIDRotationEntry,
@@ -308,6 +307,15 @@ export interface RotationResult {
   revocationResults: Array<{ delegationId: string; cascadeCount: number; error?: string }>
 }
 
+/** Gateway-side cascade revocation callback. `cascadeRevoke` lives on
+ *  `DelegationStore` in @aeoess/gateway; callers pass the bound method in.
+ *  When omitted, `rotateAndInvalidate` rotates the key but records every
+ *  delegation ID as an error ("cascade revocation unavailable"), so
+ *  partial-failure semantics are preserved. */
+export type CascadeRevokeFn = (
+  delegationId: string, revokedBy: string, reason: string, privateKey: string,
+) => CascadeRevocationResult
+
 /**
  * Full rotation with delegation invalidation. Explicit state machine:
  * announced → revocation_in_progress → revocation_complete → activated
@@ -320,7 +328,7 @@ export function rotateAndInvalidate(
   oldPrivateKey: string,
   newKeyPair: KeyPair,
   delegationIdsToRevoke: string[],
-  options: { mode: RotationMode; activationDelayMs?: number },
+  options: { mode: RotationMode; activationDelayMs?: number; cascadeRevoke?: CascadeRevokeFn },
 ): RotationResult {
   // Step 1: announced
   let updatedDoc = announceKeyRotation(doc, oldPrivateKey, newKeyPair, options)
@@ -335,8 +343,17 @@ export function rotateAndInvalidate(
 
   // Derive old public key for revokedBy
   const oldPublicKey = publicKeyFromPrivate(oldPrivateKey)
+  const cascadeRevoke = options.cascadeRevoke
 
   for (const delegationId of delegationIdsToRevoke) {
+    if (!cascadeRevoke) {
+      revocationResults.push({
+        delegationId, cascadeCount: 0,
+        error: 'cascadeRevoke callback not provided — pass DelegationStore.cascadeRevoke from @aeoess/gateway',
+      })
+      allRevoked = false
+      continue
+    }
     try {
       const result = cascadeRevoke(delegationId, oldPublicKey, 'key_rotation', oldPrivateKey)
       revocationResults.push({ delegationId, cascadeCount: result.totalRevoked })

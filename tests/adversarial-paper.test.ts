@@ -21,7 +21,7 @@ import assert from 'node:assert/strict';
 import {
   generateKeyPair, sign, verify, canonicalize, createPassport,
   joinSocialContract, delegate, createDelegation, subDelegate,
-  verifyDelegation, revokeDelegation, cascadeRevoke, clearStores,
+  verifyDelegation, clearStores,
   scopeCovers, scopeAuthorizes, createReceipt, verifyReceipt,
   hashReceipt, buildMerkleRoot, generateMerkleProof, verifyMerkleProof,
   createActionIntent, verifyActionIntent, evaluateIntent,
@@ -127,25 +127,9 @@ describe('S4: Execution Without Intent', () => {
   });
 });
 
-// S5: Cascade Revocation Evasion | Attacker: Class 1 | Target: INV-4 + INV-5
-describe('S5: Cascade Revocation Evasion', () => {
-  beforeEach(() => clearStores());
-  it('revoking parent cascades to all descendants', () => {
-    const human = generateKeyPair(); const agentA = generateKeyPair(); const agentB = generateKeyPair(); const agentC = generateKeyPair();
-    const delA = createDelegation({ delegatedTo: agentA.publicKey, delegatedBy: human.publicKey, scope: ['code_execution', 'data_analysis'], spendLimit: 1000, maxDepth: 5, privateKey: human.privateKey });
-    const delB = subDelegate({ parentDelegation: delA, delegatedTo: agentB.publicKey, scope: ['code_execution'], spendLimit: 500, privateKey: agentA.privateKey });
-    const delC = subDelegate({ parentDelegation: delB, delegatedTo: agentC.publicKey, scope: ['code_execution'], spendLimit: 100, privateKey: agentB.privateKey });
-    assert.equal(verifyDelegation(delA).valid, true); assert.equal(verifyDelegation(delB).valid, true); assert.equal(verifyDelegation(delC).valid, true);
-    const result = cascadeRevoke(delA.delegationId, human.publicKey, 'Agent A compromised', human.privateKey);
-    assert.ok(result.totalRevoked >= 3); assert.equal(verifyDelegation(delA).revoked, true); assert.equal(verifyDelegation(delB).revoked, true); assert.equal(verifyDelegation(delC).revoked, true);
-  });
-  it('revocation is irreversible', () => {
-    const human = generateKeyPair(); const agentA = generateKeyPair();
-    const del = createDelegation({ delegatedTo: agentA.publicKey, delegatedBy: human.publicKey, scope: ['code_execution'], privateKey: human.privateKey });
-    revokeDelegation(del.delegationId, human.publicKey, 'Revoked', human.privateKey);
-    assert.equal(verifyDelegation(del).revoked, true); assert.equal(verifyDelegation(del).valid, false);
-  });
-});
+// S5 (Cascade Revocation Evasion — INV-4 + INV-5) moved to gateway's
+// DelegationStore tests. The SDK no longer holds module-scope revocation
+// registries; cascade semantics live in @aeoess/gateway.
 
 // S6: Agora Forgery (Partial) | Attacker: Class 2 | Target: Agora integrity
 describe('S6: Agora Forgery (Partial)', () => {

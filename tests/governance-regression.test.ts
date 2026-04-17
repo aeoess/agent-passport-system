@@ -7,7 +7,7 @@ import { describe, it, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
 import { generateKeyPair } from '../src/crypto/keys.js'
 import {
-  createDelegation, revokeDelegation, cascadeRevoke,
+  createDelegation,
   verifyDelegation, clearStores, scopeAuthorizes,
 } from '../src/core/delegation.js'
 import {
