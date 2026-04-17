@@ -234,24 +234,13 @@ export type {
 } from './types/commerce.js'
 
 // ── Layer Integration — Wiring ──
-export {
-  commerceWithIntent,
-  commerceReceiptToActionReceipt,
-  validateCommerceDelegation,
-  coordinationToAgora,
-  postTaskCreated,
-  postReviewCompleted,
-  postTaskCompleted,
-} from './core/integration.js'
-
-export type {
-  CommerceIntentResult,
-  DelegationValidationResult,
-  CoordinationEventType,
-} from './core/integration.js'
+// Bridge functions (commerceWithIntent, commerceReceiptToActionReceipt,
+// validateCommerceDelegation, coordinationToAgora, postTaskCreated,
+// postReviewCompleted, postTaskCompleted) moved to @aeoess/gateway.
+// See MIGRATION.md#data-lifecycle.
 
 // ── Agent Context — Automatic Compliance Enforcement ──
-export { AgentContext, createAgentContext } from './core/context.js'
+// AgentContext and createAgentContext moved to @aeoess/gateway. Types remain.
 
 export type {
   EnforcementLevel,
@@ -499,10 +488,9 @@ export type {
 
 
 // ── EU AI Act Compliance ──
-export {
-  classifyRisk, mapArticles, generateTransparencyDisclosure,
-  generateComplianceProfile, identifyGaps, generateComplianceReport
-} from './core/euaiact.js'
+// Compliance automation (classifyRisk, mapArticles, generateComplianceProfile,
+// identifyGaps, generateComplianceReport, generateTransparencyDisclosure)
+// moved to @aeoess/gateway. Types remain.
 
 export type {
   RiskCategory, EUAIActArticle, ComplianceProfile,
@@ -592,15 +580,7 @@ export type {
 } from './core/probe-identity.js'
 
 // ── Intent Network (Module 17) ──
-
-export {
-  createIntentNetwork,
-  createIntentCard, verifyIntentCard, isCardExpired,
-  publishCard, removeCard,
-  computeRelevance, searchMatches,
-  requestIntro, respondToIntro,
-  getDigest, getVisibleItems
-} from './core/intent-network.js'
+// Matching engine moved to @aeoess/gateway. Types remain.
 
 export type {
   IntentCard, IntentItem, IntentNetwork, NeedOfferMatch,
@@ -1033,25 +1013,22 @@ export * from './interop/agent-json-bridge.js'
 // ══════════════════════════════════════
 // Module 38: Data Contribution Ledger
 // Module 39: Data Settlement Protocol
+// Module 40: Data Source Attribution (the "pixel" primitive)
 // ══════════════════════════════════════
+// ContributionLedger + SettlementGenerator moved to @aeoess/gateway.
+// Primitive types and data-source-attribution (Module 40 Merkle primitive)
+// remain in the SDK.
 
 export * from './types/data-contribution.js'
-export * from './core/data-contribution.js'
-export * from './core/data-settlement.js'
 export * from './core/data-source-attribution.js'
 
 // ══════════════════════════════════════
 // Data Enforcement Gate + Training Attribution
-// ══════════════════════════════════════
-
-export * from './core/data-enforcement.js'
-export * from './core/training-attribution.js'
-
-// ══════════════════════════════════════
 // Data Gateway (Composable: Gateway + Data Enforcement + Terms Acceptance)
 // ══════════════════════════════════════
-
-export * from './core/data-gateway.js'
+// All three moved to @aeoess/gateway. DataAccessDecision / DataGateway
+// interface shapes remain in stub files at src/core/ for SDK gateway.ts
+// type compatibility. See MIGRATION.md#data-lifecycle.
 
 // ══════════════════════════════════════
 // Decision Equivalence (Canonical Boundary Profiles + Comparison)

@@ -1,29 +1,28 @@
-// ══════════════════════════════════════════════════════════════════════
-// Data Gateway — Composable Gateway + Data Enforcement
-// ══════════════════════════════════════════════════════════════════════
-// Wraps ProxyGateway + DataEnforcementGate into a single call.
-// One gateway call: identity → delegation → policy → data terms → execute.
-//
-// Also adds real-time compensation enforcement: agent must accept
-// DataTerms before accessing data. No acceptance = no access.
-// ══════════════════════════════════════════════════════════════════════
+// Copyright 2024-2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
+/**
+ * DEPRECATED — `DataGateway` has moved to the AEOESS Gateway.
+ *
+ * This class was product intelligence (composable enforcement + terms
+ * acceptance runtime), not a protocol primitive. It lives at @aeoess/gateway
+ * (src/sdk-migrated/core/data-gateway.ts).
+ *
+ * Interface types remain here for compatibility with `ProxyGateway` config.
+ * See MIGRATION.md#data-lifecycle.
+ */
 
-import {
-  DataEnforcementGate, DataAccessRequest, DataAccessDecision,
-} from './data-enforcement.js'
-import { ContributionLedger, createContributionLedger } from './data-contribution.js'
-import { SourceReceipt } from '../types/data-source.js'
+import type { SourceReceipt } from '../types/data-source.js'
+import type { DataAccessRequest, DataAccessDecision } from './data-enforcement.js'
 
-// ── Terms Acceptance Registry ──
-// Agents must explicitly accept DataTerms before accessing data.
-// No acceptance = no access, even in audit mode.
+const MOVED = 'DataGateway has moved to @aeoess/gateway. See MIGRATION.md#data-lifecycle'
+
+// ── Interface types (preserved for SDK gateway.ts type compatibility) ──
 
 export interface TermsAcceptance {
   agentId: string
   agentPublicKey: string
   sourceReceiptId: string
   acceptedAt: string
-  compensationAcknowledged: boolean  // agent confirms it will honor compensation terms
+  compensationAcknowledged: boolean
   signature?: string
 }
 
@@ -32,136 +31,31 @@ export interface DataGatewayConfig {
   gatewayPublicKey: string
   gatewayPrivateKey: string
   enforcementMode: 'enforce' | 'audit' | 'off'
-  requireTermsAcceptance: boolean     // if true, agents must call acceptTerms() before access
+  requireTermsAcceptance: boolean
   onAccessBlocked?: (agentId: string, source: string, reason: string) => void
   onAccessGranted?: (agentId: string, source: string, receiptId: string) => void
   onTermsAccepted?: (acceptance: TermsAcceptance) => void
 }
 
-// ── Data Gateway ──
+// ── Stub class (throws on instantiation; shape preserved for type-only imports) ──
 
 export class DataGateway {
-  private config: DataGatewayConfig
-  private enforcementGate: DataEnforcementGate
-  private acceptances: Map<string, TermsAcceptance> = new Map() // key: agentId:sourceReceiptId
-
-  constructor(config: DataGatewayConfig, ledger?: ContributionLedger) {
-    this.config = config
-    this.enforcementGate = new DataEnforcementGate({
-      gatewayId: config.gatewayId,
-      gatewayPublicKey: config.gatewayPublicKey,
-      gatewayPrivateKey: config.gatewayPrivateKey,
-      mode: config.enforcementMode,
-      onAccessBlocked: (agentId, src, violations) => {
-        config.onAccessBlocked?.(agentId, src, violations.join('; '))
-      },
-      onAccessRecorded: (receipt) => {
-        config.onAccessGranted?.(receipt.agentId, receipt.sourceReceiptId, receipt.accessReceiptId)
-      },
-    }, ledger || createContributionLedger())
+  constructor(_config?: unknown, _ledger?: unknown) {
+    throw new Error(MOVED)
   }
-
-  /** Register a data source with the gateway */
-  registerSource(receipt: SourceReceipt, descriptor: string): void {
-    this.enforcementGate.registerSource(receipt, descriptor)
-  }
-
-  /**
-   * Agent accepts terms for a data source.
-   * Must be called before access if requireTermsAcceptance is true.
-   */
-  acceptTerms(opts: {
+  registerSource(_receipt: SourceReceipt, _descriptor: string): void { throw new Error(MOVED) }
+  acceptTerms(_opts: {
     agentId: string
     agentPublicKey: string
     sourceReceiptId: string
     signature?: string
-  }): TermsAcceptance {
-    const acceptance: TermsAcceptance = {
-      agentId: opts.agentId,
-      agentPublicKey: opts.agentPublicKey,
-      sourceReceiptId: opts.sourceReceiptId,
-      acceptedAt: new Date().toISOString(),
-      compensationAcknowledged: true,
-      signature: opts.signature,
-    }
-    const key = `${opts.agentId}:${opts.sourceReceiptId}`
-    this.acceptances.set(key, acceptance)
-    this.config.onTermsAccepted?.(acceptance)
-    return acceptance
-  }
-
-  /** Check if an agent has accepted terms for a source */
-  hasAcceptedTerms(agentId: string, sourceReceiptId: string): boolean {
-    return this.acceptances.has(`${agentId}:${sourceReceiptId}`)
-  }
-
-  /**
-   * Request data access through the gateway.
-   * Single call: terms acceptance check → data terms compliance → receipt generation → contribution ledger.
-   */
-  requestAccess(request: DataAccessRequest): DataAccessDecision {
-    // Step 1: Check terms acceptance (if required)
-    if (this.config.requireTermsAcceptance) {
-      if (!this.hasAcceptedTerms(request.agentId, request.sourceReceiptId)) {
-        this.config.onAccessBlocked?.(request.agentId, request.sourceReceiptId, 'Terms not accepted')
-        return {
-          allowed: false,
-          sourceReceiptId: request.sourceReceiptId,
-          hardViolations: ['Agent has not accepted DataTerms for this source. Call acceptTerms() first.'],
-          advisoryWarnings: [],
-        }
-      }
-    }
-
-    // Step 2: Delegate to enforcement gate (terms compliance + receipt + contribution ledger)
-    return this.enforcementGate.checkAccess(request)
-  }
-
-  /**
-   * Preflight: check multiple sources at once.
-   * Validates terms acceptance + compliance for all sources.
-   */
-  preflightAccess(requests: DataAccessRequest[]): { allAllowed: boolean; decisions: DataAccessDecision[] } {
-    if (this.config.requireTermsAcceptance) {
-      const decisions: DataAccessDecision[] = requests.map(r => {
-        if (!this.hasAcceptedTerms(r.agentId, r.sourceReceiptId)) {
-          return {
-            allowed: false,
-            sourceReceiptId: r.sourceReceiptId,
-            hardViolations: ['Terms not accepted'],
-            advisoryWarnings: [],
-          }
-        }
-        return this.enforcementGate.checkAccess(r)
-      })
-      return { allAllowed: decisions.every(d => d.allowed), decisions }
-    }
-    return this.enforcementGate.preflightCheck(requests)
-  }
-
-  /** Get the underlying enforcement gate (for ledger/receipt access) */
-  getEnforcementGate(): DataEnforcementGate { return this.enforcementGate }
-
-  /** Get the contribution ledger */
-  getLedger(): ContributionLedger { return this.enforcementGate.getLedger() }
-
-  /** Get all terms acceptances */
-  getAcceptances(): TermsAcceptance[] { return Array.from(this.acceptances.values()) }
-
-  /** Revoke terms acceptance (e.g., source updated terms) */
-  revokeAcceptance(agentId: string, sourceReceiptId: string): boolean {
-    return this.acceptances.delete(`${agentId}:${sourceReceiptId}`)
-  }
-
-  /** Revoke all acceptances for a source (terms changed, all agents must re-accept) */
-  revokeAllAcceptancesForSource(sourceReceiptId: string): number {
-    let count = 0
-    for (const [key] of this.acceptances) {
-      if (key.endsWith(`:${sourceReceiptId}`)) {
-        this.acceptances.delete(key)
-        count++
-      }
-    }
-    return count
-  }
+  }): TermsAcceptance { throw new Error(MOVED) }
+  hasAcceptedTerms(_agentId: string, _sourceReceiptId: string): boolean { throw new Error(MOVED) }
+  requestAccess(_request: DataAccessRequest): DataAccessDecision { throw new Error(MOVED) }
+  preflightAccess(_requests: DataAccessRequest[]): { allAllowed: boolean; decisions: DataAccessDecision[] } { throw new Error(MOVED) }
+  getEnforcementGate(): never { throw new Error(MOVED) }
+  getLedger(): never { throw new Error(MOVED) }
+  getAcceptances(): TermsAcceptance[] { throw new Error(MOVED) }
+  revokeAcceptance(_agentId: string, _sourceReceiptId: string): boolean { throw new Error(MOVED) }
+  revokeAllAcceptancesForSource(_sourceReceiptId: string): number { throw new Error(MOVED) }
 }

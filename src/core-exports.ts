@@ -23,9 +23,7 @@ export {
   evaluateIntent,
 } from './core/policy.js'
 
-export {
-  createAgentContext,
-} from './core/context.js'
+// createAgentContext moved to @aeoess/gateway. See MIGRATION.md.
 
 // Values Floor
 export {
@@ -54,8 +52,7 @@ export { rotateKey } from './core/identity.js'
 export { computeActionRef } from './core/action-ref.js'
 export { computeIdempotencyKey } from './core/idempotency.js'
 
-// Compliance
-export { generateComplianceReport } from './core/euaiact.js'
+// Compliance: generateComplianceReport moved to @aeoess/gateway. See MIGRATION.md.
 
 // Re-export essential types
 export type {

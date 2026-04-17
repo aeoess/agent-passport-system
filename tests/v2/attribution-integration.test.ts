@@ -6,18 +6,15 @@ import assert from 'node:assert/strict'
 import {
   createAttributionReceipt, signAttributionConsent,
   createCharter, verifyCharter,
-  verifySettlement,
   createCompletionReceipt, verifyCompletionReceipt,
   generateKeyPair, publicKeyFromPrivate,
 } from '../../src/index.js'
 import type {
   AttributionReceipt, ArtifactCitation,
-  SettlementRecord,
 } from '../../src/index.js'
+// verifySettlement + SettlementRecord moved to @aeoess/gateway.
+// Gateway-side integration tests cover the AttributionConsent gating.
 import type { HybridTimestamp } from '../../src/types/time.js'
-import { createHash } from 'node:crypto'
-
-const EMPTY_MERKLE = createHash('sha256').update('empty').digest('hex')
 
 function stampAt(wallMs: number, logicalTime = 1, gatewayId = 'test-gw'): HybridTimestamp {
   return {
@@ -165,58 +162,10 @@ describe('verifyCharter — AttributionConsent integration', () => {
 })
 
 // ══════════════════════════════════════════════════════════════════
-// Settlement
+// Settlement — verifySettlement tests moved to @aeoess/gateway
+// (tests/sdk-migrated/core/data-settlement.test.ts). The
+// AttributionConsent primitive the gating relies on is still tested above.
 // ══════════════════════════════════════════════════════════════════
-
-function makeSettlement(citations?: ArtifactCitation[]): SettlementRecord {
-  return {
-    settlementId: 'stlr_test',
-    period: { startDate: '2026-01-01', endDate: '2026-01-31', periodLabel: '2026-01' },
-    generatedAt: new Date().toISOString(),
-    generatedBy: 'pub-x',
-    lineItems: [],
-    totalAmount: 0,
-    currency: 'usd',
-    totalAccesses: 0,
-    uniqueSources: 0,
-    uniquePayers: 0,
-    merkleRoot: EMPTY_MERKLE,
-    signature: ''.padEnd(64, 'a'),
-    ...(citations ? { citations } : {}),
-  }
-}
-
-describe('verifySettlement — AttributionConsent integration', () => {
-  it('settlement without citations: verify passes unchanged', () => {
-    const s = makeSettlement()
-    const v = verifySettlement(s)
-    assert.equal(v.valid, true, v.errors.join(', '))
-  })
-
-  it('settlement with citations but no receipts arg: fails clearly', () => {
-    const { citation } = validReceipt({ bindingContext: 'settlement:s1' })
-    const s = makeSettlement([citation])
-    const v = verifySettlement(s)
-    assert.equal(v.valid, false)
-    assert.ok(v.errors.some(e => /citations present but no receipts supplied/.test(e)))
-  })
-
-  it('settlement with citations + matching receipts: passes', () => {
-    const { receipt, citation } = validReceipt({ bindingContext: 'settlement:s1' })
-    const s = makeSettlement([citation])
-    const v = verifySettlement(s, [receipt])
-    assert.equal(v.valid, true, v.errors.join(', '))
-  })
-
-  it('settlement with citations + wrong receipts: fails', () => {
-    const { citation } = validReceipt({ bindingContext: 'settlement:s1' })
-    const { receipt: other } = validReceipt({ bindingContext: 'settlement:other' })
-    const s = makeSettlement([citation])
-    const v = verifySettlement(s, [other])
-    assert.equal(v.valid, false)
-    assert.ok(v.errors.some(e => /AttributionConsent/.test(e)))
-  })
-})
 
 // ══════════════════════════════════════════════════════════════════
 // Completion Receipt

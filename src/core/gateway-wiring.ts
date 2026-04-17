@@ -81,7 +81,7 @@ export type { PrecedentLibrary, PrecedentAlignment, NormativePrecedent } from '.
 export { capabilityMatches, capabilityCoverage, checkDelegationScope } from './routing.js'
 
 // ── Re-exports: EU AI Act ──
-export { generateComplianceReport } from './euaiact.js'
+// generateComplianceReport moved to @aeoess/gateway. See MIGRATION.md.
 
 // ── Re-exports: Federation ──
 export { importReceipt, verifyReceiptEnvelope, vouchReputation, verifyVouchedReputation, applyReputationDowngrade } from './federation.js'
@@ -102,7 +102,7 @@ export {
 export { createReserveAttestation, verifyReserveAttestation, meetsAssuranceRequirement } from './reserve.js'
 
 // ── Re-exports: Agent Context ──
-export { AgentContext, createAgentContext } from './context.js'
+// AgentContext and createAgentContext moved to @aeoess/gateway. See MIGRATION.md.
 
 // ── Re-exports: Governance Consumer ──
 export { checkHTMLGovernance, checkHeaderGovernance, governanceLoop360 } from './governance-consumer.js'
