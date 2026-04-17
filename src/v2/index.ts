@@ -384,6 +384,46 @@ export type {
   WeightProfile,
 } from './attribution-weights/index.js'
 
+// Attribution Settlement — Build C. Aggregates a stream of Attribution
+// Primitives over a settlement period into one signed, queryable
+// record. Spec: BUILD-C-SETTLEMENT-PIPELINE.md. Pure evidence; economic
+// conversion (weight → currency) stays gateway-private.
+export {
+  aggregateAttributionPrimitives,
+  buildContributorMerklePath,
+  buildContributorQueryResponse,
+  buildMerkleRoot as settlementBuildMerkleRoot,
+  contributorLeafHashHex,
+  emptyAxisMerkleRoot,
+  formatSettlementWeight,
+  residualLeafHashHex,
+  settlementLeafHash,
+  settlementRecordHash,
+  settlementSigningPayload,
+  signSettlementRecord,
+  verifyContributorQueryResponse,
+  verifyMerklePath as verifySettlementMerklePath,
+  verifySettlementRecord,
+  verifySettlementSignature,
+} from './attribution-settlement/index.js'
+// Renamed under an AttributionSettlement* prefix to avoid collision with
+// Module 39's (data-only) SettlementPeriod / SettlementRecord types which
+// predate Build C. Module 39 stays exported at its original path per
+// spec §"Build C is a port and extension of Module 39".
+export type {
+  AggregateOptions as AttributionSettlementAggregateOptions,
+  ContributorQueryAxisBody as AttributionContributorQueryAxisBody,
+  ContributorQueryResponse as AttributionContributorQueryResponse,
+  SettlementAxisIndex as AttributionSettlementAxisIndex,
+  SettlementContributor as AttributionSettlementContributor,
+  SettlementPeriod as AttributionSettlementPeriod,
+  SettlementRecord as AttributionSettlementRecord,
+  SettlementResidualBucket as AttributionSettlementResidualBucket,
+  SettlementVerifyReason as AttributionSettlementVerifyReason,
+  SettlementVerifyResult as AttributionSettlementVerifyResult,
+  VerifySettlementOptions as AttributionVerifySettlementOptions,
+} from './attribution-settlement/index.js'
+
 // Attribution Primitive — unified four-axis (D, P, G, C) signed Merkle
 // receipt. Spec: ATTRIBUTION-PRIMITIVE-v1.1.md. Disjoint from
 // attribution-consent (that module's AttributionReceipt is a citation-
