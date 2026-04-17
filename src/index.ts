@@ -282,8 +282,9 @@ export type {
   CapabilityString,
 } from './types/routing.js'
 
-// ── Proxy Gateway (Enforcement Boundary) ──
-export { ProxyGateway, createProxyGateway } from './core/gateway.js'
+// ── Proxy Gateway: runtime implementation moved to @aeoess/gateway (2026-04-17).
+// SDK ships only the gateway interface types in src/types/gateway.ts.
+// See MIGRATION.md#gateway.
 
 // ── Fidelity Probe: Substrate Behavioral Drift Measurement ──
 export {
