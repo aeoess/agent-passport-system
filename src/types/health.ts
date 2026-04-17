@@ -2,7 +2,9 @@
 // Agent Health Status — Enterprise monitoring type
 // Public SDK contribution: exports the AgentHealthStatus shape so
 // consumers (Datadog, Grafana) know the response format.
-// Implementation lives in the private gateway.
+// Implementation (deriveHealthStatus + thresholds) lives in the private
+// gateway — thresholds are product policy, not protocol primitives.
+// See specs/AAIF-BOUNDARY-AUDIT.md.
 
 import type { RecoveryStrategy } from './recovery.js'
 
@@ -38,13 +40,4 @@ export interface AgentHealthStatus {
     currentStrategy: RecoveryStrategy | null
   }
   status: 'healthy' | 'degraded' | 'suspended' | 'expired'
-}
-
-/** Derives status from health components */
-export function deriveHealthStatus(health: Omit<AgentHealthStatus, 'status'>): AgentHealthStatus['status'] {
-  if (!health.passport.valid) return 'expired'
-  if (health.behavioral.driftDetected) return 'suspended'
-  if (health.recovery.recentRecoveryEvents > 0) return 'degraded'
-  if (health.delegation.spendUtilization > 0.95) return 'degraded'
-  return 'healthy'
 }

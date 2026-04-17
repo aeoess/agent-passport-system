@@ -1234,7 +1234,9 @@ export type {
 // ══════════════════════════════════════
 
 export type { AgentHealthStatus } from './types/health.js'
-export { deriveHealthStatus } from './types/health.js'
+// deriveHealthStatus removed in v1.47.0 — the thresholds were product
+// policy, not protocol primitive. Reference implementation now lives
+// in the private gateway. See specs/AAIF-BOUNDARY-AUDIT.md.
 
 
 // ══════════════════════════════════════
