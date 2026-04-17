@@ -56,14 +56,11 @@ export {
   clearV2OutcomeStore,
 } from './outcome-v2.js'
 
-// v2 Anomaly Detection
+// v2 Anomaly Detection — primitives only (pure predicate over shape).
+// The action-history ledger + first-max-authority + concentration
+// detection moved to anomaly-detection in @aeoess/gateway on 2026-04-17.
 export {
-  recordV2Action, getV2ActionHistory,
-  checkV2FirstMaxAuthority,
   validateV2UncertaintyCompliance,
-  computeV2ConcentrationMetrics,
-  getV2AnomalyFlags, getV2UnreviewedFlags,
-  reviewV2AnomalyFlag, clearV2AnomalyStores,
 } from './anomaly-v2.js'
 
 // v2 Emergency Pathways
@@ -76,31 +73,26 @@ export {
 } from './emergency-v2.js'
 export type { V2EmergencyPathway, V2EmergencyActivation } from './emergency-v2.js'
 
-// v2 Fork-and-Sunset Migration
+// v2 Fork-and-Sunset Migration — primitive version-compat predicate.
+// The lifecycle workflow (request/approve/execute/probation tracking)
+// moved to migration-workflow in @aeoess/gateway on 2026-04-17.
 export {
-  requestV2Migration, approveV2Migration, executeV2Migration,
-  isV2InProbation, computeV2MigrationDiscount,
-  traceV2MigrationLineage, rollbackV2Migration,
-  processV2CompletedProbations,
-  getV2MigrationRequest, getV2MigrationRecord,
-  getV2MigrationsForAgent, getV2ActiveProbations,
-  clearV2MigrationStores,
+  isV2MigrationFactorCompatible,
 } from './migration-v2.js'
 
-// v2 Contextual Attestation
+// v2 Contextual Attestation — signing + quality primitives.
+// The attestation ledger moved to attestation-ledger in @aeoess/gateway
+// on 2026-04-17.
 export {
-  createV2Attestation, assessV2AttestationQuality,
-  getV2AgentAttestationQualityAvg,
-  getV2Attestation, getV2AttestationForAction,
-  getV2AttestationsForAgent, clearV2AttestationStore,
+  signAttestation, assessV2AttestationQuality,
 } from './attestation-v2.js'
 
 
-// v2 Semantic Drift Detection (Intent Subversion)
+// v2 Semantic Drift Detection (Intent Subversion) — pure math.
+// The intent-record ledger moved to semantic-drift-tracker in
+// @aeoess/gateway on 2026-04-17.
 export {
-  extractKeywords, recordSemanticIntent, analyzeSemanticDrift,
-  getDriftResults, getAgentDriftAverage, isAgentSemanticRisk,
-  getSemanticRecord, clearSemanticDriftStores,
+  extractKeywords, computeSemanticDrift,
 } from './semantic-drift.js'
 
 // v2 Epistemic Isolation (Consensus Trap Defense)
@@ -118,10 +110,11 @@ export {
 } from './intent-binding.js'
 export type { ChainedIntent } from './intent-binding.js'
 
-// v2 Semantic Scoping (Section 4 — runtime enforcement)
+// v2 Semantic Scoping (Section 4 — runtime enforcement) — pure check.
+// The scope registry + violation ledger moved to scope-violations in
+// @aeoess/gateway on 2026-04-17.
 export {
-  defineSemanticScope, checkSemanticCompliance, getScopeViolations,
-  clearSemanticScopingStores,
+  evaluateSemanticConstraints,
 } from './semantic-scoping.js'
 export type { SemanticConstraint, SemanticScope, ScopeViolation } from './semantic-scoping.js'
 

@@ -13,32 +13,23 @@ import {
   createPolicyContext,
   // Delegation v2
   createV2Delegation, supersedeV2Delegation, renewV2Delegation,
-  revokeV2Delegation, validateV2Delegation,
+  revokeV2Delegation,
   traceV2DelegationHistory, clearV2DelegationStore,
   isScopeExpansion, isScopeNarrowing,
   // Outcome
   createV2OutcomeRecord, addV2PrincipalReport, addV2AdjudicatedReport,
-  getV2EffectiveDivergence, getV2AgentDivergenceAverage,
+  getV2EffectiveDivergence,
   isV2AgentFlaggedForReview, clearV2OutcomeStore,
-  // Anomaly
-  recordV2Action, checkV2FirstMaxAuthority,
+  // Anomaly (primitive only — state machine moved to gateway)
   validateV2UncertaintyCompliance,
-  computeV2ConcentrationMetrics,
-  getV2UnreviewedFlags, reviewV2AnomalyFlag, clearV2AnomalyStores,
   // Emergency
   defineV2EmergencyPathway, activateV2Emergency,
   logV2EmergencyAction, reviewV2Emergency,
-  getV2ActiveEmergencies, clearV2EmergencyStores,
-  evaluateConditions,
-  // Migration
-  requestV2Migration, approveV2Migration, executeV2Migration,
-  isV2InProbation, computeV2MigrationDiscount,
-  traceV2MigrationLineage, rollbackV2Migration,
-  clearV2MigrationStores,
-  // Attestation
-  createV2Attestation, assessV2AttestationQuality,
-  getV2AgentAttestationQualityAvg,
-  getV2AttestationForAction, clearV2AttestationStore,
+  clearV2EmergencyStores,
+  // Migration (primitive only — workflow moved to gateway)
+  isV2MigrationFactorCompatible,
+  // Attestation (primitives only — ledger moved to gateway)
+  signAttestation, assessV2AttestationQuality,
 } from '../src/v2/index.js'
 
 const root = generateKeyPair()
@@ -312,70 +303,22 @@ describe('v2 Outcome Registration', () => {
 })
 
 // ═══════════════════════════════════════════════
-// ANOMALY DETECTION
+// ANOMALY DETECTION — primitive only (state machine moved to gateway)
 // ═══════════════════════════════════════════════
 
-describe('v2 Anomaly Detection', () => {
-  beforeEach(() => clearV2AnomalyStores())
-
-  it('first-max-authority triggers flag', () => {
-    for (let i = 0; i < 5; i++) {
-      recordV2Action({
-        action_id: `low-${i}`, agent_id: agent.publicKey,
-        authority_level: 1, semantic_uncertainty: 'low',
-        risk_class: 'low', delegation_ref: 'del-1',
-        was_delegated: false, complexity: 0.2, timestamp: new Date().toISOString(),
-      })
-    }
-    const high = {
-      action_id: 'high-1', agent_id: agent.publicKey,
-      authority_level: 3, semantic_uncertainty: 'medium',
-      risk_class: 'medium', delegation_ref: 'del-1',
-      was_delegated: false, complexity: 0.6, timestamp: new Date().toISOString(),
-    }
-    recordV2Action(high)
-    const flag = checkV2FirstMaxAuthority(high)
-    assert.ok(flag)
-    assert.equal(flag!.anomaly_type, 'first_max_authority')
-  })
-
-  it('critical gets sync review mode', () => {
-    recordV2Action({
-      action_id: 'setup', agent_id: agent.publicKey,
-      authority_level: 1, semantic_uncertainty: 'low',
-      risk_class: 'low', delegation_ref: 'del-1',
-      was_delegated: false, complexity: 0.1, timestamp: new Date().toISOString(),
-    })
-    const crit = {
-      action_id: 'crit-1', agent_id: agent.publicKey,
-      authority_level: 4, semantic_uncertainty: 'critical',
-      risk_class: 'critical', delegation_ref: 'del-1',
-      was_delegated: false, complexity: 0.9, timestamp: new Date().toISOString(),
-    }
-    recordV2Action(crit)
-    const flag = checkV2FirstMaxAuthority(crit)
-    assert.equal(flag!.review_mode, 'sync')
-  })
-
+describe('v2 Anomaly — uncertainty compliance primitive', () => {
   it('uncertainty compliance catches violations', () => {
     const v = validateV2UncertaintyCompliance('high', false, true, false)
     assert.equal(v.length, 2)
   })
 
-  it('Monolith detection flags high concentration', () => {
-    const mono = generateKeyPair()
-    for (let i = 0; i < 15; i++) {
-      recordV2Action({
-        action_id: `mono-${i}`, agent_id: mono.publicKey,
-        authority_level: 3, semantic_uncertainty: 'medium',
-        risk_class: 'medium', delegation_ref: 'del-1',
-        was_delegated: false, complexity: 0.8,
-        timestamp: new Date().toISOString(),
-      })
-    }
-    const metrics = computeV2ConcentrationMetrics(mono.publicKey)
-    assert.ok(metrics.flagged)
-    assert.equal(metrics.tasks_retained_ratio, 1.0)
+  it('low uncertainty requires nothing', () => {
+    assert.equal(validateV2UncertaintyCompliance('low', false, false, false).length, 0)
+  })
+
+  it('critical requires all three controls', () => {
+    assert.equal(validateV2UncertaintyCompliance('critical', false, false, false).length, 3)
+    assert.equal(validateV2UncertaintyCompliance('critical', true, true, true).length, 0)
   })
 })
 
@@ -473,132 +416,31 @@ describe('v2 Emergency Pathways', () => {
 })
 
 // ═══════════════════════════════════════════════
-// FORK-AND-SUNSET MIGRATION
+// FORK-AND-SUNSET MIGRATION — primitive (workflow moved to gateway)
 // ═══════════════════════════════════════════════
 
-describe('v2 Migration', () => {
-  beforeEach(() => { clearV2MigrationStores(); clearV2DelegationStore() })
-
-  it('full migration lifecycle: request → approve → execute', () => {
-    const d1 = createV2Delegation({
-      delegator: root.publicKey, delegatee: agent.publicKey,
-      scope: { action_categories: ['analysis'] },
-      policy_context: makeCtx(), delegator_private_key: root.privateKey,
-    })
-    const req = requestV2Migration({
-      source_agent: agent.publicKey, source_delegation: d1.id,
-      limitation: 'Cannot communicate with clients',
-      requested_scope_change: 'Add communication',
-      justification: 'Task requires client status updates',
-      agent_private_key: agent.privateKey, policy_context: makeCtx(),
-    })
-    assert.equal(req.status, 'pending')
-
-    approveV2Migration({
-      request_id: req.id, approver: root.publicKey, approved: true,
-      response: 'Approved for expanded role',
-      approver_private_key: root.privateKey,
-    })
-    const newAgent = generateKeyPair()
-    const newDel = createV2Delegation({
-      delegator: root.publicKey, delegatee: newAgent.publicKey,
-      scope: { action_categories: ['analysis', 'communication'] },
-      policy_context: makeCtx(), delegator_private_key: root.privateKey,
-    })
-    const migration = executeV2Migration({
-      request_id: req.id, target_agent: newAgent.publicKey,
-      target_delegation: newDel.id,
-      state_data: JSON.stringify({ tasks: ['t1'], progress: 0.6 }),
-      reputation_inheritance: 'discounted', migration_factor: 0.75,
-      approver: root.publicKey,
-      approver_private_key: root.privateKey,
-      source_private_key: agent.privateKey,
-      target_private_key: newAgent.privateKey,
-      policy_context: makeCtx(),
-    })
-    assert.ok(migration.source_signature)
-    assert.ok(migration.target_signature)
-    assert.ok(migration.approver_signature)
-    assert.equal(migration.migration_factor, 0.75)
-    assert.ok(migration.probation_active)
-
-    // Probation & reputation discount
-    assert.ok(isV2InProbation(newAgent.publicKey))
-    assert.ok(!isV2InProbation(agent.publicKey))
-    assert.equal(computeV2MigrationDiscount(100, newAgent.publicKey), 75)
-    assert.equal(computeV2MigrationDiscount(100, agent.publicKey), 100)
-
-    // Lineage
-    const lineage = traceV2MigrationLineage(newAgent.publicKey)
-    assert.equal(lineage.length, 1)
-    assert.equal(lineage[0].source_agent, agent.publicKey)
+describe('v2 Migration — version-compatibility primitive', () => {
+  it('valid factors in [0,1]', () => {
+    assert.ok(isV2MigrationFactorCompatible(0))
+    assert.ok(isV2MigrationFactorCompatible(0.5))
+    assert.ok(isV2MigrationFactorCompatible(1))
   })
 
-  it('cannot execute unapproved migration', () => {
-    const req = requestV2Migration({
-      source_agent: agent.publicKey, source_delegation: 'del-x',
-      limitation: 'test', requested_scope_change: 'test',
-      justification: 'test',
-      agent_private_key: agent.privateKey, policy_context: makeCtx(),
-    })
-    assert.throws(() => {
-      executeV2Migration({
-        request_id: req.id, target_agent: 'x', target_delegation: 'y',
-        state_data: '{}', reputation_inheritance: 'full',
-        approver: root.publicKey, approver_private_key: root.privateKey,
-        source_private_key: agent.privateKey,
-        target_private_key: agent.privateKey,
-        policy_context: makeCtx(),
-      })
-    })
-  })
-
-  it('rollback during probation', () => {
-    const d1 = createV2Delegation({
-      delegator: root.publicKey, delegatee: agent.publicKey,
-      scope: { action_categories: ['analysis'] },
-      policy_context: makeCtx(), delegator_private_key: root.privateKey,
-    })
-    const req = requestV2Migration({
-      source_agent: agent.publicKey, source_delegation: d1.id,
-      limitation: 'test', requested_scope_change: 'test',
-      justification: 'test rollback scenario',
-      agent_private_key: agent.privateKey, policy_context: makeCtx(),
-    })
-    approveV2Migration({
-      request_id: req.id, approver: root.publicKey, approved: true,
-      response: 'ok', approver_private_key: root.privateKey,
-    })
-    const rbAgent = generateKeyPair()
-    const rbDel = createV2Delegation({
-      delegator: root.publicKey, delegatee: rbAgent.publicKey,
-      scope: { action_categories: ['analysis', 'test'] },
-      policy_context: makeCtx(), delegator_private_key: root.privateKey,
-    })
-    const migration = executeV2Migration({
-      request_id: req.id, target_agent: rbAgent.publicKey,
-      target_delegation: rbDel.id, state_data: '{"test":true}',
-      reputation_inheritance: 'probationary',
-      approver: root.publicKey, approver_private_key: root.privateKey,
-      source_private_key: agent.privateKey,
-      target_private_key: rbAgent.privateKey,
-      policy_context: makeCtx(),
-    })
-    const rolled = rollbackV2Migration(migration.id, 'Poor performance')
-    assert.equal(rolled.status, 'rolled_back')
-    assert.ok(!rolled.probation_active)
+  it('rejects out-of-range factors', () => {
+    assert.ok(!isV2MigrationFactorCompatible(-0.01))
+    assert.ok(!isV2MigrationFactorCompatible(1.01))
+    assert.ok(!isV2MigrationFactorCompatible(Number.NaN))
+    assert.ok(!isV2MigrationFactorCompatible(Number.POSITIVE_INFINITY))
   })
 })
 
 // ═══════════════════════════════════════════════
-// CONTEXTUAL ATTESTATION
+// CONTEXTUAL ATTESTATION — primitives (ledger moved to gateway)
 // ═══════════════════════════════════════════════
 
-describe('v2 Contextual Attestation', () => {
-  beforeEach(() => clearV2AttestationStore())
-
-  it('creates full attestation with quality analysis', () => {
-    const att = createV2Attestation({
+describe('v2 Contextual Attestation — signing + quality primitives', () => {
+  it('signs full attestation with quality analysis', () => {
+    const att = signAttestation({
       action_id: 'att-act-001', agent_id: agent.publicKey,
       delegation_ref: 'del-1',
       context_understanding: 'Client requested updated Q3 analysis after unexpected revenue shortfall. Market shifted significantly.',
@@ -632,7 +474,7 @@ describe('v2 Contextual Attestation', () => {
 
   it('required attestation enforces minimum quality', () => {
     assert.throws(() => {
-      createV2Attestation({
+      signAttestation({
         action_id: 'att-bad', agent_id: agent.publicKey,
         delegation_ref: 'del-1',
         context_understanding: 'Short',
@@ -649,7 +491,7 @@ describe('v2 Contextual Attestation', () => {
   })
 
   it('detects boilerplate attestation', () => {
-    const att = createV2Attestation({
+    const att = signAttestation({
       action_id: 'att-boilerplate', agent_id: agent.publicKey,
       delegation_ref: 'del-1',
       context_understanding: 'A reasonably detailed context for this action to pass the minimum check',
@@ -666,58 +508,5 @@ describe('v2 Contextual Attestation', () => {
     assert.ok(!quality.has_alternatives)
     assert.ok(!quality.confidence_calibrated)
     assert.ok(quality.quality_score < 0.7)
-  })
-
-  it('retrieves attestation by action ID', () => {
-    createV2Attestation({
-      action_id: 'att-lookup', agent_id: agent.publicKey,
-      delegation_ref: 'del-1',
-      context_understanding: 'Detailed context for the lookup test scenario being executed',
-      factors_considered: ['Factor A', 'Factor B'],
-      alternatives_rejected: [],
-      expected_outcome: 'Found by action ID',
-      confidence: 0.8,
-      semantic_uncertainty: 'medium',
-      required: true,
-      policy_context: makeCtx(),
-      agent_private_key: agent.privateKey,
-    })
-    const found = getV2AttestationForAction('att-lookup')
-    assert.ok(found)
-    assert.equal(found!.action_id, 'att-lookup')
-  })
-
-  it('agent quality average tracks across attestations', () => {
-    // High quality
-    createV2Attestation({
-      action_id: 'att-q1', agent_id: agent.publicKey,
-      delegation_ref: 'del-1',
-      context_understanding: 'Thorough analysis of the situation with all relevant context provided',
-      factors_considered: ['Revenue data', 'Market trends', 'Historical precedent'],
-      alternatives_rejected: [{ alternative: 'Delay', reason: 'Deadline constraint' }],
-      expected_outcome: 'Actionable analysis',
-      confidence: 0.75,
-      semantic_uncertainty: 'medium',
-      required: true,
-      policy_context: makeCtx(),
-      agent_private_key: agent.privateKey,
-    })
-    // Low quality
-    createV2Attestation({
-      action_id: 'att-q2', agent_id: agent.publicKey,
-      delegation_ref: 'del-1',
-      context_understanding: 'Simple low-risk action context that meets minimum length requirement',
-      factors_considered: ['Speed', 'Cost'],
-      alternatives_rejected: [],
-      expected_outcome: 'Quick completion',
-      confidence: 0.99,
-      semantic_uncertainty: 'low',
-      required: false,
-      policy_context: makeCtx(),
-      agent_private_key: agent.privateKey,
-    })
-    const avg = getV2AgentAttestationQualityAvg(agent.publicKey)
-    assert.ok(avg > 0)
-    assert.ok(avg <= 1)
   })
 })

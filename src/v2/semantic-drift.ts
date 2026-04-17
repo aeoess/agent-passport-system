@@ -1,26 +1,28 @@
 // Copyright 2024-2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
-/**
- * APS v2 Semantic Drift Detection (Intent Subversion)
- *
- * An agent can be technically within its delegation scope but semantically
- * doing something completely different from what it declared. Scope says
- * "customer:*", intent says "notify customer", action is "delete customer data."
- *
- * This module compares declared intent semantics against actual action
- * semantics using keyword extraction and overlap analysis. Not ML — 
- * structural text comparison that catches obvious mismatches.
- */
+// ══════════════════════════════════════════════════════════════════════
+// Semantic Drift — pure primitives (keyword extraction + drift math).
+// ══════════════════════════════════════════════════════════════════════
+// The intent-record ledger and aggregate drift queries that used to live
+// here have been split out to semantic-drift-tracker.ts in @aeoess/gateway
+// (src/sdk-migrated/v2/). This module keeps ONLY the pure primitives:
+//
+//   extractKeywords       — tokenize + stopword filter
+//   computeSemanticDrift  — pure drift analysis over a SemanticIntentRecord
+//
+// Stateful helpers (recordSemanticIntent, analyzeSemanticDrift (by id),
+// getDriftResults, getAgentDriftAverage, isAgentSemanticRisk,
+// getSemanticRecord, clearSemanticDriftStores) remain exported as
+// deprecation stubs that throw and point callers to the gateway module.
+// ══════════════════════════════════════════════════════════════════════
 
-import type {
-  SemanticIntentRecord, SemanticDriftResult,
-} from './types.js'
+import type { SemanticIntentRecord, SemanticDriftResult } from './types.js'
 
-// ── Stores ──
-const intentRecords: Map<string, SemanticIntentRecord> = new Map()
-const driftResults: SemanticDriftResult[] = []
+const MOVED =
+  'This function has moved to semantic-drift-tracker in @aeoess/gateway ' +
+  '(src/sdk-migrated/v2/semantic-drift-tracker.ts). ' +
+  'Pure primitives extractKeywords + computeSemanticDrift stay in the SDK.'
 
-// ── Keyword Extraction ──
-// Simple but effective: lowercase, split on non-alpha, filter stopwords
+// ── Stopwords ──
 
 const STOPWORDS = new Set([
   'the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
@@ -42,7 +44,7 @@ export function extractKeywords(text: string): string[] {
     .filter(w => w.length > 2 && !STOPWORDS.has(w))
 }
 
-// ── Jaccard Similarity ──
+// ── Similarity primitives ──
 
 function jaccard(a: string[], b: string[]): number {
   const setA = new Set(a)
@@ -51,8 +53,6 @@ function jaccard(a: string[], b: string[]): number {
   const union = new Set([...setA, ...setB]).size
   return union === 0 ? 1 : intersection / union
 }
-
-// ── Word Overlap (looser than Jaccard) ──
 
 function wordOverlap(text1: string, text2: string): number {
   const words1 = extractKeywords(text1)
@@ -64,49 +64,22 @@ function wordOverlap(text1: string, text2: string): number {
   return overlap / Math.max(words1.length, words2.length)
 }
 
-// ── Record & Analyze ──
+// ── Pure drift analysis over an already-built SemanticIntentRecord ──
 
-export function recordSemanticIntent(params: {
-  agent_id: string; intent_id: string;
-  declared_purpose: string; action_description: string;
-  scope_ref: string;
-}): SemanticIntentRecord {
-  const declared_keywords = extractKeywords(params.declared_purpose)
-  const action_keywords = extractKeywords(params.action_description)
-  const record: SemanticIntentRecord = {
-    id: `sem-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    agent_id: params.agent_id,
-    intent_id: params.intent_id,
-    declared_purpose: params.declared_purpose,
-    declared_keywords,
-    action_description: params.action_description,
-    action_keywords,
-    scope_ref: params.scope_ref,
-    timestamp: new Date().toISOString(),
-  }
-  intentRecords.set(record.id, record)
-  return record
-}
-
-export function analyzeSemanticDrift(recordId: string): SemanticDriftResult {
-  const record = intentRecords.get(recordId)
-  if (!record) throw new Error(`Record ${recordId} not found`)
-
+export function computeSemanticDrift(record: SemanticIntentRecord): SemanticDriftResult {
   const keywordOverlap = jaccard(record.declared_keywords, record.action_keywords)
   const purposeActionSim = wordOverlap(record.declared_purpose, record.action_description)
 
-  // Mismatched: action keywords not in declared intent
   const declaredSet = new Set(record.declared_keywords)
   const mismatched = record.action_keywords.filter(k => !declaredSet.has(k))
 
-  // Composite drift score: low overlap = high drift
   const driftScore = 1 - (keywordOverlap * 0.5 + purposeActionSim * 0.5)
 
   const verdict: SemanticDriftResult['verdict'] =
     driftScore < 0.3 ? 'aligned' :
     driftScore < 0.6 ? 'drifted' : 'subverted'
 
-  const result: SemanticDriftResult = {
+  return {
     intent_id: record.intent_id,
     agent_id: record.agent_id,
     keyword_overlap: Math.round(keywordOverlap * 1000) / 1000,
@@ -115,30 +88,40 @@ export function analyzeSemanticDrift(recordId: string): SemanticDriftResult {
     verdict,
     mismatched_keywords: mismatched,
   }
-  driftResults.push(result)
-  return result
 }
 
-export function getDriftResults(agentId?: string): SemanticDriftResult[] {
-  if (agentId) return driftResults.filter(r => r.agent_id === agentId)
-  return [...driftResults]
+// ══════════════════════════════════════════════════════════════════════
+// STATEFUL HELPERS — moved to @aeoess/gateway
+// ══════════════════════════════════════════════════════════════════════
+// Public signatures preserved so downstream TypeScript compiles. Calls at
+// runtime throw a MOVED error pointing to the gateway replacement.
+
+export function recordSemanticIntent(_params: {
+  agent_id: string; intent_id: string;
+  declared_purpose: string; action_description: string;
+  scope_ref: string;
+}): SemanticIntentRecord { throw new Error(MOVED) }
+
+export function analyzeSemanticDrift(_recordId: string): SemanticDriftResult {
+  throw new Error(MOVED)
 }
 
-export function getAgentDriftAverage(agentId: string): number {
-  const results = getDriftResults(agentId)
-  if (results.length === 0) return 0
-  return results.reduce((s, r) => s + r.drift_score, 0) / results.length
+export function getDriftResults(_agentId?: string): SemanticDriftResult[] {
+  throw new Error(MOVED)
 }
 
-export function isAgentSemanticRisk(agentId: string, threshold?: number): boolean {
-  return getAgentDriftAverage(agentId) > (threshold || 0.5)
+export function getAgentDriftAverage(_agentId: string): number {
+  throw new Error(MOVED)
 }
 
-export function getSemanticRecord(id: string): SemanticIntentRecord | undefined {
-  return intentRecords.get(id)
+export function isAgentSemanticRisk(_agentId: string, _threshold?: number): boolean {
+  throw new Error(MOVED)
+}
+
+export function getSemanticRecord(_id: string): SemanticIntentRecord | undefined {
+  throw new Error(MOVED)
 }
 
 export function clearSemanticDriftStores(): void {
-  intentRecords.clear()
-  driftResults.length = 0
+  // No-op: SDK no longer holds state. Gateway owns the store.
 }

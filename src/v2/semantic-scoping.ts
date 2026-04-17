@@ -1,13 +1,18 @@
 // Copyright 2024-2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
-/**
- * APS v2 Semantic Scoping (Section 4)
- *
- * V2ScopeDefinition has semantic_boundaries but nothing enforces them.
- * This module validates actions against semantic constraints at runtime.
- * Not just "may send emails" but "may send emails that don't contain
- * financial projections and don't contact anyone outside approved list."
- */
-
+// ══════════════════════════════════════════════════════════════════════
+// Semantic Scoping — pure constraint-check primitive.
+// ══════════════════════════════════════════════════════════════════════
+// The scope registry and violation ledger that used to live here have
+// been split out to scope-violations.ts in @aeoess/gateway
+// (src/sdk-migrated/v2/). This module keeps ONLY:
+//
+//   SemanticConstraint, SemanticScope, ScopeViolation   (types)
+//   evaluateSemanticConstraints                         (pure check)
+//
+// Stateful helpers (defineSemanticScope, checkSemanticCompliance,
+// getScopeViolations, clearSemanticScopingStores) remain exported as
+// deprecation stubs that throw and point callers to the gateway module.
+// ══════════════════════════════════════════════════════════════════════
 
 export interface SemanticConstraint {
   field: string
@@ -33,28 +38,23 @@ export interface ScopeViolation {
   created_at: string
 }
 
-const scopes: Map<string, SemanticScope> = new Map()
-const violations: ScopeViolation[] = []
+const MOVED =
+  'This function has moved to scope-violations in @aeoess/gateway ' +
+  '(src/sdk-migrated/v2/scope-violations.ts). ' +
+  'Pure primitive evaluateSemanticConstraints stays in the SDK.'
 
-export function defineSemanticScope(params: {
-  delegation_id: string; base_action: string; constraints: SemanticConstraint[];
-}): SemanticScope {
-  const s: SemanticScope = {
-    id: `semscope-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    delegation_id: params.delegation_id,
-    base_action: params.base_action,
-    constraints: params.constraints,
-    created_at: new Date().toISOString(),
-  }
-  scopes.set(s.id, s)
-  return s
-}
+// ══════════════════════════════════════
+// PURE CONSTRAINT EVALUATION
+// ══════════════════════════════════════
 
-export function checkSemanticCompliance(
-  scopeId: string, agentId: string, actionMetadata: Record<string, string>
+/**
+ * Evaluates a SemanticScope's constraints against an action's metadata.
+ * Pure: does not read from or write to any registry. Callers own the
+ * scope lookup and the violation ledger.
+ */
+export function evaluateSemanticConstraints(
+  scope: SemanticScope, agentId: string, actionMetadata: Record<string, string>,
 ): { compliant: boolean; violations: ScopeViolation[] } {
-  const scope = scopes.get(scopeId)
-  if (!scope) throw new Error(`Scope ${scopeId} not found`)
   const found: ScopeViolation[] = []
 
   for (const c of scope.constraints) {
@@ -69,12 +69,13 @@ export function checkSemanticCompliance(
           violated = true; detail = `Field "${c.field}" must include one of [${values.join(', ')}]`
         }
         break
-      case 'must_exclude':
+      case 'must_exclude': {
         const excludeMatch = values.find(v => fieldValue.toLowerCase().includes(v.toLowerCase()))
         if (excludeMatch) {
           violated = true; detail = `Field "${c.field}" must not contain "${excludeMatch}"`
         }
         break
+      }
       case 'must_match':
         if (!values.includes(fieldValue)) {
           violated = true; detail = `Field "${c.field}" must be one of [${values.join(', ')}], got "${fieldValue}"`
@@ -88,24 +89,34 @@ export function checkSemanticCompliance(
     }
 
     if (violated) {
-      const v: ScopeViolation = {
+      found.push({
         id: `scopeviol-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        scope_id: scopeId, agent_id: agentId,
+        scope_id: scope.id, agent_id: agentId,
         action_description: JSON.stringify(actionMetadata),
         violated_constraint: c, violation_detail: detail,
         created_at: new Date().toISOString(),
-      }
-      found.push(v)
-      violations.push(v)
+      })
     }
   }
   return { compliant: found.length === 0, violations: found }
 }
 
-export function getScopeViolations(agentId?: string): ScopeViolation[] {
-  return agentId ? violations.filter(v => v.agent_id === agentId) : [...violations]
+// ══════════════════════════════════════════════════════════════════════
+// STATEFUL HELPERS — moved to @aeoess/gateway
+// ══════════════════════════════════════════════════════════════════════
+
+export function defineSemanticScope(_params: {
+  delegation_id: string; base_action: string; constraints: SemanticConstraint[];
+}): SemanticScope { throw new Error(MOVED) }
+
+export function checkSemanticCompliance(
+  _scopeId: string, _agentId: string, _actionMetadata: Record<string, string>,
+): { compliant: boolean; violations: ScopeViolation[] } { throw new Error(MOVED) }
+
+export function getScopeViolations(_agentId?: string): ScopeViolation[] {
+  throw new Error(MOVED)
 }
 
 export function clearSemanticScopingStores(): void {
-  scopes.clear(); violations.length = 0
+  // No-op: SDK no longer holds state. Gateway owns the store.
 }

@@ -1,34 +1,51 @@
 // Copyright 2024-2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
-/**
- * APS v2 Fork-and-Sunset Migration
- * State freeze → fork → handover → reputation inheritance → sunset
- * No agent ever expands its own permissions. System evolves through controlled reincarnation.
- */
+// ══════════════════════════════════════════════════════════════════════
+// Migration v2 — primitive shapes only (types + version-compat predicate).
+// ══════════════════════════════════════════════════════════════════════
+// The fork-and-sunset lifecycle workflow (request store, migration store,
+// approval state machine, probation tracking, lineage queries) has been
+// split out to migration-workflow.ts in @aeoess/gateway
+// (src/sdk-migrated/v2/). This module keeps ONLY:
+//
+//   MigrationRequest / MigrationRecord   (types — in src/v2/types.ts)
+//   isV2MigrationFactorCompatible        (pure version-compat predicate)
+//
+// Stateful helpers (requestV2Migration, approveV2Migration,
+// executeV2Migration, rollbackV2Migration, processV2CompletedProbations,
+// isV2InProbation, computeV2MigrationDiscount, traceV2MigrationLineage,
+// getV2MigrationRequest, getV2MigrationRecord, getV2MigrationsForAgent,
+// getV2ActiveProbations, clearV2MigrationStores) remain exported as
+// deprecation stubs that throw and point callers to the gateway module.
+// ══════════════════════════════════════════════════════════════════════
 
-import { v4 as uuidv4 } from 'uuid'
-import { signObject, hashObject } from './bridge.js'
 import type {
   PolicyContext, ReputationInheritance,
+  MigrationRequest, MigrationRecord,
 } from './types.js'
-import type { MigrationRequest, MigrationRecord } from './types.js'
 
-const requestStore: Map<string, MigrationRequest> = new Map()
-const migrationStore: Map<string, MigrationRecord> = new Map()
+const MOVED =
+  'This function has moved to migration-workflow in @aeoess/gateway ' +
+  '(src/sdk-migrated/v2/migration-workflow.ts). ' +
+  'Migration types stay in src/v2/types.ts; SDK retains only the ' +
+  'version-compatibility predicate.'
 
-export function getV2MigrationRequest(id: string) { return requestStore.get(id) }
-export function getV2MigrationRecord(id: string) { return migrationStore.get(id) }
-export function getV2MigrationsForAgent(agentId: string) {
-  return Array.from(migrationStore.values()).filter(m =>
-    m.source_agent === agentId || m.target_agent === agentId
-  )
+// ══════════════════════════════════════
+// PURE VERSION-COMPATIBILITY PREDICATE
+// ══════════════════════════════════════
+
+/**
+ * Pure: a migration factor is valid iff in [0, 1]. Callers use this to
+ * check migration receipts before honoring them.
+ */
+export function isV2MigrationFactorCompatible(factor: number): boolean {
+  return Number.isFinite(factor) && factor >= 0 && factor <= 1
 }
-export function getV2ActiveProbations() {
-  return Array.from(migrationStore.values()).filter(m => m.probation_active)
-}
 
-// ── Request Migration ──
+// ══════════════════════════════════════════════════════════════════════
+// STATEFUL HELPERS — moved to @aeoess/gateway
+// ══════════════════════════════════════════════════════════════════════
 
-export function requestV2Migration(params: {
+export function requestV2Migration(_params: {
   source_agent: string
   source_delegation: string
   limitation: string
@@ -36,53 +53,14 @@ export function requestV2Migration(params: {
   justification: string
   agent_private_key: string
   policy_context: PolicyContext
-}): MigrationRequest {
-  if (!params.limitation?.trim()) throw new Error('Limitation description required')
-  if (!params.justification?.trim()) throw new Error('Justification required')
-  const data = {
-    id: uuidv4(), source_agent: params.source_agent,
-    source_delegation: params.source_delegation,
-    limitation: params.limitation, requested_scope_change: params.requested_scope_change,
-    justification: params.justification, policy_context: params.policy_context,
-    status: 'pending' as const,
-    approver_response: null, approver_signature: null,
-    created_at: new Date().toISOString(),
-  }
-  const sig = signObject(data as Record<string, unknown>, params.agent_private_key)
-  const req: MigrationRequest = { ...data, agent_signature: sig }
-  requestStore.set(req.id, req)
-  return req
-}
+}): MigrationRequest { throw new Error(MOVED) }
 
-// ── Approve/Deny ──
-
-export function approveV2Migration(params: {
+export function approveV2Migration(_params: {
   request_id: string; approver: string; approved: boolean
   response: string; approver_private_key: string
-}): MigrationRequest {
-  const req = requestStore.get(params.request_id)
-  if (!req) throw new Error(`Request ${params.request_id} not found`)
-  if (req.status !== 'pending') throw new Error(`Already ${req.status}`)
-  const respData = {
-    request_id: params.request_id, approved: params.approved,
-    response: params.response, responded_at: new Date().toISOString(),
-  }
-  const sig = signObject(respData as Record<string, unknown>, params.approver_private_key)
-  const updated: MigrationRequest = {
-    ...req, status: params.approved ? 'approved' : 'denied',
-    approver_response: params.response, approver_signature: sig,
-  }
-  requestStore.set(updated.id, updated)
-  return updated
-}
+}): MigrationRequest { throw new Error(MOVED) }
 
-// ── Execute Migration ──
-
-function parseDays(d: string): number {
-  const m = d.match(/P(\d+)D/i); return m ? parseInt(m[1]) : 30
-}
-
-export function executeV2Migration(params: {
+export function executeV2Migration(_params: {
   request_id: string
   target_agent: string
   target_delegation: string
@@ -95,95 +73,38 @@ export function executeV2Migration(params: {
   source_private_key: string
   target_private_key: string
   policy_context: PolicyContext
-}): MigrationRecord {
-  const req = requestStore.get(params.request_id)
-  if (!req) throw new Error(`Request ${params.request_id} not found`)
-  if (req.status !== 'approved') throw new Error('Must be approved first')
-  if (!params.state_data) throw new Error('State data required')
-  const factor = params.migration_factor ?? 0.75
-  if (factor < 0 || factor > 1) throw new Error('Migration factor must be 0-1')
-  const probDur = params.probation_duration || 'P30D'
-  const now = new Date()
-  const probEnds = new Date(now)
-  probEnds.setDate(probEnds.getDate() + parseDays(probDur))
+}): MigrationRecord { throw new Error(MOVED) }
 
-  const stateHash = hashObject({ state: params.state_data } as Record<string, unknown>)
-  const data: Record<string, unknown> = {
-    id: uuidv4(), source_agent: req.source_agent,
-    source_delegation: req.source_delegation,
-    target_agent: params.target_agent, target_delegation: params.target_delegation,
-    state_hash: stateHash, state_size: Buffer.byteLength(params.state_data, 'utf-8'),
-    reputation_inheritance: params.reputation_inheritance,
-    migration_factor: factor, probation_duration: probDur,
-    probation_ends_at: probEnds.toISOString(), probation_active: true,
-    justification: req.justification, request_ref: req.id,
-    approver: params.approver, policy_context: params.policy_context,
-    assurance_class: 'evidentially_auditable',
-    created_at: now.toISOString(), status: 'active',
-  }
-  const approverSig = signObject(data, params.approver_private_key)
-  const sourceSig = signObject(data, params.source_private_key)
-  const targetSig = signObject(data, params.target_private_key)
-  const record: MigrationRecord = {
-    ...data, approver_signature: approverSig,
-    source_signature: sourceSig, target_signature: targetSig,
-  } as MigrationRecord
-  migrationStore.set(record.id, record)
-  return record
+export function isV2InProbation(_agentId: string): boolean { throw new Error(MOVED) }
+
+export function computeV2MigrationDiscount(_rawRep: number, _agentId: string): number {
+  throw new Error(MOVED)
 }
 
-// ── Probation & Reputation ──
-
-export function isV2InProbation(agentId: string): boolean {
-  return getV2MigrationsForAgent(agentId).some(
-    m => m.target_agent === agentId && m.probation_active
-  )
+export function traceV2MigrationLineage(_agentId: string): MigrationRecord[] {
+  throw new Error(MOVED)
 }
 
-export function computeV2MigrationDiscount(rawRep: number, agentId: string): number {
-  const asTarget = getV2MigrationsForAgent(agentId)
-    .filter(m => m.target_agent === agentId)
-  if (asTarget.length === 0) return rawRep
-  const latest = asTarget.sort((a, b) =>
-    new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-  )[0]
-  return rawRep * latest.migration_factor
+export function rollbackV2Migration(_migrationId: string, _reason: string): MigrationRecord {
+  throw new Error(MOVED)
 }
 
-export function traceV2MigrationLineage(agentId: string): MigrationRecord[] {
-  const lineage: MigrationRecord[] = []
-  let current = agentId
-  while (true) {
-    const asTarget = Array.from(migrationStore.values()).find(m => m.target_agent === current)
-    if (!asTarget) break
-    lineage.unshift(asTarget)
-    current = asTarget.source_agent
-  }
-  return lineage
+export function processV2CompletedProbations(): string[] { throw new Error(MOVED) }
+
+export function getV2MigrationRequest(_id: string): MigrationRequest | undefined {
+  throw new Error(MOVED)
 }
 
-export function rollbackV2Migration(migrationId: string, reason: string): MigrationRecord {
-  const r = migrationStore.get(migrationId)
-  if (!r) throw new Error(`Migration ${migrationId} not found`)
-  if (!r.probation_active) throw new Error('Can only rollback during probation')
-  const updated = { ...r, status: 'rolled_back' as const, probation_active: false }
-  migrationStore.set(migrationId, updated)
-  return updated
+export function getV2MigrationRecord(_id: string): MigrationRecord | undefined {
+  throw new Error(MOVED)
 }
 
-export function processV2CompletedProbations(): string[] {
-  const now = new Date()
-  const completed: string[] = []
-  for (const [id, r] of migrationStore) {
-    if (r.probation_active && now > new Date(r.probation_ends_at)) {
-      migrationStore.set(id, { ...r, probation_active: false, status: 'probation_complete' as const })
-      completed.push(id)
-    }
-  }
-  return completed
+export function getV2MigrationsForAgent(_agentId: string): MigrationRecord[] {
+  throw new Error(MOVED)
 }
+
+export function getV2ActiveProbations(): MigrationRecord[] { throw new Error(MOVED) }
 
 export function clearV2MigrationStores(): void {
-  requestStore.clear()
-  migrationStore.clear()
+  // No-op: SDK no longer holds state. Gateway owns the stores.
 }

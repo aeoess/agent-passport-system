@@ -1,9 +1,20 @@
 // Copyright 2024-2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
-/**
- * APS v2 Contextual Attestation
- * Pre-action reasoning records. Required for medium+ risk.
- * Clinical note to the action's prescription.
- */
+// ══════════════════════════════════════════════════════════════════════
+// Attestation v2 — pure primitives (signing + quality scoring).
+// ══════════════════════════════════════════════════════════════════════
+// The attestation store and per-agent aggregate queries that used to live
+// here have been split out to attestation-ledger.ts in @aeoess/gateway
+// (src/sdk-migrated/v2/). This module keeps ONLY:
+//
+//   signAttestation                 — pure signed-record constructor
+//   assessV2AttestationQuality      — pure quality predicate over a record
+//
+// Stateful helpers (createV2Attestation, getV2Attestation,
+// getV2AttestationForAction, getV2AttestationsForAgent,
+// getV2AgentAttestationQualityAvg, clearV2AttestationStore) remain
+// exported as deprecation stubs that throw and point callers to the
+// gateway module.
+// ══════════════════════════════════════════════════════════════════════
 
 import { v4 as uuidv4 } from 'uuid'
 import { signObject } from './bridge.js'
@@ -12,17 +23,21 @@ import type {
   AlternativeRejected, ContextualAttestation, AttestationQuality,
 } from './types.js'
 
-const attestationStore: Map<string, ContextualAttestation> = new Map()
+const MOVED =
+  'This function has moved to attestation-ledger in @aeoess/gateway ' +
+  '(src/sdk-migrated/v2/attestation-ledger.ts). ' +
+  'Pure primitives signAttestation + assessV2AttestationQuality stay in the SDK.'
 
-export function getV2Attestation(id: string) { return attestationStore.get(id) }
-export function getV2AttestationForAction(actionId: string) {
-  return Array.from(attestationStore.values()).find(a => a.action_id === actionId)
-}
-export function getV2AttestationsForAgent(agentId: string) {
-  return Array.from(attestationStore.values()).filter(a => a.agent_id === agentId)
-}
+// ══════════════════════════════════════
+// SIGNING PRIMITIVE
+// ══════════════════════════════════════
 
-export function createV2Attestation(params: {
+/**
+ * Pure: validates required fields, signs the attestation record, and
+ * returns it. Does not store. Gateway's createV2Attestation wraps this
+ * with the attestation ledger.
+ */
+export function signAttestation(params: {
   action_id: string
   agent_id: string
   delegation_ref: string
@@ -65,12 +80,12 @@ export function createV2Attestation(params: {
     created_at: new Date().toISOString(),
   }
   const sig = signObject(data, params.agent_private_key)
-  const att = { ...data, signature: sig } as ContextualAttestation
-  attestationStore.set(att.id, att)
-  return att
+  return { ...data, signature: sig } as ContextualAttestation
 }
 
-// ── Quality Analysis ──
+// ══════════════════════════════════════
+// QUALITY SCORING (pure)
+// ══════════════════════════════════════
 
 export function assessV2AttestationQuality(att: ContextualAttestation): AttestationQuality {
   const hasContext = att.context_understanding.length >= 30
@@ -89,11 +104,41 @@ export function assessV2AttestationQuality(att: ContextualAttestation): Attestat
   }
 }
 
-export function getV2AgentAttestationQualityAvg(agentId: string): number {
-  const atts = getV2AttestationsForAgent(agentId)
-  if (atts.length === 0) return 0
-  const total = atts.reduce((s, a) => s + assessV2AttestationQuality(a).quality_score, 0)
-  return Math.round((total / atts.length) * 100) / 100
+// ══════════════════════════════════════════════════════════════════════
+// STATEFUL HELPERS — moved to @aeoess/gateway
+// ══════════════════════════════════════════════════════════════════════
+
+export function createV2Attestation(_params: {
+  action_id: string
+  agent_id: string
+  delegation_ref: string
+  context_understanding: string
+  factors_considered: string[]
+  alternatives_rejected: AlternativeRejected[]
+  expected_outcome: string
+  confidence: number
+  semantic_uncertainty: SemanticUncertainty
+  required: boolean
+  policy_context: PolicyContext
+  agent_private_key: string
+}): ContextualAttestation { throw new Error(MOVED) }
+
+export function getV2Attestation(_id: string): ContextualAttestation | undefined {
+  throw new Error(MOVED)
 }
 
-export function clearV2AttestationStore(): void { attestationStore.clear() }
+export function getV2AttestationForAction(_actionId: string): ContextualAttestation | undefined {
+  throw new Error(MOVED)
+}
+
+export function getV2AttestationsForAgent(_agentId: string): ContextualAttestation[] {
+  throw new Error(MOVED)
+}
+
+export function getV2AgentAttestationQualityAvg(_agentId: string): number {
+  throw new Error(MOVED)
+}
+
+export function clearV2AttestationStore(): void {
+  // No-op: SDK no longer holds state. Gateway owns the store.
+}
