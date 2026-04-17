@@ -998,6 +998,26 @@ export type { ImportReceiptOptions, VouchReputationOptions } from './core/federa
 
 export * from './v2/index.js'
 
+// ── v2 primitives (explicit re-exports for public API discoverability) ──
+// These are protocol primitives — verification and gating logic that
+// downstream integrators (including the gateway) compose on top of.
+export {
+  verifyOnAccept, evaluateCredentialCheck, resolveCheckMode,
+} from './v2/credential-check-policy/index.js'
+export type {
+  AcceptanceStamp, CredentialCheckMode, CredentialCheckPolicy,
+  CredentialCheckResult, CredentialCheckDenialCode,
+} from './v2/credential-check-policy/index.js'
+
+export {
+  createAttributionReceipt, signAttributionConsent,
+  verifyAttributionConsent, checkArtifactCitations, receiptCore,
+} from './v2/attribution-consent/index.js'
+export type {
+  AttributionReceipt, AttributionConsentResult, ArtifactCitation,
+  CitingArtifact, CreateAttributionReceiptParams,
+} from './v2/attribution-consent/index.js'
+
 // ══════════════════════════════════════
 // Interop: qntm E2E Encrypted Relay Bridge
 // ══════════════════════════════════════
@@ -1026,9 +1046,18 @@ export * from './core/data-source-attribution.js'
 // Data Enforcement Gate + Training Attribution
 // Data Gateway (Composable: Gateway + Data Enforcement + Terms Acceptance)
 // ══════════════════════════════════════
-// All three moved to @aeoess/gateway. DataAccessDecision / DataGateway
-// interface shapes remain in stub files at src/core/ for SDK gateway.ts
-// type compatibility. See MIGRATION.md#data-lifecycle.
+// Implementations moved to @aeoess/gateway. Interface shapes remain here
+// so downstream integrators (including the gateway's own ProxyGateway)
+// can type-check config surfaces. See MIGRATION.md#data-lifecycle.
+
+export type {
+  DataAccessRequest, DataAccessDecision, DataEnforcementConfig,
+} from './core/data-enforcement.js'
+export type {
+  DataGatewayConfig, TermsAcceptance,
+} from './core/data-gateway.js'
+export { DataGateway } from './core/data-gateway.js'
+export { DataEnforcementGate } from './core/data-enforcement.js'
 
 // ══════════════════════════════════════
 // Decision Equivalence (Canonical Boundary Profiles + Comparison)
