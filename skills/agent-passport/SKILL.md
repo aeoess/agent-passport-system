@@ -1,6 +1,6 @@
 ---
 name: agent-passport-system
-description: "Enforcement and accountability layer for AI agents. Bring your own identity (did:key, did:web, SPIFFE, OAuth, did:aps). Gateway enforcement boundary, monotonic narrowing, cascade revocation, spending controls, data lifecycle, observation governance (telemetry scopes, derivation rights, behavioral memory). Use when agents need scoped delegation, trust scoring, constraint enforcement, or cryptographic audit trails. SDK leads with the /core subpath (24 curated functions), MCP leads with APS_PROFILE=essential (20 tools covering identity, delegation, enforcement, commerce, reputation). 2,764 tests. 8 framework adapters: Stripe, Composio, IBAC/Cedar, LangChain, CrewAI, MCP, A2A, Gonka. Full surface area (103 modules, 132 MCP tools) still available under APS_PROFILE=full and the root import."
+description: "Enforcement and accountability layer for AI agents. Bring your own identity (did:key, did:web, SPIFFE, OAuth, did:aps). Gateway enforcement boundary, monotonic narrowing, cascade revocation, spending controls, data lifecycle, observation governance (telemetry scopes, derivation rights, behavioral memory). Use when agents need scoped delegation, trust scoring, constraint enforcement, or cryptographic audit trails. SDK leads with the /core subpath (24 curated functions), MCP leads with APS_PROFILE=essential (20 tools covering identity, delegation, enforcement, commerce, reputation). 2,972 tests. 8 framework adapters: Stripe, Composio, IBAC/Cedar, LangChain, CrewAI, MCP, A2A, Gonka. Full surface area (123 modules, 154 MCP tools) still available under APS_PROFILE=full and the root import."
 metadata:
   clawdbot:
     emoji: "🔑"
@@ -49,7 +49,7 @@ import {
 } from 'agent-passport-system/core'
 ```
 
-Minimal MCP install (essential profile is the default; `APS_PROFILE=full` for all 132 tools):
+Minimal MCP install (essential profile is the default; `APS_PROFILE=full` for all 154 tools):
 
 ```bash
 npx agent-passport-system-mcp
@@ -91,7 +91,7 @@ npx agent-passport prove --beneficiary alice
 
 Output: Merkle root + inclusion proofs. 100K receipts provable with ~17 hashes.
 
-## MCP tools (132 total)
+## MCP tools (154 total)
 
 Setup: `npx agent-passport-system-mcp setup` (auto-configures Claude Desktop + Cursor)
 
@@ -178,10 +178,10 @@ Grade travels with the passport. Any consumer reads it without understanding sco
 - **SDK `/core` subpath**: 24 curated functions for 90% of integrations
 - **MCP `essential` profile**: 20 tools by default (identity, delegation, enforcement, commerce, reputation)
 - **Policy eval <2ms**, 403 ops/sec, 15 constraint dimensions
-- **2,764 tests** including 50 adversarial attack scenarios
+- **2,972 tests** including 50 adversarial attack scenarios
 - **Zero heavy dependencies** — Node.js crypto + uuid only
 - **Apache-2.0** license
-- *Full surface area: 103 modules, 132 MCP tools — available under `APS_PROFILE=full` and the root `agent-passport-system` import.*
+- *Full surface area: 123 modules, 154 MCP tools — available under `APS_PROFILE=full` and the root `agent-passport-system` import.*
 
 ## Links
 

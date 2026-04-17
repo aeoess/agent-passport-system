@@ -2,7 +2,7 @@
 
 [![npm version](https://img.shields.io/npm/v/agent-passport-system)](https://www.npmjs.com/package/agent-passport-system)
 [![license](https://img.shields.io/npm/l/agent-passport-system)](https://github.com/aeoess/agent-passport-system/blob/main/LICENSE)
-[![tests](https://img.shields.io/badge/tests-2910%20passing-brightgreen)](https://github.com/aeoess/agent-passport-system)
+[![tests](https://img.shields.io/badge/tests-2972%20passing-brightgreen)](https://github.com/aeoess/agent-passport-system)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18749779.svg)](https://doi.org/10.5281/zenodo.18749779)
 
 > **For AI agents:** visit [aeoess.com/llms.txt](https://aeoess.com/llms.txt) for machine-readable docs.
@@ -113,7 +113,7 @@ Coordination (task lifecycle with 9-state machine), EU AI Act compliance (signed
 
 Forward-looking governance. Published, tested, available.
 
-32 v2 constitutional modules: approval fatigue detection, epistemic isolation, blind evaluation, separation of powers, affected-party standing, circuit breakers, constitutional amendment, authority laundering audit, emergence detection.
+39 v2 constitutional modules: approval fatigue detection, epistemic isolation, blind evaluation, separation of powers, affected-party standing, circuit breakers, constitutional amendment, authority laundering audit, emergence detection.
 
 Institutional governance: charters, offices, federation, reserves, multi-party approvals.
 
@@ -127,7 +127,7 @@ npx agent-passport-system-mcp
 
 ## Numbers
 
-2,937 tests. 8 protocol layers. 11 framework adapters. Gateway evaluation under 2ms. Zero heavy dependencies. Apache-2.0.
+2,972 tests. 8 protocol layers. 11 framework adapters. Gateway evaluation under 2ms. Zero heavy dependencies. Apache-2.0.
 
 ## Papers
 
