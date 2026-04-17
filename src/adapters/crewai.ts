@@ -1,99 +1,17 @@
 // Copyright 2024-2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
 /**
- * CrewAI Adapter — wraps APS GovernanceHook for CrewAI's callback lifecycle.
+ * CrewAI Adapter — primitive mappings between CrewAI tasks and APS delegations.
  *
- * Usage:
- *   import { createCrewAIGovernance } from 'agent-passport-system'
- *   const gov = createCrewAIGovernance({ agentId, ...keys, delegationId, allowedScopes })
- *
- *   // In CrewAI task config:
- *   task = Task(
- *     description="...",
- *     callback=gov.taskCallback
- *   )
- *
- *   // Or wrap any tool call:
- *   const result = await gov.governedToolCall('search', { query: '...' }, searchTool)
+ * Pure mapping + receipt-builder layer. Stateful runtime (audit trail,
+ * spend tracking, gateway reporting) lives in the gateway — callers that
+ * need those behaviours supply them via the `onReceipt` / `onDenied` hooks.
  */
-
-import { GovernanceHook } from './governance-hook.js'
-import type { GovernanceHookConfig, ActionDescriptor, GovernanceReceipt, GovernanceResult } from './governance-hook.js'
-
-export interface CrewAITaskOutput {
-  description: string
-  result: string
-  agent: string
-}
-
-export interface CrewAIGovernance {
-  /** Use as CrewAI task callback */
-  taskCallback: (output: CrewAITaskOutput) => GovernanceReceipt
-  /** Wrap a tool call with governance */
-  governedToolCall: <T>(
-    toolName: string,
-    params: Record<string, unknown>,
-    execute: () => Promise<T>,
-    estimatedCost?: number,
-  ) => Promise<{ result: T | null; receipt: GovernanceReceipt; governance: GovernanceResult }>
-  /** Get all receipts */
-  getReceipts: () => GovernanceReceipt[]
-  /** Get the underlying hook */
-  hook: GovernanceHook
-}
-
-/**
- * Create a CrewAI governance adapter.
- * Maps CrewAI's task/tool lifecycle to APS governance.
- */
-export function createCrewAIGovernance(config: GovernanceHookConfig): CrewAIGovernance {
-  const hook = new GovernanceHook(config)
-
-  const taskCallback = (output: CrewAITaskOutput): GovernanceReceipt => {
-    const action: ActionDescriptor = {
-      type: 'crewai:task_complete',
-      target: output.description.slice(0, 100),
-      scopeRequired: 'task:execute',
-      metadata: { agent: output.agent, resultLength: output.result.length },
-    }
-    const governance = hook.beforeAction(action)
-    return hook.afterAction(governance, action, 'success', new Date().toISOString())
-  }
-
-  const governedToolCall = async <T>(
-    toolName: string,
-    params: Record<string, unknown>,
-    execute: () => Promise<T>,
-    estimatedCost?: number,
-  ) => {
-    const action: ActionDescriptor = {
-      type: `crewai:tool:${toolName}`,
-      target: toolName,
-      scopeRequired: `tool:${toolName}`,
-      metadata: params,
-      estimatedCost,
-    }
-    return hook.wrap(action, execute)
-  }
-
-  return {
-    taskCallback,
-    governedToolCall,
-    getReceipts: () => hook.getReceipts(),
-    hook,
-  }
-}
-
-
-// ══════════════════════════════════════
-// v2: Direct receipt-builder governance (IBAC pattern)
-// ══════════════════════════════════════
 
 import { scopeAuthorizes, verifyDelegation } from '../core/delegation.js'
 import { verifyPassport } from '../verification/verify.js'
 import { sign } from '../crypto/keys.js'
 import { canonicalize } from '../core/canonical.js'
 import type { Delegation, ActionReceipt, SignedPassport } from '../types/passport.js'
-import { reportReceipt, type GatewayReporterConfig } from './gateway-reporter.js'
 
 export interface CrewTask {
   description: string
@@ -106,7 +24,6 @@ export interface CrewGovernanceConfig {
   passport: SignedPassport
   delegation: Delegation
   privateKey: string
-  gateway?: GatewayReporterConfig
   onReceipt?: (r: ActionReceipt) => void
   onDenied?: (info: { task: string; agent: string; reason: string }) => void
 }
@@ -182,7 +99,6 @@ export async function governCrewTask(
     if (config.onDenied) config.onDenied({ task: task.description, agent: task.agent, reason: check.reason })
     const receipt = buildCrewReceipt(passport.passport.agentId, delegation.delegationId, privateKey, task.description, check.scope, 'failure', check.reason)
     if (config.onReceipt) config.onReceipt(receipt)
-    if (config.gateway) reportReceipt(receipt, config.gateway).catch(() => {})
     return { denied: true, reason: check.reason, receipt }
   }
 
@@ -197,10 +113,6 @@ export async function governCrewTask(
   const mainScope = crewTaskToScopes(task).join(', ')
   const receipt = buildCrewReceipt(passport.passport.agentId, delegation.delegationId, privateKey, task.description, mainScope, 'success', `Task completed with ${(task.tools || []).length} tools`)
   if (config.onReceipt) config.onReceipt(receipt)
-  if (config.gateway) {
-    reportReceipt(receipt, config.gateway).catch(() => {})
-    for (const tr of toolReceipts) { reportReceipt(tr, config.gateway).catch(() => {}) }
-  }
   for (const tr of toolReceipts) { if (config.onReceipt) config.onReceipt(tr) }
 
   return { output, receipt, toolReceipts }

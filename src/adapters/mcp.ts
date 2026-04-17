@@ -11,7 +11,6 @@ import { verifyPassport } from '../verification/verify.js'
 import { sign } from '../crypto/keys.js'
 import { canonicalize } from '../core/canonical.js'
 import type { Delegation, ActionReceipt, SignedPassport } from '../types/passport.js'
-import { reportReceipt, type GatewayReporterConfig } from './gateway-reporter.js'
 
 // ── Types ──
 
@@ -27,7 +26,6 @@ export interface MCPGovernanceConfig {
   privateKey: string
   scopePrefix?: string
   destructiveTools?: string[]
-  gateway?: GatewayReporterConfig
   onReceipt?: (r: ActionReceipt) => void
   onDenied?: (info: { tool: string; reason: string }) => void
 }
@@ -88,7 +86,6 @@ export async function governMCPToolCall(
     if (config.onDenied) config.onDenied({ tool: call.name, reason })
     const receipt = buildMCPReceipt(passport.passport.agentId, delegation.delegationId, privateKey, call.name, scope, 'failure', reason)
     if (config.onReceipt) config.onReceipt(receipt)
-    if (config.gateway) reportReceipt(receipt, config.gateway).catch(() => {})
     return { denied: true, reason, receipt }
   }
 
@@ -98,7 +95,6 @@ export async function governMCPToolCall(
     if (config.onDenied) config.onDenied({ tool: call.name, reason })
     const receipt = buildMCPReceipt(passport.passport.agentId, delegation.delegationId, privateKey, call.name, scope, 'failure', reason)
     if (config.onReceipt) config.onReceipt(receipt)
-    if (config.gateway) reportReceipt(receipt, config.gateway).catch(() => {})
     return { denied: true, reason, receipt }
   }
 
@@ -107,14 +103,12 @@ export async function governMCPToolCall(
     if (config.onDenied) config.onDenied({ tool: call.name, reason })
     const receipt = buildMCPReceipt(passport.passport.agentId, delegation.delegationId, privateKey, call.name, scope, 'failure', reason)
     if (config.onReceipt) config.onReceipt(receipt)
-    if (config.gateway) reportReceipt(receipt, config.gateway).catch(() => {})
     return { denied: true, reason, receipt }
   }
 
   const result = await execute(call.arguments)
   const receipt = buildMCPReceipt(passport.passport.agentId, delegation.delegationId, privateKey, call.name, scope, 'success', 'MCP tool executed successfully')
   if (config.onReceipt) config.onReceipt(receipt)
-  if (config.gateway) reportReceipt(receipt, config.gateway).catch(() => {})
   return { result, receipt }
 }
 

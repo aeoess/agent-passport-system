@@ -1,13 +1,15 @@
 // Copyright 2024-2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
 /**
- * Google ADK Adapter — maps ADK's GovernancePlugin pattern to APS governance.
+ * Google ADK Adapter — primitive mappings between ADK plugin contexts
+ * and APS action descriptors.
  *
  * ADK pattern: before_action(context) → action → after_action(context, result)
- * APS pattern: beforeAction(descriptor) → execute → afterAction(result) → receipt
+ *
+ * This module is a pure mapping layer. Stateful runtime (pending-intent
+ * tracking, audit trail) lives in the gateway.
  */
 
-import { GovernanceHook } from './governance-hook.js'
-import type { GovernanceHookConfig, ActionDescriptor, GovernanceResult, GovernanceReceipt } from './governance-hook.js'
+import { scopeAuthorizes } from '../core/delegation.js'
 
 export interface ADKActionContext {
   tool_name: string
@@ -16,56 +18,29 @@ export interface ADKActionContext {
   session_id?: string
 }
 
-export interface ADKGovernancePlugin {
-  before_action: (ctx: ADKActionContext) => { allowed: boolean; reason: string; intentId: string }
-  after_action: (ctx: ADKActionContext, result: unknown) => GovernanceReceipt
-  get_audit_trail: () => GovernanceReceipt[]
-  hook: GovernanceHook
+export interface ADKActionDescriptor {
+  type: string
+  target: string
+  scopeRequired: string
+  metadata: Record<string, unknown>
 }
 
-export function createADKGovernancePlugin(config: GovernanceHookConfig): ADKGovernancePlugin {
-  const hook = new GovernanceHook(config)
-  const pendingIntents = new Map<string, { governance: GovernanceResult; action: ActionDescriptor; startedAt: string }>()
-
-  const before_action = (ctx: ADKActionContext) => {
-    const action: ActionDescriptor = {
-      type: `adk:tool:${ctx.tool_name}`,
-      target: ctx.tool_name,
-      scopeRequired: `tool:${ctx.tool_name}`,
-      metadata: { agent: ctx.agent_name, session: ctx.session_id, ...ctx.tool_input },
-    }
-    const governance = hook.beforeAction(action)
-    if (governance.verdict !== 'deny') {
-      pendingIntents.set(governance.intentId, { governance, action, startedAt: new Date().toISOString() })
-    }
-    return { allowed: governance.verdict !== 'deny', reason: governance.reason, intentId: governance.intentId }
-  }
-
-
-  const after_action = (ctx: ADKActionContext, _result: unknown): GovernanceReceipt => {
-    // Find the pending intent from before_action
-    let pending = [...pendingIntents.entries()].find(([_, v]) => v.action.target === ctx.tool_name)
-    if (!pending) {
-      // No matching intent — create a standalone receipt
-      const action: ActionDescriptor = {
-        type: `adk:tool:${ctx.tool_name}`,
-        target: ctx.tool_name,
-        scopeRequired: `tool:${ctx.tool_name}`,
-        metadata: { agent: ctx.agent_name },
-      }
-      const gov = hook.beforeAction(action)
-      return hook.afterAction(gov, action, 'success', new Date().toISOString())
-    }
-
-    const [intentId, { governance, action, startedAt }] = pending
-    pendingIntents.delete(intentId)
-    return hook.afterAction(governance, action, 'success', startedAt)
-  }
-
+/** Map an ADK tool context to an APS action descriptor. */
+export function adkContextToAction(ctx: ADKActionContext): ADKActionDescriptor {
   return {
-    before_action,
-    after_action,
-    get_audit_trail: () => hook.getReceipts(),
-    hook,
+    type: `adk:tool:${ctx.tool_name}`,
+    target: ctx.tool_name,
+    scopeRequired: `tool:${ctx.tool_name}`,
+    metadata: { agent: ctx.agent_name, session: ctx.session_id, ...ctx.tool_input },
   }
+}
+
+/** Derive the APS scope string an ADK tool call requires. */
+export function adkToolToScope(toolName: string): string {
+  return `tool:${toolName}`
+}
+
+/** Check whether a delegation authorizes a given ADK tool call. */
+export function adkAuthorizes(delegationScopes: string[], toolName: string): boolean {
+  return scopeAuthorizes(delegationScopes, adkToolToScope(toolName))
 }

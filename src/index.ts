@@ -1071,28 +1071,20 @@ export * from './core/data-lifecycle.js'
 // Framework Adapters
 // ══════════════════════════════════════
 
-export { GovernanceHook } from './adapters/governance-hook.js'
-export type {
-  GovernanceHookConfig, ActionDescriptor, GovernanceVerdict,
-  GovernanceResult, GovernanceReceipt,
-} from './adapters/governance-hook.js'
+// GovernanceHook, createCrewAIGovernance, createADKGovernancePlugin,
+// createLangChainGovernanceHandler, createA2AGovernance, reportReceipt,
+// reportEvaluation — moved to @aeoess/gateway (see MIGRATION.md).
 
-export { createCrewAIGovernance } from './adapters/crewai.js'
-export type { CrewAIGovernance, CrewAITaskOutput } from './adapters/crewai.js'
 export { verifyCrewMember, governCrewTask, crewTaskToScopes } from './adapters/crewai.js'
 export type { CrewTask, CrewGovernanceConfig, GovernedTaskResult } from './adapters/crewai.js'
 
-export { createADKGovernancePlugin } from './adapters/adk.js'
-export type { ADKGovernancePlugin, ADKActionContext } from './adapters/adk.js'
+export { adkContextToAction, adkToolToScope, adkAuthorizes } from './adapters/adk.js'
+export type { ADKActionContext, ADKActionDescriptor } from './adapters/adk.js'
 
-export { createLangChainGovernanceHandler } from './adapters/langchain.js'
-export type { LangChainGovernanceHandler } from './adapters/langchain.js'
 export { governLangChainTool, createLangGraphGovernance, langchainToolToScope } from './adapters/langchain.js'
 export type { LangChainToolCall, GovernedToolResult, DeniedToolResult, LangChainGovernanceConfig } from './adapters/langchain.js'
 
-export { createA2AGovernance } from './adapters/a2a.js'
-export type { A2AGovernance } from './adapters/a2a.js'
-export { passportToA2ACard, a2aCardToPassportMeta, verifyA2AIdentity, a2aSkillsToScope, embedA2ATrustSignal } from './adapters/a2a.js'
+export { deriveA2AScopes, passportToA2ACard, a2aCardToPassportMeta, verifyA2AIdentity, a2aSkillsToScope, embedA2ATrustSignal } from './adapters/a2a.js'
 export type { A2AAgentCardV2 } from './adapters/a2a.js'
 
 export { governMCPToolCall, createMCPGovernanceInterceptor, mcpToolToScope } from './adapters/mcp.js'
@@ -1118,9 +1110,6 @@ export type {
 } from './adapters/ibac.js'
 
 export { cedarPolicyToTuples, delegationToCedarPolicy } from './adapters/ibac-cedar.js'
-
-export { reportReceipt, reportEvaluation } from './adapters/gateway-reporter.js'
-export type { GatewayReporterConfig } from './adapters/gateway-reporter.js'
 
 
 // ══════════════════════════════════════
