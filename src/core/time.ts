@@ -27,19 +27,44 @@ export const DEFAULT_NTP_DRIFT_MS = 50
  *  shorter (high-frequency probing) or longer (batch jobs) cadences. */
 export const DEFAULT_SESSION_GAP_MS = 300_000
 
-/** Logical clock counter — monotonically increasing per gateway. */
+/** Module-scope logical clock counter retained for backward compatibility
+ *  with existing callers (v2 modules, rome-phase2 tests) that don't pass
+ *  an explicit logicalTime. New code should use createHybridTimestampAt
+ *  or the gateway's LogicalClock — see
+ *  @aeoess/gateway src/sdk-migrated/core/logical-clock.ts. */
 let logicalCounter = 0
 
 /** Create a hybrid timestamp. Gateway-issued — captures both
- *  causal ordering and wall-clock uncertainty. */
+ *  causal ordering and wall-clock uncertainty.
+ *
+ *  When `logicalTime` is provided the call is fully pure. When omitted,
+ *  the SDK module counter is incremented for backward compatibility. */
 export function createHybridTimestamp(
   gatewayId: string,
   driftMs: number = DEFAULT_NTP_DRIFT_MS,
+  logicalTime?: number,
 ): HybridTimestamp {
-  logicalCounter++
+  const lt = logicalTime ?? ++logicalCounter
   const now = Date.now()
   return {
-    logicalTime: logicalCounter,
+    logicalTime: lt,
+    wallClockEarliest: now - driftMs,
+    wallClockLatest: now + driftMs,
+    gatewayId,
+  }
+}
+
+/** Pure stateless variant. Caller supplies the logical time explicitly,
+ *  letting it manage its own counter (per-gateway, per-process, or
+ *  per-tenant). The SDK module counter is not touched. */
+export function createHybridTimestampAt(
+  gatewayId: string,
+  logicalTime: number,
+  driftMs: number = DEFAULT_NTP_DRIFT_MS,
+): HybridTimestamp {
+  const now = Date.now()
+  return {
+    logicalTime,
     wallClockEarliest: now - driftMs,
     wallClockLatest: now + driftMs,
     gatewayId,

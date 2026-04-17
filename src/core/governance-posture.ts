@@ -1,16 +1,18 @@
 // ══════════════════════════════════════════════════════════════════
-// Governance Posture — Behavioral failures → structural consequences
+// Governance Posture — Tier definitions + constraint primitives
 // ══════════════════════════════════════════════════════════════════
 // Consilium Priority 5 — Gemini's framing:
 //   "behavioral failures update a governance posture tier,
 //    posture tier changes what the gateway allows by default,
 //    identity stays intact."
 //
-// Claude: "ratchet + human review to restore"
-// GPT: "one-directional monotonic narrowing"
-//
-// Decision: Posture tiers with hysteresis. Downgrade is automatic
-// after sustained failures. Upgrade requires human principal action.
+// SDK retains pure tier types, default constraint shapes, scope checks,
+// and tier ordering helpers. The downgrade/upgrade STATE MACHINE
+// (createInitialPosture, recordBehavioralFailure, recordBehavioralSuccess,
+// upgradePosture, plus DEFAULT_DOWNGRADE_POLICY) MOVED to
+// @aeoess/gateway src/sdk-migrated/core/posture-state.ts on 2026-04-17.
+// Posture state tracking is gateway product policy — the SDK only
+// describes the tiers and what they constrain.
 // ══════════════════════════════════════════════════════════════════
 
 /** Governance posture tiers — ordered from most to least trusted.
@@ -84,7 +86,8 @@ export const DEFAULT_POSTURE_CONSTRAINTS: Record<PostureTier, PostureConstraints
   },
 }
 
-/** Agent's governance posture state */
+/** Agent's governance posture state. The SDK only defines the shape;
+ *  the state machine that mutates it lives in the gateway. */
 export interface GovernancePosture {
   /** Current posture tier */
   tier: PostureTier
@@ -108,7 +111,8 @@ export interface PostureChange {
   changedAt: string
 }
 
-/** Downgrade thresholds — how many consecutive failures trigger each level */
+/** Downgrade thresholds — how many consecutive failures trigger each level.
+ *  Default policy values live in the gateway alongside the state machine. */
 export interface PostureDowngradePolicy {
   /** Consecutive failures to go from full_trust → standard */
   fullToStandard: number
@@ -120,89 +124,7 @@ export interface PostureDowngradePolicy {
   restrictedToQuarantine: number
 }
 
-export const DEFAULT_DOWNGRADE_POLICY: PostureDowngradePolicy = {
-  fullToStandard: 3,
-  standardToCautious: 5,
-  cautiousToRestricted: 3,
-  restrictedToQuarantine: 2,
-}
-
-/** Create initial posture for a newly registered agent */
-export function createInitialPosture(tier: PostureTier = 'standard'): GovernancePosture {
-  return {
-    tier,
-    changedAt: new Date().toISOString(),
-    changedBy: 'system',
-    consecutiveFailures: 0,
-    failuresSinceChange: 0,
-    history: [],
-  }
-}
-
-/** Record a behavioral failure and check if downgrade is needed.
- *  Returns updated posture (may be downgraded). */
-export function recordBehavioralFailure(
-  posture: GovernancePosture,
-  reason: string,
-  policy: PostureDowngradePolicy = DEFAULT_DOWNGRADE_POLICY,
-): GovernancePosture {
-  const updated = { ...posture }
-  updated.consecutiveFailures++
-  updated.failuresSinceChange++
-
-  // Check if downgrade threshold reached for current tier
-  const threshold = getDowngradeThreshold(posture.tier, policy)
-  if (threshold !== null && updated.consecutiveFailures >= threshold) {
-    const nextTier = getNextLowerTier(posture.tier)
-    if (nextTier) {
-      const change: PostureChange = {
-        from: posture.tier, to: nextTier,
-        reason: `Auto-downgrade: ${updated.consecutiveFailures} consecutive failures. ${reason}`,
-        changedBy: 'system', changedAt: new Date().toISOString(),
-      }
-      updated.tier = nextTier
-      updated.changedAt = change.changedAt
-      updated.changedBy = 'system'
-      updated.consecutiveFailures = 0
-      updated.failuresSinceChange = 0
-      updated.history = [...posture.history, change]
-    }
-  }
-  return updated
-}
-
-/** Record a behavioral success — resets consecutive failure counter */
-export function recordBehavioralSuccess(posture: GovernancePosture): GovernancePosture {
-  return { ...posture, consecutiveFailures: 0 }
-}
-
-/** Manually upgrade posture — REQUIRES human principal action.
- *  Cannot skip tiers (must go one step at a time).
- *  Trust is easy to lose and hard to rebuild. */
-export function upgradePosture(
-  posture: GovernancePosture,
-  principalDid: string,
-  reason: string,
-): GovernancePosture {
-  const nextTier = getNextHigherTier(posture.tier)
-  if (!nextTier) return posture // already at full_trust
-
-  const change: PostureChange = {
-    from: posture.tier, to: nextTier,
-    reason: `Manual upgrade by ${principalDid}: ${reason}`,
-    changedBy: principalDid, changedAt: new Date().toISOString(),
-  }
-
-  return {
-    ...posture,
-    tier: nextTier,
-    changedAt: change.changedAt,
-    changedBy: principalDid,
-    consecutiveFailures: 0,
-    failuresSinceChange: 0,
-    history: [...posture.history, change],
-  }
-}
+// ── Pure constraint helpers ──
 
 /** Get the constraints for a given posture tier */
 export function getPostureConstraints(
@@ -229,29 +151,30 @@ export function comparePostureTiers(a: PostureTier, b: PostureTier): number {
   return TIER_ORDER[a] - TIER_ORDER[b]
 }
 
-// ── Internal helpers ──
+// ── Removed state-machine stubs ──
 
-const TIER_SEQUENCE: PostureTier[] = ['quarantine', 'restricted', 'cautious', 'standard', 'full_trust']
+const MIGRATED_MSG =
+  'governance-posture state machine moved to @aeoess/gateway ' +
+  'src/sdk-migrated/core/posture-state.ts (2026-04-17). ' +
+  'SDK keeps tier types, DEFAULT_POSTURE_CONSTRAINTS, getPostureConstraints, ' +
+  'isScopeBlocked, comparePostureTiers.'
 
-function getNextLowerTier(tier: PostureTier): PostureTier | null {
-  const idx = TIER_SEQUENCE.indexOf(tier)
-  return idx > 0 ? TIER_SEQUENCE[idx - 1] : null
+// Stubs preserve original signatures so consumers continue to typecheck;
+// calling them at runtime throws.
+
+export function createInitialPosture(_tier?: PostureTier): GovernancePosture {
+  throw new Error(MIGRATED_MSG)
 }
-
-function getNextHigherTier(tier: PostureTier): PostureTier | null {
-  const idx = TIER_SEQUENCE.indexOf(tier)
-  return idx < TIER_SEQUENCE.length - 1 ? TIER_SEQUENCE[idx + 1] : null
+export function recordBehavioralFailure(
+  _posture: GovernancePosture, _reason: string, _policy?: PostureDowngradePolicy,
+): GovernancePosture {
+  throw new Error(MIGRATED_MSG)
 }
-
-function getDowngradeThreshold(
-  tier: PostureTier,
-  policy: PostureDowngradePolicy,
-): number | null {
-  switch (tier) {
-    case 'full_trust': return policy.fullToStandard
-    case 'standard': return policy.standardToCautious
-    case 'cautious': return policy.cautiousToRestricted
-    case 'restricted': return policy.restrictedToQuarantine
-    case 'quarantine': return null // can't go lower
-  }
+export function recordBehavioralSuccess(_posture: GovernancePosture): GovernancePosture {
+  throw new Error(MIGRATED_MSG)
+}
+export function upgradePosture(
+  _posture: GovernancePosture, _principalDid: string, _reason: string,
+): GovernancePosture {
+  throw new Error(MIGRATED_MSG)
 }

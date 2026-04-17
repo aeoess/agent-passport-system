@@ -1,17 +1,19 @@
 // Copyright 2024-2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
 // ══════════════════════════════════════════════════════════════════
-// Layer 7 — Agentic Commerce: Implementation
+// Layer 7 — Agentic Commerce: Pure Primitives
 // ══════════════════════════════════════════════════════════════════
-// Integration with the Agentic Commerce Protocol (ACP) by OpenAI + Stripe.
+// Migrated 2026-04-17. The 6-gate orchestrator (commercePreflight) and
+// the ACP fetch wrappers (createCheckout/updateCheckout/completeCheckout/
+// cancelCheckout) moved to @aeoess/gateway as product workflow.
 //
-// Every commerce action flows through a 4-gate pipeline:
-//   1. Passport verification — is this agent who it claims to be?
-//   2. Delegation scope check — does this agent have commerce:checkout?
-//   3. Spend limit check — would this purchase exceed the cap?
-//   4. Values Floor check (F-003 Scoped Authority) — is this within policy?
+// What stays in the SDK:
+//   • Gate predicates — each pure, returning {check, passed, detail}
+//   • Receipt signing primitive (signCommerceReceipt) and verifier
+//   • Delegation factory + spend summary
+//   • Human approval request struct
+//   • extractDelegationChain helper
 //
-// Only after all 4 gates pass does the agent interact with the merchant.
-// Every completed action produces a signed CommerceActionReceipt.
+// Callers compose these themselves, or use the gateway's commerce-preflight.
 // ══════════════════════════════════════════════════════════════════
 
 import { randomBytes } from 'node:crypto'
@@ -24,10 +26,9 @@ import type { WalletChain } from '../v2/wallet-binding/types.js'
 import type { SignedPassport } from '../types/passport.js'
 import type {
   ACPCheckoutSession, ACPLineItem, ACPMoney, ACPAddress,
-  CommerceConfig, CommerceDelegation,
-  CommercePreflightResult, CommercePreflightCheck,
-  CommerceActionReceipt, HumanApprovalRequest,
-  IdempotencyStore,
+  CommerceConfig, CommerceDelegation, CommercePreflightCheck,
+  CommercePreflightResult, CommerceActionReceipt,
+  HumanApprovalRequest, IdempotencyStore,
 } from '../types/commerce.js'
 
 // ── Commerce Scopes ──
@@ -41,34 +42,105 @@ const COMMERCE_SCOPES = [
 
 type CommerceScope = typeof COMMERCE_SCOPES[number]
 
-function hasScope(delegation: CommerceDelegation, required: CommerceScope): boolean {
+export function hasCommerceScope(delegation: CommerceDelegation, required: CommerceScope): boolean {
   return scopeAuthorizes(delegation.scope, required)
 }
 
-// ── Preflight Check: 6-Gate Pipeline ──
-// Gates: passport_valid → delegation_scope → spend_limit → merchant_approved
-//      → wallet_bound (optional, only when walletRef provided) → idempotency (optional)
+// ── Gate Predicates ──
+// Each predicate is pure: same inputs → same output, no I/O, no mutation.
+// The gateway composes these into the 6-gate commercePreflight pipeline.
 
-export function commercePreflight(opts: {
-  signedPassport: SignedPassport
-  delegation: CommerceDelegation
-  merchantName: string
-  estimatedTotal: ACPMoney
-  config?: CommerceConfig
-  walletRef?: { chain: WalletChain; address: string }
-  idempotencyKey: string
-  idempotencyStore: IdempotencyStore
-  idempotencyWindowSeconds?: number
-}): Promise<CommercePreflightResult>
-export function commercePreflight(opts: {
-  signedPassport: SignedPassport
-  delegation: CommerceDelegation
-  merchantName: string
-  estimatedTotal: ACPMoney
-  config?: CommerceConfig
-  walletRef?: { chain: WalletChain; address: string }
-}): CommercePreflightResult
-export function commercePreflight(opts: {
+export function checkPassportGate(signedPassport: SignedPassport): CommercePreflightCheck {
+  const result = verifyPassport(signedPassport)
+  return {
+    check: 'passport_valid',
+    passed: result.valid,
+    detail: result.valid
+      ? `Passport verified for ${signedPassport.passport.agentId}`
+      : `Passport failed: ${result.errors.join(', ')}`,
+  }
+}
+
+export function checkScopeGate(delegation: CommerceDelegation): CommercePreflightCheck {
+  const ok = hasCommerceScope(delegation, 'commerce:checkout')
+  return {
+    check: 'delegation_scope',
+    passed: ok,
+    detail: ok
+      ? `Agent has commerce:checkout scope via delegation ${delegation.delegationId}`
+      : `Agent lacks commerce:checkout scope. Has: [${delegation.scope.join(', ')}]`,
+  }
+}
+
+export function checkSpendGate(
+  delegation: CommerceDelegation,
+  estimatedTotal: ACPMoney,
+): CommercePreflightCheck {
+  const remaining = delegation.spendLimit - delegation.spentAmount
+  const ok = estimatedTotal.amount <= remaining
+  return {
+    check: 'spend_limit',
+    passed: ok,
+    detail: ok
+      ? `Purchase ${estimatedTotal.amount} within budget (${remaining} remaining of ${delegation.spendLimit})`
+      : `Purchase ${estimatedTotal.amount} exceeds remaining budget of ${remaining} (limit: ${delegation.spendLimit}, spent: ${delegation.spentAmount})`,
+  }
+}
+
+export function checkHumanApprovalThreshold(
+  delegation: CommerceDelegation,
+  estimatedTotal: ACPMoney,
+): string | null {
+  if (!delegation.requireHumanApproval || !delegation.humanApprovalThreshold) return null
+  if (estimatedTotal.amount <= delegation.humanApprovalThreshold) return null
+  return (
+    `Purchase of ${estimatedTotal.amount} exceeds human approval threshold of ${delegation.humanApprovalThreshold}. ` +
+    `Human confirmation required.`
+  )
+}
+
+export function checkMerchantGate(
+  delegation: CommerceDelegation,
+  merchantName: string,
+): CommercePreflightCheck | null {
+  if (!delegation.approvedMerchants || delegation.approvedMerchants.length === 0) return null
+  const ok = delegation.approvedMerchants.includes(merchantName)
+  return {
+    check: 'merchant_approved',
+    passed: ok,
+    detail: ok
+      ? `Merchant "${merchantName}" is on approved list`
+      : `Merchant "${merchantName}" is NOT on approved list: [${delegation.approvedMerchants.join(', ')}]`,
+  }
+}
+
+export function checkWalletGate(
+  signedPassport: SignedPassport,
+  walletRef: { chain: WalletChain; address: string },
+): CommercePreflightCheck {
+  const bound = verifyBoundWallet(signedPassport, walletRef.chain, walletRef.address)
+  return {
+    check: 'wallet_bound',
+    passed: bound,
+    detail: bound
+      ? `Wallet ${walletRef.chain}:${walletRef.address} is bound to passport ${signedPassport.passport.agentId}`
+      : `WALLET_NOT_BOUND: ${walletRef.chain}:${walletRef.address} is not bound to passport ${signedPassport.passport.agentId}`,
+  }
+}
+
+// ── Removed Orchestrator Stubs ──
+// commercePreflight, createCheckout, updateCheckout, completeCheckout, cancelCheckout
+// moved to @aeoess/gateway src/sdk-migrated/core/commerce-preflight.ts.
+
+const MIGRATED_MSG =
+  'commerce orchestration moved to @aeoess/gateway src/sdk-migrated/core/commerce-preflight.ts. ' +
+  'Use the gate predicate helpers (checkPassportGate, checkScopeGate, checkSpendGate, ' +
+  'checkMerchantGate, checkWalletGate) plus signCommerceReceipt, or import the gateway module.'
+
+// Stubs preserve original return-type signatures so consumers continue
+// to typecheck; calling them at runtime throws.
+
+export function commercePreflight(_opts: {
   signedPassport: SignedPassport
   delegation: CommerceDelegation
   merchantName: string
@@ -78,123 +150,11 @@ export function commercePreflight(opts: {
   idempotencyKey?: string
   idempotencyStore?: IdempotencyStore
   idempotencyWindowSeconds?: number
-}): CommercePreflightResult | Promise<CommercePreflightResult> {
-  const checks: CommercePreflightCheck[] = []
-  const warnings: string[] = []
-
-  // Gate 1: Passport verification
-  const passportResult = verifyPassport(opts.signedPassport)
-  checks.push({
-    check: 'passport_valid',
-    passed: passportResult.valid,
-    detail: passportResult.valid
-      ? `Passport verified for ${opts.signedPassport.passport.agentId}`
-      : `Passport failed: ${passportResult.errors.join(', ')}`,
-  })
-
-  // Gate 2: Delegation scope
-  const hasCheckoutScope = hasScope(opts.delegation, 'commerce:checkout')
-  checks.push({
-    check: 'delegation_scope',
-    passed: hasCheckoutScope,
-    detail: hasCheckoutScope
-      ? `Agent has commerce:checkout scope via delegation ${opts.delegation.delegationId}`
-      : `Agent lacks commerce:checkout scope. Has: [${opts.delegation.scope.join(', ')}]`,
-  })
-
-  // Gate 3: Spend limit
-  const amountInBase = opts.estimatedTotal.amount
-  const remainingBudget = opts.delegation.spendLimit - opts.delegation.spentAmount
-  const withinBudget = amountInBase <= remainingBudget
-  checks.push({
-    check: 'spend_limit',
-    passed: withinBudget,
-    detail: withinBudget
-      ? `Purchase ${amountInBase} within budget (${remainingBudget} remaining of ${opts.delegation.spendLimit})`
-      : `Purchase ${amountInBase} exceeds remaining budget of ${remainingBudget} (limit: ${opts.delegation.spendLimit}, spent: ${opts.delegation.spentAmount})`,
-  })
-
-  // Gate 3b: Human approval threshold
-  if (opts.delegation.requireHumanApproval && opts.delegation.humanApprovalThreshold) {
-    if (amountInBase > opts.delegation.humanApprovalThreshold) {
-      warnings.push(
-        `Purchase of ${amountInBase} exceeds human approval threshold of ${opts.delegation.humanApprovalThreshold}. Human confirmation required.`
-      )
-    }
-  }
-
-  // Gate 4: Merchant allowlist (if configured)
-  if (opts.delegation.approvedMerchants && opts.delegation.approvedMerchants.length > 0) {
-    const merchantApproved = opts.delegation.approvedMerchants.includes(opts.merchantName)
-    checks.push({
-      check: 'merchant_approved',
-      passed: merchantApproved,
-      detail: merchantApproved
-        ? `Merchant "${opts.merchantName}" is on approved list`
-        : `Merchant "${opts.merchantName}" is NOT on approved list: [${opts.delegation.approvedMerchants.join(', ')}]`,
-    })
-  }
-
-  // Gate 5: Wallet binding (only when the action references a specific wallet)
-  // Existing 5-gate flows that don't pass walletRef are unaffected.
-  if (opts.walletRef) {
-    const isBound = verifyBoundWallet(
-      opts.signedPassport,
-      opts.walletRef.chain,
-      opts.walletRef.address
-    )
-    checks.push({
-      check: 'wallet_bound',
-      passed: isBound,
-      detail: isBound
-        ? `Wallet ${opts.walletRef.chain}:${opts.walletRef.address} is bound to passport ${opts.signedPassport.passport.agentId}`
-        : `WALLET_NOT_BOUND: ${opts.walletRef.chain}:${opts.walletRef.address} is not bound to passport ${opts.signedPassport.passport.agentId}`,
-    })
-  }
-
-  // Gate 6: Idempotency check (async, only if key + store provided)
-  if (opts.idempotencyKey && opts.idempotencyStore) {
-    const windowSeconds = opts.idempotencyWindowSeconds ?? 300
-    return opts.idempotencyStore.check(opts.idempotencyKey, windowSeconds).then(result => {
-      if (result.duplicate) {
-        checks.push({
-          check: 'idempotency',
-          passed: false,
-          detail: `Duplicate operation within ${windowSeconds}s window (existing receipt: ${result.existingReceiptId})`,
-        })
-      } else {
-        checks.push({
-          check: 'idempotency',
-          passed: true,
-          detail: `No duplicate found for idempotency key`,
-        })
-      }
-
-      const permitted = checks.every(c => c.passed)
-      return {
-        permitted,
-        checks,
-        delegation: opts.delegation,
-        warnings,
-        blockedReason: permitted ? undefined : checks.find(c => !c.passed)?.detail,
-        existingReceiptId: result.duplicate ? result.existingReceiptId : undefined,
-      }
-    })
-  }
-
-  const permitted = checks.every(c => c.passed)
-  return {
-    permitted,
-    checks,
-    delegation: opts.delegation,
-    warnings,
-    blockedReason: permitted ? undefined : checks.find(c => !c.passed)?.detail,
-  }
+}): CommercePreflightResult {
+  throw new Error(MIGRATED_MSG)
 }
 
-// ── ACP Client: Create Checkout Session ──
-
-export async function createCheckout(opts: {
+export function createCheckout(_opts: {
   signedPassport: SignedPassport
   delegation: CommerceDelegation
   config: CommerceConfig
@@ -203,62 +163,10 @@ export async function createCheckout(opts: {
   fulfillmentAddress?: ACPAddress
   privateKey: string
 }): Promise<{ session: ACPCheckoutSession; receipt: CommerceActionReceipt }> {
-  // Run preflight — estimate total as 0 for creation (real total comes from merchant)
-  const preflight = commercePreflight({
-    signedPassport: opts.signedPassport,
-    delegation: opts.delegation,
-    merchantName: opts.config.merchantName,
-    estimatedTotal: { amount: 0, currency: opts.delegation.currency },
-  })
-
-  if (!preflight.permitted) {
-    throw new Error(`Commerce preflight DENIED: ${preflight.blockedReason}`)
-  }
-
-  // Build ACP CreateCheckoutRequest
-  const requestBody = {
-    items: opts.items.map(i => ({ sku_id: i.skuId, quantity: i.quantity })),
-    ...(opts.customer && { customer: opts.customer }),
-    ...(opts.fulfillmentAddress && { fulfillment_address: opts.fulfillmentAddress }),
-  }
-
-  // Call merchant endpoint
-  const url = `${opts.config.merchantBaseUrl}/checkout_sessions`
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(opts.config.bearerToken && { 'Authorization': `Bearer ${opts.config.bearerToken}` }),
-    },
-    body: JSON.stringify(requestBody),
-  })
-
-  if (!response.ok) {
-    throw new Error(`ACP CreateCheckout failed: ${response.status} ${response.statusText}`)
-  }
-
-  const session: ACPCheckoutSession = await response.json() as ACPCheckoutSession
-
-  // Generate signed receipt
-  const receipt = signCommerceReceipt({
-    agentId: opts.signedPassport.passport.agentId,
-    delegationId: opts.delegation.delegationId,
-    actionType: 'commerce:create_checkout',
-    target: url,
-    method: 'POST',
-    session,
-    merchantName: opts.config.merchantName,
-    delegationChain: extractDelegationChain(opts.signedPassport),
-    beneficiary: opts.signedPassport.passport.metadata?.beneficiaryPrincipalId as string || 'unknown',
-    privateKey: opts.privateKey,
-  })
-
-  return { session, receipt }
+  throw new Error(MIGRATED_MSG)
 }
 
-// ── ACP Client: Update Checkout Session ──
-
-export async function updateCheckout(opts: {
+export function updateCheckout(_opts: {
   signedPassport: SignedPassport
   delegation: CommerceDelegation
   config: CommerceConfig
@@ -270,169 +178,29 @@ export async function updateCheckout(opts: {
   }
   privateKey: string
 }): Promise<{ session: ACPCheckoutSession; receipt: CommerceActionReceipt }> {
-  const url = `${opts.config.merchantBaseUrl}/checkout_sessions/${opts.sessionId}`
-  const response = await fetch(url, {
-    method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(opts.config.bearerToken && { 'Authorization': `Bearer ${opts.config.bearerToken}` }),
-    },
-    body: JSON.stringify({
-      ...(opts.updates.items && { items: opts.updates.items }),
-      ...(opts.updates.fulfillmentAddress && { fulfillment_address: opts.updates.fulfillmentAddress }),
-      ...(opts.updates.fulfillmentOptionId && { fulfillment_option_id: opts.updates.fulfillmentOptionId }),
-    }),
-  })
-
-  if (!response.ok) {
-    throw new Error(`ACP UpdateCheckout failed: ${response.status} ${response.statusText}`)
-  }
-
-  const session: ACPCheckoutSession = await response.json() as ACPCheckoutSession
-
-  const receipt = signCommerceReceipt({
-    agentId: opts.signedPassport.passport.agentId,
-    delegationId: opts.delegation.delegationId,
-    actionType: 'commerce:update_checkout',
-    target: url,
-    method: 'PUT',
-    session,
-    merchantName: opts.config.merchantName,
-    delegationChain: extractDelegationChain(opts.signedPassport),
-    beneficiary: opts.signedPassport.passport.metadata?.beneficiaryPrincipalId as string || 'unknown',
-    privateKey: opts.privateKey,
-  })
-
-  return { session, receipt }
+  throw new Error(MIGRATED_MSG)
 }
 
-// ── ACP Client: Complete Checkout (Payment) ──
-
-export async function completeCheckout(opts: {
+export function completeCheckout(_opts: {
   signedPassport: SignedPassport
   delegation: CommerceDelegation
   config: CommerceConfig
   sessionId: string
-  paymentToken: string         // SharedPaymentToken from Stripe
+  paymentToken: string
   paymentMethod?: string
   privateKey: string
 }): Promise<{ session: ACPCheckoutSession; receipt: CommerceActionReceipt; spendUpdated: CommerceDelegation }> {
-  // Re-run preflight with actual total — fetch current session first
-  const getUrl = `${opts.config.merchantBaseUrl}/checkout_sessions/${opts.sessionId}`
-  const getResponse = await fetch(getUrl, {
-    headers: opts.config.bearerToken ? { 'Authorization': `Bearer ${opts.config.bearerToken}` } : {},
-  })
-
-  if (!getResponse.ok) {
-    throw new Error(`ACP GetCheckout failed: ${getResponse.status}`)
-  }
-
-  const currentSession: ACPCheckoutSession = await getResponse.json() as ACPCheckoutSession
-  const total = currentSession.totals.total
-
-  // Final preflight with real amount
-  const preflight = commercePreflight({
-    signedPassport: opts.signedPassport,
-    delegation: opts.delegation,
-    merchantName: opts.config.merchantName,
-    estimatedTotal: total,
-  })
-
-  if (!preflight.permitted) {
-    throw new Error(`Commerce preflight DENIED at payment: ${preflight.blockedReason}`)
-  }
-
-  // Check human approval threshold
-  if (opts.delegation.requireHumanApproval && opts.delegation.humanApprovalThreshold) {
-    if (total.amount > opts.delegation.humanApprovalThreshold) {
-      throw new Error(
-        `HUMAN_APPROVAL_REQUIRED: Purchase of ${total.amount} ${total.currency} exceeds threshold of ${opts.delegation.humanApprovalThreshold}. ` +
-        `Use requestHumanApproval() to get confirmation before completing.`
-      )
-    }
-  }
-
-  // Complete checkout via ACP
-  const url = `${opts.config.merchantBaseUrl}/checkout_sessions/${opts.sessionId}/complete`
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(opts.config.bearerToken && { 'Authorization': `Bearer ${opts.config.bearerToken}` }),
-    },
-    body: JSON.stringify({
-      payment_token: opts.paymentToken,
-      ...(opts.paymentMethod && { payment_method: opts.paymentMethod }),
-    }),
-  })
-
-  if (!response.ok) {
-    throw new Error(`ACP CompleteCheckout failed: ${response.status} ${response.statusText}`)
-  }
-
-  const session: ACPCheckoutSession = await response.json() as ACPCheckoutSession
-
-  // Update spend tracking on the delegation
-  const spendUpdated: CommerceDelegation = {
-    ...opts.delegation,
-    spentAmount: opts.delegation.spentAmount + total.amount,
-  }
-
-  // Generate signed receipt with full purchase details
-  const receipt = signCommerceReceipt({
-    agentId: opts.signedPassport.passport.agentId,
-    delegationId: opts.delegation.delegationId,
-    actionType: 'commerce:complete_checkout',
-    target: url,
-    method: 'POST',
-    session,
-    merchantName: opts.config.merchantName,
-    delegationChain: extractDelegationChain(opts.signedPassport),
-    beneficiary: opts.signedPassport.passport.metadata?.beneficiaryPrincipalId as string || 'unknown',
-    privateKey: opts.privateKey,
-  })
-
-  return { session, receipt, spendUpdated }
+  throw new Error(MIGRATED_MSG)
 }
 
-// ── ACP Client: Cancel Checkout ──
-
-export async function cancelCheckout(opts: {
+export function cancelCheckout(_opts: {
   signedPassport: SignedPassport
   delegation: CommerceDelegation
   config: CommerceConfig
   sessionId: string
   privateKey: string
 }): Promise<{ session: ACPCheckoutSession; receipt: CommerceActionReceipt }> {
-  const url = `${opts.config.merchantBaseUrl}/checkout_sessions/${opts.sessionId}/cancel`
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(opts.config.bearerToken && { 'Authorization': `Bearer ${opts.config.bearerToken}` }),
-    },
-  })
-
-  if (!response.ok) {
-    throw new Error(`ACP CancelCheckout failed: ${response.status} ${response.statusText}`)
-  }
-
-  const session: ACPCheckoutSession = await response.json() as ACPCheckoutSession
-
-  const receipt = signCommerceReceipt({
-    agentId: opts.signedPassport.passport.agentId,
-    delegationId: opts.delegation.delegationId,
-    actionType: 'commerce:cancel_checkout',
-    target: url,
-    method: 'POST',
-    session,
-    merchantName: opts.config.merchantName,
-    delegationChain: extractDelegationChain(opts.signedPassport),
-    beneficiary: opts.signedPassport.passport.metadata?.beneficiaryPrincipalId as string || 'unknown',
-    privateKey: opts.privateKey,
-  })
-
-  return { session, receipt }
+  throw new Error(MIGRATED_MSG)
 }
 
 // ── Human Approval Request ──
@@ -465,7 +233,7 @@ export function requestHumanApproval(opts: {
 
 // ── Commerce Receipt Signing ──
 
-function signCommerceReceipt(opts: {
+export function signCommerceReceipt(opts: {
   agentId: string
   delegationId: string
   actionType: CommerceActionReceipt['action']['type']
@@ -518,7 +286,7 @@ function signCommerceReceipt(opts: {
 
 // ── Helpers ──
 
-function extractDelegationChain(sp: SignedPassport): string[] {
+export function extractDelegationChain(sp: SignedPassport): string[] {
   const chain = [sp.passport.publicKey]
   if (sp.passport.delegations) {
     for (const d of sp.passport.delegations) {
@@ -586,7 +354,6 @@ export function verifyCommerceReceipt(
 ): { valid: boolean; errors: string[] } {
   const errors: string[] = []
 
-  // Verify signature
   const { signature, ...payload } = receipt
   const canonical = canonicalize(payload)
 
@@ -599,7 +366,6 @@ export function verifyCommerceReceipt(
     errors.push('Failed to verify commerce receipt signature')
   }
 
-  // Verify required fields
   if (!receipt.receiptId) errors.push('Missing receiptId')
   if (!receipt.agentId) errors.push('Missing agentId')
   if (!receipt.delegationId) errors.push('Missing delegationId')

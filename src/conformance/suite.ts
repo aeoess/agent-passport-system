@@ -21,7 +21,7 @@ import {
   createDerivationReceipt, resolveExtendedLineage,
   evaluateRevocationImpact, DEFAULT_OBLIGATIONS,
   isPurposePermitted, purposeCategory,
-  verifyEntityChain, cacheDIDResolution, getCachedDIDResolution, clearDIDCache,
+  verifyEntityChain,
   computeSenderId,
 } from '../index.js'
 import type { DerivationReceipt, PublicProofSurface } from '../index.js'
@@ -172,33 +172,29 @@ function entityVerificationTests(): ConformanceTest[] {
   }
 
   return [
-    test('EV-01', 'Entity Verification', 'Active entity passes verification', 'Entity Verification v1.0 §2',
+    test('EV-01', 'Entity Verification', 'Live DID resolution returns publicKey', 'Entity Verification v1.0 §2',
       () => {
-        // Sync test using cache
-        clearDIDCache()
         clearStores()
-        cacheDIDResolution(did, keys.publicKey)
-        const cached = getCachedDIDResolution(did)
-        assert(cached !== null, 'Cache hit')
-        assertEqual(cached!.status, 'cached', 'Status is cached')
+        const resolved = resolveDID(did)
+        assert(resolved.didDocument !== null, 'DID document resolved')
+        const vm = resolved.didDocument!.verificationMethod?.[0]
+        assert(vm !== undefined, 'Has verification method')
+        assert(typeof vm!.publicKeyMultibase === 'string', 'publicKey present')
       }),
 
     test('EV-02', 'Entity Verification', 'Fail-closed: invalid DID blocks proof', 'Entity Verification v1.0 §2.1',
       () => {
-        clearDIDCache()
-        // Can't do async in sync test runner, but we can test the cache/DID layer
         const result = resolveDID('garbage-did')
         assertEqual(result.didDocument, null, 'No document')
       }),
 
-    test('EV-03', 'Entity Verification', 'Cache expired returns null', 'Entity Verification v1.0 §2.2',
+    test('EV-03', 'Entity Verification', 'Cache TTL semantics — moved to gateway DIDCache', 'Entity Verification v1.0 §2.2',
       () => {
-        clearDIDCache()
-        cacheDIDResolution(did, keys.publicKey, 1) // 1ms TTL
-        const start = Date.now()
-        while (Date.now() - start < 5) { /* busy wait */ }
-        const cached = getCachedDIDResolution(did)
-        assertEqual(cached, null, 'Expired cache must return null')
+        // The TTL-based DID resolution cache moved to @aeoess/gateway
+        // src/sdk-migrated/core/did-cache.ts on 2026-04-17. SDK conformance
+        // verifies only the pure resolution path; cache semantics are
+        // tested in tests/sdk-migrated/core/did-cache.test.ts in the gateway.
+        assert(true, 'cache semantics covered by gateway DIDCache tests')
       }),
 
     test('EV-04', 'Entity Verification', 'Sender ID matches DID-resolved key', 'QSP-1 v1.0 §4',
@@ -299,7 +295,6 @@ function dataLifecycleTests(): ConformanceTest[] {
 export function runConformanceSuite(): ConformanceSuiteResult {
   const start = Date.now()
   clearStores()
-  clearDIDCache()
 
   const allTests = [
     ...identityTests(),

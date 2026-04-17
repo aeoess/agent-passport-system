@@ -1,21 +1,23 @@
 /**
- * Entity Verification v1.0 Tests
- * Adopted behaviors: fail-closed, cache-with-staleness, explicit did_resolution_status
+ * Entity Verification v1.0 — SDK primitive tests
+ *
+ * Adopted behaviors: fail-closed, explicit did_resolution_status.
+ *
+ * Cache tests moved to @aeoess/gateway tests/sdk-migrated/core/did-cache.test.ts
+ * after the TTL cache primitives moved out of the SDK on 2026-04-17.
  */
 
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  generateKeyPair, createDID, isValidDID, clearStores,
+  generateKeyPair, createDID, clearStores,
   verifyEntityChain,
-  cacheDIDResolution, getCachedDIDResolution, clearDIDCache,
   computeSenderId,
 } from '../src/index.js'
 import type { PublicProofSurface } from '../src/index.js'
 
 const keys = generateKeyPair()
 
-// Mock entity lookup (simulates Corpo API)
 async function mockLookup(entityId: string): Promise<PublicProofSurface | null> {
   if (entityId === 'active-entity') {
     return {
@@ -42,7 +44,6 @@ async function failingLookup(_: string): Promise<PublicProofSurface | null> {
 describe('Entity Verification — Full Chain', () => {
   it('verifies active entity with live DID resolution', async () => {
     clearStores()
-    clearDIDCache()
     const did = createDID(keys.publicKey)
     const result = await verifyEntityChain(did, mockLookup, { entityId: 'active-entity' })
     assert.equal(result.verified, true)
@@ -61,7 +62,7 @@ describe('Entity Verification — Full Chain', () => {
     assert.equal(result.didResolutionStatus, 'failed')
     assert.equal(result.resolvedPublicKey, null)
     assert.ok(result.errors.length > 0)
-    assert.ok(result.errors.some(e => e.includes('fail-closed') || e.includes('Invalid DID')))
+    assert.ok(result.errors.some(e => e.includes('Fail-closed') || e.includes('Invalid DID')))
   })
 
   it('fail-closed: unknown entity blocks verification', async () => {
@@ -93,50 +94,10 @@ describe('Entity Verification — Full Chain', () => {
   })
 })
 
-describe('Entity Verification — DID Resolution Cache', () => {
-  it('caches a DID resolution', () => {
-    clearDIDCache()
-    const did = createDID(keys.publicKey)
-    const entry = cacheDIDResolution(did, keys.publicKey, 3600000)
-    assert.equal(entry.did, did)
-    assert.equal(entry.publicKey, keys.publicKey)
-    assert.equal(entry.status, 'live')
-    assert.ok(entry.resolvedAt)
-    assert.ok(entry.expiresAt)
-  })
-
-  it('retrieves cached resolution with status=cached', () => {
-    clearDIDCache()
-    const did = createDID(keys.publicKey)
-    cacheDIDResolution(did, keys.publicKey, 3600000)
-    const cached = getCachedDIDResolution(did)
-    assert.ok(cached)
-    assert.equal(cached!.publicKey, keys.publicKey)
-    assert.equal(cached!.status, 'cached')
-  })
-
-  it('returns null for expired cache entry', () => {
-    clearDIDCache()
-    const did = createDID(keys.publicKey)
-    cacheDIDResolution(did, keys.publicKey, 1) // 1ms TTL
-    // Wait just a tiny bit
-    const start = Date.now()
-    while (Date.now() - start < 5) { /* busy wait */ }
-    const cached = getCachedDIDResolution(did)
-    assert.equal(cached, null)
-  })
-
-  it('returns null for uncached DID', () => {
-    clearDIDCache()
-    const cached = getCachedDIDResolution('did:aps:zNotCached')
-    assert.equal(cached, null)
-  })
-})
-
 describe('Entity Verification — Sender ID', () => {
   it('computes sender ID per QSP-1 §4: Trunc16(SHA-256(pubkey))', () => {
     const senderId = computeSenderId(keys.publicKey)
-    assert.equal(senderId.length, 32) // 16 bytes = 32 hex chars
+    assert.equal(senderId.length, 32)
   })
 
   it('same key always produces same sender ID', () => {
@@ -154,7 +115,6 @@ describe('Entity Verification — Sender ID', () => {
 
   it('sender ID from verifyEntityChain matches direct computation', async () => {
     clearStores()
-    clearDIDCache()
     const did = createDID(keys.publicKey)
     const result = await verifyEntityChain(did, mockLookup, { entityId: 'active-entity' })
     const directId = computeSenderId(keys.publicKey)

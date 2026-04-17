@@ -153,12 +153,16 @@ const descriptors = new Map([
   [sources[2].sourceReceiptId, 'Open Research Papers (CC-BY)'],
 ])
 
+// Note: 'access_weighted' policy lives in @aeoess/gateway
+// (src/sdk-migrated/core/attribution-models.ts) — the SDK demo here
+// uses model='equal' to keep the script self-contained and free of
+// gateway product policy.
 const attribution = computeDataSourceAttribution({
   outputArtifactId: 'decision_market_analysis_q1_2026',
   outputType: 'decision',
   accessReceipts: allReceipts,
   sourceDescriptors: descriptors,
-  model: 'access_weighted',
+  model: 'equal',
   generatorPublicKey: gateway.publicKey,
   generatorPrivateKey: gateway.privateKey,
 })

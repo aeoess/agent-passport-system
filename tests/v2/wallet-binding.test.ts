@@ -11,12 +11,11 @@ import {
   verifyUnbindEvent,
   verifyPassport,
   generateKeyPair,
-  commercePreflight,
+  checkWalletGate,
   createCommerceDelegation,
   canonicalize,
 } from '../../src/index.js'
 import { verify as ed25519Verify } from '../../src/crypto/keys.js'
-import type { CommercePreflightResult } from '../../src/index.js'
 
 function makeFixture() {
   const { signedPassport, keyPair } = createPassport({
@@ -324,77 +323,47 @@ describe('Cross-verification (offline, no passport object)', () => {
   })
 })
 
-describe('commercePreflight — wallet_bound gate', () => {
-  function commerceFixture() {
+describe('checkWalletGate predicate (commerce orchestrator tests moved to gateway)', () => {
+  function passportFixture() {
     const { signedPassport, keyPair } = createPassport({
-      agentId: `shopper-wallet-${Date.now()}`,
+      agentId: `shopper-wallet-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       agentName: 'WalletShopper',
       ownerAlias: 'tima',
       mission: 'Spend Nano via bound wallet',
       capabilities: ['commerce'],
       runtime: { platform: 'node', models: ['test'], toolsCount: 1, memoryType: 'session' },
     })
-    const delegation = createCommerceDelegation({
-      agentId: signedPassport.passport.agentId,
-      delegationId: `del-wallet-${Date.now()}`,
-      spendLimit: 100000,
-      currency: 'usd',
-      approvedMerchants: ['ApprovedMerchant'],
-    })
-    return { signedPassport, keyPair, delegation }
+    return { signedPassport, keyPair }
   }
 
-  it('denies commerce action referencing an unbound wallet with WALLET_NOT_BOUND', () => {
-    const { signedPassport, delegation } = commerceFixture()
-    const result = commercePreflight({
-      signedPassport,
-      delegation,
-      merchantName: 'ApprovedMerchant',
-      estimatedTotal: { amount: 1000, currency: 'usd' },
-      walletRef: { chain: 'nano', address: 'nano_3unbound' },
-    }) as CommercePreflightResult
-
-    assert.equal(result.permitted, false)
-    const walletCheck = result.checks.find(c => c.check === 'wallet_bound')
-    assert.ok(walletCheck, 'wallet_bound check should be present when walletRef provided')
-    assert.equal(walletCheck!.passed, false)
-    assert.match(walletCheck!.detail, /WALLET_NOT_BOUND/)
+  it('denies action referencing an unbound wallet (WALLET_NOT_BOUND)', () => {
+    const { signedPassport } = passportFixture()
+    const check = checkWalletGate(signedPassport, { chain: 'nano', address: 'nano_3unbound' })
+    assert.equal(check.check, 'wallet_bound')
+    assert.equal(check.passed, false)
+    assert.match(check.detail, /WALLET_NOT_BOUND/)
   })
 
-  it('permits commerce action when wallet IS bound', () => {
-    const { signedPassport, keyPair, delegation } = commerceFixture()
+  it('permits action when wallet IS bound', () => {
+    const { signedPassport, keyPair } = passportFixture()
     const bound = bindWallet({
       passport: signedPassport,
       privateKey: keyPair.privateKey,
       chain: 'nano',
       address: 'nano_3bound',
     })
-
-    const result = commercePreflight({
-      signedPassport: bound,
-      delegation,
-      merchantName: 'ApprovedMerchant',
-      estimatedTotal: { amount: 1000, currency: 'usd' },
-      walletRef: { chain: 'nano', address: 'nano_3bound' },
-    }) as CommercePreflightResult
-
-    assert.equal(result.permitted, true, `expected permit, blocked: ${result.blockedReason}`)
-    const walletCheck = result.checks.find(c => c.check === 'wallet_bound')
-    assert.ok(walletCheck)
-    assert.equal(walletCheck!.passed, true)
+    const check = checkWalletGate(bound, { chain: 'nano', address: 'nano_3bound' })
+    assert.equal(check.passed, true)
   })
 
-  it('5-gate flow without walletRef is unchanged (wallet_bound check absent)', () => {
-    const { signedPassport, delegation } = commerceFixture()
-    const result = commercePreflight({
-      signedPassport,
-      delegation,
-      merchantName: 'ApprovedMerchant',
-      estimatedTotal: { amount: 1000, currency: 'usd' },
-    }) as CommercePreflightResult
-
-    assert.equal(result.permitted, true)
-    const walletCheck = result.checks.find(c => c.check === 'wallet_bound')
-    assert.equal(walletCheck, undefined, 'wallet_bound check should not appear when walletRef omitted')
+  it('createCommerceDelegation still exposes spend limits for caller-side gating', () => {
+    const d = createCommerceDelegation({
+      agentId: 'a',
+      delegationId: 'd',
+      spendLimit: 100,
+      approvedMerchants: ['ApprovedMerchant'],
+    })
+    assert.equal(d.spendLimit, 100)
+    assert.deepEqual(d.approvedMerchants, ['ApprovedMerchant'])
   })
 })

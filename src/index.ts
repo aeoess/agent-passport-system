@@ -213,9 +213,16 @@ export type {
 } from './types/policy.js'
 
 // ── Layer 7: Agentic Commerce (ACP) ──
+// Gate predicates + signing primitives stay in SDK. The 6-gate orchestrator
+// (commercePreflight) and the four ACP REST wrappers moved to @aeoess/gateway
+// as product workflow. Deprecated re-exports throw with a migration message.
 export {
   commercePreflight,
   createCheckout, updateCheckout, completeCheckout, cancelCheckout,
+  checkPassportGate, checkScopeGate, checkSpendGate,
+  checkHumanApprovalThreshold, checkMerchantGate, checkWalletGate,
+  hasCommerceScope,
+  signCommerceReceipt, extractDelegationChain,
   requestHumanApproval,
   createCommerceDelegation,
   getSpendSummary,
@@ -365,11 +372,16 @@ export {
 
 export type { FacetSnapshot, NarrowingCheckResult } from './core/data-narrowing.js'
 
-// ── Governance Posture: behavioral → structural propagation ──
+// ── Governance Posture: tier definitions + constraint primitives ──
+// State machine (createInitialPosture, recordBehavioralFailure,
+// recordBehavioralSuccess, upgradePosture, DEFAULT_DOWNGRADE_POLICY)
+// moved to @aeoess/gateway src/sdk-migrated/core/posture-state.ts.
+// Stubs preserve the function symbols so existing imports resolve;
+// calling them throws.
 export {
   createInitialPosture, recordBehavioralFailure, recordBehavioralSuccess,
   upgradePosture, getPostureConstraints, isScopeBlocked, comparePostureTiers,
-  DEFAULT_POSTURE_CONSTRAINTS, DEFAULT_DOWNGRADE_POLICY,
+  DEFAULT_POSTURE_CONSTRAINTS,
 } from './core/governance-posture.js'
 
 export type {
@@ -939,7 +951,8 @@ export type {
 
 export {
   DEFAULT_NTP_DRIFT_MS, DEFAULT_SESSION_GAP_MS,
-  createHybridTimestamp, createTemporalBound,
+  createHybridTimestamp, createHybridTimestampAt,
+  createTemporalBound,
   compareTimestamps, isTemporalBoundExpired,
   validateTemporalRights, resetLogicalCounter,
   extractSessions,

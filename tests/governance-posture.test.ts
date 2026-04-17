@@ -1,120 +1,16 @@
 // ══════════════════════════════════════════════════════════════════
-// Governance Posture — Tests
+// Governance Posture — SDK primitive tests
 // ══════════════════════════════════════════════════════════════════
-// Consilium Priority 5. Behavioral failures → posture downgrade.
-// Upgrade requires human principal. Trust is easy to lose, hard to rebuild.
-// ══════════════════════════════════════════════════════════════════
+// State-machine tests (createInitialPosture, recordBehavioralFailure,
+// recordBehavioralSuccess, upgradePosture) moved to gateway
+// tests/sdk-migrated/core/posture-state.test.ts on 2026-04-17.
+// SDK keeps tier definitions, default constraints, and pure helpers.
 
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  createInitialPosture, recordBehavioralFailure, recordBehavioralSuccess,
-  upgradePosture, getPostureConstraints, isScopeBlocked, comparePostureTiers,
-  DEFAULT_DOWNGRADE_POLICY,
+  getPostureConstraints, isScopeBlocked, comparePostureTiers,
 } from '../src/core/governance-posture.js'
-
-describe('Governance Posture — Initial State', () => {
-  it('creates with default standard tier', () => {
-    const p = createInitialPosture()
-    assert.strictEqual(p.tier, 'standard')
-    assert.strictEqual(p.consecutiveFailures, 0)
-    assert.strictEqual(p.history.length, 0)
-  })
-
-  it('creates with custom initial tier', () => {
-    const p = createInitialPosture('full_trust')
-    assert.strictEqual(p.tier, 'full_trust')
-  })
-})
-
-describe('Governance Posture — Auto-Downgrade', () => {
-  it('does not downgrade below threshold', () => {
-    let p = createInitialPosture('standard')
-    p = recordBehavioralFailure(p, 'test failure 1')
-    p = recordBehavioralFailure(p, 'test failure 2')
-    assert.strictEqual(p.tier, 'standard', 'Should not downgrade after 2 failures')
-    assert.strictEqual(p.consecutiveFailures, 2)
-  })
-
-  it('downgrades standard → cautious at threshold (5)', () => {
-    let p = createInitialPosture('standard')
-    for (let i = 0; i < 5; i++) {
-      p = recordBehavioralFailure(p, `failure ${i + 1}`)
-    }
-    assert.strictEqual(p.tier, 'cautious')
-    assert.strictEqual(p.consecutiveFailures, 0, 'Resets after downgrade')
-    assert.strictEqual(p.history.length, 1)
-    assert.strictEqual(p.history[0].from, 'standard')
-    assert.strictEqual(p.history[0].to, 'cautious')
-  })
-
-  it('cascades through multiple tiers with sustained failures', () => {
-    let p = createInitialPosture('full_trust')
-    // full_trust → standard (3 failures)
-    for (let i = 0; i < 3; i++) p = recordBehavioralFailure(p, 'fail')
-    assert.strictEqual(p.tier, 'standard')
-    // standard → cautious (5 more)
-    for (let i = 0; i < 5; i++) p = recordBehavioralFailure(p, 'fail')
-    assert.strictEqual(p.tier, 'cautious')
-    // cautious → restricted (3 more)
-    for (let i = 0; i < 3; i++) p = recordBehavioralFailure(p, 'fail')
-    assert.strictEqual(p.tier, 'restricted')
-    // restricted → quarantine (2 more)
-    for (let i = 0; i < 2; i++) p = recordBehavioralFailure(p, 'fail')
-    assert.strictEqual(p.tier, 'quarantine')
-    assert.strictEqual(p.history.length, 4)
-  })
-
-  it('cannot go below quarantine', () => {
-    let p = createInitialPosture('quarantine')
-    for (let i = 0; i < 10; i++) p = recordBehavioralFailure(p, 'fail')
-    assert.strictEqual(p.tier, 'quarantine')
-  })
-
-  it('success resets consecutive failure counter', () => {
-    let p = createInitialPosture('standard')
-    p = recordBehavioralFailure(p, 'fail 1')
-    p = recordBehavioralFailure(p, 'fail 2')
-    assert.strictEqual(p.consecutiveFailures, 2)
-    p = recordBehavioralSuccess(p)
-    assert.strictEqual(p.consecutiveFailures, 0)
-    assert.strictEqual(p.tier, 'standard', 'Tier unchanged by success')
-  })
-
-  it('success prevents downgrade by breaking consecutive chain', () => {
-    let p = createInitialPosture('standard')
-    for (let i = 0; i < 4; i++) p = recordBehavioralFailure(p, 'fail')
-    p = recordBehavioralSuccess(p) // breaks the chain at 4
-    for (let i = 0; i < 4; i++) p = recordBehavioralFailure(p, 'fail')
-    assert.strictEqual(p.tier, 'standard', 'Should not downgrade — chain broken')
-  })
-})
-
-describe('Governance Posture — Manual Upgrade', () => {
-  it('upgrades one tier at a time', () => {
-    let p = createInitialPosture('restricted')
-    p = upgradePosture(p, 'did:aps:principal001', 'Behavior improved')
-    assert.strictEqual(p.tier, 'cautious')
-    assert.strictEqual(p.changedBy, 'did:aps:principal001')
-    assert.strictEqual(p.history.length, 1)
-  })
-
-  it('cannot upgrade above full_trust', () => {
-    let p = createInitialPosture('full_trust')
-    const before = p.tier
-    p = upgradePosture(p, 'did:aps:principal001', 'Already max')
-    assert.strictEqual(p.tier, before)
-  })
-
-  it('upgrade resets failure counters', () => {
-    let p = createInitialPosture('cautious')
-    p = recordBehavioralFailure(p, 'fail')
-    p = recordBehavioralFailure(p, 'fail')
-    p = upgradePosture(p, 'did:aps:principal001', 'Reviewed and approved')
-    assert.strictEqual(p.consecutiveFailures, 0)
-    assert.strictEqual(p.failuresSinceChange, 0)
-  })
-})
 
 describe('Governance Posture — Constraints & Scope Blocking', () => {
   it('quarantine blocks all scopes', () => {
@@ -146,5 +42,13 @@ describe('Governance Posture — Constraints & Scope Blocking', () => {
     assert.ok(comparePostureTiers('full_trust', 'standard') > 0)
     assert.ok(comparePostureTiers('quarantine', 'restricted') < 0)
     assert.strictEqual(comparePostureTiers('standard', 'standard'), 0)
+  })
+
+  it('custom overrides merge into base constraints', () => {
+    const c = getPostureConstraints('standard', {
+      standard: { maxSpendPerAction: 9999 },
+    })
+    assert.equal(c.maxSpendPerAction, 9999)
+    assert.equal(c.maxDelegationDepth, 3)
   })
 })

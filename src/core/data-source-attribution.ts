@@ -1,17 +1,24 @@
 // Copyright 2024-2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
 // ══════════════════════════════════════════════════════════════════════
-// Module 40: Data Source Attribution — "The Pixel"
+// Module 40: Data Source Attribution — SDK primitive ("the pixel")
 // ══════════════════════════════════════════════════════════════════════
-// AppsFlyer answers: "which ad caused this install?"
-// This answers: "which data source caused this output?"
+// SDK retains:
+//   • Merkle commitment primitives + signed report shape
+//   • computeDataSourceAttribution / verifyDataSourceAttribution
+//   • Two attribution models the schema needs to be self-contained:
+//       'equal'  — uniform per source (schema baseline)
+//       'custom' — caller supplies a weight per source
 //
-// Three attribution models, customer picks:
-//   equal     — every source gets equal share
-//   access_weighted — more accesses = higher contribution
-//   recency_weighted — more recent = higher contribution
+// MOVED to @aeoess/gateway src/sdk-migrated/core/attribution-models.ts
+// (2026-04-17): the policy-bearing weighted models — access_weighted
+// and recency_weighted with their hardcoded constants (e.g. 1-day
+// half-life). Those constants are gateway product policy: the choice
+// of half-life is a tuning decision per pricing surface, not a
+// protocol primitive.
 //
-// The weights are configurable, not hardcoded gospel.
-// The Merkle tree makes it auditable. The signature makes it legal.
+// To use a weighted model, callers run the gateway helper to compute
+// the weights and then call computeDataSourceAttribution with
+// model='custom' and the resulting customWeights map.
 // ══════════════════════════════════════════════════════════════════════
 
 import crypto from 'crypto'
@@ -46,7 +53,15 @@ function buildMerkleRoot(ids: string[]): string {
 }
 
 // ── Weight Computation ──
-// Each model produces raw weights. Normalization happens after.
+// SDK only knows two models: 'equal' (uniform) and 'custom' (caller
+// supplies weights). access_weighted / recency_weighted moved to the
+// gateway's attribution-models.ts. Calling those models here throws.
+
+const WEIGHTED_MOVED_MSG =
+  "attribution model %s requires gateway policy and moved to " +
+  "@aeoess/gateway src/sdk-migrated/core/attribution-models.ts. " +
+  "Use the gateway helper to compute weights, then call " +
+  "computeDataSourceAttribution with model='custom' and the resulting customWeights."
 
 function computeWeights(
   grouped: Map<string, DataAccessReceipt[]>,
@@ -57,34 +72,8 @@ function computeWeights(
 
   switch (model) {
     case 'equal': {
-      const w = 1 / grouped.size
+      const w = grouped.size > 0 ? 1 / grouped.size : 0
       for (const sourceId of grouped.keys()) weights.set(sourceId, w)
-      break
-    }
-    case 'access_weighted': {
-      let total = 0
-      for (const receipts of grouped.values()) total += receipts.length
-      for (const [sourceId, receipts] of grouped) {
-        weights.set(sourceId, total > 0 ? receipts.length / total : 0)
-      }
-      break
-    }
-    case 'recency_weighted': {
-      // More recent access = higher weight. Uses exponential decay.
-      const now = Date.now()
-      const halfLifeMs = 24 * 60 * 60 * 1000 // 1 day half-life
-      let totalDecay = 0
-      const decays = new Map<string, number>()
-      for (const [sourceId, receipts] of grouped) {
-        const mostRecent = Math.max(...receipts.map(r => new Date(r.timestamp).getTime()))
-        const age = now - mostRecent
-        const decay = Math.pow(2, -age / halfLifeMs)
-        decays.set(sourceId, decay)
-        totalDecay += decay
-      }
-      for (const [sourceId, decay] of decays) {
-        weights.set(sourceId, totalDecay > 0 ? decay / totalDecay : 0)
-      }
       break
     }
     case 'custom': {
@@ -97,6 +86,11 @@ function computeWeights(
       }
       break
     }
+    case 'access_weighted':
+    case 'recency_weighted':
+      throw new Error(WEIGHTED_MOVED_MSG.replace('%s', `'${model}'`))
+    default:
+      throw new Error(`Unknown attribution model: ${model}`)
   }
 
   return weights
@@ -106,7 +100,7 @@ function computeWeights(
 
 function computeSourceCompensation(
   receipts: DataAccessReceipt[],
-  weight: number,
+  _weight: number,
 ): { amount: number; currency: string; model: string } {
   if (receipts.length === 0) return { amount: 0, currency: 'usd', model: 'none' }
   const terms = receipts[0].termsAtAccessTime
@@ -119,7 +113,6 @@ function computeSourceCompensation(
     case 'per_access':
       return { amount: comp.amount * receipts.length, currency: comp.currency, model: 'per_access' }
     case 'revenue_share':
-      // Revenue share: percentage × weight (caller supplies revenue externally)
       return { amount: 0, currency: 'usd', model: 'revenue_share' }
     case 'pool':
       return { amount: 0, currency: 'usd', model: 'pool' }
@@ -131,24 +124,24 @@ function computeSourceCompensation(
 // ══════════════════════════════════════════════════════════════════════
 // MAIN FUNCTION: computeDataSourceAttribution
 // ══════════════════════════════════════════════════════════════════════
-// The inverse of computeCollaborationAttribution.
-// Given an output and the access receipts that fed it,
-// compute fractional contribution per data source.
+// The inverse of computeCollaborationAttribution. SDK schema-level
+// implementation: model is 'equal' or 'custom'. Default is 'equal' —
+// the baseline anyone can compute without taking on gateway policy.
 // ══════════════════════════════════════════════════════════════════════
 
 export function computeDataSourceAttribution(opts: {
   outputArtifactId: string
   outputType: 'decision' | 'content' | 'model' | 'action'
   accessReceipts: DataAccessReceipt[]
-  sourceDescriptors?: Map<string, string> // sourceReceiptId → human name
+  sourceDescriptors?: Map<string, string>
+  /** SDK supports 'equal' or 'custom'. Weighted models live in gateway. */
   model?: DataAttributionModel
   customWeights?: Map<string, number>
   generatorPublicKey: string
   generatorPrivateKey: string
 }): DataSourceAttributionReport {
-  const model = opts.model || 'access_weighted'
+  const model = opts.model ?? 'equal'
 
-  // Group receipts by source
   const grouped = new Map<string, DataAccessReceipt[]>()
   for (const receipt of opts.accessReceipts) {
     const list = grouped.get(receipt.sourceReceiptId) || []
@@ -156,10 +149,8 @@ export function computeDataSourceAttribution(opts: {
     grouped.set(receipt.sourceReceiptId, list)
   }
 
-  // Compute weights
   const weights = computeWeights(grouped, model, opts.customWeights)
 
-  // Build attribution entries
   const allReceiptIds: string[] = []
   const sources: DataSourceAttributionEntry[] = []
   let totalCompensation = 0
@@ -187,15 +178,12 @@ export function computeDataSourceAttribution(opts: {
     })
   }
 
-  // Sort by percentage descending
   sources.sort((a, b) => b.percentage - a.percentage)
 
-  // Cryptographic commitment — sort for determinism across compute/verify
   allReceiptIds.sort()
   const merkleRoot = buildMerkleRoot(allReceiptIds)
   const entriesHash = sha256(canonicalize(sources))
 
-  // Build unsigned report
   const report: Omit<DataSourceAttributionReport, 'signature'> = {
     reportId: 'dsar_' + crypto.randomUUID(),
     outputArtifactId: opts.outputArtifactId,
@@ -212,13 +200,12 @@ export function computeDataSourceAttribution(opts: {
     generatedBy: opts.generatorPublicKey,
   }
 
-  // Sign
   const signature = sign(canonicalize(report), opts.generatorPrivateKey)
   return { ...report, signature }
 }
 
 // ══════════════════════════════════════════════════════════════════════
-// VERIFY: Check report integrity
+// VERIFY — pure
 // ══════════════════════════════════════════════════════════════════════
 
 export function verifyDataSourceAttribution(
@@ -227,37 +214,31 @@ export function verifyDataSourceAttribution(
 ): { valid: boolean; errors: string[] } {
   const errors: string[] = []
 
-  // Verify signature
   const { signature, ...unsigned } = report
   if (!verify(canonicalize(unsigned), signature, publicKey)) {
     errors.push('Invalid attribution report signature')
   }
 
-  // Verify entries hash
   const expectedHash = sha256(canonicalize(report.sources))
   if (report.entriesHash !== expectedHash) {
     errors.push('Entries hash mismatch — sources may have been tampered')
   }
 
-  // Verify Merkle root — sort for determinism matching compute step
   const allReceiptIds = report.sources.flatMap(s => s.accessReceiptIds).sort()
   const expectedMerkle = buildMerkleRoot(allReceiptIds)
   if (report.merkleRoot !== expectedMerkle) {
     errors.push('Merkle root mismatch — receipt IDs may have been modified')
   }
 
-  // Verify percentages sum to ~100
   const totalPct = report.sources.reduce((s, e) => s + e.percentage, 0)
   if (Math.abs(totalPct - 100) > 0.1) {
     errors.push(`Percentages sum to ${totalPct}, expected ~100`)
   }
 
-  // Verify source count
   if (report.totalSources !== report.sources.length) {
     errors.push('Total sources count mismatch')
   }
 
-  // Verify access event count
   const totalEvents = report.sources.reduce((s, e) => s + e.accessCount, 0)
   if (report.totalAccessEvents !== totalEvents) {
     errors.push('Total access events mismatch')

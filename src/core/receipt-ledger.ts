@@ -1,9 +1,13 @@
-// Receipt Ledger — Merkle-Committed Audit Batches (Module 23)
-// Batch-commits execution receipts into Merkle trees for tamper-evident audit.
+// Receipt Ledger — Merkle-Committed Audit Primitives (Module 23)
+// ══════════════════════════════════════════════════════════════════════
+// SDK retains: types, ledger factory + addReceipt mutation, Merkle
+// inclusion proof primitives, signed batch verification primitives.
+// MOVED to @aeoess/gateway src/sdk-migrated/core/receipt-ledger-impl.ts:
+//   commitBatch — the workflow that signs a batch from the pending queue,
+//   chains epochs, and mutates ledger state.
 // Reuses Merkle infrastructure from attribution.ts (Layer 3).
 
-import { v4 as uuidv4 } from 'uuid'
-import { sign, verify } from '../crypto/keys.js'
+import { verify } from '../crypto/keys.js'
 import { canonicalize } from './canonical.js'
 import {
   buildMerkleRoot, generateMerkleProof, verifyMerkleProof,
@@ -57,7 +61,7 @@ export interface BatchChainVerification {
 }
 
 // ══════════════════════════════════════
-// CREATE LEDGER
+// LEDGER PRIMITIVES (factory + queue mutation)
 // ══════════════════════════════════════
 
 export function createReceiptLedger(): ReceiptLedger {
@@ -69,55 +73,22 @@ export function addReceipt(ledger: ReceiptLedger, receiptHash: string): void {
 }
 
 // ══════════════════════════════════════
-// COMMIT BATCH
+// commitBatch — moved to gateway
 // ══════════════════════════════════════
 
-export function commitBatch(opts: {
+export function commitBatch(_opts: {
   ledger: ReceiptLedger
   committerPrivateKey: string
   committerPublicKey: string
 }): ReceiptBatch {
-  const { ledger, committerPrivateKey, committerPublicKey } = opts
-
-  if (ledger.pendingReceipts.length === 0) {
-    throw new Error('Cannot commit empty batch — no pending receipts')
-  }
-
-  const now = new Date().toISOString()
-  const batchId = 'batch_' + uuidv4().slice(0, 12)
-  const receiptHashes = [...ledger.pendingReceipts]
-  const merkleRoot = buildMerkleRoot(receiptHashes)
-
-  const lastBatch = ledger.batches.length > 0
-    ? ledger.batches[ledger.batches.length - 1]
-    : null
-
-  const epoch = lastBatch ? lastBatch.epoch + 1 : 0
-  const previousBatchId = lastBatch ? lastBatch.batchId : null
-  const previousMerkleRoot = lastBatch ? lastBatch.merkleRoot : null
-
-  const signable = {
-    batchId, merkleRoot, receiptCount: receiptHashes.length,
-    epoch, previousBatchId, previousMerkleRoot,
-    committedAt: now, committedBy: committerPublicKey,
-  }
-
-  const canonical = canonicalize(signable)
-  const signature = sign(canonical, committerPrivateKey)
-
-  const batch: ReceiptBatch = {
-    batchId, merkleRoot, receiptCount: receiptHashes.length,
-    receiptHashes, epoch, previousBatchId, previousMerkleRoot,
-    committedAt: now, committedBy: committerPublicKey, signature,
-  }
-
-  ledger.batches.push(batch)
-  ledger.pendingReceipts = []
-  return batch
+  throw new Error(
+    'commitBatch moved to @aeoess/gateway src/sdk-migrated/core/receipt-ledger-impl.ts. ' +
+    'Use ReceiptLedgerImpl from the gateway, or call signBatch/buildMerkleRoot primitives directly.'
+  )
 }
 
 // ══════════════════════════════════════
-// PROVE & VERIFY INCLUSION
+// PROVE & VERIFY INCLUSION (pure primitives)
 // ══════════════════════════════════════
 
 export function proveInclusion(batch: ReceiptBatch, receiptHash: string): ReceiptInclusionProof {
@@ -136,7 +107,7 @@ export function verifyInclusion(proof: ReceiptInclusionProof): boolean {
 }
 
 // ══════════════════════════════════════
-// VERIFY BATCH
+// VERIFY BATCH (pure)
 // ══════════════════════════════════════
 
 export function verifyBatch(batch: ReceiptBatch, previousBatch?: ReceiptBatch | null): BatchVerification {
@@ -171,7 +142,7 @@ export function verifyBatch(batch: ReceiptBatch, previousBatch?: ReceiptBatch | 
 }
 
 // ══════════════════════════════════════
-// VERIFY BATCH CHAIN
+// VERIFY BATCH CHAIN (pure)
 // ══════════════════════════════════════
 
 export function verifyBatchChain(batches: ReceiptBatch[]): BatchChainVerification {

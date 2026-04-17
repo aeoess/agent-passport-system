@@ -10,9 +10,8 @@ import {
   recordDataAccess, verifyDataAccessReceipt,
   checkTermsCompliance, composeTerms,
   buildDataAccessMerkleRoot, proveDataAccessInclusion,
-  verifyDataAccessInclusionProof, addDataAccessToLedger,
+  verifyDataAccessInclusionProof,
 } from '../src/core/data-source.js'
-import { createReceiptLedger } from '../src/core/receipt-ledger.js'
 import type { DataTerms } from '../src/types/data-source.js'
 import { createHash } from 'crypto'
 

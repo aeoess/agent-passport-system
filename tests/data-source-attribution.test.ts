@@ -1,4 +1,11 @@
 // Copyright 2024-2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
+// SDK primitive tests for data-source-attribution.
+//
+// access_weighted / recency_weighted model tests moved to gateway
+// tests/sdk-migrated/core/attribution-models.test.ts on 2026-04-17,
+// alongside the policy-bearing weighted models. SDK keeps Merkle +
+// signed-report verification + 'equal' and 'custom' models.
+
 import { describe, it, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
 import { generateKeyPair } from '../src/crypto/keys.js'
@@ -7,8 +14,6 @@ import {
   verifyDataSourceAttribution,
 } from '../src/core/data-source-attribution.js'
 import type { DataAccessReceipt } from '../src/types/data-source.js'
-
-// ── Test Helpers ──
 
 function makeReceipt(
   sourceReceiptId: string,
@@ -46,7 +51,7 @@ function makeReceipt(
   }
 }
 
-describe('Module 40: Data Source Attribution — The Pixel', () => {
+describe('Module 40: Data Source Attribution — SDK primitives', () => {
   let keys: { publicKey: string; privateKey: string }
 
   beforeEach(() => {
@@ -73,51 +78,6 @@ describe('Module 40: Data Source Attribution — The Pixel', () => {
       for (const s of report.sources) {
         assert.ok(Math.abs(s.percentage - 33.33) < 0.1)
       }
-    })
-
-    it('access_weighted: more accesses → higher weight', () => {
-      const receipts = [
-        makeReceipt('src_A', 'agent_1'),
-        makeReceipt('src_A', 'agent_1'),
-        makeReceipt('src_A', 'agent_1'),
-        makeReceipt('src_B', 'agent_1'),
-      ]
-      const report = computeDataSourceAttribution({
-        outputArtifactId: 'output_2',
-        outputType: 'content',
-        accessReceipts: receipts,
-        model: 'access_weighted',
-        generatorPublicKey: keys.publicKey,
-        generatorPrivateKey: keys.privateKey,
-      })
-      assert.equal(report.totalSources, 2)
-      assert.equal(report.totalAccessEvents, 4)
-      const srcA = report.sources.find(s => s.sourceReceiptId === 'src_A')!
-      const srcB = report.sources.find(s => s.sourceReceiptId === 'src_B')!
-      assert.equal(srcA.percentage, 75)
-      assert.equal(srcB.percentage, 25)
-    })
-
-    it('recency_weighted: recent access gets higher weight', () => {
-      const now = new Date()
-      const hourAgo = new Date(now.getTime() - 3600000)
-      const dayAgo = new Date(now.getTime() - 86400000)
-      const receipts = [
-        makeReceipt('src_recent', 'agent_1', now.toISOString()),
-        makeReceipt('src_old', 'agent_1', dayAgo.toISOString()),
-      ]
-      const report = computeDataSourceAttribution({
-        outputArtifactId: 'output_3',
-        outputType: 'content',
-        accessReceipts: receipts,
-        model: 'recency_weighted',
-        generatorPublicKey: keys.publicKey,
-        generatorPrivateKey: keys.privateKey,
-      })
-      const recent = report.sources.find(s => s.sourceReceiptId === 'src_recent')!
-      const old = report.sources.find(s => s.sourceReceiptId === 'src_old')!
-      assert.ok(recent.percentage > old.percentage, 'Recent source should have higher %')
-      assert.ok(recent.percentage > 60, 'Recent should be >60%')
     })
 
     it('custom weights: caller provides explicit weights', () => {
@@ -150,14 +110,14 @@ describe('Module 40: Data Source Attribution — The Pixel', () => {
         outputArtifactId: 'output_5',
         outputType: 'action',
         accessReceipts: receipts,
-        model: 'access_weighted',
+        model: 'equal',
         generatorPublicKey: keys.publicKey,
         generatorPrivateKey: keys.privateKey,
       })
       const srcA = report.sources.find(s => s.sourceReceiptId === 'src_A')!
       const srcB = report.sources.find(s => s.sourceReceiptId === 'src_B')!
-      assert.equal(srcA.compensationOwed, 0.20) // 2 × $0.10
-      assert.equal(srcB.compensationOwed, 0.05) // 1 × $0.05
+      assert.equal(srcA.compensationOwed, 0.20)
+      assert.equal(srcB.compensationOwed, 0.05)
       assert.equal(report.totalCompensation, 0.25)
     })
 
@@ -213,9 +173,8 @@ describe('Module 40: Data Source Attribution — The Pixel', () => {
       assert.ok(report.signature.length > 0)
     })
 
-    it('default model is access_weighted', () => {
+    it('default model is equal', () => {
       const receipts = [
-        makeReceipt('src_A', 'agent_1'),
         makeReceipt('src_A', 'agent_1'),
         makeReceipt('src_B', 'agent_1'),
       ]
@@ -226,7 +185,27 @@ describe('Module 40: Data Source Attribution — The Pixel', () => {
         generatorPublicKey: keys.publicKey,
         generatorPrivateKey: keys.privateKey,
       })
-      assert.equal(report.attributionModel, 'access_weighted')
+      assert.equal(report.attributionModel, 'equal')
+    })
+
+    it('weighted models throw with migration message', () => {
+      const receipts = [makeReceipt('src_A', 'agent_1')]
+      assert.throws(() => computeDataSourceAttribution({
+        outputArtifactId: 'output_x',
+        outputType: 'decision',
+        accessReceipts: receipts,
+        model: 'access_weighted',
+        generatorPublicKey: keys.publicKey,
+        generatorPrivateKey: keys.privateKey,
+      }), /access_weighted.*moved/)
+      assert.throws(() => computeDataSourceAttribution({
+        outputArtifactId: 'output_y',
+        outputType: 'decision',
+        accessReceipts: receipts,
+        model: 'recency_weighted',
+        generatorPublicKey: keys.publicKey,
+        generatorPrivateKey: keys.privateKey,
+      }), /recency_weighted.*moved/)
     })
   })
 
@@ -262,7 +241,6 @@ describe('Module 40: Data Source Attribution — The Pixel', () => {
         generatorPublicKey: keys.publicKey,
         generatorPrivateKey: keys.privateKey,
       })
-      // Tamper with a source percentage
       report.sources[0].percentage = 99
       const result = verifyDataSourceAttribution(report, keys.publicKey)
       assert.equal(result.valid, false)
