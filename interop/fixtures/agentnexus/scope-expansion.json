@@ -1,0 +1,182 @@
+{
+  "description": "AgentNexus scope expansion: child token attempts to expand scope beyond parent (vault:write added, spend_limit: 100 > 50, max_delegation_depth: 2 > 1). Signature valid but monotonic narrowing violation. Should fail verification with SCOPE_EXPANSION.",
+  "generated_at": "2026-04-18T04:15:43.697Z",
+  "protocol_version": "1.0.0",
+  "source_system": "AgentNexus v1.0",
+  "objects": {
+    "parent_token": {
+      "token_id": "ct_scope_parent",
+      "version": 1,
+      "issuer_did": "did:agentnexus:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK",
+      "subject_did": "did:agentnexus:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK",
+      "enclave_id": "enc_test_002",
+      "scope": {
+        "permissions": [
+          "vault:read"
+        ],
+        "resource_pattern": "enclave:test-enc/*",
+        "role": "reader"
+      },
+      "constraints": {
+        "spend_limit": 50,
+        "max_delegation_depth": 1,
+        "allowed_stages": [],
+        "input_keys": [],
+        "output_key": ""
+      },
+      "validity": {
+        "not_before": 1776485743.697951,
+        "not_after": 1776572143.697951
+      },
+      "revocation_endpoint": "https://relay.agentnexus.top/capability-tokens/ct_scope_parent/status",
+      "evaluated_constraint_hash": "sha256:fe43275564351f0e8ea3438cd2e43caeeea8eac59ad1ff5a224c9c1559bf8cb3",
+      "created_at": 1776485743.697951,
+      "signature": "aMBLC_DAXF8vNWQent2hO0hbtnL3hqHDqmkAKCyTh5hSjsAJ-IyZMZiwNDobpV86A28y5JXy1uCCDzVuVj63Bg==",
+      "signature_alg": "EdDSA",
+      "canonicalization": "JCS",
+      "status": "active"
+    },
+    "child_token": {
+      "token_id": "ct_scope_child_invalid",
+      "version": 1,
+      "issuer_did": "did:agentnexus:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK",
+      "subject_did": "did:agentnexus:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK",
+      "enclave_id": "enc_test_002",
+      "scope": {
+        "permissions": [
+          "vault:read",
+          "vault:write"
+        ],
+        "resource_pattern": "enclave:test-enc/*",
+        "role": "writer"
+      },
+      "constraints": {
+        "spend_limit": 100,
+        "max_delegation_depth": 2,
+        "allowed_stages": [],
+        "input_keys": [],
+        "output_key": ""
+      },
+      "validity": {
+        "not_before": 1776485743.697951,
+        "not_after": 1776489343.697951
+      },
+      "revocation_endpoint": "https://relay.agentnexus.top/capability-tokens/ct_scope_child_invalid/status",
+      "evaluated_constraint_hash": "sha256:c53727d4a6e987ec4821c074fc88a67d982db2560e29717ffd35c9c2b4c57bb3",
+      "created_at": 1776485743.697951,
+      "signature": "zmQa6NhklmX3d_U80NaCaFExNHLcCrjUgfoGM5QEfHl5k0fqWdEPquAgy0aVbQFFcHCOHFZ2jWJWwGGX2i0fAQ==",
+      "signature_alg": "EdDSA",
+      "canonicalization": "JCS",
+      "status": "active"
+    }
+  },
+  "canonicalized": {
+    "parent_token": {
+      "input": {
+        "token_id": "ct_scope_parent",
+        "version": 1,
+        "issuer_did": "did:agentnexus:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK",
+        "subject_did": "did:agentnexus:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK",
+        "enclave_id": "enc_test_002",
+        "scope": {
+          "permissions": [
+            "vault:read"
+          ],
+          "resource_pattern": "enclave:test-enc/*",
+          "role": "reader"
+        },
+        "constraints": {
+          "spend_limit": 50,
+          "max_delegation_depth": 1,
+          "allowed_stages": [],
+          "input_keys": [],
+          "output_key": ""
+        },
+        "validity": {
+          "not_before": 1776485743.697951,
+          "not_after": 1776572143.697951
+        },
+        "revocation_endpoint": "https://relay.agentnexus.top/capability-tokens/ct_scope_parent/status",
+        "evaluated_constraint_hash": "sha256:fe43275564351f0e8ea3438cd2e43caeeea8eac59ad1ff5a224c9c1559bf8cb3",
+        "created_at": 1776485743.697951
+      },
+      "canonical_string": "{\"constraints\":{\"allowed_stages\":[],\"input_keys\":[],\"max_delegation_depth\":1,\"output_key\":\"\",\"spend_limit\":50},\"created_at\":1776485743.697951,\"enclave_id\":\"enc_test_002\",\"evaluated_constraint_hash\":\"sha256:fe43275564351f0e8ea3438cd2e43caeeea8eac59ad1ff5a224c9c1559bf8cb3\",\"issuer_did\":\"did:agentnexus:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK\",\"revocation_endpoint\":\"https://relay.agentnexus.top/capability-tokens/ct_scope_parent/status\",\"scope\":{\"permissions\":[\"vault:read\"],\"resource_pattern\":\"enclave:test-enc/*\",\"role\":\"reader\"},\"subject_did\":\"did:agentnexus:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK\",\"token_id\":\"ct_scope_parent\",\"validity\":{\"not_after\":1776572143.697951,\"not_before\":1776485743.697951},\"version\":1}",
+      "method": "JCS (RFC 8785)"
+    },
+    "child_token": {
+      "input": {
+        "token_id": "ct_scope_child_invalid",
+        "version": 1,
+        "issuer_did": "did:agentnexus:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK",
+        "subject_did": "did:agentnexus:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK",
+        "enclave_id": "enc_test_002",
+        "scope": {
+          "permissions": [
+            "vault:read",
+            "vault:write"
+          ],
+          "resource_pattern": "enclave:test-enc/*",
+          "role": "writer"
+        },
+        "constraints": {
+          "spend_limit": 100,
+          "max_delegation_depth": 2,
+          "allowed_stages": [],
+          "input_keys": [],
+          "output_key": ""
+        },
+        "validity": {
+          "not_before": 1776485743.697951,
+          "not_after": 1776489343.697951
+        },
+        "revocation_endpoint": "https://relay.agentnexus.top/capability-tokens/ct_scope_child_invalid/status",
+        "evaluated_constraint_hash": "sha256:c53727d4a6e987ec4821c074fc88a67d982db2560e29717ffd35c9c2b4c57bb3",
+        "created_at": 1776485743.697951
+      },
+      "canonical_string": "{\"constraints\":{\"allowed_stages\":[],\"input_keys\":[],\"max_delegation_depth\":2,\"output_key\":\"\",\"spend_limit\":100},\"created_at\":1776485743.697951,\"enclave_id\":\"enc_test_002\",\"evaluated_constraint_hash\":\"sha256:c53727d4a6e987ec4821c074fc88a67d982db2560e29717ffd35c9c2b4c57bb3\",\"issuer_did\":\"did:agentnexus:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK\",\"revocation_endpoint\":\"https://relay.agentnexus.top/capability-tokens/ct_scope_child_invalid/status\",\"scope\":{\"permissions\":[\"vault:read\",\"vault:write\"],\"resource_pattern\":\"enclave:test-enc/*\",\"role\":\"writer\"},\"subject_did\":\"did:agentnexus:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK\",\"token_id\":\"ct_scope_child_invalid\",\"validity\":{\"not_after\":1776489343.697951,\"not_before\":1776485743.697951},\"version\":1}",
+      "method": "JCS (RFC 8785)"
+    }
+  },
+  "signatures": {
+    "parent_token": {
+      "signature": "aMBLC_DAXF8vNWQent2hO0hbtnL3hqHDqmkAKCyTh5hSjsAJ-IyZMZiwNDobpV86A28y5JXy1uCCDzVuVj63Bg==",
+      "signed_by": "principal",
+      "algorithm": "Ed25519",
+      "valid": true
+    },
+    "child_token": {
+      "signature": "zmQa6NhklmX3d_U80NaCaFExNHLcCrjUgfoGM5QEfHl5k0fqWdEPquAgy0aVbQFFcHCOHFZ2jWJWwGGX2i0fAQ==",
+      "signed_by": "agent",
+      "algorithm": "Ed25519",
+      "valid": true
+    }
+  },
+  "keys": {
+    "principal": {
+      "public_key": "17a3defcd90537b0ce5e5fc04b7253b84f0ab7b8640d4b9d8ea3cb73ddc86dab"
+    },
+    "agent": {
+      "public_key": "416d245ce70d8d56ac1233e26718dea4d650e8a7b1edf1ab56485608dc672217"
+    }
+  },
+  "expected": {
+    "parent_signature_valid": true,
+    "child_signature_valid": true,
+    "scope_is_subset": false,
+    "spend_limit_narrowed": false,
+    "max_delegation_depth_narrowed": false,
+    "monotonic_narrowing": false,
+    "verification_result": "SCOPE_EXPANSION",
+    "reasoning": "Child permissions expanded (vault:write added), spend_limit increased (100 > 50), max_delegation_depth increased (2 > 1). All three violate monotonic narrowing. First check fails on scope expansion."
+  },
+  "verification_results": {
+    "parent_token": {
+      "valid": true
+    },
+    "child_token": {
+      "valid": false,
+      "reason": "SCOPE_EXPANSION",
+      "detail": "child permissions [vault:read, vault:write] \u2284 parent permissions [vault:read]"
+    }
+  }
+}
