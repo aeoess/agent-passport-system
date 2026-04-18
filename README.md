@@ -145,3 +145,7 @@ npx agent-passport-system-mcp
 - [npm](https://www.npmjs.com/package/agent-passport-system) · [PyPI](https://pypi.org/project/agent-passport-system/) · [MCP](https://www.npmjs.com/package/agent-passport-system-mcp)
 
 Copyright 2024-2026 Tymofii Pidlisnyi. Apache-2.0.
+
+## Download History
+
+[![Download History](https://skill-history.com/chart/aeoess/agent-passport-system.svg)](https://skill-history.com/aeoess/agent-passport-system)
