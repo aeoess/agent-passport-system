@@ -352,3 +352,127 @@ Plan to migrate your imports before v2.1, when the stubs are removed.
   cannot migrate yet.
 - **v2.1**: Deprecation stubs removed. Import from `@aeoess/gateway` before
   this release.
+
+## Appendix: Full stub manifest
+
+The following symbols are retained in the SDK as deprecation stubs that
+throw at runtime (or at module-import time). They preserve import paths
+so partners see a clear migration error, not a cryptic "module not found."
+
+Stubs are grouped by file. Root-reachable stubs are re-exported from
+`src/index.ts` — `import { X } from 'agent-passport-system'` still
+type-checks but throws at call time. Subpath-only stubs require
+`import { X } from 'agent-passport-system/<subpath>'`; importing them via
+the root fails at compile time, which is the intended signal that your
+integration needs to move to `@aeoess/gateway`.
+
+### Adapters (src/adapters/)
+
+- **`src/adapters/gateway-reporter.ts`** — `reportReceipt`,
+  `reportEvaluation`, `GatewayReporterConfig` (type). Subpath-only.
+- **`src/adapters/governance-hook.ts`** — `GovernanceHook` (class),
+  `GovernanceHookConfig`, `ActionDescriptor`, `GovernanceVerdict`,
+  `GovernanceResult`, `GovernanceReceipt` (all types). Subpath-only.
+
+Note: the factory functions `createCrewAIGovernance`,
+`createADKGovernancePlugin`, `createLangChainGovernanceHandler`, and
+`createA2AGovernance` are **removed entirely** (no stub). Import them
+from `@aeoess/gateway` or rebuild using the primitive mappers in
+`src/adapters/{crewai,adk,langchain,a2a}.ts` plus `onReceipt`/`onDenied`
+callbacks.
+
+### Core runtime (src/core/)
+
+- **`src/core/gateway.ts`** — `ProxyGateway` (class). Subpath-only.
+- **`src/core/context.ts`** — `AgentContext` (class), `createAgentContext`.
+  Subpath-only.
+- **`src/core/data-contribution.ts`** — `createContributionLedger`,
+  `recordContribution`, `queryContributions`, `getSourceMetrics`,
+  `getAgentDataFootprint`. Subpath-only.
+- **`src/core/data-enforcement.ts`** — `DataEnforcementGate` (class).
+  **Root-reachable** (exported from `src/index.ts`).
+- **`src/core/data-gateway.ts`** — `DataGateway` (class).
+  **Root-reachable** (exported from `src/index.ts`).
+- **`src/core/data-settlement.ts`** — `generateSettlement`,
+  `verifySettlement`, `generateDataComplianceReport`. Subpath-only.
+- **`src/core/euaiact.ts`** — `classifyRisk`, `mapArticles`,
+  `generateTransparencyDisclosure`, `generateComplianceProfile`,
+  `identifyGaps`, `generateComplianceReport`. Subpath-only.
+- **`src/core/integration.ts`** — `commerceWithIntent`,
+  `commerceReceiptToActionReceipt`, `validateCommerceDelegation`,
+  `coordinationToAgora`, `postTaskCreated`, `postReviewCompleted`,
+  `postTaskCompleted`. Subpath-only.
+- **`src/core/intent-network.ts`** — `createIntentNetwork`,
+  `createIntentCard`, `verifyIntentCard`, `isCardExpired`, `publishCard`,
+  `removeCard`, `computeRelevance`, `searchMatches`, `requestIntro`,
+  `respondToIntro`, `getDigest`, `getVisibleItems`. Subpath-only.
+- **`src/core/training-attribution.ts`** — `createTrainingAttribution`,
+  `verifyTrainingAttribution`, `createTrainingLedger`,
+  `recordTrainingAttribution`, `getModelDataSources`,
+  `getSourceTrainingCount`, `createDerivation`, `createDerivationStore`,
+  `recordDerivation`, `resolveAttributionChain`. Subpath-only.
+- **`src/core/attribution.ts`** — `computeAttribution`,
+  `computeCollaborationAttribution`. Pure Merkle primitives
+  (`hashReceipt`, `traceBeneficiary`, `verifyAttributionReport`,
+  `buildMerkleRoot`, `generateMerkleProof`, `verifyMerkleProof`) stay.
+- **`src/core/delegation.ts`** — stateful registry accessors:
+  `revokeDelegation`, `cascadeRevoke`, `revokeByAgent`, `validateChain`,
+  `getDescendants`, `getChainEntry`, `onRevocation`, `getReceipts`,
+  `getRevocation`, `getSpent`. The 8 pure primitives (`createDelegation`,
+  `subDelegate`, `verifyDelegation`, `verifyRevocation`, `createReceipt`,
+  `verifyReceipt`, `scopeCovers`, `scopeAuthorizes`) are unchanged.
+  `clearStores()` is retained as a no-op for test hygiene.
+
+### v2 AMBIGUOUS-split modules (src/v2/)
+
+Stateful functions throw; pure primitives in the same file stay callable.
+
+- **`src/v2/anomaly-v2.ts`** — stubs: `recordV2Action`,
+  `getV2ActionHistory`, `getV2AnomalyFlags`, `getV2UnreviewedFlags`,
+  `checkV2FirstMaxAuthority`, `computeV2ConcentrationMetrics`,
+  `reviewV2AnomalyFlag`, `clearV2AnomalyStores`. Keeps:
+  `validateV2UncertaintyCompliance`.
+- **`src/v2/attestation-v2.ts`** — stubs: `createV2Attestation`,
+  `getV2Attestation`, `getV2AttestationForAction`,
+  `getV2AttestationsForAgent`, `getV2AgentAttestationQualityAvg`,
+  `clearV2AttestationStore`. Keeps: `signAttestation`,
+  `assessV2AttestationQuality`.
+- **`src/v2/migration-v2.ts`** — stubs: `requestV2Migration`,
+  `approveV2Migration`, `executeV2Migration`, `isV2InProbation`,
+  `computeV2MigrationDiscount`, `traceV2MigrationLineage`,
+  `rollbackV2Migration`, `processV2CompletedProbations`,
+  `getV2MigrationRequest`, `getV2MigrationRecord`,
+  `getV2MigrationsForAgent`, `getV2ActiveProbations`,
+  `clearV2MigrationStores`. Keeps: `isV2MigrationFactorCompatible`.
+- **`src/v2/semantic-drift.ts`** — stubs: `recordSemanticIntent`,
+  `analyzeSemanticDrift`, `getDriftResults`, `getAgentDriftAverage`,
+  `isAgentSemanticRisk`, `getSemanticRecord`,
+  `clearSemanticDriftStores`. Keeps: `extractKeywords`,
+  `computeSemanticDrift`, `STOPWORDS`.
+- **`src/v2/semantic-scoping.ts`** — stubs: `defineSemanticScope`,
+  `checkSemanticCompliance`, `getScopeViolations`,
+  `clearSemanticScopingStores`. Keeps: `evaluateSemanticConstraints`,
+  plus `SemanticConstraint`, `SemanticScope`, `ScopeViolation` types.
+
+### v2 behavioral analytics — module-level throw (src/v2/)
+
+These 18 files throw at **import time**, not at call time. Any `import`
+of the file fails immediately with a migration pointer. There are no
+function-level stubs because the modules were moved wholesale.
+
+`affected-party.ts`, `amendment.ts`, `approval-fatigue.ts`,
+`blind-evaluation.ts`, `cascade-correlation.ts`, `circuit-breakers.ts`,
+`composite-audit.ts`, `cross-chain-audit.ts`, `effect-enforcement.ts`,
+`effect-sampling.ts`, `emergence.ts`, `externality.ts`,
+`governance-drift.ts`, `inaction-audit.ts`, `output-proportionality.ts`,
+`root-transition.ts`, `separation-of-powers.ts`, `values-override.ts`.
+
+### Summary counts
+
+- Files containing `throw new Error(MOVED)` or equivalent: **19**
+  (14 function/class stub files + 5 v2 AMBIGUOUS-split files)
+- Files that throw at module import: **18** (behavioral analytics)
+- Root-reachable stubs (fail at call time via `import … from 'agent-passport-system'`): **2**
+  (`DataGateway`, `DataEnforcementGate`)
+- Subpath-only stubs (fail at compile time from the root, at call time via
+  subpath import): **all others**

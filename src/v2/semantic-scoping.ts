@@ -41,7 +41,7 @@ export interface ScopeViolation {
 const MOVED =
   'This function has moved to scope-violations in @aeoess/gateway ' +
   '(src/sdk-migrated/v2/scope-violations.ts). ' +
-  'Pure primitive evaluateSemanticConstraints stays in the SDK.'
+  'Pure primitive evaluateSemanticConstraints stays in the SDK. See MIGRATION.md.'
 
 // ══════════════════════════════════════
 // PURE CONSTRAINT EVALUATION

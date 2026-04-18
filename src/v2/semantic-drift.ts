@@ -20,7 +20,7 @@ import type { SemanticIntentRecord, SemanticDriftResult } from './types.js'
 const MOVED =
   'This function has moved to semantic-drift-tracker in @aeoess/gateway ' +
   '(src/sdk-migrated/v2/semantic-drift-tracker.ts). ' +
-  'Pure primitives extractKeywords + computeSemanticDrift stay in the SDK.'
+  'Pure primitives extractKeywords + computeSemanticDrift stay in the SDK. See MIGRATION.md.'
 
 // ── Stopwords ──
 

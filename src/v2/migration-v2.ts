@@ -27,7 +27,7 @@ const MOVED =
   'This function has moved to migration-workflow in @aeoess/gateway ' +
   '(src/sdk-migrated/v2/migration-workflow.ts). ' +
   'Migration types stay in src/v2/types.ts; SDK retains only the ' +
-  'version-compatibility predicate.'
+  'version-compatibility predicate. See MIGRATION.md.'
 
 // ══════════════════════════════════════
 // PURE VERSION-COMPATIBILITY PREDICATE

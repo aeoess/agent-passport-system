@@ -23,7 +23,7 @@ import type {
 const MOVED =
   'This function has moved to anomaly-detection in @aeoess/gateway ' +
   '(src/sdk-migrated/v2/anomaly-detection.ts). ' +
-  'Pure primitive validateV2UncertaintyCompliance stays in the SDK.'
+  'Pure primitive validateV2UncertaintyCompliance stays in the SDK. See MIGRATION.md.'
 
 // ═══════════════════════════════════════════════
 // SEMANTIC UNCERTAINTY VALIDATION (pure)

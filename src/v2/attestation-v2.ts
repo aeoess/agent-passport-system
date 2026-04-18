@@ -26,7 +26,7 @@ import type {
 const MOVED =
   'This function has moved to attestation-ledger in @aeoess/gateway ' +
   '(src/sdk-migrated/v2/attestation-ledger.ts). ' +
-  'Pure primitives signAttestation + assessV2AttestationQuality stay in the SDK.'
+  'Pure primitives signAttestation + assessV2AttestationQuality stay in the SDK. See MIGRATION.md.'
 
 // ══════════════════════════════════════
 // SIGNING PRIMITIVE
