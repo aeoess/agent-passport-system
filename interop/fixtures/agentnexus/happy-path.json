@@ -1,0 +1,231 @@
+{
+  "description": "AgentNexus happy path: parent token issued (scope: vault:read/write/playbook:execute, spend_limit: 100), child token delegated with narrowed scope (vault:read only, spend_limit: 50). Full delegation chain, all signatures valid, monotonic narrowing enforced.",
+  "generated_at": "2026-04-18T04:15:43.660Z",
+  "protocol_version": "1.0.0",
+  "source_system": "AgentNexus v1.0",
+  "objects": {
+    "parent_token": {
+      "token_id": "ct_a1b2c3d4e5f6",
+      "version": 1,
+      "issuer_did": "did:agentnexus:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK",
+      "subject_did": "did:agentnexus:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK",
+      "enclave_id": "enc_test_001",
+      "scope": {
+        "permissions": [
+          "vault:read",
+          "vault:write",
+          "playbook:execute"
+        ],
+        "resource_pattern": "enclave:test-enc/*",
+        "role": "collaborator"
+      },
+      "constraints": {
+        "spend_limit": 100,
+        "max_delegation_depth": 2,
+        "allowed_stages": [
+          "stage_1",
+          "stage_2"
+        ],
+        "input_keys": [
+          "input_a"
+        ],
+        "output_key": "output_x"
+      },
+      "validity": {
+        "not_before": 1776485743.661292,
+        "not_after": 1776572143.661292
+      },
+      "revocation_endpoint": "https://relay.agentnexus.top/capability-tokens/ct_a1b2c3d4e5f6/status",
+      "evaluated_constraint_hash": "sha256:bed36056240a3776f1b7167f1e872d1f31d70494671e6dbec37ae7145e187dda",
+      "created_at": 1776485743.661292,
+      "signature": "ID4Svgx1SFW_unDDCQ0iLnpYAMvL6TV6L4VVYmVWdXug7IinMtnJ6HIV7rCA3GxCDkeEQ_Zp3SPYuEzGg0suAA==",
+      "signature_alg": "EdDSA",
+      "canonicalization": "JCS",
+      "status": "active"
+    },
+    "child_token": {
+      "token_id": "ct_child_001",
+      "version": 1,
+      "issuer_did": "did:agentnexus:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK",
+      "subject_did": "did:agentnexus:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK",
+      "enclave_id": "enc_test_001",
+      "scope": {
+        "permissions": [
+          "vault:read"
+        ],
+        "resource_pattern": "enclave:test-enc/docs/*",
+        "role": "reader"
+      },
+      "constraints": {
+        "spend_limit": 50,
+        "max_delegation_depth": 1,
+        "allowed_stages": [
+          "stage_1"
+        ],
+        "input_keys": [
+          "input_a"
+        ],
+        "output_key": "output_x"
+      },
+      "validity": {
+        "not_before": 1776485743.661292,
+        "not_after": 1776489343.661292
+      },
+      "revocation_endpoint": "https://relay.agentnexus.top/capability-tokens/ct_child_001/status",
+      "evaluated_constraint_hash": "sha256:57daa9a365ac50639eb826638065bb0427bfdabccbc2073821a09968e63943d9",
+      "created_at": 1776485743.661292,
+      "signature": "8SPIDp-WCUuOKq8el20dN1c7AfkbMeMqc3iiWOcZy9jrtT-jvWhscIBy7K65mybkzw9dPKDWMumbiN9PP0uBDw==",
+      "signature_alg": "EdDSA",
+      "canonicalization": "JCS",
+      "status": "active"
+    }
+  },
+  "canonicalized": {
+    "parent_token": {
+      "input": {
+        "token_id": "ct_a1b2c3d4e5f6",
+        "version": 1,
+        "issuer_did": "did:agentnexus:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK",
+        "subject_did": "did:agentnexus:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK",
+        "enclave_id": "enc_test_001",
+        "scope": {
+          "permissions": [
+            "vault:read",
+            "vault:write",
+            "playbook:execute"
+          ],
+          "resource_pattern": "enclave:test-enc/*",
+          "role": "collaborator"
+        },
+        "constraints": {
+          "spend_limit": 100,
+          "max_delegation_depth": 2,
+          "allowed_stages": [
+            "stage_1",
+            "stage_2"
+          ],
+          "input_keys": [
+            "input_a"
+          ],
+          "output_key": "output_x"
+        },
+        "validity": {
+          "not_before": 1776485743.661292,
+          "not_after": 1776572143.661292
+        },
+        "revocation_endpoint": "https://relay.agentnexus.top/capability-tokens/ct_a1b2c3d4e5f6/status",
+        "evaluated_constraint_hash": "sha256:bed36056240a3776f1b7167f1e872d1f31d70494671e6dbec37ae7145e187dda",
+        "created_at": 1776485743.661292
+      },
+      "canonical_string": "{\"constraints\":{\"allowed_stages\":[\"stage_1\",\"stage_2\"],\"input_keys\":[\"input_a\"],\"max_delegation_depth\":2,\"output_key\":\"output_x\",\"spend_limit\":100},\"created_at\":1776485743.661292,\"enclave_id\":\"enc_test_001\",\"evaluated_constraint_hash\":\"sha256:bed36056240a3776f1b7167f1e872d1f31d70494671e6dbec37ae7145e187dda\",\"issuer_did\":\"did:agentnexus:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK\",\"revocation_endpoint\":\"https://relay.agentnexus.top/capability-tokens/ct_a1b2c3d4e5f6/status\",\"scope\":{\"permissions\":[\"vault:read\",\"vault:write\",\"playbook:execute\"],\"resource_pattern\":\"enclave:test-enc/*\",\"role\":\"collaborator\"},\"subject_did\":\"did:agentnexus:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK\",\"token_id\":\"ct_a1b2c3d4e5f6\",\"validity\":{\"not_after\":1776572143.661292,\"not_before\":1776485743.661292},\"version\":1}",
+      "canonical_hex": "7b22636f6e73747261696e7473223a7b22616c6c6f7765645f737461676573223a5b2273746167655f31222c2273746167655f32225d2c22696e7075745f6b657973223a5b22696e7075745f61225d2c226d61785f64656c65676174696f6e5f6465707468223a322c226f75747075745f6b6579223a226f75747075745f78222c227370656e645f6c696d6974223a3130307d2c22637265617465645f6174223a313737363438353734332e3636313239322c22656e636c6176655f6964223a22656e635f746573745f303031222c226576616c75617465645f636f6e73747261696e745f68617368223a227368613235363a62656433363035363234306133373736663162373136376631653837326431663331643730343934363731653664626563333761653731343565313837646461222c226973737565725f646964223a226469643a6167656e746e657875733a7a364d6b68615867425a44766f74446b4c353235376661697a74694769433251744b4c4770626e6e4547746132646f4b222c227265766f636174696f6e5f656e64706f696e74223a2268747470733a2f2f72656c61792e6167656e746e657875732e746f702f6361706162696c6974792d746f6b656e732f63745f6131623263336434653566362f737461747573222c2273636f7065223a7b227065726d697373696f6e73223a5b227661756c743a72656164222c227661756c743a7772697465222c22706c6179626f6f6b3a65786563757465225d2c227265736f757263655f7061747465726e223a22656e636c6176653a746573742d656e632f2a222c22726f6c65223a22636f6c6c61626f7261746f72227d2c227375626a6563745f646964223a226469643a6167656e746e657875733a7a364d6b68615867425a44766f74446b4c353235376661697a74694769433251744b4c4770626e6e4547746132646f4b222c22746f6b656e5f6964223a2263745f613162326333643465356636222c2276616c6964697479223a7b226e6f745f6166746572223a313737363537323134332e3636313239322c226e6f745f6265666f7265223a313737363438353734332e3636313239327d2c2276657273696f6e223a317d",
+      "method": "JCS (RFC 8785) + SHA256",
+      "evaluated_constraint_hash": "sha256:bed36056240a3776f1b7167f1e872d1f31d70494671e6dbec37ae7145e187dda"
+    },
+    "child_token": {
+      "input": {
+        "token_id": "ct_child_001",
+        "version": 1,
+        "issuer_did": "did:agentnexus:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK",
+        "subject_did": "did:agentnexus:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK",
+        "enclave_id": "enc_test_001",
+        "scope": {
+          "permissions": [
+            "vault:read"
+          ],
+          "resource_pattern": "enclave:test-enc/docs/*",
+          "role": "reader"
+        },
+        "constraints": {
+          "spend_limit": 50,
+          "max_delegation_depth": 1,
+          "allowed_stages": [
+            "stage_1"
+          ],
+          "input_keys": [
+            "input_a"
+          ],
+          "output_key": "output_x"
+        },
+        "validity": {
+          "not_before": 1776485743.661292,
+          "not_after": 1776489343.661292
+        },
+        "revocation_endpoint": "https://relay.agentnexus.top/capability-tokens/ct_child_001/status",
+        "evaluated_constraint_hash": "sha256:57daa9a365ac50639eb826638065bb0427bfdabccbc2073821a09968e63943d9",
+        "created_at": 1776485743.661292
+      },
+      "canonical_string": "{\"constraints\":{\"allowed_stages\":[\"stage_1\"],\"input_keys\":[\"input_a\"],\"max_delegation_depth\":1,\"output_key\":\"output_x\",\"spend_limit\":50},\"created_at\":1776485743.661292,\"enclave_id\":\"enc_test_001\",\"evaluated_constraint_hash\":\"sha256:57daa9a365ac50639eb826638065bb0427bfdabccbc2073821a09968e63943d9\",\"issuer_did\":\"did:agentnexus:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK\",\"revocation_endpoint\":\"https://relay.agentnexus.top/capability-tokens/ct_child_001/status\",\"scope\":{\"permissions\":[\"vault:read\"],\"resource_pattern\":\"enclave:test-enc/docs/*\",\"role\":\"reader\"},\"subject_did\":\"did:agentnexus:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK\",\"token_id\":\"ct_child_001\",\"validity\":{\"not_after\":1776489343.661292,\"not_before\":1776485743.661292},\"version\":1}",
+      "canonical_hex": "7b22636f6e73747261696e7473223a7b22616c6c6f7765645f737461676573223a5b2273746167655f31225d2c22696e7075745f6b657973223a5b22696e7075745f61225d2c226d61785f64656c65676174696f6e5f6465707468223a312c226f75747075745f6b6579223a226f75747075745f78222c227370656e645f6c696d6974223a35307d2c22637265617465645f6174223a313737363438353734332e3636313239322c22656e636c6176655f6964223a22656e635f746573745f303031222c226576616c75617465645f636f6e73747261696e745f68617368223a227368613235363a35376461613961333635616335303633396562383236363338303635626230343237626664616263636263323037333832316130393936386536333934336439222c226973737565725f646964223a226469643a6167656e746e657875733a7a364d6b68615867425a44766f74446b4c353235376661697a74694769433251744b4c4770626e6e4547746132646f4b222c227265766f636174696f6e5f656e64706f696e74223a2268747470733a2f2f72656c61792e6167656e746e657875732e746f702f6361706162696c6974792d746f6b656e732f63745f6368696c645f3030312f737461747573222c2273636f7065223a7b227065726d697373696f6e73223a5b227661756c743a72656164225d2c227265736f757263655f7061747465726e223a22656e636c6176653a746573742d656e632f646f63732f2a222c22726f6c65223a22726561646572227d2c227375626a6563745f646964223a226469643a6167656e746e657875733a7a364d6b68615867425a44766f74446b4c353235376661697a74694769433251744b4c4770626e6e4547746132646f4b222c22746f6b656e5f6964223a2263745f6368696c645f303031222c2276616c6964697479223a7b226e6f745f6166746572223a313737363438393334332e3636313239322c226e6f745f6265666f7265223a313737363438353734332e3636313239327d2c2276657273696f6e223a317d",
+      "method": "JCS (RFC 8785) + SHA256",
+      "evaluated_constraint_hash": "sha256:57daa9a365ac50639eb826638065bb0427bfdabccbc2073821a09968e63943d9"
+    }
+  },
+  "signatures": {
+    "parent_token": {
+      "signature": "ID4Svgx1SFW_unDDCQ0iLnpYAMvL6TV6L4VVYmVWdXug7IinMtnJ6HIV7rCA3GxCDkeEQ_Zp3SPYuEzGg0suAA==",
+      "signed_by": "principal (issuer_did)",
+      "algorithm": "Ed25519"
+    },
+    "child_token": {
+      "signature": "8SPIDp-WCUuOKq8el20dN1c7AfkbMeMqc3iiWOcZy9jrtT-jvWhscIBy7K65mybkzw9dPKDWMumbiN9PP0uBDw==",
+      "signed_by": "agent (parent subject, child issuer)",
+      "algorithm": "Ed25519"
+    }
+  },
+  "keys": {
+    "principal": {
+      "public_key": "17a3defcd90537b0ce5e5fc04b7253b84f0ab7b8640d4b9d8ea3cb73ddc86dab",
+      "role": "Enclave owner, issues parent token"
+    },
+    "agent": {
+      "public_key": "416d245ce70d8d56ac1233e26718dea4d650e8a7b1edf1ab56485608dc672217",
+      "role": "Parent token holder, issues child token (delegate)"
+    }
+  },
+  "delegation_chain": [
+    {
+      "token_id": "ct_a1b2c3d4e5f6",
+      "issuer_did": "did:agentnexus:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK",
+      "scope_hash": "sha256:bed36056240a3776f1b7167f1e872d1f31d70494671e6dbec37ae7145e187dda"
+    },
+    {
+      "token_id": "ct_child_001",
+      "issuer_did": "did:agentnexus:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK",
+      "scope_hash": "sha256:57daa9a365ac50639eb826638065bb0427bfdabccbc2073821a09968e63943d9",
+      "parent_token_id": "ct_a1b2c3d4e5f6"
+    }
+  ],
+  "expected": {
+    "parent_signature_valid": true,
+    "child_signature_valid": true,
+    "delegation_chain_complete": true,
+    "scope_is_subset": true,
+    "spend_limit_narrowed": true,
+    "max_delegation_depth_narrowed": true,
+    "monotonic_narrowing": true,
+    "reasoning": "Child scope is strict subset of parent. spend_limit and max_delegation_depth both reduced. All signatures valid. Delegation chain complete."
+  },
+  "verification_results": {
+    "parent_token": {
+      "valid": true,
+      "checks": {
+        "signature": "verified",
+        "validity": "in_window",
+        "status": "active"
+      }
+    },
+    "child_token": {
+      "valid": true,
+      "checks": {
+        "signature": "verified",
+        "validity": "in_window",
+        "chain": "complete",
+        "scope_is_subset": true,
+        "spend_limit": "narrowed",
+        "max_delegation_depth": "narrowed",
+        "status": "active"
+      }
+    }
+  }
+}
