@@ -3,6 +3,20 @@
 ## 2.1.0
 
 ### Added
+- Cognitive Attestation envelope primitive (`src/v2/cognitive-attestation/`).
+  TypeScript port of the Paper 7 normative schema (Zenodo DOI
+  [10.5281/zenodo.19646276](https://doi.org/10.5281/zenodo.19646276)).
+  Ships envelope construction, JCS canonicalization, Ed25519 signing,
+  Stage 1 cryptographic verification including required-signer-role
+  coverage, Stage 2 registry-verification interface, Stage 3 replay stub,
+  and typed dispute primitives. Integrators bring their own registry
+  resolvers and replay backends. Dispute resolution is explicitly out of
+  SDK scope — it lives in `@aeoess/gateway`.
+  - Public exports: `buildAttestation`, `canonicalizeAttestation`,
+    `signCognitiveAttestation`, `cognitiveAttestationDigest`,
+    `sortFeatureActivations`, `validateAttestationShape`,
+    `verifyCognitiveAttestationSignature`, `verifyRequiredSignerRoles`,
+    `verifyAgainstRegistry`, `verifyByReplay`, plus 25 typed interfaces.
 - `verifyBoundWallet` now accepts both positional args and an object form,
   matching the `bindWallet` signature. Reported by @MoltyCel in #16.
   Positional form unchanged.

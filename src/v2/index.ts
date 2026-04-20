@@ -157,6 +157,33 @@ export type {
   BoundWallet, WalletChain, WalletVerificationChallenge, UnbindEvent,
 } from "./wallet-binding/index.js"
 
+// Cognitive Attestation (Paper 7 — Zenodo DOI 10.5281/zenodo.19646276)
+// Signed declarations of feature-level model computation. SDK ships the
+// envelope, JCS canonicalization, Ed25519 signing, Stage 1 verification,
+// Stage 2 registry interface, Stage 3 replay stub, typed dispute primitives.
+// Dispute resolution / transparency logs / cross-tenant correlation live
+// in @aeoess/gateway.
+export {
+  buildAttestation, canonicalizeAttestation,
+  signAttestation as signCognitiveAttestation,
+  cognitiveAttestationDigest, sortFeatureActivations, validateAttestationShape,
+  verifySignature as verifyCognitiveAttestationSignature,
+  verifyRequiredSignerRoles,
+  verifyAgainstRegistry, verifyByReplay,
+} from './cognitive-attestation/index.js'
+export type {
+  CognitiveAttestation, ModelRef, DictionaryRef, TokenRange,
+  FeatureActivation, AggregationPolicy, Signature as CognitiveAttestationSignature,
+  SignerRole as CognitiveAttestationSignerRole, ExecutionEnvironment,
+  Precision, AttachmentPoint, SAEType, ActivationStatistic,
+  CompletenessClaim, TiebreakerRule, BuildAttestationInput,
+  RequiredRoleCoverage, RegistryResolver, RegistryVerificationResult,
+  ReplayBackend, ReplayVerificationResult,
+  ThresholdDispute, ExclusionDispute, ComputationalDispute,
+  DecompositionAdequacyDispute, FacetedReinterpretationDispute,
+  InterpretiveDispute, Dispute,
+} from './cognitive-attestation/index.js'
+
 // Credential Check Policy (verification timing for governance metadata)
 // Proposed by @piiiico on a2aproject/A2A governance metadata thread.
 export {
