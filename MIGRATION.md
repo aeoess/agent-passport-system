@@ -112,8 +112,8 @@ Returns `true` for any wallet currently bound to the passport.
 Passing a config object (e.g. `verifyBoundWallet({ passport, chain,
 address })`) will fail the internal lookup because the positional
 slots for `chain` and `address` are `undefined`. The asymmetry with
-`bindWallet` (which does accept a config object) is tracked as a
-v2.1.0 UX improvement.
+`bindWallet` (which does accept a config object) is resolved in
+v2.1.0 — both forms supported.
 
 ## What moved to @aeoess/gateway
 

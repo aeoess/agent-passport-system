@@ -220,8 +220,20 @@ export function unbindWallet(opts: {
 }
 
 /**
+ * Object-form input for `verifyBoundWallet`, mirroring `bindWallet`.
+ */
+export type VerifyBoundWalletInput = {
+  passport: SignedPassport
+  chain: WalletChain
+  address: string
+}
+
+/**
  * Verify that (chain, address) is currently bound to the passport AND that
  * the binding_signature is valid against the passport's public key.
+ *
+ * Accepts both positional args and an object form (as of v2.1.0). The object
+ * form matches `bindWallet`'s signature for call-site symmetry.
  *
  * Returns false if the wallet is not in bound_wallets, the signature is
  * invalid, or the bound record has been tampered with.
@@ -230,11 +242,25 @@ export function verifyBoundWallet(
   passport: SignedPassport,
   chain: WalletChain,
   address: string
+): boolean
+export function verifyBoundWallet(input: VerifyBoundWalletInput): boolean
+export function verifyBoundWallet(
+  arg1: SignedPassport | VerifyBoundWalletInput,
+  chain?: WalletChain,
+  address?: string
 ): boolean {
+  const asObj = arg1 as Partial<VerifyBoundWalletInput>
+  const isObjectForm =
+    !!asObj && typeof asObj === 'object' &&
+    !!asObj.passport && !!asObj.chain && !!asObj.address
+  const passport = isObjectForm ? asObj.passport! : (arg1 as SignedPassport)
+  const c = isObjectForm ? asObj.chain! : chain!
+  const a = isObjectForm ? asObj.address! : address!
+
   const wallets = passport.passport.bound_wallets
   if (!wallets || wallets.length === 0) return false
 
-  const bound = wallets.find((w) => w.chain === chain && w.address === address)
+  const bound = wallets.find((w) => w.chain === c && w.address === a)
   if (!bound) return false
 
   const payload = bindingPayload({

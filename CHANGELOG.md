@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.1.0
+
+### Added
+- `verifyBoundWallet` now accepts both positional args and an object form,
+  matching the `bindWallet` signature. Reported by @MoltyCel in #16.
+  Positional form unchanged.
+
 ## v2.0.0-beta.0 (2026-04-17)
 
 **Breaking change:** Product intelligence moved to `@aeoess/gateway`. See

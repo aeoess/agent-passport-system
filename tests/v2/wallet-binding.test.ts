@@ -115,6 +115,65 @@ describe('bindWallet — multi-chain', () => {
   })
 })
 
+describe('verifyBoundWallet — object-form overload (v2.1.0 UX)', () => {
+  it('object form returns true for a bound Ethereum wallet', () => {
+    const { signedPassport, keyPair } = makeFixture()
+    const addr = '0xabcdef1234567890abcdef1234567890abcdef12'
+    const p = bindWallet({
+      passport: signedPassport, privateKey: keyPair.privateKey,
+      chain: 'ethereum', address: addr,
+    })
+    assert.equal(verifyBoundWallet({ passport: p, chain: 'ethereum', address: addr }), true)
+  })
+
+  it('object form returns true for a bound Solana wallet', () => {
+    const { signedPassport, keyPair } = makeFixture()
+    const addr = 'So11111111111111111111111111111111111111112'
+    const p = bindWallet({
+      passport: signedPassport, privateKey: keyPair.privateKey,
+      chain: 'solana', address: addr,
+    })
+    assert.equal(verifyBoundWallet({ passport: p, chain: 'solana', address: addr }), true)
+  })
+
+  it('object form returns false for an unbound address', () => {
+    const { signedPassport, keyPair } = makeFixture()
+    const p = bindWallet({
+      passport: signedPassport, privateKey: keyPair.privateKey,
+      chain: 'ethereum', address: '0x1111111111111111111111111111111111111111',
+    })
+    assert.equal(
+      verifyBoundWallet({ passport: p, chain: 'ethereum', address: '0x2222222222222222222222222222222222222222' }),
+      false
+    )
+  })
+
+  it('positional form still works (no regression)', () => {
+    const { signedPassport, keyPair } = makeFixture()
+    const addr = '0x1234567890abcdef1234567890abcdef12345678'
+    const p = bindWallet({
+      passport: signedPassport, privateKey: keyPair.privateKey,
+      chain: 'ethereum', address: addr,
+    })
+    assert.equal(verifyBoundWallet(p, 'ethereum', addr), true)
+  })
+
+  it('missing field in object form falls through to positional branch and fails gracefully', () => {
+    const { signedPassport, keyPair } = makeFixture()
+    const addr = 'nano_3fallthrough'
+    const p = bindWallet({
+      passport: signedPassport, privateKey: keyPair.privateKey,
+      chain: 'nano', address: addr,
+    })
+    // Missing .address — discriminator treats arg1 as positional SignedPassport.
+    // Without chain+address positional args, the lookup finds no match → false.
+    assert.equal(
+      verifyBoundWallet({ passport: p, chain: 'nano' } as any),
+      false
+    )
+  })
+})
+
 describe('bindWallet — wrong key fails', () => {
   it('throws when binding with a non-matching private key', () => {
     const { signedPassport } = makeFixture()
