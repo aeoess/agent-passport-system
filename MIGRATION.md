@@ -67,6 +67,54 @@ Without a cached state, `revoked=false`. Cascade semantics require a
 - `AcceptanceStamp`, `CredentialCheckMode`, `CredentialCheckPolicy`,
   `CredentialCheckResult`, `CredentialCheckDenialCode`
 
+## Shape changes within preserved primitives
+
+Some primitives stayed in the SDK but changed field-level shape.
+Surfaced in response to partner cross-version compat tests (MoltyCel,
+issue #16). Field-level diffs are enumerated here so consumers parsing
+v1 output structures can port their parsers cleanly.
+
+### Wallet binding: `wallet_ref` field diff (v1 → v2)
+
+The `wallet-binding` primitive is preserved in v2, but the shape of the
+`wallet_ref` record (the per-wallet entry inside `passport.bound_wallets`)
+changed. Consumers that parse `wallet_ref.signature` or `wallet_ref.nonce`
+from v1 attestations will see those fields missing in v2 output.
+
+| Field | v1.x | v2.x | Notes |
+|---|---|---|---|
+| `address` | ✓ | ✓ | preserved |
+| `chain` | ✓ | ✓ | preserved |
+| `signature` | ✓ | removed | v1 field: raw wallet signature over nonce |
+| `nonce` | ✓ | removed | v1 field: challenge bytes |
+| `binding_signature` | — | added | v2 field: passport-key Ed25519 signature over the canonical binding payload (hex) |
+| `bound_at` | — | added | v2 field: ISO 8601 timestamp, part of the canonical binding payload |
+
+The semantic shift is intentional and strengthens the primitive: v1
+bound wallets with a raw wallet signature (any holder of the wallet
+key could produce one); v2 binds wallets with a passport-key signature
+over a canonical binding payload (only the passport holder can produce
+one, and the binding is cryptographically attributable to the identity
+that made it).
+
+**Verifier API reminder.** `verifyBoundWallet` takes positional
+arguments, not a config object:
+
+```ts
+verifyBoundWallet(
+  passport: SignedPassport,
+  chain: WalletChain,
+  address: string
+): boolean
+```
+
+Returns `true` for any wallet currently bound to the passport.
+Passing a config object (e.g. `verifyBoundWallet({ passport, chain,
+address })`) will fail the internal lookup because the positional
+slots for `chain` and `address` are `undefined`. The asymmetry with
+`bindWallet` (which does accept a config object) is tracked as a
+v2.1.0 UX improvement.
+
 ## What moved to @aeoess/gateway
 
 ### Data lifecycle (commit 4b710c4)
