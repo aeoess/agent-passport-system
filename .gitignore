@@ -12,3 +12,4 @@ seed-agora.mjs
 oatr/
 .mcp.json
 experiments/cross-family-harness/.env
+.gstack/

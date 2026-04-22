@@ -1269,3 +1269,81 @@ export {
 } from './core/behavioral-memory.js'
 
 export { createBMOReceipt, verifyBMOReceipt } from './core/behavioral-memory-receipt.js'
+
+
+// ══════════════════════════════════════
+// Mutual Authentication v1 (v2.2.0)
+// ══════════════════════════════════════
+// Closes the asymmetry where agents authenticate to systems but
+// systems do not authenticate to agents. Ships as a small signed
+// envelope + local trust-anchor verification + downgrade-proof
+// handshake. No federation, no gossip, no distributed CA.
+
+export type {
+  MutualAuthRole,
+  MutualAuthCertificate,
+  MutualAuthHello,
+  MutualAuthAttest,
+  MutualAuthSession,
+  MutualAuthResult,
+  MutualAuthPolicy,
+  MutualAuthFailureReason,
+  TrustAnchor,
+  TrustAnchorBundle,
+  AgentCertBinding,
+  BuildCertificateInput,
+  VerifyCertificateOutcome,
+  AnchorCheckOutcome,
+  BuildBundleInput,
+  BundleVerifyOutcome,
+  BundleVerifyReason,
+  BuildAttestInput,
+  VerifyAttestInput,
+  VerifyAttestOutcome,
+} from './v2/mutual-auth/index.js'
+
+export {
+  buildCertificate,
+  signCertificate,
+  certificateId,
+  verifyCertificateSignature,
+  isCertificateTemporallyValid,
+  checkAnchor,
+  buildBundle,
+  signBundle,
+  verifyBundle,
+  newNonce,
+  buildHello,
+  chooseVersion,
+  buildAttest,
+  verifyAttest,
+  deriveSession,
+  isSessionActive,
+} from './v2/mutual-auth/index.js'
+
+// Adapters for mutual-auth
+export {
+  a2aBeginHandshake,
+  a2aRespondHandshake,
+  a2aCounterAttest,
+  a2aFinalizeSession,
+  attachMutualAuthToA2ACard,
+  extractMutualAuthFromA2ACard,
+} from './adapters/mutual-auth-a2a.js'
+
+export type {
+  A2AMutualAuthEnvelope,
+} from './adapters/mutual-auth-a2a.js'
+
+export {
+  mcpServerBinding,
+  mcpBeginHandshake,
+  mcpRespondHandshake,
+  mcpCounterAttest,
+  mcpFinalizeSession,
+  mcpIsToolCallPermitted,
+} from './adapters/mutual-auth-mcp.js'
+
+export type {
+  MCPToolCallAuthCheck,
+} from './adapters/mutual-auth-mcp.js'

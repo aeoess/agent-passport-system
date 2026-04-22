@@ -1,0 +1,9 @@
+{
+  "name": "bundle-canonical",
+  "spec_section": "4.2",
+  "primitive": "buildBundle",
+  "expected": {
+    "canonical_bytes_b64": "eyJhbmNob3JzIjpbeyJhbmNob3JfaWQiOiJyb290IiwiZGlzcGxheV9uYW1lIjoiUm9vdCIsIm5vdF9hZnRlciI6MTc3NjUzNjAwMDAwMCwibm90X2JlZm9yZSI6MTc0NDkxMzYwMDAwMCwicHVia2V5X2hleCI6IjAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAiLCJyb2xlIjoidHJ1c3RfYW5jaG9yIn1dLCJidW5kbGVfaWQiOiJ0ZXN0LWJ1bmRsZS0wMDEiLCJpc3N1ZWRfYXQiOjE3NDUwMDAwMDAwMDAsInB1Ymxpc2hlcl9wdWJrZXlfaGV4IjoiMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMCIsInJlZnJlc2hfYWZ0ZXIiOjE3NDU2MDQ4MDAwMDAsInJldm9rZWRfYW5jaG9ycyI6bnVsbCwic3BlY192ZXJzaW9uIjoiMS4wIn0=",
+    "canonical_sha256": "sha256:35a238455406cefdb30b1209ae723af25d2b3258909da0021c2cd26a222cf206"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "name": "session-derivation",
+  "spec_section": "5.5",
+  "primitive": "deriveSession",
+  "input": {
+    "chosen_version": "1.0",
+    "agent_cert_id": "sha256:a9e882d7cb1f51b71ee36d51b436ff7febd8414001d7c8d5a300afa215a19866",
+    "is_cert_id": "sha256:0e26de2cadb92b7b4ecb52914e64c364f1be2d6818d61587019d7084e6693434",
+    "agent_nonce_b64": "AGENT-N==",
+    "is_nonce_b64": "IS-N===="
+  },
+  "expected": {
+    "session_id": "sha256:dad364b85a8873be528386dc88937ffc8e6b27eaee09cf1ba623995107615a26"
+  }
+}

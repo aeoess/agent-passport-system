@@ -1,0 +1,23 @@
+{
+  "name": "certificate-minimal",
+  "spec_section": "3.1",
+  "primitive": "buildCertificate",
+  "input": {
+    "role": "agent",
+    "subject_id": "agent:minimal",
+    "subject_pubkey_hex": "0101010101010101010101010101010101010101010101010101010101010101",
+    "issuer_id": "root",
+    "issuer_role": "trust_anchor",
+    "binding": "agent:minimal",
+    "not_before": 1744996400000,
+    "not_after": 1745086400000,
+    "supported_versions": [
+      "1.0"
+    ],
+    "issuer_pubkey_hex": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "expected": {
+    "canonical_bytes_b64": "eyJhdHRlc3RhdGlvbl9ncmFkZSI6bnVsbCwiYmluZGluZyI6ImFnZW50Om1pbmltYWwiLCJjYXBhYmlsaXRpZXMiOm51bGwsImlzc3Vlcl9pZCI6InJvb3QiLCJpc3N1ZXJfcHVia2V5X2hleCI6IjAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAiLCJpc3N1ZXJfcm9sZSI6InRydXN0X2FuY2hvciIsIm5vdF9hZnRlciI6MTc0NTA4NjQwMDAwMCwibm90X2JlZm9yZSI6MTc0NDk5NjQwMDAwMCwicm9sZSI6ImFnZW50Iiwic3BlY192ZXJzaW9uIjoiMS4wIiwic3ViamVjdF9pZCI6ImFnZW50Om1pbmltYWwiLCJzdWJqZWN0X3B1YmtleV9oZXgiOiIwMTAxMDEwMTAxMDEwMTAxMDEwMTAxMDEwMTAxMDEwMTAxMDEwMTAxMDEwMTAxMDEwMTAxMDEwMTAxMDEwMTAxIiwic3VwcG9ydGVkX3ZlcnNpb25zIjpbIjEuMCJdfQ==",
+    "canonical_sha256": "sha256:3f55273e77d4eb80ab14e7c4cc07c8a4ee58800d51b202c072a526f1f39cbee9"
+  }
+}

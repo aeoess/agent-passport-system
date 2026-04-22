@@ -1,0 +1,31 @@
+{
+  "name": "certificate-all-fields",
+  "spec_section": "3.1",
+  "primitive": "buildCertificate",
+  "input": {
+    "role": "agent",
+    "subject_id": "agent:full",
+    "subject_pubkey_hex": "0101010101010101010101010101010101010101010101010101010101010101",
+    "issuer_id": "root",
+    "issuer_role": "trust_anchor",
+    "binding": "agent:full",
+    "not_before": 1744996400000,
+    "not_after": 1745086400000,
+    "supported_versions": [
+      "1.2",
+      "1.1",
+      "1.0"
+    ],
+    "attestation_grade": 3,
+    "capabilities": [
+      "mcp:read",
+      "mcp:write",
+      "a2a:task:execute"
+    ],
+    "issuer_pubkey_hex": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "expected": {
+    "canonical_bytes_b64": "eyJhdHRlc3RhdGlvbl9ncmFkZSI6MywiYmluZGluZyI6ImFnZW50OmZ1bGwiLCJjYXBhYmlsaXRpZXMiOlsibWNwOnJlYWQiLCJtY3A6d3JpdGUiLCJhMmE6dGFzazpleGVjdXRlIl0sImlzc3Vlcl9pZCI6InJvb3QiLCJpc3N1ZXJfcHVia2V5X2hleCI6IjAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAiLCJpc3N1ZXJfcm9sZSI6InRydXN0X2FuY2hvciIsIm5vdF9hZnRlciI6MTc0NTA4NjQwMDAwMCwibm90X2JlZm9yZSI6MTc0NDk5NjQwMDAwMCwicm9sZSI6ImFnZW50Iiwic3BlY192ZXJzaW9uIjoiMS4wIiwic3ViamVjdF9pZCI6ImFnZW50OmZ1bGwiLCJzdWJqZWN0X3B1YmtleV9oZXgiOiIwMTAxMDEwMTAxMDEwMTAxMDEwMTAxMDEwMTAxMDEwMTAxMDEwMTAxMDEwMTAxMDEwMTAxMDEwMTAxMDEwMTAxIiwic3VwcG9ydGVkX3ZlcnNpb25zIjpbIjEuMiIsIjEuMSIsIjEuMCJdfQ==",
+    "canonical_sha256": "sha256:0ed3cc32024a81685b336cecb3dea009cb93569edbae29f0f974918499b30950"
+  }
+}
