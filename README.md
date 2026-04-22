@@ -62,7 +62,7 @@ const bound = bindWallet({
 verifyBoundWallet(bound, 'nano', 'nano_3jb1...') // true
 ```
 
-**Behavioral (issuer-attested).** Independent issuers (the [insumer-examples](https://github.com/insumerapi/insumer-examples) ecosystem and friends — skyemeta/skyeprofile and 8 others) sign attestations about wallet behavior, sybil signals, and on-chain history. Their signatures stand alone.
+**Behavioral (issuer-attested).** Independent issuers (the [insumer-examples](https://github.com/douglasborthwick-crypto/insumer-examples) ecosystem and friends — skyemeta/skyeprofile and 8 others) sign attestations about wallet behavior, sybil signals, and on-chain history. Their signatures stand alone.
 
 The two layers compose: a verifier accepting both gets cryptographic proof that **this passport holder controls this address** (structural) **and** that **this address has these behavioral properties** (behavioral). Neither layer claims what the other proves. Multi-attestation envelopes carry both.
 
