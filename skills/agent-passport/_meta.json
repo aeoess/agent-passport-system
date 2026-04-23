@@ -1,6 +1,6 @@
 {
   "name": "agent-passport-system",
-  "version": "5.6.0",
+  "version": "5.6.1",
   "description": "Governance infrastructure for AI agents. Ed25519 identity, scoped delegation, enforcement gateway under 2ms, 5-gate commerce, Merkle attribution, bilateral receipts (in-toto Decision Receipt v0.1). 124 modules, 2,410 tests, 150 MCP tools. SDK 2.3.0-alpha on npm under alpha tag.",
   "author": "aeoess",
   "homepage": "https://github.com/aeoess/agent-passport-system",
