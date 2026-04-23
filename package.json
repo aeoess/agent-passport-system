@@ -1,6 +1,6 @@
 {
   "name": "agent-passport-system",
-  "version": "2.2.0",
+  "version": "2.3.0-alpha",
   "description": "Enforcement and accountability layer for AI agents. Bring your own identity (did:key, did:web, SPIFFE, OAuth, did:aps). Policy eval <2ms, 14 constraint dimensions, 403 ops/sec. Gateway enforcement, monotonic narrowing, cascade revocation, Bayesian reputation, feeless Nano payments, unified four-axis attribution primitive, per-period attribution settlement, data lifecycle, mutual authentication. 2,395 tests.",
   "type": "module",
   "main": "dist/src/index.js",
