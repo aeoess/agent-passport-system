@@ -26,9 +26,14 @@ import type { EnforcementMode } from '../types/passport.js'
 import type {
   ActionIntent, PolicyDecision, PolicyReceipt,
   PolicyValidator, ValidationContext, PolicyEvaluationResult,
-  PolicyVerdict, PrincipleEvaluation
+  PolicyVerdict, PrincipleEvaluation, EpistemicClaims
 } from '../types/policy.js'
-import type { ActionReceipt } from '../types/passport.js'
+import type { ActionReceipt, Delegation } from '../types/passport.js'
+import {
+  emitDecisionReceipt,
+  computeDelegationChainRoot,
+  type DecisionReceiptEnvelope,
+} from '../decisionReceipt.js'
 
 // ══════════════════════════════════════
 // ACTION INTENT — Signature 1 of 3
@@ -159,6 +164,14 @@ export function createPolicyReceipt(opts: {
   decision: PolicyDecision
   receipt: ActionReceipt
   verifierPrivateKey: string
+  /** v2.3 — ordered root-to-leaf delegation chain.
+   *  When supplied, the returned receipt carries delegation_chain_root and
+   *  delegation_depth. Optional for v2.2.x back-compat. */
+  delegationChain?: Delegation[]
+  /** v2.3 — typed epistemic labels for the four claim classes.
+   *  When supplied, embedded on the PolicyReceipt and carried into the
+   *  parallel Decision Receipt envelope (when emitted). */
+  epistemicClaims?: EpistemicClaims
 }): PolicyReceipt {
   // Verify the chain links correctly
   if (opts.decision.intentId !== opts.intent.intentId) {
@@ -183,8 +196,61 @@ export function createPolicyReceipt(opts: {
     actionRef: opts.intent.actionRef ?? computeActionRef(opts.intent)
   }
 
+  // v2.3 — bilateral receipt fields (optional, backward-compatible)
+  if (opts.delegationChain && opts.delegationChain.length > 0) {
+    pr.delegation_chain_root = computeDelegationChainRoot(opts.delegationChain)
+    pr.delegation_depth = opts.delegationChain.length
+  }
+  if (opts.epistemicClaims) {
+    pr.epistemic_claims = opts.epistemicClaims
+  }
+
   const signature = sign(canonicalize(pr), opts.verifierPrivateKey)
   return { ...pr, signature }
+}
+
+/** v2.3 — emit a PolicyReceipt + parallel in-toto Decision Receipt envelope.
+ *
+ *  Returns both artifacts so v2.2.x consumers keep working against the
+ *  PolicyReceipt while v2.3-aware verifiers (APS-aware sinks, cross-repo
+ *  verifiers like @veritasacta/verify) consume the Decision Receipt envelope.
+ *
+ *  Reference implementation of ENFORCEMENT-TRUST-ANCHOR.md Component A.
+ *  This is a protocol primitive — gateway integration happens at the caller
+ *  (e.g. @aeoess/gateway's ProxyGateway.emit). */
+export function createPolicyReceiptWithDecisionReceipt(opts: {
+  intent: ActionIntent
+  decision: PolicyDecision
+  receipt: ActionReceipt
+  verifierPrivateKey: string
+  delegationChain: Delegation[]
+  epistemicClaims: EpistemicClaims
+  policyId: string
+  issuerId: string
+  signerKeyId: string
+}): { policyReceipt: PolicyReceipt; decisionReceipt: DecisionReceiptEnvelope } {
+  const policyReceipt = createPolicyReceipt({
+    intent: opts.intent,
+    decision: opts.decision,
+    receipt: opts.receipt,
+    verifierPrivateKey: opts.verifierPrivateKey,
+    delegationChain: opts.delegationChain,
+    epistemicClaims: opts.epistemicClaims,
+  })
+
+  const decisionReceipt = emitDecisionReceipt({
+    intent: opts.intent,
+    decision: opts.decision,
+    receipt: opts.receipt,
+    delegationChain: opts.delegationChain,
+    epistemicClaims: opts.epistemicClaims,
+    policyId: opts.policyId,
+    signerPrivateKey: opts.verifierPrivateKey,
+    signerKeyId: opts.signerKeyId,
+    issuerId: opts.issuerId,
+  })
+
+  return { policyReceipt, decisionReceipt }
 }
 
 export function verifyPolicyReceipt(

@@ -199,6 +199,7 @@ export {
   createActionIntent, verifyActionIntent,
   evaluateIntent, verifyPolicyDecision,
   createPolicyReceipt, verifyPolicyReceipt,
+  createPolicyReceiptWithDecisionReceipt,
   FloorValidatorV1,
   requestAction,
   computeCompoundDigest, captureRoutingContext, detectRoutingDivergence,
@@ -210,7 +211,29 @@ export type {
   ActionIntent, PolicyDecision, PolicyReceipt,
   PolicyVerdict, PrincipleEvaluation,
   PolicyValidator, ValidationContext, PolicyEvaluationResult,
+  EpistemicClaims, EpistemicStatus,
 } from './types/policy.js'
+
+// ── v2.3 — in-toto Decision Receipt v0.1 primitive ──
+// Reference implementation of ENFORCEMENT-TRUST-ANCHOR.md Component A
+// (bilateral receipts for dumb Web2 sinks). Pure primitive; gateway
+// integration lives at the caller (e.g. @aeoess/gateway's ProxyGateway.emit).
+export {
+  emitDecisionReceipt,
+  parseDecisionReceiptStatement,
+  computeDelegationChainRoot,
+  DECISION_RECEIPT_PREDICATE_TYPE,
+  INTOTO_STATEMENT_V1,
+  INTOTO_PAYLOAD_TYPE,
+} from './decisionReceipt.js'
+export type {
+  DecisionReceiptEnvelope,
+  DecisionReceiptPredicate,
+  IntotoStatement,
+  IntotoResourceDescriptor,
+  DSSESignature,
+  EmitDecisionReceiptInput,
+} from './decisionReceipt.js'
 
 // ── Layer 7: Agentic Commerce (ACP) ──
 // Gate predicates + signing primitives stay in SDK. The 6-gate orchestrator
