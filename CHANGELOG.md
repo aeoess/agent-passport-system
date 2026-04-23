@@ -1,5 +1,62 @@
 # Changelog
 
+## 2.3.0-alpha (unreleased)
+
+Reference implementation of
+[docs/ENFORCEMENT-TRUST-ANCHOR.md](./docs/ENFORCEMENT-TRUST-ANCHOR.md)
+Component A (bilateral receipts for dumb Web2 sinks). All additions are
+protocol primitives; gateway-side integration at `@aeoess/gateway`'s
+`ProxyGateway.emit` is separate work that consumes these primitives.
+
+### Added
+- `emitDecisionReceipt` — pure function that emits a DSSE-style signed
+  envelope carrying the in-toto Decision Receipt v0.1 predicate
+  (`https://veritasacta.com/attestation/decision-receipt/v0.1`, tracked at
+  [in-toto/attestation#549](https://github.com/in-toto/attestation/pull/549)).
+  Returns `{ payloadType, payload: <JCS-canonical Statement string>, signatures,
+  _digest }` — the same envelope shape the Python emitter in
+  `aeoess/hermes-aps-delegation` produces, so cross-repo verifiers (including
+  `@veritasacta/verify`) accept both sides.
+- `parseDecisionReceiptStatement`, `computeDelegationChainRoot` — companion
+  primitives for offline verification. `computeDelegationChainRoot` is the
+  normative definition: `sha256(canonicalizeJCS(chain))`.
+- `createPolicyReceiptWithDecisionReceipt` — convenience helper that emits the
+  backward-compatible `PolicyReceipt` and the new Decision Receipt envelope in
+  one call.
+- Type exports: `DecisionReceiptEnvelope`, `DecisionReceiptPredicate`,
+  `IntotoStatement`, `IntotoResourceDescriptor`, `DSSESignature`,
+  `EmitDecisionReceiptInput`, `EpistemicClaims`, `EpistemicStatus`.
+- Public constants: `DECISION_RECEIPT_PREDICATE_TYPE`, `INTOTO_STATEMENT_V1`,
+  `INTOTO_PAYLOAD_TYPE`.
+
+### Extended (optional, backward-compatible)
+- `PolicyReceipt` gains three optional fields that v2.3 emitters populate and
+  v2.3 verifiers prefer when present. v2.2.x consumers ignore them silently:
+  - `delegation_chain_root: string` — SHA-256 hex of the JCS canonicalization
+    of the full delegation chain that authorized the action.
+  - `delegation_depth: number` — hops from the root principal to the acting
+    agent.
+  - `epistemic_claims: EpistemicClaims` — typed labels for the four claim
+    classes (`policy_evaluated`, `authority_consumed`, `scope_within_bounds`,
+    `effect_occurred`) per ENFORCEMENT-TRUST-ANCHOR Component 4.
+- `createPolicyReceipt` accepts two new optional parameters (`delegationChain`,
+  `epistemicClaims`). No change for existing call sites.
+
+### Tests
+- `tests/property-bilateral-receipt.test.ts` — 15 property tests covering
+  in-toto Statement v1 shape conformance, `delegation_chain_root` determinism
+  and sensitivity, epistemic-claim presence on every v2.3 receipt, v2.2.x
+  backward compatibility, JCS canonicalization invariants under key
+  permutation, and envelope-shape parity with the `hermes-aps-delegation`
+  Python emitter.
+
+### Not changed
+- `package.json` version remains `2.2.0`. The 2.3 line is alpha and ships
+  when Tima bumps and publishes.
+- No changes to `docs/ENFORCEMENT-TRUST-ANCHOR.md` or
+  `docs/CAPABILITY-TOKEN-SPEC-DRAFT.md` — both remain authoritative as pushed
+  at commit 8be36fd.
+
 ## 2.1.0
 
 ### Added

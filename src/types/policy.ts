@@ -87,6 +87,34 @@ export interface PolicyDecision {
 // After execution, links intent → decision → receipt.
 // The full chain is: "I wanted to do X" → "Floor said yes" → "Here's what happened."
 
+// ── Epistemic Claim Status (v2.3, Component 4) ──
+// Each claim in a receipt is labelled with its epistemic status so downstream
+// verifiers can reject `unresolved` or `self-asserted` claims per policy.
+// See docs/ENFORCEMENT-TRUST-ANCHOR.md Component 4 ("typed epistemic receipts").
+export type EpistemicStatus =
+  | 'closed'               // cryptographically verifiable without honesty assumption
+  | 'witnessed'            // verified by an external party under a stated threat model
+  | 'unresolved'           // asserted but not externally attested
+  | 'witnessed-by-subject' // co-signed by the acting subject (effect-class only)
+  | 'self-asserted'        // the gateway's own assertion (effect-class only, weakest)
+
+/** Epistemic labelling for the four claim classes carried by a v2.3 receipt.
+ *  v2.3 emitters populate this; v2.3 verifiers prefer it when present.
+ *  Absence is legal (v2.2.x backward compatibility). */
+export interface EpistemicClaims {
+  /** Was the policy actually evaluated against the stated floor? */
+  policy_evaluated: EpistemicStatus
+  /** Was authority consumed (vs invented by the gateway)?
+   *  v2.3 has no consumable-token substrate yet; expect `witnessed` until v3. */
+  authority_consumed: EpistemicStatus
+  /** Did the action stay within the delegation's scope? */
+  scope_within_bounds: EpistemicStatus
+  /** Did the effect observably occur at the sink?
+   *  Accepts the full `EpistemicStatus` set; `witnessed-by-subject` is the
+   *  subject-cosign path and `self-asserted` marks gateway-only assertions. */
+  effect_occurred: EpistemicStatus
+}
+
 export interface PolicyReceipt {
   policyReceiptId: string
   intentId: string
@@ -110,6 +138,19 @@ export interface PolicyReceipt {
     actualEndpointHash?: string
     resolutionDeltaMs?: number   // ms between intent and execution endpoint resolution
   }
+  /** v2.3 — SHA-256 (hex) of the JCS canonicalization of the full delegation chain
+   *  that authorized the action. Lets a verifier cross-reference the receipt to the
+   *  authority path without replaying the chain itself. Optional for v2.2 back-compat. */
+  delegation_chain_root?: string
+  /** v2.3 — Number of hops from the root principal to the acting agent.
+   *  Redundant with the chain but carried inline for cheap monotonic narrowing checks.
+   *  Optional for v2.2 back-compat. */
+  delegation_depth?: number
+  /** v2.3 — Typed epistemic labels for the four claim classes this receipt carries.
+   *  See {@link EpistemicClaims} and docs/ENFORCEMENT-TRUST-ANCHOR.md Component 4.
+   *  v2.3 emitters populate this; v2.3 verifiers prefer it when present; v2.2.x
+   *  consumers ignore it silently. Optional for back-compat. */
+  epistemic_claims?: EpistemicClaims
   signature: string         // signed by the verifier
 }
 
