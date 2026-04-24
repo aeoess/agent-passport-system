@@ -113,7 +113,7 @@ Coordination (task lifecycle with 9-state machine), EU AI Act compliance (signed
 
 Forward-looking governance. Published, tested, available.
 
-39 v2 constitutional modules: approval fatigue detection, epistemic isolation, blind evaluation, separation of powers, affected-party standing, circuit breakers, constitutional amendment, authority laundering audit, emergence detection.
+41 v2 constitutional modules: approval fatigue detection, epistemic isolation, blind evaluation, separation of powers, affected-party standing, circuit breakers, constitutional amendment, authority laundering audit, emergence detection.
 
 Institutional governance: charters, offices, federation, reserves, multi-party approvals.
 
