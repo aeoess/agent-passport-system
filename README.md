@@ -132,9 +132,13 @@ npx agent-passport-system-mcp
 ## Papers
 
 - [The Agent Social Contract](https://doi.org/10.5281/zenodo.18749779)
+- [Monotonic Narrowing](https://doi.org/10.5281/zenodo.18932404)
 - [Faceted Authority Attenuation](https://doi.org/10.5281/zenodo.19260073)
-- [Behavioral Derivation Rights](https://doi.org/10.5281/zenodo.19365841)
+- [Behavioral Derivation Rights](https://doi.org/10.5281/zenodo.19476002)
 - [Physics-Enforced Delegation](https://doi.org/10.5281/zenodo.19478584)
+- [Governance in the Medium](https://doi.org/10.5281/zenodo.19582550)
+- [Cognitive Attestation](https://doi.org/10.5281/zenodo.19646276)
+- IETF Internet-Draft: `draft-pidlisnyi-aps-00`
 - IETF Internet-Draft: draft-pidlisnyi-aps-00
 
 ## Links
