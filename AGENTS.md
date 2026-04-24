@@ -2,9 +2,7 @@
 
 Context and instructions for AI coding agents working on `agent-passport-system`.
 
-## About this project
-
-`agent-passport-system` is the TypeScript reference implementation of the Agent Passport System (APS) protocol: cryptographic identity, delegation chains with monotonic narrowing, enforcement-boundary receipts, governance composition, data lifecycle, and commerce for AI agents. Apache-2.0, Copyright 2024-2026 Tymofii Pidlisnyi. This repo is the public protocol layer. The private gateway product lives in a separate repo.
+This repo is the public protocol layer. The private gateway product lives in a separate repo. Product intelligence (analytics, compliance automation, drift detection, cross-tenant orchestration, metering) does not belong here.
 
 ## Dev environment
 
@@ -58,16 +56,3 @@ Before adding any new module, ask: "Is this a protocol primitive, or product int
 - Never publish to npm. Publishing requires Touch ID from the human maintainer.
 - Do not open issues on other repos on behalf of this project without explicit human approval per issue.
 - If you find yourself about to execute a bulk operation (mass issue filing, mass PR opens, mass file deletions), stop and surface the plan to a human first. The canonical reference case is the 60-issue spray that got the project MCP-blocked on Apr 7.
-
-## Related
-
-- MCP server: https://github.com/aeoess/agent-passport-mcp
-- Python SDK: https://github.com/aeoess/agent-passport-python
-- Vocabulary: https://github.com/aeoess/agent-governance-vocabulary
-- Website: https://aeoess.com
-- Docs: https://aeoess.com/llms-full.txt
-
-## Papers
-
-- The Agent Social Contract: https://doi.org/10.5281/zenodo.18749779
-- Faceted Authority Attenuation: https://doi.org/10.5281/zenodo.19260073
