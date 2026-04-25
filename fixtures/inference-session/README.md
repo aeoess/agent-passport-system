@@ -55,7 +55,7 @@ produces byte-identical values.
 ## Verification
 
 ```bash
-pip install jcs cryptography
+pip install jcs==0.2.1 cryptography
 python3 generate-fixtures.py
 # Self-check runs automatically — verifies canonical bytes, SHA-256, and signatures
 ```
