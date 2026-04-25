@@ -336,17 +336,22 @@ def generate_fixtures():
 
 
 if __name__ == "__main__":
+    import os
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+
     fixture = generate_fixtures()
-    output_path = "/Users/deepsearch/.openclaw/workspace/research/ctef_synthetic_fixture_v1.json"
+    output_path = os.path.join(os.path.dirname(__file__), "inference-session-fixtures.json")
 
     with open(output_path, "w") as f:
         json.dump(fixture, f, indent=2, ensure_ascii=False)
 
-    # 自检
+    # 自检: canonical bytes + SHA-256 + Ed25519 signature verification
+    pub = Ed25519PublicKey.from_public_bytes(bytes.fromhex(PUBKEY_HEX))
     for v in fixture["vectors"]:
         cb = canonicalize_jcs(v["input"])
         assert cb.hex() == v["canonical_bytes_hex"], f"{v['name']} canonical mismatch"
         assert hashlib.sha256(cb).hexdigest() == v["canonical_sha256"], f"{v['name']} sha256 mismatch"
+        pub.verify(bytes.fromhex(v["ed25519_signature_over_canonical_hex"]), cb)
 
     print(f"✅ CTEF Synthetic Fixture v1")
     print(f"   文件: {output_path}")
@@ -354,4 +359,4 @@ if __name__ == "__main__":
     print(f"   JCS: RFC 8785 (jcs 0.2.1)")
     print(f"   签名: Ed25519 真实")
     print(f"   Pubkey: {PUBKEY_HEX[:32]}...")
-    print(f"   自检: ✅ 全部通过")
+    print(f"   自检: ✅ 全部通过 (canonical + SHA-256 + Ed25519 verify)")
