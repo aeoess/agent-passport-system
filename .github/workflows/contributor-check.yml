@@ -1,0 +1,72 @@
+# Contributor reputation triage on PRs and issues opened by new external contributors.
+#
+# Composite action shipped by Microsoft Agent Governance Toolkit (#1473), pinned to
+# the v3.3.0 tag SHA. Targets credibility-laundering patterns: account-shape anomalies,
+# cross-repo spray, credential laundering, network coordination.
+#
+# Calibration window: first 2-4 weeks. We surface findings publicly per our commitment
+# in the AAIF / MS AGT discussion threads.
+#
+# Excluded actors: standard automation bots + the aeoess org account itself.
+
+name: Contributor Reputation Check
+
+on:
+  pull_request_target:
+    types: [opened]
+  issues:
+    types: [opened]
+  workflow_dispatch:
+    inputs:
+      username:
+        description: "GitHub username to check"
+        required: true
+      run_cluster:
+        description: "Run cluster detection (API-heavy, opt-in)"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.actor != 'dependabot[bot]' &&
+       github.actor != 'github-actions[bot]' &&
+       github.actor != 'copilot-swe-agent[bot]' &&
+       github.actor != 'aeoess')
+    steps:
+      - name: Checkout AGT contributor-check action (pinned to v3.3.0)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          repository: microsoft/agent-governance-toolkit
+          ref: 15e001f9b53f1fcd84ba94587fc1c6766710849a  # v3.3.0
+          sparse-checkout: |
+            scripts
+            .github/actions/contributor-check
+          path: agt
+
+      - name: Run contributor reputation check
+        id: reputation
+        uses: ./agt/.github/actions/contributor-check
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          checks: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.run_cluster == 'true' && 'profile,credential,cluster' || 'profile,credential' }}
+          risk-threshold: MEDIUM
+
+      - name: Log results
+        if: always()
+        run: |
+          echo "::notice::Overall risk: ${{ steps.reputation.outputs.risk }}"
+          echo "::notice::Profile risk: ${{ steps.reputation.outputs.profile-risk }}"
+          echo "::notice::Credential risk: ${{ steps.reputation.outputs.credential-risk }}"
+          echo "::notice::Cluster risk: ${{ steps.reputation.outputs.cluster-risk }}"
