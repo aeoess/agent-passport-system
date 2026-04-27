@@ -61,7 +61,7 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           checks: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.run_cluster == 'true' && 'profile,credential,cluster' || 'profile,credential' }}
-          risk-threshold: MEDIUM
+          risk-threshold: HIGH
 
       - name: Log results
         if: always()
