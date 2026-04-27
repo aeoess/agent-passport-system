@@ -1370,3 +1370,23 @@ export {
 export type {
   MCPToolCallAuthCheck,
 } from './adapters/mutual-auth-mcp.js'
+
+// ── v2.4-alpha — InstructionProvenanceReceipt (Paper 8 candidate) ──
+// Spec: ~/aeoess_web/specs/INSTRUCTION-PROVENANCE-RECEIPT-DRAFT-v0.2.md
+// Tier scope this version: 'self-asserted' only.
+export {
+  createInstructionProvenanceReceipt,
+  verifyInstructionProvenanceReceipt,
+  verifyActionTimeContextRoot,
+  canonicalizePath,
+  canonicalizeEnvelope,
+  computeContextRoot,
+} from './v2/instruction-provenance/index.js'
+
+export type {
+  AttestationTier,
+  FilesystemMode,
+  InstructionRole,
+  InstructionFile,
+  InstructionProvenanceReceipt,
+} from './v2/instruction-provenance/index.js'

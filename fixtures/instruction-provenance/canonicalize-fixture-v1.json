@@ -1,0 +1,549 @@
+{
+  "version": "1",
+  "primitive": "InstructionProvenanceReceipt",
+  "spec_ref": "INSTRUCTION-PROVENANCE-RECEIPT-DRAFT-v0.2.md",
+  "spec": "JCS — RFC 8785 + IPR path canonicalization v0.2 §5.1",
+  "canonicalization": "APS SDK canonicalizeJCS + IPR canonicalize_path",
+  "seed_input": "aps-instruction-provenance-fixture-v1",
+  "seed_sha256_hex": "53fad79feada0b0f88e1b9f7bc6de63c21bf0f69b70f8bdc8d85f32fe0dfc7f3",
+  "keypair": {
+    "publicKeyHex": "3e996728b8706d4959e5fedeff297b8518a4f3c0a6a75fe8e64d0f472f9600e8"
+  },
+  "generated_at": "2026-04-26",
+  "vectors": [
+    {
+      "name": "minimal-valid-envelope",
+      "description": "Single CLAUDE.md instruction file, single discovery pattern, self-asserted, recompute_at_action=false.",
+      "input": {
+        "delegation_chain_root": "461d14c440914f09b42f36d9d7946201c4464b8cfd1dc223b74e4159a1634126",
+        "agent_did": "did:key:zIPRfixtureAgentV1",
+        "discovery_patterns": [
+          "./CLAUDE.md"
+        ],
+        "working_root": "/Users/agent/workspace",
+        "filesystem_mode": "case-sensitive",
+        "instruction_files": [
+          {
+            "path": "CLAUDE.md",
+            "digest": "363c85b9c934d3704ef7629ee942642af4b4d0062b7366791a27e5ba6178ac25",
+            "bytes": 56,
+            "role": "agent_md"
+          }
+        ],
+        "issued_at": "2026-04-26T00:00:00.000Z",
+        "bound_to": {
+          "type": "session",
+          "ref": "sess_ipr_v1_fixture_001"
+        },
+        "publicKeyHex": "3e996728b8706d4959e5fedeff297b8518a4f3c0a6a75fe8e64d0f472f9600e8"
+      },
+      "canonical_bytes_hex": "7b226167656e745f646964223a226469643a6b65793a7a495052666978747572654167656e745631222c226174746573746174696f6e5f74696572223a2273656c662d6173736572746564222c22626f756e645f746f223a7b22726566223a22736573735f6970725f76315f666978747572655f303031222c2274797065223a2273657373696f6e227d2c22636f6e746578745f726f6f74223a2265333132623363363165343963333438353439363962643030333738356565343432313138363465656166303364613134383030346336343539316561386339222c2264656c65676174696f6e5f636861696e5f726f6f74223a2234363164313463343430393134663039623432663336643964373934363230316334343634623863666431646332323362373465343135396131363334313236222c22646973636f766572795f7061747465726e73223a5b222e2f434c415544452e6d64225d2c2266696c6573797374656d5f6d6f6465223a22636173652d73656e736974697665222c22696e737472756374696f6e5f66696c6573223a5b7b226279746573223a35362c22646967657374223a2233363363383562396339333464333730346566373632396565393432363432616634623464303036326237333636373931613237653562613631373861633235222c2270617468223a22434c415544452e6d64222c22726f6c65223a226167656e745f6d64227d5d2c226973737565645f6174223a22323032362d30342d32365430303a30303a30302e3030305a222c227265636f6d707574655f61745f616374696f6e223a66616c73652c227369676e696e675f6b65795f6964223a22656432353531393a33653939363732386238373036643439222c22776f726b696e675f726f6f74223a222f55736572732f6167656e742f776f726b7370616365227d",
+      "canonical_sha256": "4c2a5df0576a871d744a1cd64ef81f8e1b83f8b9d51978b0356991e90078e8c7",
+      "receipt_id": "4c2a5df0576a871d744a1cd64ef81f8e1b83f8b9d51978b0356991e90078e8c7",
+      "context_root": "e312b3c61e49c34854969bd003785ee44211864eeaf03da148004c64591ea8c9",
+      "ed25519_signature": "eb59290e5f925b0dfd69e92bb32348c7a98f4d2f93bc1be6f4a63f5d9f3934d77ec74eebf8348594e3d052fe7628494d24fb522fedab621d81a7241fe071570d",
+      "expected_verification": true,
+      "envelope": {
+        "receipt_id": "4c2a5df0576a871d744a1cd64ef81f8e1b83f8b9d51978b0356991e90078e8c7",
+        "delegation_chain_root": "461d14c440914f09b42f36d9d7946201c4464b8cfd1dc223b74e4159a1634126",
+        "agent_did": "did:key:zIPRfixtureAgentV1",
+        "discovery_patterns": [
+          "./CLAUDE.md"
+        ],
+        "working_root": "/Users/agent/workspace",
+        "filesystem_mode": "case-sensitive",
+        "instruction_files": [
+          {
+            "path": "CLAUDE.md",
+            "digest": "363c85b9c934d3704ef7629ee942642af4b4d0062b7366791a27e5ba6178ac25",
+            "bytes": 56,
+            "role": "agent_md"
+          }
+        ],
+        "context_root": "e312b3c61e49c34854969bd003785ee44211864eeaf03da148004c64591ea8c9",
+        "attestation_tier": "self-asserted",
+        "recompute_at_action": false,
+        "issued_at": "2026-04-26T00:00:00.000Z",
+        "bound_to": {
+          "type": "session",
+          "ref": "sess_ipr_v1_fixture_001"
+        },
+        "signing_key_id": "ed25519:3e996728b8706d49",
+        "signature": "eb59290e5f925b0dfd69e92bb32348c7a98f4d2f93bc1be6f4a63f5d9f3934d77ec74eebf8348594e3d052fe7628494d24fb522fedab621d81a7241fe071570d"
+      }
+    },
+    {
+      "name": "multi-file-multi-pattern",
+      "description": "Three files, two patterns; sorted in canonical order.",
+      "input": {
+        "delegation_chain_root": "461d14c440914f09b42f36d9d7946201c4464b8cfd1dc223b74e4159a1634126",
+        "agent_did": "did:key:zIPRfixtureAgentV1",
+        "discovery_patterns": [
+          "./*.md",
+          "./.cursorrules"
+        ],
+        "working_root": "/Users/agent/workspace",
+        "filesystem_mode": "case-sensitive",
+        "instruction_files": [
+          {
+            "path": "CLAUDE.md",
+            "digest": "454044e19d7d85af78929b7faf2bc640926c2a4e7e1f396887c76870bc5697f2",
+            "bytes": 12,
+            "role": "agent_md"
+          },
+          {
+            "path": "MEMORY.md",
+            "digest": "f24e57e029ac69367b7b4c3237f5820035a803b4fe143a44bcca0422ad6e878c",
+            "bytes": 12,
+            "role": "memory"
+          },
+          {
+            "path": ".cursorrules",
+            "digest": "36469a524070a346e2a342bcfa0c153de9664f92d9abb9e8563ed1a0d160020c",
+            "bytes": 12,
+            "role": "rules"
+          }
+        ],
+        "issued_at": "2026-04-26T00:00:00.000Z",
+        "bound_to": {
+          "type": "session",
+          "ref": "sess_ipr_v1_fixture_001"
+        },
+        "publicKeyHex": "3e996728b8706d4959e5fedeff297b8518a4f3c0a6a75fe8e64d0f472f9600e8"
+      },
+      "canonical_bytes_hex": "7b226167656e745f646964223a226469643a6b65793a7a495052666978747572654167656e745631222c226174746573746174696f6e5f74696572223a2273656c662d6173736572746564222c22626f756e645f746f223a7b22726566223a22736573735f6970725f76315f666978747572655f303031222c2274797065223a2273657373696f6e227d2c22636f6e746578745f726f6f74223a2266633764313535633530623835393132663565313037396234353633663762303162636166336134653365356639346665316236356631386432636366316234222c2264656c65676174696f6e5f636861696e5f726f6f74223a2234363164313463343430393134663039623432663336643964373934363230316334343634623863666431646332323362373465343135396131363334313236222c22646973636f766572795f7061747465726e73223a5b222e2f2a2e6d64222c222e2f2e637572736f7272756c6573225d2c2266696c6573797374656d5f6d6f6465223a22636173652d73656e736974697665222c22696e737472756374696f6e5f66696c6573223a5b7b226279746573223a31322c22646967657374223a2233363436396135323430373061333436653261333432626366613063313533646539363634663932643961626239653835363365643161306431363030323063222c2270617468223a222e637572736f7272756c6573222c22726f6c65223a2272756c6573227d2c7b226279746573223a31322c22646967657374223a2234353430343465313964376438356166373839323962376661663262633634303932366332613465376531663339363838376337363837306263353639376632222c2270617468223a22434c415544452e6d64222c22726f6c65223a226167656e745f6d64227d2c7b226279746573223a31322c22646967657374223a2266323465353765303239616336393336376237623463333233376635383230303335613830336234666531343361343462636361303432326164366538373863222c2270617468223a224d454d4f52592e6d64222c22726f6c65223a226d656d6f7279227d5d2c226973737565645f6174223a22323032362d30342d32365430303a30303a30302e3030305a222c227265636f6d707574655f61745f616374696f6e223a66616c73652c227369676e696e675f6b65795f6964223a22656432353531393a33653939363732386238373036643439222c22776f726b696e675f726f6f74223a222f55736572732f6167656e742f776f726b7370616365227d",
+      "canonical_sha256": "652e8308ff702a7ac938de509bed842d6ef034e5b0c901bcb8e04ac5048822ad",
+      "receipt_id": "652e8308ff702a7ac938de509bed842d6ef034e5b0c901bcb8e04ac5048822ad",
+      "context_root": "fc7d155c50b85912f5e1079b4563f7b01bcaf3a4e3e5f94fe1b65f18d2ccf1b4",
+      "ed25519_signature": "a375b62f83a1bb31db66adfa526084e9351af38627e53a6f3bdc643dd20d23dc07a168ef2008674962be1163c572a0b9171986804311002bd3045497c33e4807",
+      "expected_verification": true,
+      "envelope": {
+        "receipt_id": "652e8308ff702a7ac938de509bed842d6ef034e5b0c901bcb8e04ac5048822ad",
+        "delegation_chain_root": "461d14c440914f09b42f36d9d7946201c4464b8cfd1dc223b74e4159a1634126",
+        "agent_did": "did:key:zIPRfixtureAgentV1",
+        "discovery_patterns": [
+          "./*.md",
+          "./.cursorrules"
+        ],
+        "working_root": "/Users/agent/workspace",
+        "filesystem_mode": "case-sensitive",
+        "instruction_files": [
+          {
+            "path": ".cursorrules",
+            "digest": "36469a524070a346e2a342bcfa0c153de9664f92d9abb9e8563ed1a0d160020c",
+            "bytes": 12,
+            "role": "rules"
+          },
+          {
+            "path": "CLAUDE.md",
+            "digest": "454044e19d7d85af78929b7faf2bc640926c2a4e7e1f396887c76870bc5697f2",
+            "bytes": 12,
+            "role": "agent_md"
+          },
+          {
+            "path": "MEMORY.md",
+            "digest": "f24e57e029ac69367b7b4c3237f5820035a803b4fe143a44bcca0422ad6e878c",
+            "bytes": 12,
+            "role": "memory"
+          }
+        ],
+        "context_root": "fc7d155c50b85912f5e1079b4563f7b01bcaf3a4e3e5f94fe1b65f18d2ccf1b4",
+        "attestation_tier": "self-asserted",
+        "recompute_at_action": false,
+        "issued_at": "2026-04-26T00:00:00.000Z",
+        "bound_to": {
+          "type": "session",
+          "ref": "sess_ipr_v1_fixture_001"
+        },
+        "signing_key_id": "ed25519:3e996728b8706d49",
+        "signature": "a375b62f83a1bb31db66adfa526084e9351af38627e53a6f3bdc643dd20d23dc07a168ef2008674962be1163c572a0b9171986804311002bd3045497c33e4807"
+      }
+    },
+    {
+      "name": "recompute-at-action-true",
+      "description": "recompute_at_action flag set; verifyActionTimeContextRoot must round-trip.",
+      "input": {
+        "delegation_chain_root": "461d14c440914f09b42f36d9d7946201c4464b8cfd1dc223b74e4159a1634126",
+        "agent_did": "did:key:zIPRfixtureAgentV1",
+        "discovery_patterns": [
+          "./CLAUDE.md"
+        ],
+        "working_root": "/Users/agent/workspace",
+        "filesystem_mode": "case-sensitive",
+        "instruction_files": [
+          {
+            "path": "CLAUDE.md",
+            "digest": "349bf0a09b991bd520bd59187a724838d99d1dc4334b389be89818b9a2c21a59",
+            "bytes": 19,
+            "role": "agent_md"
+          }
+        ],
+        "issued_at": "2026-04-26T00:00:00.000Z",
+        "bound_to": {
+          "type": "session",
+          "ref": "sess_ipr_v1_fixture_001"
+        },
+        "publicKeyHex": "3e996728b8706d4959e5fedeff297b8518a4f3c0a6a75fe8e64d0f472f9600e8",
+        "recompute_at_action": true
+      },
+      "canonical_bytes_hex": "7b226167656e745f646964223a226469643a6b65793a7a495052666978747572654167656e745631222c226174746573746174696f6e5f74696572223a2273656c662d6173736572746564222c22626f756e645f746f223a7b22726566223a22736573735f6970725f76315f666978747572655f303031222c2274797065223a2273657373696f6e227d2c22636f6e746578745f726f6f74223a2261313138613533313962396139663633313962323332636631636632623230316165633832343138653539303064396266663239646231643339663034656564222c2264656c65676174696f6e5f636861696e5f726f6f74223a2234363164313463343430393134663039623432663336643964373934363230316334343634623863666431646332323362373465343135396131363334313236222c22646973636f766572795f7061747465726e73223a5b222e2f434c415544452e6d64225d2c2266696c6573797374656d5f6d6f6465223a22636173652d73656e736974697665222c22696e737472756374696f6e5f66696c6573223a5b7b226279746573223a31392c22646967657374223a2233343962663061303962393931626435323062643539313837613732343833386439396431646334333334623338396265383938313862396132633231613539222c2270617468223a22434c415544452e6d64222c22726f6c65223a226167656e745f6d64227d5d2c226973737565645f6174223a22323032362d30342d32365430303a30303a30302e3030305a222c227265636f6d707574655f61745f616374696f6e223a747275652c227369676e696e675f6b65795f6964223a22656432353531393a33653939363732386238373036643439222c22776f726b696e675f726f6f74223a222f55736572732f6167656e742f776f726b7370616365227d",
+      "canonical_sha256": "eb610dd2c1115a65dd747309d5faef97dcfabd9d13620e597d9f1c621dbb6c2f",
+      "receipt_id": "eb610dd2c1115a65dd747309d5faef97dcfabd9d13620e597d9f1c621dbb6c2f",
+      "context_root": "a118a5319b9a9f6319b232cf1cf2b201aec82418e5900d9bff29db1d39f04eed",
+      "ed25519_signature": "df72232bd0eb8f23789336f613bd42cadaca917e127ed85f415cc12b6f8a07ede2ba97f2b7036b1f4fcc3b6acb0620e91bcebcb4d319f1ddcc349e392b62030a",
+      "expected_verification": true,
+      "envelope": {
+        "receipt_id": "eb610dd2c1115a65dd747309d5faef97dcfabd9d13620e597d9f1c621dbb6c2f",
+        "delegation_chain_root": "461d14c440914f09b42f36d9d7946201c4464b8cfd1dc223b74e4159a1634126",
+        "agent_did": "did:key:zIPRfixtureAgentV1",
+        "discovery_patterns": [
+          "./CLAUDE.md"
+        ],
+        "working_root": "/Users/agent/workspace",
+        "filesystem_mode": "case-sensitive",
+        "instruction_files": [
+          {
+            "path": "CLAUDE.md",
+            "digest": "349bf0a09b991bd520bd59187a724838d99d1dc4334b389be89818b9a2c21a59",
+            "bytes": 19,
+            "role": "agent_md"
+          }
+        ],
+        "context_root": "a118a5319b9a9f6319b232cf1cf2b201aec82418e5900d9bff29db1d39f04eed",
+        "attestation_tier": "self-asserted",
+        "recompute_at_action": true,
+        "issued_at": "2026-04-26T00:00:00.000Z",
+        "bound_to": {
+          "type": "session",
+          "ref": "sess_ipr_v1_fixture_001"
+        },
+        "signing_key_id": "ed25519:3e996728b8706d49",
+        "signature": "df72232bd0eb8f23789336f613bd42cadaca917e127ed85f415cc12b6f8a07ede2ba97f2b7036b1f4fcc3b6acb0620e91bcebcb4d319f1ddcc349e392b62030a"
+      }
+    },
+    {
+      "name": "nfc-normalization",
+      "description": "Path with non-ASCII (café/CLAUDE.md). NFC-normalized at canonicalization.",
+      "input": {
+        "delegation_chain_root": "461d14c440914f09b42f36d9d7946201c4464b8cfd1dc223b74e4159a1634126",
+        "agent_did": "did:key:zIPRfixtureAgentV1",
+        "discovery_patterns": [
+          "./café/*.md"
+        ],
+        "working_root": "/Users/agent/workspace",
+        "filesystem_mode": "case-sensitive",
+        "instruction_files": [
+          {
+            "path": "café/CLAUDE.md",
+            "digest": "c02f85ad8f1980dc142967ead95842f0e15ef2a9c14c43d932d7616145770763",
+            "bytes": 16,
+            "role": "agent_md"
+          }
+        ],
+        "issued_at": "2026-04-26T00:00:00.000Z",
+        "bound_to": {
+          "type": "session",
+          "ref": "sess_ipr_v1_fixture_001"
+        },
+        "publicKeyHex": "3e996728b8706d4959e5fedeff297b8518a4f3c0a6a75fe8e64d0f472f9600e8"
+      },
+      "canonical_bytes_hex": "7b226167656e745f646964223a226469643a6b65793a7a495052666978747572654167656e745631222c226174746573746174696f6e5f74696572223a2273656c662d6173736572746564222c22626f756e645f746f223a7b22726566223a22736573735f6970725f76315f666978747572655f303031222c2274797065223a2273657373696f6e227d2c22636f6e746578745f726f6f74223a2235653934346637646638396439363738626364333965313137303439326461393631356130353637636433613164653631366464633237613630333933323264222c2264656c65676174696f6e5f636861696e5f726f6f74223a2234363164313463343430393134663039623432663336643964373934363230316334343634623863666431646332323362373465343135396131363334313236222c22646973636f766572795f7061747465726e73223a5b222e2f636166c3a92f2a2e6d64225d2c2266696c6573797374656d5f6d6f6465223a22636173652d73656e736974697665222c22696e737472756374696f6e5f66696c6573223a5b7b226279746573223a31362c22646967657374223a2263303266383561643866313938306463313432393637656164393538343266306531356566326139633134633433643933326437363136313435373730373633222c2270617468223a22636166c3a92f434c415544452e6d64222c22726f6c65223a226167656e745f6d64227d5d2c226973737565645f6174223a22323032362d30342d32365430303a30303a30302e3030305a222c227265636f6d707574655f61745f616374696f6e223a66616c73652c227369676e696e675f6b65795f6964223a22656432353531393a33653939363732386238373036643439222c22776f726b696e675f726f6f74223a222f55736572732f6167656e742f776f726b7370616365227d",
+      "canonical_sha256": "3e5d736762d97b5469d204d96e3a110e0cfd34a355a54973e343c2aab73f0e2d",
+      "receipt_id": "3e5d736762d97b5469d204d96e3a110e0cfd34a355a54973e343c2aab73f0e2d",
+      "context_root": "5e944f7df89d9678bcd39e1170492da9615a0567cd3a1de616ddc27a6039322d",
+      "ed25519_signature": "4b9b64532823afb1743f41341771eb96331d5b62cf33044040eb65505a9e0dd0872791e8a17dbf0acf0ae174c77bc7fa04e388e85b123008c6c382ebd84d800a",
+      "expected_verification": true,
+      "envelope": {
+        "receipt_id": "3e5d736762d97b5469d204d96e3a110e0cfd34a355a54973e343c2aab73f0e2d",
+        "delegation_chain_root": "461d14c440914f09b42f36d9d7946201c4464b8cfd1dc223b74e4159a1634126",
+        "agent_did": "did:key:zIPRfixtureAgentV1",
+        "discovery_patterns": [
+          "./café/*.md"
+        ],
+        "working_root": "/Users/agent/workspace",
+        "filesystem_mode": "case-sensitive",
+        "instruction_files": [
+          {
+            "path": "café/CLAUDE.md",
+            "digest": "c02f85ad8f1980dc142967ead95842f0e15ef2a9c14c43d932d7616145770763",
+            "bytes": 16,
+            "role": "agent_md"
+          }
+        ],
+        "context_root": "5e944f7df89d9678bcd39e1170492da9615a0567cd3a1de616ddc27a6039322d",
+        "attestation_tier": "self-asserted",
+        "recompute_at_action": false,
+        "issued_at": "2026-04-26T00:00:00.000Z",
+        "bound_to": {
+          "type": "session",
+          "ref": "sess_ipr_v1_fixture_001"
+        },
+        "signing_key_id": "ed25519:3e996728b8706d49",
+        "signature": "4b9b64532823afb1743f41341771eb96331d5b62cf33044040eb65505a9e0dd0872791e8a17dbf0acf0ae174c77bc7fa04e388e85b123008c6c382ebd84d800a"
+      }
+    },
+    {
+      "name": "case-insensitive-fs",
+      "description": "filesystem_mode=case-insensitive lowercases all paths.",
+      "input": {
+        "delegation_chain_root": "461d14c440914f09b42f36d9d7946201c4464b8cfd1dc223b74e4159a1634126",
+        "agent_did": "did:key:zIPRfixtureAgentV1",
+        "discovery_patterns": [
+          "./*.md"
+        ],
+        "working_root": "/Users/agent/workspace",
+        "filesystem_mode": "case-insensitive",
+        "instruction_files": [
+          {
+            "path": "claude.md",
+            "digest": "50ca6a8a5773bc38ee4cb8d2270edae9ac78d4a82ee2daf413f621f339fba056",
+            "bytes": 24,
+            "role": "agent_md"
+          }
+        ],
+        "issued_at": "2026-04-26T00:00:00.000Z",
+        "bound_to": {
+          "type": "session",
+          "ref": "sess_ipr_v1_fixture_001"
+        },
+        "publicKeyHex": "3e996728b8706d4959e5fedeff297b8518a4f3c0a6a75fe8e64d0f472f9600e8"
+      },
+      "canonical_bytes_hex": "7b226167656e745f646964223a226469643a6b65793a7a495052666978747572654167656e745631222c226174746573746174696f6e5f74696572223a2273656c662d6173736572746564222c22626f756e645f746f223a7b22726566223a22736573735f6970725f76315f666978747572655f303031222c2274797065223a2273657373696f6e227d2c22636f6e746578745f726f6f74223a2236656239326339616637343165333939336561663566643433346361313438663465343561313863306564343431313764653563363964376361343935343463222c2264656c65676174696f6e5f636861696e5f726f6f74223a2234363164313463343430393134663039623432663336643964373934363230316334343634623863666431646332323362373465343135396131363334313236222c22646973636f766572795f7061747465726e73223a5b222e2f2a2e6d64225d2c2266696c6573797374656d5f6d6f6465223a22636173652d696e73656e736974697665222c22696e737472756374696f6e5f66696c6573223a5b7b226279746573223a32342c22646967657374223a2235306361366138613537373362633338656534636238643232373065646165396163373864346138326565326461663431336636323166333339666261303536222c2270617468223a22636c617564652e6d64222c22726f6c65223a226167656e745f6d64227d5d2c226973737565645f6174223a22323032362d30342d32365430303a30303a30302e3030305a222c227265636f6d707574655f61745f616374696f6e223a66616c73652c227369676e696e675f6b65795f6964223a22656432353531393a33653939363732386238373036643439222c22776f726b696e675f726f6f74223a222f55736572732f6167656e742f776f726b7370616365227d",
+      "canonical_sha256": "fff0df94ef2a7cb264101484238d5804cd94d555a62665fea9d7cc1b42ffe728",
+      "receipt_id": "fff0df94ef2a7cb264101484238d5804cd94d555a62665fea9d7cc1b42ffe728",
+      "context_root": "6eb92c9af741e3993eaf5fd434ca148f4e45a18c0ed44117de5c69d7ca49544c",
+      "ed25519_signature": "51fc8e688893c6680f33becdae7796a397d00f03ce73de7a0f3f91a27692b89a493f285db204f25c81d52e356bb9e137593d7c172ddb582941344434c53b6e0a",
+      "expected_verification": true,
+      "envelope": {
+        "receipt_id": "fff0df94ef2a7cb264101484238d5804cd94d555a62665fea9d7cc1b42ffe728",
+        "delegation_chain_root": "461d14c440914f09b42f36d9d7946201c4464b8cfd1dc223b74e4159a1634126",
+        "agent_did": "did:key:zIPRfixtureAgentV1",
+        "discovery_patterns": [
+          "./*.md"
+        ],
+        "working_root": "/Users/agent/workspace",
+        "filesystem_mode": "case-insensitive",
+        "instruction_files": [
+          {
+            "path": "claude.md",
+            "digest": "50ca6a8a5773bc38ee4cb8d2270edae9ac78d4a82ee2daf413f621f339fba056",
+            "bytes": 24,
+            "role": "agent_md"
+          }
+        ],
+        "context_root": "6eb92c9af741e3993eaf5fd434ca148f4e45a18c0ed44117de5c69d7ca49544c",
+        "attestation_tier": "self-asserted",
+        "recompute_at_action": false,
+        "issued_at": "2026-04-26T00:00:00.000Z",
+        "bound_to": {
+          "type": "session",
+          "ref": "sess_ipr_v1_fixture_001"
+        },
+        "signing_key_id": "ed25519:3e996728b8706d49",
+        "signature": "51fc8e688893c6680f33becdae7796a397d00f03ce73de7a0f3f91a27692b89a493f285db204f25c81d52e356bb9e137593d7c172ddb582941344434c53b6e0a"
+      }
+    },
+    {
+      "name": "symlink-as-separate-entry",
+      "description": "A symlink CLAUDE.md -> templates/base.md ships as two entries; symlink carries is_symlink=true and symlink_target.",
+      "input": {
+        "delegation_chain_root": "461d14c440914f09b42f36d9d7946201c4464b8cfd1dc223b74e4159a1634126",
+        "agent_did": "did:key:zIPRfixtureAgentV1",
+        "discovery_patterns": [
+          "./*.md",
+          "./templates/**/*.md"
+        ],
+        "working_root": "/Users/agent/workspace",
+        "filesystem_mode": "case-sensitive",
+        "instruction_files": [
+          {
+            "path": "CLAUDE.md",
+            "digest": "7911dc7aa0f2a79253e878b3c7bf95ee4775d77d1dc855e8f47694a096b7ffc7",
+            "bytes": 30,
+            "role": "agent_md",
+            "is_symlink": true,
+            "symlink_target": "templates/base.md"
+          },
+          {
+            "path": "templates/base.md",
+            "digest": "9554efe79f8825d758477cf4452ef0966a94ed0886a2e96b5c7df93721ea9f33",
+            "bytes": 33,
+            "role": "agent_md"
+          }
+        ],
+        "issued_at": "2026-04-26T00:00:00.000Z",
+        "bound_to": {
+          "type": "session",
+          "ref": "sess_ipr_v1_fixture_001"
+        },
+        "publicKeyHex": "3e996728b8706d4959e5fedeff297b8518a4f3c0a6a75fe8e64d0f472f9600e8"
+      },
+      "canonical_bytes_hex": "7b226167656e745f646964223a226469643a6b65793a7a495052666978747572654167656e745631222c226174746573746174696f6e5f74696572223a2273656c662d6173736572746564222c22626f756e645f746f223a7b22726566223a22736573735f6970725f76315f666978747572655f303031222c2274797065223a2273657373696f6e227d2c22636f6e746578745f726f6f74223a2236333662633937383434343138346465366437363930393738613061623732636539663736306531303237336230656339316465356165336661623835343761222c2264656c65676174696f6e5f636861696e5f726f6f74223a2234363164313463343430393134663039623432663336643964373934363230316334343634623863666431646332323362373465343135396131363334313236222c22646973636f766572795f7061747465726e73223a5b222e2f2a2e6d64222c222e2f74656d706c617465732f2a2a2f2a2e6d64225d2c2266696c6573797374656d5f6d6f6465223a22636173652d73656e736974697665222c22696e737472756374696f6e5f66696c6573223a5b7b226279746573223a33302c22646967657374223a2237393131646337616130663261373932353365383738623363376266393565653437373564373764316463383535653866343736393461303936623766666337222c2269735f73796d6c696e6b223a747275652c2270617468223a22434c415544452e6d64222c22726f6c65223a226167656e745f6d64222c2273796d6c696e6b5f746172676574223a2274656d706c617465732f626173652e6d64227d2c7b226279746573223a33332c22646967657374223a2239353534656665373966383832356437353834373763663434353265663039363661393465643038383661326539366235633764663933373231656139663333222c2270617468223a2274656d706c617465732f626173652e6d64222c22726f6c65223a226167656e745f6d64227d5d2c226973737565645f6174223a22323032362d30342d32365430303a30303a30302e3030305a222c227265636f6d707574655f61745f616374696f6e223a66616c73652c227369676e696e675f6b65795f6964223a22656432353531393a33653939363732386238373036643439222c22776f726b696e675f726f6f74223a222f55736572732f6167656e742f776f726b7370616365227d",
+      "canonical_sha256": "90f09936620e907868678bf1b8b82abfc5d1f9cefcad5aea9df7e261fe8d3be3",
+      "receipt_id": "90f09936620e907868678bf1b8b82abfc5d1f9cefcad5aea9df7e261fe8d3be3",
+      "context_root": "636bc978444184de6d7690978a0ab72ce9f760e10273b0ec91de5ae3fab8547a",
+      "ed25519_signature": "b680fa4476fe6eabf8f9c2bcbd5541be81c7bf0f32cdfa942c552eb3137fcb47268c42d454dfb4a02ae3ed679c5507fc5999870a0c8c724a373e673097787001",
+      "expected_verification": true,
+      "envelope": {
+        "receipt_id": "90f09936620e907868678bf1b8b82abfc5d1f9cefcad5aea9df7e261fe8d3be3",
+        "delegation_chain_root": "461d14c440914f09b42f36d9d7946201c4464b8cfd1dc223b74e4159a1634126",
+        "agent_did": "did:key:zIPRfixtureAgentV1",
+        "discovery_patterns": [
+          "./*.md",
+          "./templates/**/*.md"
+        ],
+        "working_root": "/Users/agent/workspace",
+        "filesystem_mode": "case-sensitive",
+        "instruction_files": [
+          {
+            "path": "CLAUDE.md",
+            "digest": "7911dc7aa0f2a79253e878b3c7bf95ee4775d77d1dc855e8f47694a096b7ffc7",
+            "bytes": 30,
+            "role": "agent_md",
+            "is_symlink": true,
+            "symlink_target": "templates/base.md"
+          },
+          {
+            "path": "templates/base.md",
+            "digest": "9554efe79f8825d758477cf4452ef0966a94ed0886a2e96b5c7df93721ea9f33",
+            "bytes": 33,
+            "role": "agent_md"
+          }
+        ],
+        "context_root": "636bc978444184de6d7690978a0ab72ce9f760e10273b0ec91de5ae3fab8547a",
+        "attestation_tier": "self-asserted",
+        "recompute_at_action": false,
+        "issued_at": "2026-04-26T00:00:00.000Z",
+        "bound_to": {
+          "type": "session",
+          "ref": "sess_ipr_v1_fixture_001"
+        },
+        "signing_key_id": "ed25519:3e996728b8706d49",
+        "signature": "b680fa4476fe6eabf8f9c2bcbd5541be81c7bf0f32cdfa942c552eb3137fcb47268c42d454dfb4a02ae3ed679c5507fc5999870a0c8c724a373e673097787001"
+      }
+    },
+    {
+      "name": "expected-rejection-witnessed-tier",
+      "description": "Envelope tampered to attestation_tier=witnessed. Verifier rejects per v0.2 tier lock.",
+      "rejection_kind": "verification",
+      "expected_error_code": "TIER_RESERVED",
+      "expected_verification": false,
+      "envelope": {
+        "receipt_id": "ad4502713250e121532937ee7eb8bed3f37e8dcf908fab124a0235fe981652e7",
+        "delegation_chain_root": "461d14c440914f09b42f36d9d7946201c4464b8cfd1dc223b74e4159a1634126",
+        "agent_did": "did:key:zIPRfixtureAgentV1",
+        "discovery_patterns": [
+          "./CLAUDE.md"
+        ],
+        "working_root": "/Users/agent/workspace",
+        "filesystem_mode": "case-sensitive",
+        "instruction_files": [
+          {
+            "path": "CLAUDE.md",
+            "digest": "9cad23f9f7d22a195c2dd5547ce1f9f2fa7011d73f444bbd7e59b9663c88561e",
+            "bytes": 17,
+            "role": "agent_md"
+          }
+        ],
+        "context_root": "c15bb1d94a6af02a80b8e19ced9193096d7ac4b0d61e4a6aebd98b993f0a00c2",
+        "attestation_tier": "witnessed",
+        "recompute_at_action": false,
+        "issued_at": "2026-04-26T00:00:00.000Z",
+        "bound_to": {
+          "type": "session",
+          "ref": "sess_ipr_v1_fixture_001"
+        },
+        "signing_key_id": "ed25519:3e996728b8706d49",
+        "signature": "96dedb6dc39382e5a6771d91030cc02547c42cc65e0ab4ea643534bd435959006570e5cf3663f854eb89839f4f0434dd661eb2fe3465e876b873c965c9120d01"
+      }
+    },
+    {
+      "name": "expected-rejection-omitted-file",
+      "description": "discovery_patterns: [\"./*.md\"]; instruction_files omits MEMORY.md that filesystem walk would discover. Verifier rejects when filesystemCheck=true.",
+      "rejection_kind": "verification",
+      "expected_error_code": "OMISSION",
+      "expected_verification": false,
+      "envelope": {
+        "receipt_id": "f33515ccc01a3da5c44a85d9d4e5254feb5f00306842d56027f0190f6a97cddf",
+        "delegation_chain_root": "461d14c440914f09b42f36d9d7946201c4464b8cfd1dc223b74e4159a1634126",
+        "agent_did": "did:key:zIPRfixtureAgentV1",
+        "discovery_patterns": [
+          "./*.md"
+        ],
+        "working_root": "/Users/agent/workspace",
+        "filesystem_mode": "case-sensitive",
+        "instruction_files": [
+          {
+            "path": "CLAUDE.md",
+            "digest": "67f1fdcd2cdd1f5dbf7f7657b26be84f54951fd3c77f121d4c0d5a5628eed3c6",
+            "bytes": 8,
+            "role": "agent_md"
+          }
+        ],
+        "context_root": "77c99f891c8bfb2e288ed7e2abe7c8a2b3c810fbdc3061e90968d71adb859ac4",
+        "attestation_tier": "self-asserted",
+        "recompute_at_action": false,
+        "issued_at": "2026-04-26T00:00:00.000Z",
+        "bound_to": {
+          "type": "session",
+          "ref": "sess_ipr_v1_fixture_001"
+        },
+        "signing_key_id": "ed25519:3e996728b8706d49",
+        "signature": "d57996fa7c6085cd08f68d7e0c01d7bebddf20019df7001750cd7c45c7ac5efbedccc4427fcf72f1484f1c1255cf862fe1ca1f54e532635fff0a22482d750904"
+      }
+    },
+    {
+      "name": "expected-rejection-smuggled-path",
+      "description": "instruction_files contains path matching no discovery_pattern. Verifier rejects per §6.3 step 10.",
+      "rejection_kind": "verification",
+      "expected_error_code": "PATH_SMUGGLING",
+      "expected_verification": false,
+      "envelope": {
+        "receipt_id": "c1648361e2abe0237cf367db93f0b1acdf73f8368c03703f09316c27159869af",
+        "delegation_chain_root": "461d14c440914f09b42f36d9d7946201c4464b8cfd1dc223b74e4159a1634126",
+        "agent_did": "did:key:zIPRfixtureAgentV1",
+        "discovery_patterns": [
+          "./CLAUDE.md"
+        ],
+        "working_root": "/Users/agent/workspace",
+        "filesystem_mode": "case-sensitive",
+        "instruction_files": [
+          {
+            "path": "CLAUDE.md",
+            "digest": "ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb",
+            "bytes": 1,
+            "role": "agent_md"
+          },
+          {
+            "path": "secrets.md",
+            "digest": "81ab49a411d99a9609726930294413ff7c060b02cd71eec08d38d7f79aa536c3",
+            "bytes": 8,
+            "role": "other"
+          }
+        ],
+        "context_root": "c38e91e391deea6d2818c1d8dc5156b0499c679dbf1fdea12678af55382f09b5",
+        "attestation_tier": "self-asserted",
+        "recompute_at_action": false,
+        "issued_at": "2026-04-26T00:00:00.000Z",
+        "bound_to": {
+          "type": "session",
+          "ref": "sess_ipr_v1_fixture_001"
+        },
+        "signing_key_id": "ed25519:3e996728b8706d49",
+        "signature": "cf741d7976c838a20ed3e8dd2f4eb9a7a29a35beea936aaab32553d67cffb00cab9b7fe98f2d741c3a76aa02a1aa1615809469b055a6366ad40c4cc656444508"
+      }
+    },
+    {
+      "name": "expected-rejection-trailing-slash",
+      "description": "canonicalizePath throws IPRPathError(TRAILING_SLASH) when path ends with /.",
+      "rejection_kind": "canonicalization",
+      "expected_error_code": "TRAILING_SLASH",
+      "expected_verification": false,
+      "canonicalize_input": {
+        "raw": "docs/CLAUDE.md/",
+        "workingRoot": "/Users/agent/workspace",
+        "filesystemMode": "case-sensitive"
+      }
+    }
+  ]
+}
