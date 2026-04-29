@@ -43,6 +43,7 @@
       Reference implementations are provided in TypeScript and Python with
       1,634 tests across 85 modules, published as open-source SDKs under
       Apache-2.0. Protocol bindings are specified for MCP (120 tools), with
+      <!-- TIMA-VERIFY: Confirm the five members and either name them publicly (with attribution) on next revision or remove this claim. Ambiguity here is a reviewer-attack surface. Do not submit this revision until Tima has decided. -->
       cross-protocol validation through a five-member working group on
       production infrastructure.</t>
     </abstract>
@@ -222,14 +223,33 @@
       <t>The protocol's strongest guarantees hold when all privileged effects
       are mediated by the ProxyGateway enforcement boundary. When agents use
       the SDK voluntarily without an external gateway, guarantees are
-      conditional on agent cooperation. The threat model defines three
-      attacker classes: adversarial agent, messaging attacker, and runtime
-      attacker. Runtime compromise is out of scope for protocol guarantees.</t>
+      conditional on agent cooperation. The threat model defines four
+      attacker classes: adversarial agent, messaging attacker, runtime
+      attacker, and compromised-but-signing agent. Runtime compromise is
+      out of scope for protocol guarantees.</t>
+
+      <t>Compromised or hijacked agent producing cryptographically valid
+      signatures over false claims about its own state. The agent's signature
+      verifies because the key is uncompromised, but the signed claims
+      (instruction context observed, decision process attested, action taken
+      under declared instruction X) may be false. Closure of this attack class
+      requires operationally-independent witnesses signing claims about agent
+      state; this is an open architectural direction (see §11).</t>
     </section>
 
     <section numbered="true" toc="default">
       <name>IANA Considerations</name>
       <t>This document has no IANA actions.</t>
+    </section>
+
+    <section anchor="future-work" numbered="true" toc="default">
+      <name>Future Work</name>
+      <t>Wire-format epistemic discipline. Typed epistemic claim labels at
+      the wire format level, currently doc-level only in
+      ENFORCEMENT-TRUST-ANCHOR v1.2 §§141-159. v0 sketch in progress.
+      Becomes integration work once at least one ecosystem partner (BBIS,
+      AgentGraph, AgentID, in-toto) commits to a parallel implementation
+      track.</t>
     </section>
   </middle>
 
