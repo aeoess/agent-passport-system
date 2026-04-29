@@ -7,6 +7,8 @@
 
 > **For AI agents:** visit [aeoess.com/llms.txt](https://aeoess.com/llms.txt) for machine-readable docs.
 
+> **Valid signature. Hijacked intent. Denied by APS.**
+
 **Enforcement and accountability layer for AI agents. Bring your own identity.**
 
 Accepts did:key, did:web, SPIFFE SVIDs, OAuth tokens, and native did:aps. Authority can only decrease at each transfer point. The gateway is both judge and executor. Every action produces a signed receipt. Gateway evaluation under 2ms.
@@ -42,6 +44,10 @@ What ships in every deployment.
 **Commerce** -- 5-gate preflight: valid passport, scope check, spend limit, merchant allowlist, idempotency. Human approval thresholds for high-value transactions.
 
 **Reputation** -- Bayesian trust scoring across 5 tiers. Authority is earned per-scope, not global. Passport grades compound with behavioral history.
+
+## Receipt graph
+
+APS receipts are graph-composable. Each claim links to the authority, policy, action, observation, or evidence it depends on, so a verifier can walk from any receipt back to its supporting facts and stop at the boundary it cares about. This is documentation of existing structure, not a new primitive — the linkage already lives in the existing receipt envelopes (`delegation_chain_root`, `policy_ref`, `action_ref`, `evidence_id`, `bound_to`); the graph view is just how those edges compose.
 
 ## Wallet Binding
 
