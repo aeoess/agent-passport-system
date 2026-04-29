@@ -1,8 +1,21 @@
 # agent-passport-system
 
-> TypeScript reference implementation of the Agent Passport System (APS) protocol. Cryptographic identity, delegation chains with monotonic narrowing, enforcement receipts, governance composition, data lifecycle, and commerce for AI agents. Apache-2.0.
+> Valid signature. Hijacked intent. Denied by APS.
+
+TypeScript reference implementation of the Agent Passport System (APS) protocol. Cryptographic identity, delegation chains with monotonic narrowing, enforcement receipts, governance composition, data lifecycle, and commerce for AI agents. Apache-2.0.
 
 This is the public protocol layer. The private gateway product lives in a separate repo. All "product intelligence" (analytics, drift detection, compliance automation, cross-tenant orchestration) is explicitly out of scope here.
+
+## Threat model anchor
+
+APS addresses the case where the delegation chain still verifies but the agent's effective instructions have been hijacked. The threat is documented in the public CVE record:
+
+- GHSA-4cxx-hrm3-49rm — Cursor instruction-injection class
+- GHSA-vqv7-vq92-x87f — Cursor MCP / rules surface
+- CurXecute — Cursor MCP server config-mutation chain
+- NomShub — instruction-class file planting against agent IDEs
+
+In each case a valid signature was insufficient to deny the action. Authority admissibility — linking delegated authority to signed evidence about action so a verifier can decide whether to admit it — is the boundary APS draws.
 
 ## Install
 
