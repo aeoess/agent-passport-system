@@ -1,0 +1,24 @@
+{
+  "claim_type": "aps:custody:v1",
+  "receipt_id": "0d3a435b5d4fcfca22c2fb6ec71571be1e981d717b0c0aeb16e547aa98f96149",
+  "timestamp": "2026-04-30T00:00:00.000Z",
+  "signer_did": "a09aa5f47a6759802ff955f8dc2d2a14a5c99d23be97f864127ff9383455a4f0",
+  "scope_of_claim": {
+    "asserts": "Custodian sealed the named receipt batch at the named time for the named purpose.",
+    "does_not_assert": [
+      "that the underlying receipts are factually accurate",
+      "that downstream custody handoffs were honored"
+    ],
+    "capture_mode": "self_attested",
+    "completeness": "complete",
+    "self_attested": true
+  },
+  "custodian_did": "did:aps:test-custodian-001",
+  "event_type": "sealed",
+  "subject_receipt_batch": {
+    "merkle_root": "0000000000000000000000000000000000000000000000000000000000000001",
+    "count": 1
+  },
+  "purpose": "internal_audit",
+  "signature": "4aded63af0f16896c836e9da0b8f1b80bf6a80edbb29b65d32a3cacaa0257f9db495f4e851bb30a86286d2a736a64d4d4edf544e8611fabbc1e6ce8d16398103"
+}

@@ -319,3 +319,41 @@ export type {
   ProtocolAxisEntry, ProtocolAxisItem,
   ResidualBucket,
 } from './attribution-primitive/index.js'
+
+// ══════════════════════════════════════
+// Accountability MVP (Wave 1)
+// ══════════════════════════════════════
+export {
+  createActionReceipt,
+  createAuthorityBoundaryReceipt,
+  createCustodyReceipt,
+  createContestabilityReceipt,
+  attachControllerResponse,
+  createAPSBundle,
+  computeMerkleRoot,
+  verifyActionReceipt,
+  verifyAuthorityBoundaryReceipt,
+  verifyCustodyReceipt,
+  verifyContestabilityReceipt,
+  verifyAPSBundle,
+} from './accountability/index.js'
+
+export type {
+  AccountabilityReceiptBase,
+  CaptureMode,
+  Completeness,
+  ScopeOfClaim,
+  ActionReceipt,
+  SideEffectClass,
+  AuthorityBoundaryReceipt,
+  BoundaryResult,
+  CustodyReceipt,
+  CustodyEventType,
+  CustodyPurpose,
+  ContestabilityReceipt,
+  StandingBasis,
+  RequestedRemedy,
+  ContestStatus,
+  APSBundle,
+  BundledReceiptRef,
+} from './accountability/index.js'

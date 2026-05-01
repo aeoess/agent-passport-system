@@ -1,0 +1,26 @@
+{
+  "claim_type": "aps:bundle:v1",
+  "receipt_id": "230d001c4a364d971b15730890a468fdc841acdb73d79fcd6b0d7c589bb74234",
+  "timestamp": "2026-04-30T00:00:00.000Z",
+  "signer_did": "c6822637c7d310ec57627be00ba259d253749f4aaf644470cffbe53a35f73242",
+  "scope_of_claim": {
+    "asserts": "Bundler asserts the two referenced receipt_ids were observed and signed in the declared period.",
+    "does_not_assert": [
+      "That the underlying ActionReceipt or AuthorityBoundaryReceipt are themselves valid.",
+      "That no other receipts existed during the period beyond those listed.",
+      "That the merkle_root represents a complete-history closure."
+    ],
+    "capture_mode": "gateway_observed",
+    "completeness": "complete",
+    "self_attested": false
+  },
+  "bundler_did": "did:aps:test-bundler-001",
+  "period_start": "2026-04-30T00:00:00.000Z",
+  "period_end": "2026-05-01T00:00:00.000Z",
+  "merkle_root": "75e2c01f44898a1daa1b3bbab363bcfe1eb79e7c519a2ea77fda2862e94a1b90",
+  "receipt_count": 2,
+  "profile_conformance": [
+    "aps:profile/mva-v1"
+  ],
+  "signature": "3cc5f17b77d2174fc4d333f953074975bed663ac5fee91731554edc42c82b24c364eec18a4acbdc6a2f2f14a49e5e08140f953ed22fd3a5ab9e2941e537baf07"
+}

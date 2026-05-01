@@ -1,0 +1,32 @@
+{
+  "claim_type": "aps:action:v1",
+  "receipt_id": "c58856ff771bd5deee606af5f4e67966adc5ea1fd47b4f559407f5d7718dbf61",
+  "timestamp": "2026-04-30T00:00:00.000Z",
+  "signer_did": "d04ab232742bb4ab3a1368bd4615e4e6d0224ab71a016baf8520a332c9778737",
+  "scope_of_claim": {
+    "asserts": "Agent issued an HTTP POST to https://example.com/api/v1/users; the gateway observed and signed the request as it was forwarded.",
+    "does_not_assert": [
+      "That the agent understood the consequences of the request.",
+      "That the principal had authorized this specific user creation.",
+      "That the remote endpoint accepted or persisted the request."
+    ],
+    "capture_mode": "gateway_observed",
+    "completeness": "complete",
+    "self_attested": false
+  },
+  "agent_did": "did:aps:test-agent-001",
+  "delegation_chain_root": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "action": {
+    "kind": "http_request",
+    "target": "https://example.com/api/v1/users",
+    "parameters": {
+      "method": "POST",
+      "body_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    }
+  },
+  "side_effect_classes": [
+    "external_message",
+    "data_modification"
+  ],
+  "signature": "a9496b763997c116c630c58243c1e07db7f5a011ab37d07fa38dded3b0d9a4f919959508eefa4b3c90886b6cc50141234dc27c3dc1499d0ba48d8f6f6a3fd600"
+}

@@ -1,0 +1,25 @@
+{
+  "claim_type": "aps:contestability:v1",
+  "receipt_id": "d9194aaed3469e72849d55e33866a663088c7767ebcdb5262beb3b152afb461f",
+  "timestamp": "2026-04-30T00:00:00.000Z",
+  "signer_did": "17cb79fb2b4120f2b1ec65e4198d6e08b28e813feb01e4a400839b85e18080ce",
+  "scope_of_claim": {
+    "asserts": "Named contestant filed a challenge against the named action with the named grounds.",
+    "does_not_assert": [
+      "that the contestation is meritorious",
+      "that the standing is legally valid",
+      "that any controller response is correct or final"
+    ],
+    "capture_mode": "self_attested",
+    "completeness": "complete",
+    "self_attested": true
+  },
+  "contestant": {
+    "did": "did:aps:test-subject-001",
+    "standing_basis": "data_subject"
+  },
+  "action_id": "0000000000000000000000000000000000000000000000000000000000000002",
+  "grounds": "Automated decision affected my access without disclosed criteria.",
+  "requested_remedy": "explanation",
+  "signature": "7fdc98dde6b3bc4582b789373e2716a75c6dbb60a8d3a2964b4463b53325799902d9c7f61a8620673ff633e169a550c1eb0b033513c6b8906263c0d3c0d9fa02"
+}

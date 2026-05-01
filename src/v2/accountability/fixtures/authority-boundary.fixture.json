@@ -1,0 +1,21 @@
+{
+  "claim_type": "aps:authority_boundary:v1",
+  "receipt_id": "18c0cb71a0d699a61fc3ecab8ee52b9a4285713eb5b8ad9a6de813c518b5fd34",
+  "timestamp": "2026-04-30T00:00:00.000Z",
+  "signer_did": "d04ab232742bb4ab3a1368bd4615e4e6d0224ab71a016baf8520a332c9778737",
+  "scope_of_claim": {
+    "asserts": "The evaluator (gateway) checked the action's intended scope against the agent's delegation chain at the time of evaluation and concluded it fell inside the granted authority.",
+    "does_not_assert": [
+      "That side effects had completed at evaluation time.",
+      "That the underlying ActionReceipt itself verified."
+    ],
+    "capture_mode": "gateway_observed",
+    "completeness": "complete",
+    "self_attested": false
+  },
+  "action_id": "c58856ff771bd5deee606af5f4e67966adc5ea1fd47b4f559407f5d7718dbf61",
+  "evaluator_did": "did:aps:test-gateway-001",
+  "delegation_chain_root": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "result": "inside",
+  "signature": "d0a69290a30c9e00d1e0934df110056c9e58214702cd08499703ca4764ac73b320a63d781ef993c8867b34d8a6a38c5df7a13dd453bee59e94724c5e5b3d8e04"
+}

@@ -1063,6 +1063,31 @@ export type {
 } from './v2/attribution-consent/index.js'
 
 // ══════════════════════════════════════
+// Accountability MVP (Wave 1)
+// ══════════════════════════════════════
+export {
+  createActionReceipt, verifyActionReceipt,
+  createAuthorityBoundaryReceipt, verifyAuthorityBoundaryReceipt,
+  createCustodyReceipt, verifyCustodyReceipt,
+  createContestabilityReceipt, attachControllerResponse, verifyContestabilityReceipt,
+  createAPSBundle, verifyAPSBundle, computeMerkleRoot,
+} from './v2/accountability/index.js'
+
+// NOTE: 'ActionReceipt' name collides with the legacy commerce-flavored
+// ActionReceipt re-exported at line 129 (from './types/passport.js'). Alias
+// the new accountability one as 'AccountabilityActionReceipt' to preserve
+// the public surface. The unaliased name remains available from
+// './v2/accountability/index.js'.
+export type {
+  AccountabilityReceiptBase, CaptureMode, Completeness, ScopeOfClaim,
+  ActionReceipt as AccountabilityActionReceipt, SideEffectClass,
+  AuthorityBoundaryReceipt, BoundaryResult,
+  CustodyReceipt, CustodyEventType, CustodyPurpose,
+  ContestabilityReceipt, StandingBasis, RequestedRemedy, ContestStatus,
+  APSBundle, BundledReceiptRef,
+} from './v2/accountability/index.js'
+
+// ══════════════════════════════════════
 // Interop: qntm E2E Encrypted Relay Bridge
 // ══════════════════════════════════════
 
