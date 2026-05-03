@@ -1,0 +1,48 @@
+{
+  "source_delegation": {
+    "id": "deleg-fixture-stripe-001",
+    "version": 1,
+    "supersedes": null,
+    "supersession_justification": null,
+    "delegator": "did:key:z6MkFixtureDelegator",
+    "delegatee": "did:key:z6MkFixtureAgent",
+    "scope": {
+      "action_categories": [
+        "commerce.purchase"
+      ],
+      "resource_limits": {
+        "spend_limit_cents": 7500
+      },
+      "constraints": {
+        "allowed_merchant_categories": "computers_peripherals_software,office_supplies"
+      }
+    },
+    "policy_context": {
+      "policy_version": "1.0",
+      "values_floor_version": "1.0",
+      "trust_epoch": 1,
+      "issuer_id": "aps-fixture-issuer",
+      "created_at": "2026-05-03T20:00:00.000Z",
+      "valid_from": "2026-05-03T20:00:00.000Z",
+      "valid_until": "2026-12-31T23:59:59.000Z"
+    },
+    "signature": "fixture-signature-placeholder",
+    "status": "active",
+    "renewal_reason": null,
+    "expansion_reviewer": null,
+    "expansion_review_sig": null,
+    "assurance_class": "mechanically_enforceable"
+  },
+  "derived": {
+    "spending_limits": [
+      {
+        "amount": 7500,
+        "interval": "all_time"
+      }
+    ],
+    "allowed_categories": [
+      "computers_peripherals_software",
+      "office_supplies"
+    ]
+  }
+}

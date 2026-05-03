@@ -1,0 +1,11 @@
+{
+  "generator": "src/v2/payment-rails/stripe-issuing/fixtures/_generate.ts",
+  "generated_at": "2026-05-03T21:11:16.528Z",
+  "fixed_timestamp": "2026-05-03T20:00:00.000Z",
+  "note": "Synthetic Stripe Issuing fixtures. No real Stripe API call was made; ids and amounts are deterministic. Regenerate when the AuthorizationEvent or SpendingControls shape changes.",
+  "fixtures": {
+    "spending-controls-derived.fixture.json": "Stripe SpendingControls produced by defaultMapDelegationToSpendingControls from the sample V2Delegation, plus the source delegation for traceability.",
+    "authorization-approve.fixture.json": "issuing_authorization.request webhook payload sized to pass the sample delegation ($12.34 vs $75 cap, in commerce.purchase scope).",
+    "authorization-decline-overbudget.fixture.json": "issuing_authorization.request webhook payload sized to fail spend_limit_exceeded ($500 vs $75 cap)."
+  }
+}

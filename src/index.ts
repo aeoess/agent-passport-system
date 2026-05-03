@@ -1542,3 +1542,32 @@ export type {
   X402VerifyRequest,
   X402VerifyResponse,
 } from './v2/payment-rails/index.js'
+
+// ── v2.6.x payment-rails / Stripe Issuing reference adapter ──────
+// Mints agent-scoped one-time virtual cards via the Stripe Issuing
+// API and intercepts issuing_authorization.request webhooks to gate
+// authorizations on APS delegation scope, budget, time-window, and
+// wallet-revoked status. Test mode only; constructor refuses
+// sk_live_ keys.
+export {
+  createStripeIssuingRail,
+  defaultMapDelegationToSpendingControls,
+  StripeIssuingRail,
+  verifyStripeSignature,
+} from './v2/payment-rails/index.js'
+
+export type {
+  StripeAuthorization,
+  StripeAuthorizationDecision,
+  StripeAuthorizationEvent,
+  StripeCardholderRef,
+  StripeDelegationLookup,
+  StripeFetchLike,
+  StripeIssuingConfig,
+  StripeMerchantData,
+  StripeSpendingControls,
+  StripeSpendingControlsMapper,
+  StripeSpendingLimit,
+  StripeSpendingLimitInterval,
+  StripeVirtualCard,
+} from './v2/payment-rails/index.js'

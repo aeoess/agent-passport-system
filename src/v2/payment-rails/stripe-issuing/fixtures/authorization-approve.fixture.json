@@ -1,0 +1,35 @@
+{
+  "id": "evt_fixture_approve_001",
+  "type": "issuing_authorization.request",
+  "created": 1777838400,
+  "livemode": false,
+  "data": {
+    "object": {
+      "id": "iauth_fixture_approve_001",
+      "object": "issuing.authorization",
+      "amount": 1234,
+      "currency": "usd",
+      "approved": false,
+      "status": "pending",
+      "card": {
+        "id": "ic_fixture_card_001",
+        "cardholder": "ich_fixture_cardholder_001",
+        "currency": "usd"
+      },
+      "merchant_data": {
+        "category": "computers_peripherals_software",
+        "category_code": "5734",
+        "name": "Test Vendor",
+        "country": "US"
+      },
+      "metadata": {
+        "aps_delegation_ref": "deleg-fixture-stripe-001"
+      },
+      "created": 1777838400,
+      "pending_request": {
+        "amount": 1234,
+        "currency": "usd"
+      }
+    }
+  }
+}

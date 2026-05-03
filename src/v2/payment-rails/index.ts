@@ -103,3 +103,31 @@ export type {
   X402VerifyRequest,
   X402VerifyResponse,
 } from './x402/types.js'
+
+// ── Stripe Issuing reference adapter (agent-scoped virtual cards) ──
+// Implements PaymentRail by minting one-time virtual cards via the
+// Stripe Issuing API and intercepting issuing_authorization.request
+// webhooks to enforce APS delegation gates BEFORE Stripe approves.
+// Reference adapter is sk_test_ only; refuses sk_live_ in constructor.
+
+export {
+  createStripeIssuingRail,
+  defaultMapDelegationToSpendingControls,
+  StripeIssuingRail,
+  verifyStripeSignature,
+} from './stripe-issuing/index.js'
+export type {
+  Authorization as StripeAuthorization,
+  AuthorizationDecision as StripeAuthorizationDecision,
+  AuthorizationEvent as StripeAuthorizationEvent,
+  CardholderRef as StripeCardholderRef,
+  DelegationLookup as StripeDelegationLookup,
+  FetchLike as StripeFetchLike,
+  MerchantData as StripeMerchantData,
+  SpendingControls as StripeSpendingControls,
+  SpendingControlsMapper as StripeSpendingControlsMapper,
+  SpendingLimit as StripeSpendingLimit,
+  SpendingLimitInterval as StripeSpendingLimitInterval,
+  StripeIssuingConfig,
+  VirtualCard as StripeVirtualCard,
+} from './stripe-issuing/index.js'
