@@ -1,0 +1,59 @@
+{
+  "companion_metadata": {
+    "fixture": "permit-receipt-cross-rail",
+    "fixture_source": "aeoess/agent-passport-system@main/src/v2/payment-rails/stripe-issuing/fixtures/permit-receipt-cross-rail.fixture.json",
+    "mycelium_layer": "post-execution TrailRecord (Base-anchored reputation)",
+    "purpose": "Each PaymentReceipt event in the fixture corresponds to one Mycelium TrailRecord. Linking key: payment_hash = receipt_id. Independently verifiable via the public Mycelium verify endpoint.",
+    "verify_endpoint": "https://argentum.rgiskard.xyz/trails/verify",
+    "verify_by": ["payment_hash (receipt_id)", "action_ref + agent_id"],
+    "agent_id": "aeoess-aps",
+    "docs": "https://github.com/giskard09/argentum-core/blob/main/examples/agentkit-provider/README.md"
+  },
+  "trail_records": [
+    {
+      "role": "permit",
+      "agent_id": "aeoess-aps",
+      "service": "stripe-issuing",
+      "operation": "rail.payment.v1",
+      "payment_hash": "3d08d796a0ca189fc0890e8f7e9523d0e19e617519d0d3f35bb05c8111d5b1bc",
+      "action_ref": "0000000000000000000000000000000000000000000000000000000000000000",
+      "timestamp": "2026-05-06T20:00:00+00:00",
+      "delegation_ref": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "verified": true,
+      "verify_url": "https://argentum.rgiskard.xyz/trails/verify?payment_hash=3d08d796a0ca189fc0890e8f7e9523d0e19e617519d0d3f35bb05c8111d5b1bc",
+      "notes": "payment_hash == receipt_id. action_ref R0 is the cross-rail linking key for the permit event."
+    },
+    {
+      "role": "revocation",
+      "agent_id": "aeoess-aps",
+      "service": "stripe-issuing",
+      "operation": "rail.payment.denial.v1",
+      "payment_hash": "91c8b685cbf37dd6bf577b10bf6f8fe8ab4a328a296338cf0590d78622ac6eac",
+      "action_ref": "1111111111111111111111111111111111111111111111111111111111111111",
+      "timestamp": "2026-05-06T20:01:00+00:00",
+      "delegation_ref": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "denial_reason": "wallet_revoked",
+      "verified": true,
+      "verify_url": "https://argentum.rgiskard.xyz/trails/verify?payment_hash=91c8b685cbf37dd6bf577b10bf6f8fe8ab4a328a296338cf0590d78622ac6eac",
+      "notes": "Same delegation_ref as permit — cross-rail lineage link. denial_reason=wallet_revoked signals off-rail revocation took effect."
+    },
+    {
+      "role": "reissue",
+      "agent_id": "aeoess-aps",
+      "service": "stripe-issuing",
+      "operation": "rail.payment.v1",
+      "payment_hash": "5fc416ac911a4c4b9708ba9f7a3142c8943d59130f88782debe690963dea0807",
+      "action_ref": "2222222222222222222222222222222222222222222222222222222222222222",
+      "timestamp": "2026-05-06T20:02:00+00:00",
+      "delegation_ref": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "verified": true,
+      "verify_url": "https://argentum.rgiskard.xyz/trails/verify?payment_hash=5fc416ac911a4c4b9708ba9f7a3142c8943d59130f88782debe690963dea0807",
+      "notes": "New delegation_ref (D') superseding D. Lineage to permit goes through D'.supersedes=hash(D) on the delegation object."
+    }
+  ],
+  "cross_rail_verification": {
+    "permit":     "curl 'https://argentum.rgiskard.xyz/trails/verify?payment_hash=3d08d796a0ca189fc0890e8f7e9523d0e19e617519d0d3f35bb05c8111d5b1bc'",
+    "revocation": "curl 'https://argentum.rgiskard.xyz/trails/verify?payment_hash=91c8b685cbf37dd6bf577b10bf6f8fe8ab4a328a296338cf0590d78622ac6eac'",
+    "reissue":    "curl 'https://argentum.rgiskard.xyz/trails/verify?payment_hash=5fc416ac911a4c4b9708ba9f7a3142c8943d59130f88782debe690963dea0807'"
+  }
+}
