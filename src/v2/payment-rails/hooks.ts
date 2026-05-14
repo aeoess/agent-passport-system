@@ -53,6 +53,15 @@ const LEGACY_PAYMENT_RECEIPT_CLAIM_TYPE = 'aps:payment_receipt:v1' as const
 const RAIL_PAYMENT_DENIAL_CLAIM_TYPE = 'rail.payment.denial.v1' as const
 const LEGACY_PAYMENT_DENIAL_CLAIM_TYPE = 'aps:payment_denial:v1' as const
 
+// budget_reservation namespace (vocab #91, SDK #25). Three lifecycle
+// literals confirmed by Cycles (amavashev) and goodmeta (Ectsang).
+// Verifier-side acceptance only — no emit path change in this commit.
+// permit + release ride the receipt-verify path; denial rides the
+// denial-verify path.
+const RAIL_BUDGET_RESERVATION_PERMIT_CLAIM_TYPE = 'rail.budget_reservation.permit.v1' as const
+const RAIL_BUDGET_RESERVATION_RELEASE_CLAIM_TYPE = 'rail.budget_reservation.release.v1' as const
+const RAIL_BUDGET_RESERVATION_DENIAL_CLAIM_TYPE = 'rail.budget_reservation.denial.v1' as const
+
 /** Default scope_of_claim for foundation receipts. Override via
  *  EmitReceiptInput.scope_of_claim when caller has a richer assertion. */
 function defaultPaymentReceiptScope(): ScopeOfClaim {
@@ -463,9 +472,14 @@ export interface VerifyReceiptOptions {
  */
 export function verifyPaymentReceipt(receipt: PaymentReceipt): ReceiptVerifyResult {
   // Phase 4.1 / Q1: accept both legacy and accountability-aligned literals.
+  // Vocab #91 / SDK #25: also accept the two budget_reservation receipt
+  // literals (permit, release). The denial literal is handled in
+  // verifyPaymentDenial; this path is receipt-only.
   if (
     receipt.claim_type !== LEGACY_PAYMENT_RECEIPT_CLAIM_TYPE &&
-    receipt.claim_type !== RAIL_PAYMENT_RECEIPT_CLAIM_TYPE
+    receipt.claim_type !== RAIL_PAYMENT_RECEIPT_CLAIM_TYPE &&
+    receipt.claim_type !== RAIL_BUDGET_RESERVATION_PERMIT_CLAIM_TYPE &&
+    receipt.claim_type !== RAIL_BUDGET_RESERVATION_RELEASE_CLAIM_TYPE
   ) {
     return { valid: false, reason: 'INVALID_CLAIM_TYPE' }
   }
@@ -514,7 +528,17 @@ export async function verifyPaymentReceiptWithDID(
   receipt: PaymentReceipt,
   options: VerifyReceiptOptions = {},
 ): Promise<ReceiptVerifyResult> {
-  if (receipt.claim_type !== 'aps:payment_receipt:v1') {
+  // Vocab #91 / SDK #25: accepted-literal set is harmonized with the
+  // sync verifyPaymentReceipt path — legacy + rail.payment.v1 + the two
+  // budget_reservation receipt literals (permit, release). Closes the
+  // pre-existing sync/async asymmetry where this path previously only
+  // accepted the legacy literal.
+  if (
+    receipt.claim_type !== LEGACY_PAYMENT_RECEIPT_CLAIM_TYPE &&
+    receipt.claim_type !== RAIL_PAYMENT_RECEIPT_CLAIM_TYPE &&
+    receipt.claim_type !== RAIL_BUDGET_RESERVATION_PERMIT_CLAIM_TYPE &&
+    receipt.claim_type !== RAIL_BUDGET_RESERVATION_RELEASE_CLAIM_TYPE
+  ) {
     return { valid: false, reason: 'INVALID_CLAIM_TYPE' }
   }
   const expectedId = sha256Hex(canonicalizeReceiptForId(receipt))
@@ -585,9 +609,13 @@ export interface DenialVerifyResult {
 }
 
 export function verifyPaymentDenial(denial: PaymentDenial): DenialVerifyResult {
+  // Vocab #91 / SDK #25: also accept the budget_reservation denial
+  // literal. The permit and release receipt literals belong on the
+  // receipt-verify path.
   if (
     denial.claim_type !== LEGACY_PAYMENT_DENIAL_CLAIM_TYPE &&
-    denial.claim_type !== RAIL_PAYMENT_DENIAL_CLAIM_TYPE
+    denial.claim_type !== RAIL_PAYMENT_DENIAL_CLAIM_TYPE &&
+    denial.claim_type !== RAIL_BUDGET_RESERVATION_DENIAL_CLAIM_TYPE
   ) {
     return { valid: false, reason: 'INVALID_CLAIM_TYPE' }
   }
@@ -623,7 +651,16 @@ export async function verifyPaymentDenialWithDID(
   denial: PaymentDenial,
   options: VerifyReceiptOptions = {},
 ): Promise<DenialVerifyResult> {
-  if (denial.claim_type !== 'aps:payment_denial:v1') {
+  // Vocab #91 / SDK #25: accepted-literal set is harmonized with the
+  // sync verifyPaymentDenial path — legacy + rail.payment.denial.v1 +
+  // the budget_reservation denial literal. Closes the pre-existing
+  // sync/async asymmetry where this path previously only accepted the
+  // legacy literal.
+  if (
+    denial.claim_type !== LEGACY_PAYMENT_DENIAL_CLAIM_TYPE &&
+    denial.claim_type !== RAIL_PAYMENT_DENIAL_CLAIM_TYPE &&
+    denial.claim_type !== RAIL_BUDGET_RESERVATION_DENIAL_CLAIM_TYPE
+  ) {
     return { valid: false, reason: 'INVALID_CLAIM_TYPE' }
   }
   if (!VALID_DENIAL_REASONS.includes(denial.denial_reason)) {

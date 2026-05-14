@@ -90,8 +90,16 @@ export interface PaymentInvoice {
  * no scope_of_claim) continue to verify under the existing path.
  */
 export interface PaymentReceipt {
-  /** Legacy literal `'aps:payment_receipt:v1'` OR new accountability-aligned
-   *  `'rail.payment.v1'`. Verifier accepts both. */
+  /** Accepted literals (verifier-side, superset over time):
+   *    - Legacy:                   `'aps:payment_receipt:v1'`
+   *    - Phase 4.1 / Q1 rail:      `'rail.payment.v1'`
+   *    - Vocab #91 / SDK #25 budget_reservation lifecycle:
+   *      `'rail.budget_reservation.permit.v1'`
+   *      `'rail.budget_reservation.release.v1'`
+   *  The default emit path still produces `'rail.payment.v1'` (or legacy
+   *  on the legacy emit path); the additional literals are receiver-side
+   *  acceptance for receipts issued by Cycles / goodmeta and any other
+   *  rail that adopts the budget_reservation namespace. */
   claim_type: string
   /** sha256 hex of canonical(receipt without signature). Content-addressed. */
   receipt_id: string
@@ -135,8 +143,15 @@ export interface PaymentReceipt {
 }
 
 export interface PaymentDenial {
-  /** Legacy literal `'aps:payment_denial:v1'` OR new accountability-aligned
-   *  `'rail.payment.denial.v1'`. Verifier accepts both. */
+  /** Accepted literals (verifier-side, superset over time):
+   *    - Legacy:                   `'aps:payment_denial:v1'`
+   *    - Phase 4.1 / Q1 rail:      `'rail.payment.denial.v1'`
+   *    - Vocab #91 / SDK #25 budget_reservation:
+   *      `'rail.budget_reservation.denial.v1'`
+   *  The default emit path still produces `'rail.payment.denial.v1'` (or
+   *  legacy on the legacy emit path); the additional literal is
+   *  receiver-side acceptance for denials issued by Cycles / goodmeta and
+   *  any other rail that adopts the budget_reservation namespace. */
   claim_type: string
   /** sha256 hex of canonical(denial without signature). */
   receipt_id: string
