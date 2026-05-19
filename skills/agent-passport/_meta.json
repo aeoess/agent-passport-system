@@ -1,7 +1,7 @@
 {
   "name": "agent-passport-system",
   "version": "5.9.0",
-  "description": "Governance infrastructure for AI agents. Ed25519 identity, scoped delegation, enforcement gateway under 2ms, 5-gate commerce, Merkle attribution, bilateral receipts (in-toto Decision Receipt v0.1), Instruction Provenance Receipt for instruction-context drift detection, Wave 1 accountability primitives (action, authority-boundary, custody, contestability, bundle), evidentiary type safety (claim/evidence registry, claim verifier, contestation cascade), payment rails (ACP / MPP / AP2 mandate / Stripe Issuing / Nano reference adapter) with DID URI signing and rotation-aware verifiers. 2,884 tests, 150 MCP tools. SDK 2.6.0-alpha.2 on npm under alpha tag.",
+  "description": "Governance infrastructure for AI agents. Ed25519 identity, scoped delegation, enforcement gateway under 2ms, 5-gate commerce, Merkle attribution, bilateral receipts (in-toto Decision Receipt v0.1), Instruction Provenance Receipt for instruction-context drift detection, Wave 1 accountability primitives (action, authority-boundary, custody, contestability, bundle), evidentiary type safety (claim/evidence registry, claim verifier, contestation cascade), payment rails (ACP / MPP / AP2 mandate / Stripe Issuing / Nano reference adapter) with DID URI signing and rotation-aware verifiers. 2,884 tests, 150 MCP tools. SDK 2.6.0-alpha.3 on npm under alpha tag.",
   "author": "aeoess",
   "homepage": "https://github.com/aeoess/agent-passport-system",
   "license": "Apache-2.0",
