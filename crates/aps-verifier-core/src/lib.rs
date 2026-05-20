@@ -34,7 +34,8 @@ pub use approval::{
 };
 pub use check::{aps_check, Clock, ManualClock, SystemClock, VerifierContext};
 pub use durability::{
-    EmitOutcome, ModeAReceiptSink, NullSink, ReceiptError, ReceiptSink,
+    EmitOutcome, GroupCommitConfig, ModeAReceiptSink, ModeB1ReceiptSink, ModeB2ReceiptSink,
+    NullSink, ReceiptError, ReceiptSink,
 };
 pub use receipt_log::{LogError, LogWriter, LOG_ENTRY_BYTES, LOG_ENTRY_PAYLOAD};
 pub use clock::{

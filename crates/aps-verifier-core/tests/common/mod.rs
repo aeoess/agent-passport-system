@@ -27,8 +27,9 @@ use std::sync::Mutex;
 
 use aps_verifier_core::{
     canonical_signed_bytes, hash_path_component, ActionDescriptor, ApprovalAction, Decision,
-    EmitOutcome, ManualClock, ReceiptError, ReceiptSink, Tier, VerifierContext,
+    EmitOutcome, GroupCommitConfig, ManualClock, ReceiptError, ReceiptSink, Tier, VerifierContext,
 };
+use std::time::Duration;
 
 use ed25519_dalek::{Signer, SigningKey, VerifyingKey};
 
@@ -254,6 +255,15 @@ impl ReceiptSink for RecordingSink {
     fn emit(&self, decision: &Decision) -> Result<EmitOutcome, ReceiptError> {
         self.decisions.lock().unwrap().push(decision.clone());
         Ok(EmitOutcome::default())
+    }
+}
+
+/// Group-commit config tuned for fast tests: 5ms window, 64-event
+/// batch size.
+pub fn test_commit_config() -> GroupCommitConfig {
+    GroupCommitConfig {
+        max_batch_size: 64,
+        max_batch_window: Duration::from_millis(5),
     }
 }
 
