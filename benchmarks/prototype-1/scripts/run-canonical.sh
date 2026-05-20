@@ -26,8 +26,13 @@ readonly REPO_REF="${APS_REPO_REF:-main}"
 readonly WORK_DIR="${APS_WORK_DIR:-$HOME/aps-canonical-run}"
 readonly GATEWAY_PORT="${APS_GATEWAY_PORT:-3200}"
 readonly GATEWAY_REPO_URL="${APS_GATEWAY_REPO_URL:-}"  # optional; if unset, L4 is skipped
-readonly L4_SAMPLE_COUNT="${L4_SAMPLE_COUNT:-1000}"
-readonly L4_WARMUP_COUNT="${L4_WARMUP_COUNT:-100}"
+# L4_SAMPLE_COUNT and L4_WARMUP_COUNT are re-asserted as env-prefix
+# assignments to the l4-runner.ts subshell, so they must not be
+# readonly. export so the npx child still sees them if the env-prefix
+# block is ever dropped.
+L4_SAMPLE_COUNT="${L4_SAMPLE_COUNT:-1000}"
+L4_WARMUP_COUNT="${L4_WARMUP_COUNT:-100}"
+export L4_SAMPLE_COUNT L4_WARMUP_COUNT
 TIMESTAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 readonly TIMESTAMP
 
