@@ -31,7 +31,14 @@ pub use approval::{
     operation_id_from_name, risk_class_value_from_name, ApprovalCompileError, CompareOp,
     CompiledApprovalRule, CompiledPredicate, PredicateField, SetOp,
 };
-pub use compiled::{BitMap, CompileError, CompiledAuthority, ToolEntry, ToolRegistry};
+pub use clock::{
+    time_anchor_freshness, ClockAnchor, ClockAnchorPoller, ClockError, FreshnessVerdict,
+    MockClockAnchorPoller, R3_MAX_ANCHOR_AGE_NS,
+};
+pub use compiled::{BitMap, CompileError, CompiledAuthority};
+pub use registry::{
+    MockRegistryFetcher, RegistryError, RegistryFetcher, SyncError, ToolEntry, ToolRegistry,
+};
 pub use resource_trie::{hash_path_component, parse_scope, ParsedScope, TrieNode};
 pub use decision::{Decision, DecisionError, DecisionType, ReasonCode, DECISION_SIZE};
 pub use passport::{

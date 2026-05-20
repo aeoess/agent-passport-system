@@ -162,7 +162,16 @@ fn trie_match_path_depth_8() {
 // CompiledAuthority round-trip
 // -----------------------------------------------------------------------
 
-fn passport_with_scopes(scope_strings: &[&str]) -> RuntimePassport {
+fn hex_encode(bytes: &[u8; 32]) -> String {
+    use std::fmt::Write;
+    let mut s = String::with_capacity(64);
+    for b in bytes {
+        let _ = write!(s, "{b:02x}");
+    }
+    s
+}
+
+fn passport_with_scopes_and_root(scope_strings: &[&str], root_hex: &str) -> RuntimePassport {
     let scopes_block = scope_strings
         .iter()
         .map(|s| format!("\"{s}\""))
@@ -182,7 +191,7 @@ fn passport_with_scopes(scope_strings: &[&str]) -> RuntimePassport {
   "max_clock_skew_ms": 1000,
   "policy_epoch": 42,
   "revocation_epoch": 1842,
-  "tool_registry_root": "blake3:0000000000000000000000000000000000000000000000000000000000000000",
+  "tool_registry_root": "blake3:{root_hex}",
   "delegation_chain_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
   "effective_authority_hash": "blake3:0000000000000000000000000000000000000000000000000000000000000000",
   "risk_class": "R2",
@@ -217,9 +226,14 @@ fn passport_with_scopes(scope_strings: &[&str]) -> RuntimePassport {
 
 #[test]
 fn compiled_authority_has_resource_trie() {
-    let passport = passport_with_scopes(&["customer/*", "invoice/vendor/acme/*"]);
     let mut reg = ToolRegistry::new();
-    reg.add(hash_from_hex(TOOL_HEX_0), 0);
+    reg.add(hash_from_hex(TOOL_HEX_0), 0).unwrap();
+    let root_hex = hex_encode(&reg.current_root());
+
+    let passport = passport_with_scopes_and_root(
+        &["customer/*", "invoice/vendor/acme/*"],
+        &root_hex,
+    );
 
     let auth = CompiledAuthority::from_passport(&passport, reg).expect("compile");
     let trie = auth.resource_trie.expect("resource_trie populated");

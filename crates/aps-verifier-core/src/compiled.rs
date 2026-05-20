@@ -51,6 +51,7 @@ use crate::approval::{
     operation_id_from_name, ApprovalCompileError, CompiledApprovalRule,
 };
 use crate::passport::{DurabilityMode, PassportError, RiskClass, RuntimePassport};
+use crate::registry::ToolRegistry;
 use crate::resource_trie::TrieNode;
 
 // -----------------------------------------------------------------------
@@ -108,63 +109,6 @@ impl BitMap {
             cap = self.capacity_bits
         );
         (bit / 64, 1u64 << (bit % 64))
-    }
-}
-
-// -----------------------------------------------------------------------
-// ToolRegistry (chunk-2 scope)
-// -----------------------------------------------------------------------
-
-/// Local descriptor-hash → local-integer-id table. Chunk 4 replaces this
-/// with a synced registry sourced from the gateway; chunk 2 ships the
-/// minimum needed for the compiler.
-#[derive(Debug, Clone, Default)]
-pub struct ToolRegistry {
-    entries: Vec<ToolEntry>,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct ToolEntry {
-    pub descriptor_hash: [u8; 32],
-    pub local_id: u32,
-}
-
-impl ToolRegistry {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Add a (hash, id) pair. Does not deduplicate; chunk 4 takes that
-    /// responsibility.
-    pub fn add(&mut self, descriptor_hash: [u8; 32], local_id: u32) {
-        self.entries.push(ToolEntry {
-            descriptor_hash,
-            local_id,
-        });
-    }
-
-    pub fn get_by_hash(&self, hash: &[u8; 32]) -> Option<u32> {
-        self.entries
-            .iter()
-            .find(|e| &e.descriptor_hash == hash)
-            .map(|e| e.local_id)
-    }
-
-    pub fn get_by_id(&self, id: u32) -> Option<&[u8; 32]> {
-        self.entries
-            .iter()
-            .find(|e| e.local_id == id)
-            .map(|e| &e.descriptor_hash)
-    }
-
-    /// Number of entries currently registered.
-    pub fn size(&self) -> usize {
-        self.entries.len()
-    }
-
-    /// Maximum local_id currently registered, or `None` if empty.
-    pub fn max_local_id(&self) -> Option<u32> {
-        self.entries.iter().map(|e| e.local_id).max()
     }
 }
 
@@ -227,6 +171,13 @@ pub enum CompileError {
     InvalidPassport(#[from] PassportError),
     #[error("approval rule compile error: {0}")]
     ApprovalRule(#[from] ApprovalCompileError),
+    #[error("tool registry root mismatch: passport has {passport_root}, verifier has {verifier_root}")]
+    RegistryRootMismatch {
+        passport_root: String,
+        verifier_root: String,
+    },
+    #[error("invalid field value in passport: {0}")]
+    InvalidFieldValue(String),
 }
 
 fn hex32(bytes: &[u8; 32]) -> String {
@@ -277,6 +228,18 @@ impl CompiledAuthority {
         passport: &RuntimePassport,
         tool_registry: ToolRegistry,
     ) -> Result<Self, CompileError> {
+        // Registry root MUST match the passport's tool_registry_root.
+        // Validated FIRST: a mismatched registry means every downstream
+        // tool resolution would be untrustworthy.
+        let verifier_root = tool_registry.current_root();
+        let passport_root_bytes = decode_hash_field(&passport.tool_registry_root)?;
+        if verifier_root != passport_root_bytes {
+            return Err(CompileError::RegistryRootMismatch {
+                passport_root: hex32(&passport_root_bytes),
+                verifier_root: hex32(&verifier_root),
+            });
+        }
+
         // Temporal conversion: DateTime<Utc> to unix ns.
         let issued_at_unix_ns = datetime_to_unix_ns(passport.issued_at);
         let expires_at_unix_ns = datetime_to_unix_ns(passport.expires_at);
@@ -383,6 +346,32 @@ fn parse_blake3_field(s: &str) -> Option<[u8; 32]> {
     Some(out)
 }
 
+/// Parse a 32-byte hash field that may carry either a `"<prefix>:<hex>"`
+/// or a bare hex form. Used for `tool_registry_root` and similar fields
+/// where Prototype 1 accepts both shapes.
+fn decode_hash_field(s: &str) -> Result<[u8; 32], CompileError> {
+    let hex = match s.split_once(':') {
+        Some((_, rest)) => rest,
+        None => s,
+    };
+    if hex.len() != 64 {
+        return Err(CompileError::InvalidFieldValue(format!(
+            "expected 64 hex chars, got {} for {s:?}",
+            hex.len()
+        )));
+    }
+    let mut out = [0u8; 32];
+    for (i, byte) in out.iter_mut().enumerate() {
+        let chunk = hex.get(i * 2..i * 2 + 2).ok_or_else(|| {
+            CompileError::InvalidFieldValue(format!("hex slice failed for {s:?}"))
+        })?;
+        *byte = u8::from_str_radix(chunk, 16).map_err(|_| {
+            CompileError::InvalidFieldValue(format!("non-hex character in {s:?}"))
+        })?;
+    }
+    Ok(out)
+}
+
 // -----------------------------------------------------------------------
 // Hot-path sequence helpers (small surface needed by chunk 5 and tests)
 // -----------------------------------------------------------------------
@@ -400,5 +389,23 @@ impl CompiledAuthority {
                 Ordering::Acquire,
             )
             .is_ok()
+    }
+
+    /// Monotonically update the last received gateway time anchor.
+    /// Concurrent-safe via a CAS loop: under contention the final
+    /// stored value is the maximum of all attempted updates.
+    pub fn update_time_anchor(&self, new_anchor_ns: u64) {
+        let mut current = self.last_time_anchor_ns.load(Ordering::Acquire);
+        while new_anchor_ns > current {
+            match self.last_time_anchor_ns.compare_exchange(
+                current,
+                new_anchor_ns,
+                Ordering::AcqRel,
+                Ordering::Acquire,
+            ) {
+                Ok(_) => return,
+                Err(actual) => current = actual,
+            }
+        }
     }
 }
