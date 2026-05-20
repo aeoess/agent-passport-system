@@ -23,7 +23,10 @@
 //! Production code is not imported beyond the public crate surface;
 //! these helpers exercise only `aps_verifier_core::*`.
 
-use aps_verifier_core::{canonical_signed_bytes, ActionDescriptor, ApprovalAction};
+use aps_verifier_core::{
+    canonical_signed_bytes, hash_path_component, ActionDescriptor, ApprovalAction, ManualClock,
+    Tier, VerifierContext,
+};
 
 use ed25519_dalek::{Signer, SigningKey, VerifyingKey};
 
@@ -62,6 +65,164 @@ pub fn test_gateway_keypair() -> (SigningKey, VerifyingKey) {
 /// Deterministic 32-byte receipt-stream key for MAC tests.
 pub fn test_receipt_stream_key() -> [u8; 32] {
     [0x77; 32]
+}
+
+// -----------------------------------------------------------------------
+// Verifier + action builders (chunk 7)
+// -----------------------------------------------------------------------
+
+/// Unix-nanos for the `PassportBuilder` default `issued_at`. Computed
+/// via chrono so the constant stays aligned with the JSON string the
+/// builder embeds.
+pub fn default_issued_at_ns() -> u64 {
+    use chrono::{DateTime, Utc};
+    let dt: DateTime<Utc> = "2026-05-19T22:38:56.000Z".parse().unwrap();
+    u64::try_from(dt.timestamp_nanos_opt().unwrap()).unwrap()
+}
+
+pub fn default_expires_at_ns() -> u64 {
+    use chrono::{DateTime, Utc};
+    let dt: DateTime<Utc> = "2026-05-19T22:39:56.000Z".parse().unwrap();
+    u64::try_from(dt.timestamp_nanos_opt().unwrap()).unwrap()
+}
+
+/// Default test clock: 5s into the 60s validity window.
+pub fn default_clock_ns() -> u64 {
+    default_issued_at_ns() + 5_000_000_000
+}
+
+/// BLAKE3 hash of the default `PassportBuilder` `verifier_instance_id`.
+pub fn default_verifier_instance_id_hash() -> [u8; 32] {
+    *blake3::hash("vi_01HX0VI00000000000000000000".as_bytes()).as_bytes()
+}
+
+/// BLAKE3 hash of the default `PassportBuilder` `passport_id`.
+pub fn default_passport_id_hash() -> [u8; 32] {
+    *blake3::hash("rp_01HX0EXAMPLE000000000000000".as_bytes()).as_bytes()
+}
+
+/// Test-side bundle of verifier state. `context()` produces a
+/// `VerifierContext` that aps_check accepts.
+pub struct TestVerifier {
+    pub clock: ManualClock,
+    pub instance_id_hash: [u8; 32],
+    pub attested_tier: Tier,
+    pub revocation_epoch: u32,
+}
+
+impl Default for TestVerifier {
+    fn default() -> Self {
+        TestVerifier {
+            clock: ManualClock::new(default_clock_ns()),
+            instance_id_hash: default_verifier_instance_id_hash(),
+            attested_tier: Tier::T2,
+            revocation_epoch: 1842,
+        }
+    }
+}
+
+impl TestVerifier {
+    pub fn new() -> Self {
+        Self::default()
+    }
+    pub fn with_tier(mut self, tier: Tier) -> Self {
+        self.attested_tier = tier;
+        self
+    }
+    pub fn with_clock_ns(self, ns: u64) -> Self {
+        self.clock.set(ns);
+        self
+    }
+    pub fn with_instance_hash(mut self, hash: [u8; 32]) -> Self {
+        self.instance_id_hash = hash;
+        self
+    }
+    pub fn with_revocation_epoch(mut self, e: u32) -> Self {
+        self.revocation_epoch = e;
+        self
+    }
+    pub fn context(&self) -> VerifierContext<'_> {
+        VerifierContext::new(
+            &self.clock,
+            self.instance_id_hash,
+            self.attested_tier,
+            self.revocation_epoch,
+        )
+    }
+}
+
+/// Builder for an [`ActionDescriptor`] that, paired with the default
+/// happy-path authority, passes aps_check. Mutate one field for deny
+/// tests.
+pub struct ActionBuilder {
+    descriptor: ActionDescriptor,
+}
+
+impl Default for ActionBuilder {
+    fn default() -> Self {
+        let mut d = empty_action_descriptor();
+        d.passport_id_hash = default_passport_id_hash();
+        // tool_descriptor_hash, local_tool_id, operation_id default to 0;
+        // set explicitly with `with_*` methods per test.
+        d.operation_id = 0; // "read"
+        d.risk_class = 2; // R2
+        d.cost_units = 1;
+        d.resource_path_depth = 1;
+        d.resource_path_hashes[0] = hash_path_component("customer");
+        d.sequence_id = 1000;
+        d.nonce = [0x55; 16];
+        ActionBuilder { descriptor: d }
+    }
+}
+
+impl ActionBuilder {
+    pub fn new() -> Self {
+        Self::default()
+    }
+    pub fn with_sequence_id(mut self, id: u64) -> Self {
+        self.descriptor.sequence_id = id;
+        self
+    }
+    pub fn with_risk_class(mut self, r: u8) -> Self {
+        self.descriptor.risk_class = r;
+        self
+    }
+    pub fn with_operation_id(mut self, op: u16) -> Self {
+        self.descriptor.operation_id = op;
+        self
+    }
+    pub fn with_local_tool_id(mut self, id: u32) -> Self {
+        self.descriptor.local_tool_id = id;
+        self
+    }
+    pub fn with_tool_descriptor_hash(mut self, hash: [u8; 32]) -> Self {
+        self.descriptor.tool_descriptor_hash = hash;
+        self
+    }
+    pub fn with_passport_id_hash(mut self, hash: [u8; 32]) -> Self {
+        self.descriptor.passport_id_hash = hash;
+        self
+    }
+    pub fn with_resource_path(mut self, components: &[&str]) -> Self {
+        let depth = components.len().min(8);
+        self.descriptor.resource_path_depth = depth as u8;
+        self.descriptor.resource_path_hashes = [0u64; 8];
+        for (i, c) in components.iter().take(8).enumerate() {
+            self.descriptor.resource_path_hashes[i] = hash_path_component(c);
+        }
+        self
+    }
+    pub fn with_cost_units(mut self, c: u32) -> Self {
+        self.descriptor.cost_units = c;
+        self
+    }
+    /// Finalize the action_hash and return the descriptor. Tests that
+    /// want to deliberately tamper after build should do so AFTER this
+    /// returns.
+    pub fn build(mut self) -> ActionDescriptor {
+        self.descriptor.finalize();
+        self.descriptor
+    }
 }
 
 /// Parse a 64-char lowercase hex string into a 32-byte hash. Panics on

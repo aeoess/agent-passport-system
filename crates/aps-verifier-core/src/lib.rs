@@ -31,6 +31,7 @@ pub use approval::{
     operation_id_from_name, risk_class_value_from_name, ApprovalCompileError, CompareOp,
     CompiledApprovalRule, CompiledPredicate, PredicateField, SetOp,
 };
+pub use check::{aps_check, Clock, ManualClock, SystemClock, VerifierContext};
 pub use clock::{
     time_anchor_freshness, ClockAnchor, ClockAnchorPoller, ClockError, FreshnessVerdict,
     MockClockAnchorPoller, R3_MAX_ANCHOR_AGE_NS,
