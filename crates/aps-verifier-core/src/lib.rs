@@ -29,7 +29,7 @@ pub use action::{ActionDescriptor, ActionError, ACTION_DESCRIPTOR_SIZE};
 pub use compiled::{
     BitMap, CompileError, CompiledAuthority, RawApprovalRule, ToolEntry, ToolRegistry,
 };
-pub use resource_trie::TrieNode;
+pub use resource_trie::{hash_path_component, parse_scope, ParsedScope, TrieNode};
 pub use decision::{Decision, DecisionError, DecisionType, ReasonCode, DECISION_SIZE};
 pub use passport::{
     ApprovalAction, ApprovalRule, AuthorityBlob, BudgetLease, DurabilityMode, PassportError,

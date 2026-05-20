@@ -368,7 +368,9 @@ impl CompiledAuthority {
             verifier_instance_id_hash,
             allowed_tool_bitmap,
             tool_registry,
-            resource_trie: None,
+            resource_trie: Some(Box::new(TrieNode::build(
+                &passport.authority_blob.resource_scopes,
+            ))),
             approval_rules,
             durability_mode: default_durability_for(passport.risk_class),
             receipt_stream_key: [0u8; 32],

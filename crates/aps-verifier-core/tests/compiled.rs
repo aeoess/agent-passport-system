@@ -191,8 +191,8 @@ fn compiled_authority_from_passport_happy() {
     assert!(auth.allowed_tool_bitmap.get(1));
     assert!(!auth.allowed_tool_bitmap.get(2));
 
-    // Stubs.
-    assert!(auth.resource_trie.is_none());
+    // resource_trie now populated by chunk 3 (was None in chunk 2).
+    assert!(auth.resource_trie.is_some());
     assert_eq!(auth.approval_rules.len(), 1);
 
     // Durability mode for R2.
