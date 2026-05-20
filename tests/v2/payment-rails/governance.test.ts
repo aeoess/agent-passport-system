@@ -8,13 +8,20 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import {
+  canonicalizeDenialForId,
+  canonicalizeDenialForSig,
+  canonicalizeReceiptForId,
+  canonicalizeReceiptForSig,
   createDefaultGovernanceHooks,
   createNanoRail,
   emitDenial,
   emitReceipt,
+  paymentRailsSha256Hex,
   preAuthorize,
   verifyPaymentDenial,
+  verifyPaymentDenialWithDID,
   verifyPaymentReceipt,
+  verifyPaymentReceiptWithDID,
   xnoToRaw,
 } from '../../../src/v2/payment-rails/index.js'
 import type {
@@ -22,7 +29,7 @@ import type {
   PaymentDenial,
   PaymentReceipt,
 } from '../../../src/v2/payment-rails/index.js'
-import { generateKeyPair, publicKeyFromPrivate } from '../../../src/crypto/keys.js'
+import { generateKeyPair, publicKeyFromPrivate, sign } from '../../../src/crypto/keys.js'
 import {
   recordOwnerConfirmation,
   requestOwnerConfirmation,
@@ -655,5 +662,179 @@ describe('Phase 4.1 / Q1 — foundation accountability shape', () => {
     )
     assert.deepEqual(r.scope_of_claim, custom)
     assert.equal(r.claim_type, 'rail.payment.v1')
+  })
+})
+
+// ── Vocab #91 / SDK #25 — budget_reservation literal acceptance ───
+// Positive-case coverage for the three claim_type literals added by
+// PR #27 across the four verifier entry points. Each test mints a
+// legacy-shape receipt/denial via the existing emit path, rebrands
+// claim_type to the budget_reservation literal, and recomputes
+// receipt_id + signature with the same canonicalize/sha256/sign
+// helpers the emit path uses. No new fixture shape; the DID-aware
+// verifiers exercise their raw-hex branch (same pattern as the
+// P12 "legacy raw-hex" case in did-uri-signing.test.ts).
+
+describe('verifier — rail.budget_reservation claim_type acceptance', () => {
+  it('verifyPaymentReceipt accepts rail.budget_reservation.permit.v1', () => {
+    const base = emitReceipt(
+      {
+        delegation_ref: 'd'.repeat(64),
+        action_ref: 'a'.repeat(64),
+        rail_name: 'nano',
+        amount_base_units: xnoToRaw('0.001'),
+        currency: 'XNO',
+        tx_proof: 'b'.repeat(64),
+        issued_at: FIXED_TS,
+      },
+      ISSUER_PRIV,
+    )
+    const draft: PaymentReceipt = {
+      ...base,
+      claim_type: 'rail.budget_reservation.permit.v1',
+      receipt_id: '',
+      signature: '',
+    }
+    const receipt_id = paymentRailsSha256Hex(canonicalizeReceiptForId(draft))
+    const withId: PaymentReceipt = { ...draft, receipt_id }
+    const signature = sign(canonicalizeReceiptForSig(withId), ISSUER_PRIV)
+    const r: PaymentReceipt = { ...withId, signature }
+    assert.equal(r.claim_type, 'rail.budget_reservation.permit.v1')
+    assert.equal(verifyPaymentReceipt(r).valid, true)
+  })
+
+  it('verifyPaymentReceipt accepts rail.budget_reservation.release.v1', () => {
+    const base = emitReceipt(
+      {
+        delegation_ref: 'd'.repeat(64),
+        action_ref: 'a'.repeat(64),
+        rail_name: 'nano',
+        amount_base_units: xnoToRaw('0.001'),
+        currency: 'XNO',
+        tx_proof: 'b'.repeat(64),
+        issued_at: FIXED_TS,
+      },
+      ISSUER_PRIV,
+    )
+    const draft: PaymentReceipt = {
+      ...base,
+      claim_type: 'rail.budget_reservation.release.v1',
+      receipt_id: '',
+      signature: '',
+    }
+    const receipt_id = paymentRailsSha256Hex(canonicalizeReceiptForId(draft))
+    const withId: PaymentReceipt = { ...draft, receipt_id }
+    const signature = sign(canonicalizeReceiptForSig(withId), ISSUER_PRIV)
+    const r: PaymentReceipt = { ...withId, signature }
+    assert.equal(r.claim_type, 'rail.budget_reservation.release.v1')
+    assert.equal(verifyPaymentReceipt(r).valid, true)
+  })
+
+  it('verifyPaymentReceiptWithDID accepts rail.budget_reservation.permit.v1', async () => {
+    const base = emitReceipt(
+      {
+        delegation_ref: 'd'.repeat(64),
+        action_ref: 'a'.repeat(64),
+        rail_name: 'nano',
+        amount_base_units: xnoToRaw('0.001'),
+        currency: 'XNO',
+        tx_proof: 'b'.repeat(64),
+        issued_at: FIXED_TS,
+      },
+      ISSUER_PRIV,
+    )
+    const draft: PaymentReceipt = {
+      ...base,
+      claim_type: 'rail.budget_reservation.permit.v1',
+      receipt_id: '',
+      signature: '',
+    }
+    const receipt_id = paymentRailsSha256Hex(canonicalizeReceiptForId(draft))
+    const withId: PaymentReceipt = { ...draft, receipt_id }
+    const signature = sign(canonicalizeReceiptForSig(withId), ISSUER_PRIV)
+    const r: PaymentReceipt = { ...withId, signature }
+    const v = await verifyPaymentReceiptWithDID(r)
+    assert.equal(v.valid, true, `expected valid, got ${v.reason}`)
+  })
+
+  it('verifyPaymentReceiptWithDID accepts rail.budget_reservation.release.v1', async () => {
+    const base = emitReceipt(
+      {
+        delegation_ref: 'd'.repeat(64),
+        action_ref: 'a'.repeat(64),
+        rail_name: 'nano',
+        amount_base_units: xnoToRaw('0.001'),
+        currency: 'XNO',
+        tx_proof: 'b'.repeat(64),
+        issued_at: FIXED_TS,
+      },
+      ISSUER_PRIV,
+    )
+    const draft: PaymentReceipt = {
+      ...base,
+      claim_type: 'rail.budget_reservation.release.v1',
+      receipt_id: '',
+      signature: '',
+    }
+    const receipt_id = paymentRailsSha256Hex(canonicalizeReceiptForId(draft))
+    const withId: PaymentReceipt = { ...draft, receipt_id }
+    const signature = sign(canonicalizeReceiptForSig(withId), ISSUER_PRIV)
+    const r: PaymentReceipt = { ...withId, signature }
+    const v = await verifyPaymentReceiptWithDID(r)
+    assert.equal(v.valid, true, `expected valid, got ${v.reason}`)
+  })
+
+  it('verifyPaymentDenial accepts rail.budget_reservation.denial.v1', () => {
+    const base = emitDenial(
+      {
+        delegation_ref: 'd'.repeat(64),
+        action_ref: 'a'.repeat(64),
+        rail_name: 'nano',
+        amount_base_units: xnoToRaw('0.001'),
+        currency: 'XNO',
+        denial_reason: 'no_commerce_scope',
+        issued_at: FIXED_TS,
+      },
+      ISSUER_PRIV,
+    )
+    const draft: PaymentDenial = {
+      ...base,
+      claim_type: 'rail.budget_reservation.denial.v1',
+      receipt_id: '',
+      signature: '',
+    }
+    const receipt_id = paymentRailsSha256Hex(canonicalizeDenialForId(draft))
+    const withId: PaymentDenial = { ...draft, receipt_id }
+    const signature = sign(canonicalizeDenialForSig(withId), ISSUER_PRIV)
+    const d: PaymentDenial = { ...withId, signature }
+    assert.equal(d.claim_type, 'rail.budget_reservation.denial.v1')
+    assert.equal(verifyPaymentDenial(d).valid, true)
+  })
+
+  it('verifyPaymentDenialWithDID accepts rail.budget_reservation.denial.v1', async () => {
+    const base = emitDenial(
+      {
+        delegation_ref: 'd'.repeat(64),
+        action_ref: 'a'.repeat(64),
+        rail_name: 'nano',
+        amount_base_units: xnoToRaw('0.001'),
+        currency: 'XNO',
+        denial_reason: 'no_commerce_scope',
+        issued_at: FIXED_TS,
+      },
+      ISSUER_PRIV,
+    )
+    const draft: PaymentDenial = {
+      ...base,
+      claim_type: 'rail.budget_reservation.denial.v1',
+      receipt_id: '',
+      signature: '',
+    }
+    const receipt_id = paymentRailsSha256Hex(canonicalizeDenialForId(draft))
+    const withId: PaymentDenial = { ...draft, receipt_id }
+    const signature = sign(canonicalizeDenialForSig(withId), ISSUER_PRIV)
+    const d: PaymentDenial = { ...withId, signature }
+    const v = await verifyPaymentDenialWithDID(d)
+    assert.equal(v.valid, true, `expected valid, got ${v.reason}`)
   })
 })
