@@ -1,0 +1,49 @@
+{
+  "benchmark": "L3a",
+  "description": "ts_sdk_napi_mode_a_memory_buffered",
+  "sink_mode": "ModeA",
+  "environment": {
+    "label": "bare-metal-linux",
+    "specSection": "13.1",
+    "canonical": true,
+    "host": {
+      "cpuBrand": "AMD EPYC 7313P 16-Core Processor",
+      "cpuArch": "x86_64",
+      "osName": "Ubuntu 22.04.5 LTS",
+      "osVersion": "5.15.0-179-generic",
+      "hostname": "aps-canonical-bench-13-1",
+      "memoryBytes": 540692099072
+    }
+  },
+  "methodology": {
+    "sample_count": 50000,
+    "warmup_count": 2000,
+    "single_threaded": true,
+    "timer": "process.hrtime.bigint()",
+    "percentile_method": "raw sample at index ceil(p * (n-1)), no interpolation",
+    "includes_durability": true,
+    "sink_buffer_capacity": 131072,
+    "sink_flush_interval_ms": 25,
+    "sink_batch_size": null,
+    "sink_batch_window_ms": null,
+    "notes": "TS → N-API → Rust full path. True Allow per call: sequence_id increments and matches authority.sequence_next."
+  },
+  "samples": {
+    "n": 50000,
+    "meanNs": 7509,
+    "stddevNs": 36691,
+    "minNs": 6381,
+    "maxNs": 2458718,
+    "p50Ns": 6710,
+    "p95Ns": 6950,
+    "p99Ns": 13851,
+    "p99_9Ns": 16830
+  },
+  "throughput_ops_per_sec": 131165.10145339905,
+  "total_wall_time_ns": 381198958,
+  "run": {
+    "timestamp_unix_ns": "82837631062",
+    "node_version": "v24.15.0",
+    "git_commit": "e0c3cb230d31fec924be441da9c1021bb129c638"
+  }
+}

@@ -1,0 +1,228 @@
+{
+  "benchmark": "L0",
+  "description": "rust_core_allow_hot_cache_no_event",
+  "environment": {
+    "label": "bare-metal-linux",
+    "spec_section": "13.1",
+    "canonical": true,
+    "host": {
+      "cpu_brand": "AMD EPYC 7313P 16-Core Processor",
+      "cpu_arch": "x86_64",
+      "os_name": "Ubuntu 22.04.5 LTS",
+      "os_version": "5.15.0-179-generic",
+      "hostname": "aps-canonical-bench-13-1",
+      "memory_bytes": 540692099072
+    }
+  },
+  "concurrency_level": 16,
+  "per_thread_samples": 100000,
+  "total_samples": 1600000,
+  "total_wall_time_ns": 44004461,
+  "throughput_ops_per_sec": 36359949.96052787,
+  "merged_samples": {
+    "n": 1600000,
+    "mean_ns": 431,
+    "stddev_ns": 59,
+    "min_ns": 410,
+    "max_ns": 26911,
+    "p50_ns": 420,
+    "p95_ns": 480,
+    "p99_ns": 550,
+    "p99_9_ns": 560
+  },
+  "per_thread_samples_stats": [
+    {
+      "n": 100000,
+      "mean_ns": 439,
+      "stddev_ns": 59,
+      "min_ns": 410,
+      "max_ns": 6351,
+      "p50_ns": 430,
+      "p95_ns": 540,
+      "p99_ns": 551,
+      "p99_9_ns": 600
+    },
+    {
+      "n": 100000,
+      "mean_ns": 425,
+      "stddev_ns": 41,
+      "min_ns": 410,
+      "max_ns": 5951,
+      "p50_ns": 420,
+      "p95_ns": 430,
+      "p99_ns": 450,
+      "p99_9_ns": 540
+    },
+    {
+      "n": 100000,
+      "mean_ns": 438,
+      "stddev_ns": 101,
+      "min_ns": 410,
+      "max_ns": 26211,
+      "p50_ns": 420,
+      "p95_ns": 540,
+      "p99_ns": 550,
+      "p99_9_ns": 580
+    },
+    {
+      "n": 100000,
+      "mean_ns": 439,
+      "stddev_ns": 71,
+      "min_ns": 410,
+      "max_ns": 12201,
+      "p50_ns": 430,
+      "p95_ns": 540,
+      "p99_ns": 550,
+      "p99_9_ns": 590
+    },
+    {
+      "n": 100000,
+      "mean_ns": 440,
+      "stddev_ns": 61,
+      "min_ns": 410,
+      "max_ns": 6201,
+      "p50_ns": 430,
+      "p95_ns": 540,
+      "p99_ns": 550,
+      "p99_9_ns": 600
+    },
+    {
+      "n": 100000,
+      "mean_ns": 424,
+      "stddev_ns": 37,
+      "min_ns": 410,
+      "max_ns": 4810,
+      "p50_ns": 420,
+      "p95_ns": 430,
+      "p99_ns": 440,
+      "p99_9_ns": 490
+    },
+    {
+      "n": 100000,
+      "mean_ns": 438,
+      "stddev_ns": 65,
+      "min_ns": 410,
+      "max_ns": 10150,
+      "p50_ns": 430,
+      "p95_ns": 540,
+      "p99_ns": 550,
+      "p99_9_ns": 590
+    },
+    {
+      "n": 100000,
+      "mean_ns": 439,
+      "stddev_ns": 58,
+      "min_ns": 410,
+      "max_ns": 6751,
+      "p50_ns": 421,
+      "p95_ns": 540,
+      "p99_ns": 550,
+      "p99_9_ns": 590
+    },
+    {
+      "n": 100000,
+      "mean_ns": 424,
+      "stddev_ns": 42,
+      "min_ns": 410,
+      "max_ns": 5351,
+      "p50_ns": 420,
+      "p95_ns": 430,
+      "p99_ns": 431,
+      "p99_9_ns": 490
+    },
+    {
+      "n": 100000,
+      "mean_ns": 425,
+      "stddev_ns": 42,
+      "min_ns": 410,
+      "max_ns": 5361,
+      "p50_ns": 420,
+      "p95_ns": 430,
+      "p99_ns": 450,
+      "p99_9_ns": 490
+    },
+    {
+      "n": 100000,
+      "mean_ns": 436,
+      "stddev_ns": 43,
+      "min_ns": 420,
+      "max_ns": 5181,
+      "p50_ns": 440,
+      "p95_ns": 440,
+      "p99_ns": 450,
+      "p99_9_ns": 500
+    },
+    {
+      "n": 100000,
+      "mean_ns": 425,
+      "stddev_ns": 93,
+      "min_ns": 410,
+      "max_ns": 26911,
+      "p50_ns": 420,
+      "p95_ns": 430,
+      "p99_ns": 440,
+      "p99_9_ns": 490
+    },
+    {
+      "n": 100000,
+      "mean_ns": 424,
+      "stddev_ns": 42,
+      "min_ns": 410,
+      "max_ns": 6171,
+      "p50_ns": 420,
+      "p95_ns": 430,
+      "p99_ns": 431,
+      "p99_9_ns": 490
+    },
+    {
+      "n": 100000,
+      "mean_ns": 424,
+      "stddev_ns": 44,
+      "min_ns": 410,
+      "max_ns": 9111,
+      "p50_ns": 420,
+      "p95_ns": 430,
+      "p99_ns": 431,
+      "p99_9_ns": 490
+    },
+    {
+      "n": 100000,
+      "mean_ns": 424,
+      "stddev_ns": 34,
+      "min_ns": 410,
+      "max_ns": 5061,
+      "p50_ns": 420,
+      "p95_ns": 430,
+      "p99_ns": 440,
+      "p99_9_ns": 490
+    },
+    {
+      "n": 100000,
+      "mean_ns": 424,
+      "stddev_ns": 50,
+      "min_ns": 410,
+      "max_ns": 6950,
+      "p50_ns": 420,
+      "p95_ns": 430,
+      "p99_ns": 440,
+      "p99_9_ns": 490
+    }
+  ],
+  "methodology": {
+    "warmup_iterations": 2048,
+    "measure_iterations": 100000,
+    "single_threaded": false,
+    "timer": "std::time::Instant",
+    "percentile_method": "raw sample at index ceil(p * (n-1)), no interpolation",
+    "includes_durability": false,
+    "sink": "NullSink (no-op trait dispatch only)",
+    "deny_kind": null,
+    "spec_step": "§9 all 13 steps + §9 step 13 emit via NullSink (true Allow per call)",
+    "notes": "Concurrent L0: N independent sessions per spec §5.2 — each thread owns its CompiledAuthority and a 1024-entry pool of pre-finalized actions with incrementing sequence_ids. Authority.sequence_next is reset to ALLOW_SEQ_START when the pool wraps (untimed atomic store). Every per-call sample is a true Allow; deviates from the single-threaded L0 methodology (which used one action repeatedly and got SEQUENCE_REPLAY for iters 1..N)."
+  },
+  "run": {
+    "git_commit": "e0c3cb230d31fec924be441da9c1021bb129c638",
+    "git_branch": "main",
+    "timestamp_unix_ns": 1779319247352656182
+  }
+}

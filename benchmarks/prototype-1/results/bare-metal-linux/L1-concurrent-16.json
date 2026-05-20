@@ -1,0 +1,228 @@
+{
+  "benchmark": "L1",
+  "description": "rust_core_deny_hot_cache_action_hash_invalid",
+  "environment": {
+    "label": "bare-metal-linux",
+    "spec_section": "13.1",
+    "canonical": true,
+    "host": {
+      "cpu_brand": "AMD EPYC 7313P 16-Core Processor",
+      "cpu_arch": "x86_64",
+      "os_name": "Ubuntu 22.04.5 LTS",
+      "os_version": "5.15.0-179-generic",
+      "hostname": "aps-canonical-bench-13-1",
+      "memory_bytes": 540692099072
+    }
+  },
+  "concurrency_level": 16,
+  "per_thread_samples": 100000,
+  "total_samples": 1600000,
+  "total_wall_time_ns": 44358437,
+  "throughput_ops_per_sec": 36069801.106833406,
+  "merged_samples": {
+    "n": 1600000,
+    "mean_ns": 417,
+    "stddev_ns": 61,
+    "min_ns": 390,
+    "max_ns": 23531,
+    "p50_ns": 410,
+    "p95_ns": 510,
+    "p99_ns": 530,
+    "p99_9_ns": 620
+  },
+  "per_thread_samples_stats": [
+    {
+      "n": 100000,
+      "mean_ns": 423,
+      "stddev_ns": 58,
+      "min_ns": 390,
+      "max_ns": 7310,
+      "p50_ns": 410,
+      "p95_ns": 530,
+      "p99_ns": 540,
+      "p99_9_ns": 590
+    },
+    {
+      "n": 100000,
+      "mean_ns": 443,
+      "stddev_ns": 78,
+      "min_ns": 400,
+      "max_ns": 9120,
+      "p50_ns": 410,
+      "p95_ns": 530,
+      "p99_ns": 620,
+      "p99_9_ns": 640
+    },
+    {
+      "n": 100000,
+      "mean_ns": 431,
+      "stddev_ns": 59,
+      "min_ns": 400,
+      "max_ns": 5900,
+      "p50_ns": 410,
+      "p95_ns": 510,
+      "p99_ns": 510,
+      "p99_9_ns": 580
+    },
+    {
+      "n": 100000,
+      "mean_ns": 423,
+      "stddev_ns": 58,
+      "min_ns": 390,
+      "max_ns": 7080,
+      "p50_ns": 410,
+      "p95_ns": 520,
+      "p99_ns": 530,
+      "p99_9_ns": 580
+    },
+    {
+      "n": 100000,
+      "mean_ns": 409,
+      "stddev_ns": 38,
+      "min_ns": 390,
+      "max_ns": 5320,
+      "p50_ns": 410,
+      "p95_ns": 420,
+      "p99_ns": 420,
+      "p99_9_ns": 480
+    },
+    {
+      "n": 100000,
+      "mean_ns": 422,
+      "stddev_ns": 90,
+      "min_ns": 390,
+      "max_ns": 23531,
+      "p50_ns": 410,
+      "p95_ns": 520,
+      "p99_ns": 540,
+      "p99_9_ns": 570
+    },
+    {
+      "n": 100000,
+      "mean_ns": 423,
+      "stddev_ns": 55,
+      "min_ns": 390,
+      "max_ns": 5420,
+      "p50_ns": 410,
+      "p95_ns": 530,
+      "p99_ns": 540,
+      "p99_9_ns": 590
+    },
+    {
+      "n": 100000,
+      "mean_ns": 423,
+      "stddev_ns": 53,
+      "min_ns": 390,
+      "max_ns": 4640,
+      "p50_ns": 410,
+      "p95_ns": 530,
+      "p99_ns": 540,
+      "p99_9_ns": 580
+    },
+    {
+      "n": 100000,
+      "mean_ns": 409,
+      "stddev_ns": 50,
+      "min_ns": 390,
+      "max_ns": 9840,
+      "p50_ns": 410,
+      "p95_ns": 420,
+      "p99_ns": 420,
+      "p99_9_ns": 480
+    },
+    {
+      "n": 100000,
+      "mean_ns": 410,
+      "stddev_ns": 47,
+      "min_ns": 390,
+      "max_ns": 6680,
+      "p50_ns": 410,
+      "p95_ns": 420,
+      "p99_ns": 420,
+      "p99_9_ns": 480
+    },
+    {
+      "n": 100000,
+      "mean_ns": 411,
+      "stddev_ns": 43,
+      "min_ns": 400,
+      "max_ns": 6440,
+      "p50_ns": 410,
+      "p95_ns": 420,
+      "p99_ns": 421,
+      "p99_9_ns": 480
+    },
+    {
+      "n": 100000,
+      "mean_ns": 408,
+      "stddev_ns": 75,
+      "min_ns": 390,
+      "max_ns": 19900,
+      "p50_ns": 410,
+      "p95_ns": 411,
+      "p99_ns": 420,
+      "p99_9_ns": 480
+    },
+    {
+      "n": 100000,
+      "mean_ns": 409,
+      "stddev_ns": 72,
+      "min_ns": 390,
+      "max_ns": 18011,
+      "p50_ns": 410,
+      "p95_ns": 420,
+      "p99_ns": 420,
+      "p99_9_ns": 480
+    },
+    {
+      "n": 100000,
+      "mean_ns": 410,
+      "stddev_ns": 61,
+      "min_ns": 400,
+      "max_ns": 15560,
+      "p50_ns": 410,
+      "p95_ns": 420,
+      "p99_ns": 470,
+      "p99_9_ns": 510
+    },
+    {
+      "n": 100000,
+      "mean_ns": 409,
+      "stddev_ns": 47,
+      "min_ns": 390,
+      "max_ns": 7790,
+      "p50_ns": 410,
+      "p95_ns": 420,
+      "p99_ns": 470,
+      "p99_9_ns": 510
+    },
+    {
+      "n": 100000,
+      "mean_ns": 410,
+      "stddev_ns": 47,
+      "min_ns": 390,
+      "max_ns": 7460,
+      "p50_ns": 410,
+      "p95_ns": 420,
+      "p99_ns": 470,
+      "p99_9_ns": 510
+    }
+  ],
+  "methodology": {
+    "warmup_iterations": 2048,
+    "measure_iterations": 100000,
+    "single_threaded": false,
+    "timer": "std::time::Instant",
+    "percentile_method": "raw sample at index ceil(p * (n-1)), no interpolation",
+    "includes_durability": false,
+    "sink": "NullSink (never invoked on deny path)",
+    "deny_kind": "ACTION_HASH_INVALID (cheapest deny)",
+    "spec_step": "§9 step 0",
+    "notes": "Concurrent L1: N independent sessions, each thread runs the same tampered-action_hash deny in a tight loop. Deny short-circuits at step 0 and never touches sequence/budget, so a single action per thread is sufficient — same methodology as single-threaded L1."
+  },
+  "run": {
+    "git_commit": "e0c3cb230d31fec924be441da9c1021bb129c638",
+    "git_branch": "main",
+    "timestamp_unix_ns": 1779319248492308765
+  }
+}

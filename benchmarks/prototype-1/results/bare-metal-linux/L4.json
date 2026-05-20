@@ -1,0 +1,48 @@
+{
+  "benchmark": "L4",
+  "description": "gateway_bound_authorization_round_trip",
+  "gateway_endpoint": "http://localhost:3200/api/v1/evaluate",
+  "gateway_location": "bare-metal-linux",
+  "http_method": "POST",
+  "network_path": "loopback",
+  "environment": {
+    "label": "bare-metal-linux",
+    "specSection": "13.1",
+    "canonical": true,
+    "host": {
+      "cpuBrand": "AMD EPYC 7313P 16-Core Processor",
+      "cpuArch": "x86_64",
+      "osName": "Ubuntu 22.04.5 LTS",
+      "osVersion": "5.15.0-179-generic",
+      "hostname": "aps-canonical-bench-13-1",
+      "memoryBytes": 540692099072
+    }
+  },
+  "methodology": {
+    "sample_count": 1000,
+    "warmup_count": 100,
+    "single_threaded": true,
+    "sequential": true,
+    "timer": "process.hrtime.bigint()",
+    "percentile_method": "raw sample at index ceil(p * (n-1)), no interpolation",
+    "includes_durability": true,
+    "includes_network": false,
+    "notes": "TS fetch() to gateway /api/v1/evaluate. Each call lands a permit row in policy_evaluations + mints an evaluation receipt. Body is the same on every iteration; cache effects are exercised by warmup."
+  },
+  "samples": {
+    "n": 1000,
+    "minNs": 671427,
+    "maxNs": 11258330,
+    "p50Ns": 821610,
+    "p95Ns": 1402214,
+    "p99Ns": 6010270,
+    "p99_9Ns": 11258330
+  },
+  "throughput_ops_per_sec": 1008.0711996817341,
+  "total_wall_time_ns": 991993423,
+  "run": {
+    "timestamp_unix_ns": "97895293420",
+    "node_version": "v24.15.0",
+    "git_commit": "e0c3cb230d31fec924be441da9c1021bb129c638"
+  }
+}

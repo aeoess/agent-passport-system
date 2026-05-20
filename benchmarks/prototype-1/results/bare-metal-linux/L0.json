@@ -1,0 +1,45 @@
+{
+  "benchmark": "L0",
+  "description": "rust_core_allow_hot_cache_no_event",
+  "environment": {
+    "label": "bare-metal-linux",
+    "spec_section": "13.1",
+    "canonical": true,
+    "host": {
+      "cpu_brand": "AMD EPYC 7313P 16-Core Processor",
+      "cpu_arch": "x86_64",
+      "os_name": "Ubuntu 22.04.5 LTS",
+      "os_version": "5.15.0-179-generic",
+      "hostname": "aps-canonical-bench-13-1",
+      "memory_bytes": 540692099072
+    }
+  },
+  "methodology": {
+    "warmup_iterations": 100000,
+    "measure_iterations": 1000000,
+    "single_threaded": true,
+    "timer": "std::time::Instant",
+    "percentile_method": "raw sample at index ceil(p * (n-1)), no interpolation",
+    "includes_durability": false,
+    "sink": "NullSink (no-op trait dispatch only)",
+    "deny_kind": null,
+    "spec_step": "§9 all 13 steps + §9 step 13 emit via NullSink (true Allow per call)",
+    "notes": "L0 measures the full aps_check Allow pipeline. Single thread, 1024-entry pool of pre-finalized actions with incrementing sequence_ids; authority.sequence_next is reset to ALLOW_SEQ_START when the pool wraps (untimed atomic store). Every per-call sample is a true Allow. Earlier L0 result from commit 913cb12 used one action repeatedly and got SEQUENCE_REPLAY for iters 1..N — same BLAKE3 floor, but artifact label did not match measurement. Concurrent L0-concurrent-1.json uses the same corrected methodology by construction."
+  },
+  "samples": {
+    "n": 1000000,
+    "mean_ns": 416,
+    "stddev_ns": 117,
+    "min_ns": 400,
+    "max_ns": 27942,
+    "p50_ns": 420,
+    "p95_ns": 420,
+    "p99_ns": 470,
+    "p99_9_ns": 500
+  },
+  "run": {
+    "git_commit": "e0c3cb230d31fec924be441da9c1021bb129c638",
+    "git_branch": "main",
+    "timestamp_unix_ns": 1779319245564204212
+  }
+}

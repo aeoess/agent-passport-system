@@ -1,0 +1,96 @@
+{
+  "benchmark": "L1",
+  "description": "rust_core_deny_hot_cache_action_hash_invalid",
+  "environment": {
+    "label": "bare-metal-linux",
+    "spec_section": "13.1",
+    "canonical": true,
+    "host": {
+      "cpu_brand": "AMD EPYC 7313P 16-Core Processor",
+      "cpu_arch": "x86_64",
+      "os_name": "Ubuntu 22.04.5 LTS",
+      "os_version": "5.15.0-179-generic",
+      "hostname": "aps-canonical-bench-13-1",
+      "memory_bytes": 540692099072
+    }
+  },
+  "concurrency_level": 4,
+  "per_thread_samples": 250000,
+  "total_samples": 1000000,
+  "total_wall_time_ns": 106006863,
+  "throughput_ops_per_sec": 9433351.499138314,
+  "merged_samples": {
+    "n": 1000000,
+    "mean_ns": 413,
+    "stddev_ns": 59,
+    "min_ns": 390,
+    "max_ns": 13300,
+    "p50_ns": 400,
+    "p95_ns": 520,
+    "p99_ns": 680,
+    "p99_9_ns": 780
+  },
+  "per_thread_samples_stats": [
+    {
+      "n": 250000,
+      "mean_ns": 416,
+      "stddev_ns": 52,
+      "min_ns": 390,
+      "max_ns": 5660,
+      "p50_ns": 400,
+      "p95_ns": 520,
+      "p99_ns": 530,
+      "p99_9_ns": 600
+    },
+    {
+      "n": 250000,
+      "mean_ns": 424,
+      "stddev_ns": 74,
+      "min_ns": 390,
+      "max_ns": 9521,
+      "p50_ns": 400,
+      "p95_ns": 530,
+      "p99_ns": 680,
+      "p99_9_ns": 810
+    },
+    {
+      "n": 250000,
+      "mean_ns": 411,
+      "stddev_ns": 63,
+      "min_ns": 390,
+      "max_ns": 5950,
+      "p50_ns": 400,
+      "p95_ns": 410,
+      "p99_ns": 680,
+      "p99_9_ns": 690
+    },
+    {
+      "n": 250000,
+      "mean_ns": 401,
+      "stddev_ns": 41,
+      "min_ns": 390,
+      "max_ns": 13300,
+      "p50_ns": 400,
+      "p95_ns": 410,
+      "p99_ns": 460,
+      "p99_9_ns": 480
+    }
+  ],
+  "methodology": {
+    "warmup_iterations": 2048,
+    "measure_iterations": 250000,
+    "single_threaded": false,
+    "timer": "std::time::Instant",
+    "percentile_method": "raw sample at index ceil(p * (n-1)), no interpolation",
+    "includes_durability": false,
+    "sink": "NullSink (never invoked on deny path)",
+    "deny_kind": "ACTION_HASH_INVALID (cheapest deny)",
+    "spec_step": "§9 step 0",
+    "notes": "Concurrent L1: N independent sessions, each thread runs the same tampered-action_hash deny in a tight loop. Deny short-circuits at step 0 and never touches sequence/budget, so a single action per thread is sufficient — same methodology as single-threaded L1."
+  },
+  "run": {
+    "git_commit": "e0c3cb230d31fec924be441da9c1021bb129c638",
+    "git_branch": "main",
+    "timestamp_unix_ns": 1779319248315741860
+  }
+}
