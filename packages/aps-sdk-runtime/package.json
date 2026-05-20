@@ -1,18 +1,32 @@
 {
   "name": "@aeoess/aps-sdk-runtime",
-  "version": "0.0.1",
-  "description": "APS Runtime Passport SDK for local verifier integration (Prototype 1)",
+  "version": "0.1.0",
+  "description": "APS Runtime Passport SDK for local verifier integration (Prototype 1, Stream B)",
   "license": "Apache-2.0",
   "private": true,
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "index.js",
+  "types": "index.d.ts",
   "scripts": {
-    "build": "tsc",
-    "test": "npx tsx --test tests/types.test.ts"
+    "build": "napi build --platform --release",
+    "build:debug": "napi build --platform",
+    "test": "npx tsx --test __tests__/roundtrip.test.ts"
   },
-  "dependencies": {},
+  "napi": {
+    "name": "aps-sdk-runtime",
+    "triples": {
+      "defaults": false,
+      "additional": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu"
+      ]
+    }
+  },
   "devDependencies": {
-    "typescript": "5.3.x",
-    "@types/node": "20.x"
+    "@napi-rs/cli": "^2.18.0",
+    "@types/node": "^20.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.0.0"
   }
 }

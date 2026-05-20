@@ -1,0 +1,18 @@
+[package]
+name = "aps-sdk-runtime-native"
+version = "0.1.0"
+edition = "2021"
+description = "napi-rs binding for the APS Runtime Passport local verifier (Stream B)"
+license = "Apache-2.0"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+aps-verifier-core = { path = "../../crates/aps-verifier-core" }
+napi = { version = "2", default-features = false, features = ["napi9"] }
+napi-derive = "2"
+
+[build-dependencies]
+napi-build = "2"

@@ -3,6 +3,7 @@ resolver = "2"
 members = [
   "crates/aps-verifier-core",
   "benchmarks/prototype-1",
+  "packages/aps-sdk-runtime",
 ]
 
 [workspace.package]
