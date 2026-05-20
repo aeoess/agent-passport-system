@@ -9,7 +9,7 @@
   "scripts": {
     "build": "napi build --platform --release",
     "build:debug": "napi build --platform",
-    "test": "npx tsx --test __tests__/roundtrip.test.ts __tests__/check.test.ts __tests__/sinks.test.ts"
+    "test": "npx tsx --test __tests__/roundtrip.test.ts __tests__/check.test.ts __tests__/sinks.test.ts __tests__/recovery.test.ts"
   },
   "napi": {
     "name": "aps-sdk-runtime",

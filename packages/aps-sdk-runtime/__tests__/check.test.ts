@@ -7,7 +7,7 @@ import {
   closeAuthority,
   computeRegistryRoot,
   hashResourcePath,
-  loadPassport,
+  loadPassportUnverified,
 } from '..';
 
 const TOOL_DESCRIPTOR_HASH_HEX =
@@ -70,10 +70,10 @@ function freshHandle() {
   ];
   const rootHex = computeRegistryRoot(tools);
   const passportJson = buildPassport(rootHex);
-  return loadPassport(passportJson, tools, null, { mode: 'Null' });
+  return loadPassportUnverified(passportJson, tools, { mode: 'Null' });
 }
 
-function buildAllowAction(handle: ReturnType<typeof loadPassport>) {
+function buildAllowAction(handle: ReturnType<typeof loadPassportUnverified>) {
   const info = authorityInfo(handle);
   return {
     version: 1,
@@ -183,7 +183,7 @@ test('load_passport rejects mismatched registry root', () => {
   // the registry actually has the tool.
   const passportJson = buildPassport('0'.repeat(64));
   assert.throws(
-    () => loadPassport(passportJson, tools, null, { mode: 'Null' }),
-    /compile/
+    () => loadPassportUnverified(passportJson, tools, { mode: 'Null' }),
+    /CompileFailed/
   );
 });

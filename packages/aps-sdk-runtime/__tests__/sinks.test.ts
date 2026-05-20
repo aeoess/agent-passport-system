@@ -9,7 +9,7 @@ import {
   check,
   computeRegistryRoot,
   hashResourcePath,
-  loadPassport,
+  loadPassportUnverified,
   shutdownAuthority,
   SinkMode,
 } from '..';
@@ -71,16 +71,16 @@ function buildPassport(rootHex: string): string {
   });
 }
 
-function freshHandle(sinkConfig: Parameters<typeof loadPassport>[3]) {
+function freshHandle(sinkConfig: Parameters<typeof loadPassportUnverified>[2]) {
   const tools = [
     { descriptorHashHex: TOOL_DESCRIPTOR_HASH_HEX, localId: 0 },
   ];
   const rootHex = computeRegistryRoot(tools);
   const passportJson = buildPassport(rootHex);
-  return loadPassport(passportJson, tools, null, sinkConfig);
+  return loadPassportUnverified(passportJson, tools, sinkConfig);
 }
 
-function buildAllowAction(handle: ReturnType<typeof loadPassport>, seqId: bigint) {
+function buildAllowAction(handle: ReturnType<typeof loadPassportUnverified>, seqId: bigint) {
   const info = authorityInfo(handle);
   return {
     version: 1,

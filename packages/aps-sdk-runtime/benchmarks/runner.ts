@@ -23,7 +23,7 @@ import {
   check,
   computeRegistryRoot,
   hashResourcePath,
-  loadPassport,
+  loadPassportUnverified,
   shutdownAuthority,
   SinkMode,
 } from '..';
@@ -238,7 +238,7 @@ function runBenchmark(spec: BenchSpec) {
           maxBatchWindowMs: spec.batchWindowMs,
         };
 
-  const handle = loadPassport(passportJson, tools, null, sinkConfig);
+  const handle = loadPassportUnverified(passportJson, tools, sinkConfig);
   const info = authorityInfo(handle);
   const resourceHashes = hashResourcePath(['customer', '12345']);
 

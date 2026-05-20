@@ -26,7 +26,8 @@ use napi_derive::napi;
 use aps_verifier_core::{
     aps_check, ActionDescriptor, CompiledAuthority, DecisionType, GroupCommitConfig,
     ModeAReceiptSink, ModeB1ReceiptSink, ModeB2ReceiptSink, NullSink, ReasonCode, ReceiptSink,
-    RuntimePassport, SystemClock, Tier, ToolEntry, ToolRegistry, VerifierContext,
+    RecoveryReport as CoreRecoveryReport, RecoveryStatus, RuntimePassport, SystemClock, Tier,
+    ToolEntry, ToolRegistry, TruncationReason, VerifierContext,
 };
 
 // -----------------------------------------------------------------------
@@ -190,6 +191,7 @@ fn build_sink_variant(cfg: &SinkConfig, receipt_key: [u8; 32]) -> napi::Result<S
 // -----------------------------------------------------------------------
 
 #[napi(object)]
+#[derive(Clone)]
 pub struct ToolEntryInput {
     pub descriptor_hash_hex: String,
     pub local_id: u32,
@@ -205,6 +207,37 @@ pub struct AuthorityHandle {
     verifier_instance_id_hash: [u8; 32],
     attested_tier: Tier,
     revocation_epoch: u32,
+    /// Last recovery report, if this handle was created via
+    /// [`load_passport_with_recovery`]. `None` for non-recovery
+    /// loads. Surfaced via [`recovery_report`] getter — napi
+    /// `External<T>` can't nest inside `#[napi(object)]` structs, so
+    /// the report lives here.
+    last_recovery: Option<RecoveryReportInternal>,
+}
+
+#[derive(Clone)]
+struct RecoveryReportInternal {
+    status: String,
+    last_committed_sequence_id: u64,
+    last_rolling_mac_hex: String,
+    entries_recovered: u64,
+    valid_through_offset: u64,
+    truncation_reason: Option<String>,
+    truncation_at_offset: Option<u64>,
+}
+
+#[napi(object)]
+pub struct RecoveryReport {
+    /// `"FreshStart"` | `"CleanRecovery"` | `"PartialRecovery"`.
+    pub status: String,
+    pub last_committed_sequence_id: BigInt,
+    pub last_rolling_mac_hex: String,
+    pub entries_recovered: BigInt,
+    pub valid_through_offset: BigInt,
+    /// `"IncompleteEntry"` | `"MacMismatch"` | `"InvalidLength"`, or
+    /// `null` for FreshStart / CleanRecovery.
+    pub truncation_reason: Option<String>,
+    pub truncation_at_offset: Option<BigInt>,
 }
 
 #[napi(object)]
@@ -233,48 +266,91 @@ pub struct DecisionOutput {
     pub event_mac_hex: String,
 }
 
+/// Load a passport with full Ed25519 signature verification against
+/// `gateway_public_key_hex`. Production callers should use this.
 #[napi]
-pub fn load_passport(
+pub fn load_passport_verified(
+    passport_json: String,
+    tools: Vec<ToolEntryInput>,
+    gateway_public_key_hex: String,
+    sink_config: SinkConfig,
+) -> napi::Result<External<AuthorityHandle>> {
+    let key_bytes = hex_to_array::<32>(&gateway_public_key_hex)
+        .map_err(|e| reason_err("PassportInvalidPublicKey", &e))?;
+    let verifying_key = ed25519_dalek::VerifyingKey::from_bytes(&key_bytes)
+        .map_err(|e| reason_err("PassportInvalidPublicKey", e.to_string()))?;
+    let passport = RuntimePassport::from_json_and_verify(&passport_json, &verifying_key)
+        .map_err(|e| reason_err("PassportVerifyFailed", e.to_string()))?;
+    finish_load(passport, tools, sink_config, None)
+}
+
+/// Load a passport WITHOUT signature verification. Use only when the
+/// signing key isn't available at load time (test fixtures, dev
+/// scaffolding). Production callers should use
+/// [`load_passport_verified`].
+#[napi]
+pub fn load_passport_unverified(
+    passport_json: String,
+    tools: Vec<ToolEntryInput>,
+    sink_config: SinkConfig,
+) -> napi::Result<External<AuthorityHandle>> {
+    let passport = RuntimePassport::from_json(&passport_json)
+        .map_err(|e| reason_err("PassportParseFailed", e.to_string()))?;
+    finish_load(passport, tools, sink_config, None)
+}
+
+/// Load a passport with crash recovery. Walks the existing log at
+/// `log_path`, validates the rolling MAC chain, recovers the
+/// sequence floor, and builds the AuthorityHandle. The chunk-4
+/// implementation hardcodes the rolling-MAC key to `[0u8; 32]`
+/// matching the chunk-2 placeholder `receipt_stream_key`; production
+/// recovery needs a real derived key (Phase 2).
+///
+/// On success, the [`RecoveryReport`] is stored on the handle and
+/// retrievable via [`recovery_report`]. On failure (initial MAC
+/// mismatch, IO error, log/passport sequence-window conflict), the
+/// function returns an Err.
+#[napi]
+pub fn load_passport_with_recovery(
     passport_json: String,
     tools: Vec<ToolEntryInput>,
     gateway_public_key_hex: Option<String>,
     sink_config: SinkConfig,
+    log_path: String,
 ) -> napi::Result<External<AuthorityHandle>> {
     let passport = match gateway_public_key_hex {
         Some(hex) => {
             let key_bytes = hex_to_array::<32>(&hex)
-                .map_err(|e| napi::Error::from_reason(format!("public_key_hex: {e}")))?;
-            let verifying_key = ed25519_dalek_verifying_key(&key_bytes)?;
+                .map_err(|e| reason_err("PassportInvalidPublicKey", &e))?;
+            let verifying_key = ed25519_dalek::VerifyingKey::from_bytes(&key_bytes)
+                .map_err(|e| reason_err("PassportInvalidPublicKey", e.to_string()))?;
             RuntimePassport::from_json_and_verify(&passport_json, &verifying_key)
-                .map_err(|e| napi::Error::from_reason(format!("passport verify: {e}")))?
+                .map_err(|e| reason_err("PassportVerifyFailed", e.to_string()))?
         }
         None => RuntimePassport::from_json(&passport_json)
-            .map_err(|e| napi::Error::from_reason(format!("passport parse: {e}")))?,
+            .map_err(|e| reason_err("PassportParseFailed", e.to_string()))?,
     };
-
-    let entries: napi::Result<Vec<ToolEntry>> = tools
-        .into_iter()
-        .map(|t| {
-            let descriptor_hash = hex_to_array::<32>(&t.descriptor_hash_hex)
-                .map_err(|e| napi::Error::from_reason(format!("tool descriptor_hash_hex: {e}")))?;
-            Ok(ToolEntry {
-                descriptor_hash,
-                local_id: t.local_id,
-            })
-        })
-        .collect();
-    let registry = ToolRegistry::from_entries(entries?)
-        .map_err(|e| napi::Error::from_reason(format!("registry build: {e}")))?;
-
-    let authority = CompiledAuthority::from_passport(&passport, registry)
-        .map_err(|e| napi::Error::from_reason(format!("compile: {e}")))?;
-
-    let receipt_key = authority.receipt_stream_key;
-    let sink = build_sink_variant(&sink_config, receipt_key)?;
-
+    let registry = build_registry(tools.clone())?;
+    let mac_key = [0u8; 32];
+    let (authority, report) = CompiledAuthority::from_passport_with_recovery(
+        &passport,
+        &registry,
+        std::path::Path::new(&log_path),
+        mac_key,
+    )
+    .map_err(|e| {
+        let prefix = match &e {
+            aps_verifier_core::CompileError::RecoveryFailed(_) => "RecoveryFailed",
+            aps_verifier_core::CompileError::LogPassportMismatch { .. } => {
+                "RecoveryLogPassportMismatch"
+            }
+            _ => "CompileFailed",
+        };
+        reason_err(prefix, e.to_string())
+    })?;
+    let sink = build_sink_variant(&sink_config, mac_key)?;
     let verifier_instance_id_hash =
         *blake3::hash(passport.verifier_instance_id.as_bytes()).as_bytes();
-
     Ok(External::new(AuthorityHandle {
         authority,
         clock: SystemClock,
@@ -282,7 +358,103 @@ pub fn load_passport(
         verifier_instance_id_hash,
         attested_tier: passport.tier_attested,
         revocation_epoch: passport.revocation_epoch,
+        last_recovery: Some(internal_recovery_report(&report)),
     }))
+}
+
+fn build_registry(tools: Vec<ToolEntryInput>) -> napi::Result<ToolRegistry> {
+    let entries: napi::Result<Vec<ToolEntry>> = tools
+        .into_iter()
+        .map(|t| {
+            let descriptor_hash = hex_to_array::<32>(&t.descriptor_hash_hex)
+                .map_err(|e| reason_err("RegistryBuildFailed", format!("descriptor_hash_hex: {e}")))?;
+            Ok(ToolEntry {
+                descriptor_hash,
+                local_id: t.local_id,
+            })
+        })
+        .collect();
+    ToolRegistry::from_entries(entries?)
+        .map_err(|e| reason_err("RegistryBuildFailed", e.to_string()))
+}
+
+fn finish_load(
+    passport: RuntimePassport,
+    tools: Vec<ToolEntryInput>,
+    sink_config: SinkConfig,
+    last_recovery: Option<RecoveryReportInternal>,
+) -> napi::Result<External<AuthorityHandle>> {
+    let registry = build_registry(tools)?;
+    let authority = CompiledAuthority::from_passport(&passport, registry)
+        .map_err(|e| reason_err("CompileFailed", e.to_string()))?;
+    let receipt_key = authority.receipt_stream_key;
+    let sink = build_sink_variant(&sink_config, receipt_key)?;
+    let verifier_instance_id_hash =
+        *blake3::hash(passport.verifier_instance_id.as_bytes()).as_bytes();
+    Ok(External::new(AuthorityHandle {
+        authority,
+        clock: SystemClock,
+        sink: Mutex::new(Some(sink)),
+        verifier_instance_id_hash,
+        attested_tier: passport.tier_attested,
+        revocation_epoch: passport.revocation_epoch,
+        last_recovery,
+    }))
+}
+
+fn internal_recovery_report(r: &CoreRecoveryReport) -> RecoveryReportInternal {
+    let (status, truncation_reason, truncation_at_offset) = match &r.status {
+        RecoveryStatus::FreshStart => ("FreshStart".to_string(), None, None),
+        RecoveryStatus::CleanRecovery => ("CleanRecovery".to_string(), None, None),
+        RecoveryStatus::PartialRecovery {
+            truncated_at_offset,
+            reason,
+        } => {
+            let reason_str = match reason {
+                TruncationReason::IncompleteEntry => "IncompleteEntry".to_string(),
+                TruncationReason::MacMismatch { at_entry } => {
+                    format!("MacMismatch(at_entry={at_entry})")
+                }
+                TruncationReason::InvalidLength { at_entry, length } => {
+                    format!("InvalidLength(at_entry={at_entry}, length={length})")
+                }
+            };
+            (
+                "PartialRecovery".to_string(),
+                Some(reason_str),
+                Some(*truncated_at_offset),
+            )
+        }
+    };
+    RecoveryReportInternal {
+        status,
+        last_committed_sequence_id: r.last_committed_sequence_id,
+        last_rolling_mac_hex: hex_encode_slice(&r.last_rolling_mac),
+        entries_recovered: r.entries_recovered,
+        valid_through_offset: r.valid_through_offset,
+        truncation_reason,
+        truncation_at_offset,
+    }
+}
+
+/// Retrieve the [`RecoveryReport`] from a handle that was created via
+/// [`load_passport_with_recovery`]. Returns `null` for handles loaded
+/// without recovery.
+#[napi]
+pub fn recovery_report(handle: External<AuthorityHandle>) -> Option<RecoveryReport> {
+    handle.last_recovery.as_ref().map(|r| RecoveryReport {
+        status: r.status.clone(),
+        last_committed_sequence_id: BigInt::from(r.last_committed_sequence_id),
+        last_rolling_mac_hex: r.last_rolling_mac_hex.clone(),
+        entries_recovered: BigInt::from(r.entries_recovered),
+        valid_through_offset: BigInt::from(r.valid_through_offset),
+        truncation_reason: r.truncation_reason.clone(),
+        truncation_at_offset: r.truncation_at_offset.map(BigInt::from),
+    })
+}
+
+fn reason_err(prefix: &str, body: impl std::fmt::Display) -> napi::Error {
+    napi::Error::from_reason(format!("{prefix}: {body}"))
 }
 
 #[napi]
@@ -541,10 +713,6 @@ fn hex_encode_slice(bytes: &[u8]) -> String {
     s
 }
 
-fn ed25519_dalek_verifying_key(bytes: &[u8; 32]) -> napi::Result<ed25519_dalek::VerifyingKey> {
-    ed25519_dalek::VerifyingKey::from_bytes(bytes)
-        .map_err(|e| napi::Error::from_reason(format!("verifying key from bytes: {e}")))
-}
 
 fn sysctl_string(name: &str) -> String {
     shell_string("sysctl", &["-n", name])
