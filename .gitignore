@@ -46,3 +46,10 @@ specs/ERIK-NEWTON*
 /tmp-*.md
 /scratch-*.md
 *.private.md
+
+# Rust build artifacts
+target/
+**/target/
+
+# Library lock files (regenerated)
+crates/*/Cargo.lock
