@@ -6,7 +6,11 @@
 
 ## 1. Intent
 
-Prove that APS can move authority enforcement from a per-action remote gateway call into a local Runtime Passport check, reducing action-time governance latency by orders of magnitude while preserving an auditable receipt path. One prototype. Narrow scope. Benchmark-driven. No claims before measurement.
+Apply a well-known security pattern (short-lived signed capability + local verification + async audit) to agent governance. The pattern itself is not novel; it underlies mTLS sessions, SPIFFE/SPIRE, JWT bearer authentication, and bank card networks. SAGA (NDSS 2026) applies a related architecture to agent-to-agent access control.
+
+What Prototype 1 establishes: APS-specific primitives — multi-hop scoped delegation with monotonic narrowing, per-action signed receipts, beneficiary attribution, risk-class-tiered durability and assurance — can be enforced locally without becoming friction in the agent execution path. The composition is what APS contributes.
+
+One prototype. Narrow scope. Benchmark-driven. No claims before measurement.
 
 ## 2. Scope
 
