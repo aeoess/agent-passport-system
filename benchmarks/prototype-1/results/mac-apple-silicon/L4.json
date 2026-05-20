@@ -1,0 +1,48 @@
+{
+  "benchmark": "L4",
+  "description": "gateway_bound_authorization_round_trip",
+  "gateway_endpoint": "http://localhost:3200/api/v1/evaluate",
+  "gateway_location": "local-dogfood",
+  "http_method": "POST",
+  "network_path": "loopback",
+  "environment": {
+    "label": "mac-apple-silicon",
+    "specSection": "13.3",
+    "canonical": false,
+    "host": {
+      "cpuBrand": "Apple M3",
+      "cpuArch": "arm64",
+      "osName": "macOS",
+      "osVersion": "26.3",
+      "hostname": "Tima-MacBook-Air.local",
+      "memoryBytes": 17179869184
+    }
+  },
+  "methodology": {
+    "sample_count": 1000,
+    "warmup_count": 100,
+    "single_threaded": true,
+    "sequential": true,
+    "timer": "process.hrtime.bigint()",
+    "percentile_method": "raw sample at index ceil(p * (n-1)), no interpolation",
+    "includes_durability": true,
+    "includes_network": false,
+    "notes": "TS fetch() to gateway /api/v1/evaluate. Each call lands a permit row in policy_evaluations + mints an evaluation receipt. Body is the same on every iteration; cache effects are exercised by warmup."
+  },
+  "samples": {
+    "n": 1000,
+    "minNs": 215375,
+    "maxNs": 10664833,
+    "p50Ns": 304708,
+    "p95Ns": 512083,
+    "p99Ns": 1708500,
+    "p99_9Ns": 10664833
+  },
+  "throughput_ops_per_sec": 2784.9933008796393,
+  "total_wall_time_ns": 359067291,
+  "run": {
+    "timestamp_unix_ns": "7803957574229166",
+    "node_version": "v24.11.1",
+    "git_commit": "eb1b7908bc9ac71de969b9831fd3e075e0bd40ed"
+  }
+}
