@@ -1,0 +1,49 @@
+{
+  "benchmark": "L2",
+  "description": "ts_sdk_napi_null_sink",
+  "sink_mode": "Null",
+  "environment": {
+    "label": "mac-apple-silicon",
+    "specSection": "13.3",
+    "canonical": false,
+    "host": {
+      "cpuBrand": "unknown",
+      "cpuArch": "x86_64",
+      "osName": "unknown",
+      "osVersion": "unknown",
+      "hostname": "ip-172-31-42-150.us-east-2.compute.internal",
+      "memoryBytes": 0
+    }
+  },
+  "methodology": {
+    "sample_count": 100000,
+    "warmup_count": 2000,
+    "single_threaded": true,
+    "timer": "process.hrtime.bigint()",
+    "percentile_method": "raw sample at index ceil(p * (n-1)), no interpolation",
+    "includes_durability": false,
+    "sink_buffer_capacity": null,
+    "sink_flush_interval_ms": null,
+    "sink_batch_size": null,
+    "sink_batch_window_ms": null,
+    "notes": "TS → N-API → Rust full path. True Allow per call: sequence_id increments and matches authority.sequence_next."
+  },
+  "samples": {
+    "n": 100000,
+    "meanNs": 5818,
+    "stddevNs": 1641,
+    "minNs": 5352,
+    "maxNs": 317463,
+    "p50Ns": 5712,
+    "p95Ns": 6624,
+    "p99Ns": 6999,
+    "p99_9Ns": 13707
+  },
+  "throughput_ops_per_sec": 168347.200734783,
+  "total_wall_time_ns": 594010471,
+  "run": {
+    "timestamp_unix_ns": "208298168910",
+    "node_version": "v24.15.0",
+    "git_commit": "0998f3a619ec101231fb6dd0fed9b0e4a35647db"
+  }
+}

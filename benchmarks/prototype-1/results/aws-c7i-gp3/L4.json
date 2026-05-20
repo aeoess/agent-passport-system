@@ -1,0 +1,48 @@
+{
+  "benchmark": "L4",
+  "description": "gateway_bound_authorization_round_trip",
+  "gateway_endpoint": "http://localhost:3200/api/v1/evaluate",
+  "gateway_location": "aws-c7i-gp3",
+  "http_method": "POST",
+  "network_path": "loopback",
+  "environment": {
+    "label": "mac-apple-silicon",
+    "specSection": "13.3",
+    "canonical": false,
+    "host": {
+      "cpuBrand": "unknown",
+      "cpuArch": "x86_64",
+      "osName": "unknown",
+      "osVersion": "unknown",
+      "hostname": "ip-172-31-42-150.us-east-2.compute.internal",
+      "memoryBytes": 0
+    }
+  },
+  "methodology": {
+    "sample_count": 1000,
+    "warmup_count": 100,
+    "single_threaded": true,
+    "sequential": true,
+    "timer": "process.hrtime.bigint()",
+    "percentile_method": "raw sample at index ceil(p * (n-1)), no interpolation",
+    "includes_durability": true,
+    "includes_network": false,
+    "notes": "TS fetch() to gateway /api/v1/evaluate. Each call lands a permit row in policy_evaluations + mints an evaluation receipt. Body is the same on every iteration; cache effects are exercised by warmup."
+  },
+  "samples": {
+    "n": 1000,
+    "minNs": 543505,
+    "maxNs": 13867765,
+    "p50Ns": 1071695,
+    "p95Ns": 1620625,
+    "p99Ns": 6077454,
+    "p99_9Ns": 13867765
+  },
+  "throughput_ops_per_sec": 830.3257419615009,
+  "total_wall_time_ns": 1204346619,
+  "run": {
+    "timestamp_unix_ns": "222305756133",
+    "node_version": "v24.15.0",
+    "git_commit": "0998f3a619ec101231fb6dd0fed9b0e4a35647db"
+  }
+}

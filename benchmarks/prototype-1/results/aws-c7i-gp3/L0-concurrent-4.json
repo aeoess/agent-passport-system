@@ -1,0 +1,96 @@
+{
+  "benchmark": "L0",
+  "description": "rust_core_allow_hot_cache_no_event",
+  "environment": {
+    "label": "aws-c7i-gp3",
+    "spec_section": "13.2",
+    "canonical": false,
+    "host": {
+      "cpu_brand": "Intel(R) Xeon(R) Platinum 8488C",
+      "cpu_arch": "x86_64",
+      "os_name": "Amazon Linux 2023.11.20260514",
+      "os_version": "6.18.25-57.109.amzn2023.x86_64",
+      "hostname": "ip-172-31-42-150.us-east-2.compute.internal",
+      "memory_bytes": 16466726912
+    }
+  },
+  "concurrency_level": 4,
+  "per_thread_samples": 250000,
+  "total_samples": 1000000,
+  "total_wall_time_ns": 89385832,
+  "throughput_ops_per_sec": 11187455.300522346,
+  "merged_samples": {
+    "n": 1000000,
+    "mean_ns": 357,
+    "stddev_ns": 103,
+    "min_ns": 340,
+    "max_ns": 37415,
+    "p50_ns": 349,
+    "p95_ns": 403,
+    "p99_ns": 406,
+    "p99_9_ns": 435
+  },
+  "per_thread_samples_stats": [
+    {
+      "n": 250000,
+      "mean_ns": 356,
+      "stddev_ns": 87,
+      "min_ns": 340,
+      "max_ns": 23023,
+      "p50_ns": 349,
+      "p95_ns": 402,
+      "p99_ns": 406,
+      "p99_9_ns": 435
+    },
+    {
+      "n": 250000,
+      "mean_ns": 357,
+      "stddev_ns": 120,
+      "min_ns": 340,
+      "max_ns": 37415,
+      "p50_ns": 349,
+      "p95_ns": 403,
+      "p99_ns": 406,
+      "p99_9_ns": 433
+    },
+    {
+      "n": 250000,
+      "mean_ns": 357,
+      "stddev_ns": 101,
+      "min_ns": 340,
+      "max_ns": 27394,
+      "p50_ns": 349,
+      "p95_ns": 403,
+      "p99_ns": 406,
+      "p99_9_ns": 440
+    },
+    {
+      "n": 250000,
+      "mean_ns": 357,
+      "stddev_ns": 100,
+      "min_ns": 341,
+      "max_ns": 25032,
+      "p50_ns": 349,
+      "p95_ns": 403,
+      "p99_ns": 407,
+      "p99_9_ns": 434
+    }
+  ],
+  "methodology": {
+    "warmup_iterations": 2048,
+    "measure_iterations": 250000,
+    "single_threaded": false,
+    "timer": "std::time::Instant",
+    "percentile_method": "raw sample at index ceil(p * (n-1)), no interpolation",
+    "includes_durability": false,
+    "sink": "NullSink (no-op trait dispatch only)",
+    "deny_kind": null,
+    "spec_step": "§9 all 13 steps + §9 step 13 emit via NullSink (true Allow per call)",
+    "notes": "Concurrent L0: N independent sessions per spec §5.2 — each thread owns its CompiledAuthority and a 1024-entry pool of pre-finalized actions with incrementing sequence_ids. Authority.sequence_next is reset to ALLOW_SEQ_START when the pool wraps (untimed atomic store). Every per-call sample is a true Allow; deviates from the single-threaded L0 methodology (which used one action repeatedly and got SEQUENCE_REPLAY for iters 1..N)."
+  },
+  "run": {
+    "git_commit": "0998f3a619ec101231fb6dd0fed9b0e4a35647db",
+    "git_branch": "canonical-linux-infrastructure",
+    "timestamp_unix_ns": 1779307388227676274
+  }
+}

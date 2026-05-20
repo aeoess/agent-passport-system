@@ -1,0 +1,14 @@
+{
+  "environment_tag": "aws-c7i-gp3",
+  "cpu_model": "Intel(R) Xeon(R) Platinum 8488C",
+  "microcode": "0x2b000661",
+  "kernel": "Linux ip-172-31-42-150.us-east-2.compute.internal 6.18.25-57.109.amzn2023.x86_64 #2 SMP PREEMPT_DYNAMIC Thu May 14 12:23:59 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux",
+  "glibc": "glibc 2.34",
+  "node_version": "v24.15.0",
+  "rust_version": "rustc 1.95.0 (59807616e 2026-04-14)",
+  "ram_kb": 16080788,
+  "hypervisor": "none",
+  "filesystem_type": "xfs",
+  "thermal_zone0_milli_c": null,
+  "timestamp_utc": "20260520T200156Z"
+}
