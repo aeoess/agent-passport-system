@@ -3,16 +3,16 @@
   "description": "ts_sdk_napi_null_sink",
   "sink_mode": "Null",
   "environment": {
-    "label": "mac-apple-silicon",
-    "specSection": "13.3",
+    "label": "aws-c7i-gp3",
+    "specSection": "13.2",
     "canonical": false,
     "host": {
-      "cpuBrand": "unknown",
+      "cpuBrand": "Intel(R) Xeon(R) Platinum 8488C",
       "cpuArch": "x86_64",
-      "osName": "unknown",
-      "osVersion": "unknown",
+      "osName": "Amazon Linux 2023.11.20260514",
+      "osVersion": "6.18.25-57.109.amzn2023.x86_64",
       "hostname": "ip-172-31-42-150.us-east-2.compute.internal",
-      "memoryBytes": 0
+      "memoryBytes": 16466726912
     }
   },
   "methodology": {
