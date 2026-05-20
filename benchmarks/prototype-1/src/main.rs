@@ -142,9 +142,19 @@ fn main() -> ExitCode {
         return ExitCode::SUCCESS;
     }
 
-    // Single-threaded path (existing behavior).
-    let fixture = Fixture::build().expect("fixture build");
-    let samples = run_benchmark(bench, &fixture);
+    // Single-threaded path. Uses the same true-Allow pool+reset
+    // technique as the concurrent sweep so L0 actually measures the
+    // Allow path on every iteration.
+    let samples = match bench {
+        Benchmark::L0 => {
+            let fixture = AllowThreadFixture::build().expect("allow fixture build");
+            run_single_l0(&fixture)
+        }
+        Benchmark::L1 => {
+            let fixture = Fixture::build().expect("fixture build");
+            run_benchmark(bench, &fixture)
+        }
+    };
     let stats = stats::compute(&samples);
 
     let result = Result {
@@ -407,6 +417,43 @@ fn concurrent_output_path(env: &EnvironmentSnapshot, bench: Benchmark, level: us
     p
 }
 
+/// True-Allow single-threaded L0: same pool+reset pattern the
+/// concurrent sweep uses, ensuring every sampled call is a real
+/// Allow (not a SEQUENCE_REPLAY deny that pre-correction L0 actually
+/// measured).
+fn run_single_l0(fixture: &AllowThreadFixture) -> Vec<u64> {
+    let ctx = fixture.context();
+    // Warmup.
+    for i in 0..WARMUP_ITERATIONS {
+        let idx = i & (ALLOW_POOL_SIZE - 1);
+        if idx == 0 {
+            fixture
+                .authority
+                .sequence_next
+                .store(ALLOW_SEQ_START, Ordering::Release);
+        }
+        let d = run_check(&fixture.authority, &fixture.actions[idx], &ctx);
+        std::hint::black_box(d);
+    }
+    // Measure.
+    let mut samples = Vec::with_capacity(MEASURE_ITERATIONS);
+    for i in 0..MEASURE_ITERATIONS {
+        let idx = i & (ALLOW_POOL_SIZE - 1);
+        if idx == 0 {
+            fixture
+                .authority
+                .sequence_next
+                .store(ALLOW_SEQ_START, Ordering::Release);
+        }
+        let t0 = Instant::now();
+        let d = run_check(&fixture.authority, &fixture.actions[idx], &ctx);
+        let elapsed = t0.elapsed().as_nanos() as u64;
+        std::hint::black_box(d);
+        samples.push(elapsed);
+    }
+    samples
+}
+
 fn run_benchmark(bench: Benchmark, fixture: &Fixture) -> Vec<u64> {
     let ctx = fixture.context();
     let action = match bench {
@@ -453,11 +500,18 @@ fn methodology_for(bench: Benchmark) -> Methodology {
             includes_durability: false,
             sink: "NullSink (no-op trait dispatch only)",
             deny_kind: None,
-            spec_step: Some("§9 all 13 steps + §9 step 13 emit via NullSink"),
-            notes: "L0 measures the full aps_check pipeline on the happy path, \
-                including the NullSink trait dispatch overhead and the BLAKE3 \
-                event_mac computation in finalize(). Sequence window is sized to \
-                accommodate WARMUP + MEASURE iterations from a single fixture.",
+            spec_step: Some(
+                "§9 all 13 steps + §9 step 13 emit via NullSink (true Allow per call)",
+            ),
+            notes: "L0 measures the full aps_check Allow pipeline. Single thread, \
+                1024-entry pool of pre-finalized actions with incrementing \
+                sequence_ids; authority.sequence_next is reset to ALLOW_SEQ_START \
+                when the pool wraps (untimed atomic store). Every per-call sample \
+                is a true Allow. Earlier L0 result from commit 913cb12 used one \
+                action repeatedly and got SEQUENCE_REPLAY for iters 1..N — same \
+                BLAKE3 floor, but artifact label did not match measurement. \
+                Concurrent L0-concurrent-1.json uses the same corrected \
+                methodology by construction.",
         },
         Benchmark::L1 => Methodology {
             warmup_iterations: WARMUP_ITERATIONS,
