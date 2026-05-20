@@ -1,0 +1,31 @@
+# AWS EC2 cloud reference environment.
+# Spec: specs/PROTOTYPE-1-RUNTIME-PASSPORT.md Section 13.2.
+# Reveals storage-bounded Mode B latency under standard cloud constraints.
+
+[environment]
+label = "aws-c7i-gp3"
+spec_section = "13.2"
+canonical = false
+
+[host]
+os = "Ubuntu 24.04"
+instance_type = "c7i.2xlarge"
+# Single-AZ deployment is part of the spec; cross-AZ would change
+# replication latency assumptions.
+availability_zone = "single-az"
+
+[storage]
+disk_type = "gp3 EBS"
+filesystem = "ext4"
+iops_limit = 3000
+write_cache_enabled = true
+power_loss_protection = "ebs-managed"
+
+[benchmarks]
+run = ["L0", "L1", "L2", "L3a", "L3b1", "L3b2", "L4"]
+
+[methodology]
+warm_up_seconds = 3
+measurement_seconds = 10
+percentiles = ["p50", "p95", "p99", "p99.9"]
+confidence_interval = 0.95

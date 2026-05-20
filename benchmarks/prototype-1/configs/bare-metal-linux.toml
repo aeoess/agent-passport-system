@@ -1,0 +1,36 @@
+# Canonical bare-metal Linux environment.
+# Spec: specs/PROTOTYPE-1-RUNTIME-PASSPORT.md Section 13.1.
+# This is the environment whose numbers are published as the canonical
+# Prototype 1 result.
+
+[environment]
+label = "bare-metal-linux"
+spec_section = "13.1"
+canonical = true
+
+[host]
+os = "Ubuntu 24.04 LTS"
+# Specify exact CPU model in published numbers.
+cpu_family = "Intel Xeon or AMD EPYC (current generation)"
+ecc_ram = true
+hypervisor = "none"
+
+[storage]
+disk_type = "NVMe SSD"
+filesystem = "ext4"
+mount_options = "data=ordered"
+write_cache_enabled = true
+# Power-loss-protection capability of the specific drive must be logged
+# explicitly in published numbers (Section 13.4).
+power_loss_protection = "log-explicitly"
+
+[benchmarks]
+# All seven measurements from Section 12 (Stream C) run on the canonical env.
+run = ["L0", "L1", "L2", "L3a", "L3b1", "L3b2", "L4"]
+
+[methodology]
+# Filled by criterion harness; recorded into env_capture snapshot.
+warm_up_seconds = 3
+measurement_seconds = 10
+percentiles = ["p50", "p95", "p99", "p99.9"]
+confidence_interval = 0.95

@@ -1,0 +1,32 @@
+# Apple Silicon developer reference environment.
+# Spec: specs/PROTOTYPE-1-RUNTIME-PASSPORT.md Section 13.3.
+# Sets developer expectations during integration. NOT the canonical
+# published number.
+
+[environment]
+label = "mac-apple-silicon"
+spec_section = "13.3"
+canonical = false
+
+[host]
+os = "current macOS LTS"
+# M2 or M3 MacBook Pro per spec.
+chip = "Apple M2 or M3"
+
+[storage]
+disk_type = "Internal NVMe"
+filesystem = "apfs"
+# Write cache and PLP are not consistently exposed on macOS consumer
+# hardware; env_capture must record "unknown" where appropriate so the
+# Mode B numbers stay flagged as developer-reference only.
+write_cache_enabled = "unknown"
+power_loss_protection = "unknown"
+
+[benchmarks]
+run = ["L0", "L1", "L2", "L3a", "L3b1", "L3b2", "L4"]
+
+[methodology]
+warm_up_seconds = 3
+measurement_seconds = 10
+percentiles = ["p50", "p95", "p99", "p99.9"]
+confidence_interval = 0.95

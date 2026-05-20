@@ -1,0 +1,26 @@
+[package]
+name = "aps-bench-prototype-1"
+version = "0.0.1"
+edition = "2021"
+description = "APS Runtime Passport Prototype 1 benchmark harness (Stream C)"
+license = "Apache-2.0"
+publish = false
+
+# Workspace member. When a workspace root is introduced, add this path
+# under `[workspace] members`. Until then this builds standalone.
+
+[[bin]]
+name = "aps-bench"
+path = "src/main.rs"
+
+[dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+serde = { version = "1", features = ["derive"] }
+toml = "0.8"
+# Stream A core. Path-relative against the repo layout; do not hardcode.
+aps-verifier-core = { path = "../../crates/aps-verifier-core" }
+
+[[bench]]
+name = "matrix"
+harness = false
+path = "src/main.rs"
