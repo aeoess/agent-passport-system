@@ -39,6 +39,7 @@ if (!API_KEY) {
   process.exit(1);
 }
 
+const ENV_TAG = process.env.APS_RESULTS_ENV_TAG || 'mac-apple-silicon';
 const RESULTS_DIR = resolve(
   __dirname,
   '..',
@@ -47,7 +48,7 @@ const RESULTS_DIR = resolve(
   'benchmarks',
   'prototype-1',
   'results',
-  'mac-apple-silicon'
+  ENV_TAG
 );
 
 const ENDPOINT = `${GATEWAY_URL}/api/v1/evaluate`;

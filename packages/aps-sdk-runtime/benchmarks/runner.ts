@@ -35,6 +35,7 @@ import { execSync } from 'node:child_process';
 const TOOL_DESCRIPTOR_HASH_HEX =
   'abcd000000000000000000000000000000000000000000000000000000000000';
 
+const ENV_TAG = process.env.APS_RESULTS_ENV_TAG || 'mac-apple-silicon';
 const RESULTS_DIR = resolve(
   __dirname,
   '..',
@@ -43,7 +44,7 @@ const RESULTS_DIR = resolve(
   'benchmarks',
   'prototype-1',
   'results',
-  'mac-apple-silicon'
+  ENV_TAG
 );
 
 interface BenchSpec {

@@ -118,7 +118,7 @@ fn main() -> ExitCode {
         }
     };
     let concurrent = args.iter().any(|a| a == "--concurrent");
-    let env = env_capture::capture_mac_apple_silicon();
+    let env = env_capture::capture();
 
     if concurrent {
         let mut summary_rows: Vec<SummaryRow> = Vec::new();
