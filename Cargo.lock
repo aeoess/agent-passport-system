@@ -53,6 +53,8 @@ name = "aps-sdk-runtime-native"
 version = "0.1.0"
 dependencies = [
  "aps-verifier-core",
+ "blake3",
+ "ed25519-dalek",
  "napi",
  "napi-build",
  "napi-derive",

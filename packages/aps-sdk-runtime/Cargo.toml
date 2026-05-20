@@ -13,6 +13,8 @@ crate-type = ["cdylib"]
 aps-verifier-core = { path = "../../crates/aps-verifier-core" }
 napi = { version = "2", default-features = false, features = ["napi9"] }
 napi-derive = "2"
+blake3 = "1"
+ed25519-dalek = "2"
 
 [build-dependencies]
 napi-build = "2"
