@@ -1,0 +1,19 @@
+[package]
+name = "aps-verifier-core"
+version = "0.0.1"
+edition = "2021"
+description = "APS Runtime Passport local verifier core (Prototype 1)"
+license = "Apache-2.0"
+
+[dependencies]
+blake3 = "1"
+ed25519-dalek = "2"
+thiserror = "1"
+parking_lot = "0.12"
+
+[dev-dependencies]
+criterion = "0.5"
+
+[[bench]]
+name = "aps_check"
+harness = false
