@@ -1,34 +1,36 @@
-//! Stream B chunk 2: AuthorityHandle + aps_check FFI.
+//! Stream B chunk 3: sink bindings + L2/L3 benchmark surface.
 //!
-//! Chunk 2 lands the lifecycle pattern (`load_passport` → handle →
-//! `check` → `close_authority`) and the end-to-end TS→Rust round
-//! trip through `aps_check`. The handle is an opaque
-//! `napi::bindgen_prelude::External<AuthorityHandle>` that keeps the
-//! `CompiledAuthority` plus its supporting state (clock, sink,
-//! verifier identity, attested tier, revocation epoch) alive across
-//! TS calls.
+//! Adds [`SinkMode`] / [`SinkConfig`] selection to [`load_passport`]
+//! and a [`shutdown_authority`] entry point that drains pending
+//! writes for Mode A / B1 / B2. The sink is held inside the
+//! [`AuthorityHandle`] as an `enum SinkVariant` under a `Mutex` so
+//! shutdown can consume the mode-specific value; `check` borrows
+//! `&dyn ReceiptSink` from the locked variant.
 //!
-//! Chunk-1 `parse_passport_summary` stays as a quick-look API
-//! without lifecycle ceremony.
-//!
-//! Subsequent chunks: TS-side ActionDescriptor builder, ReceiptSink
-//! marshalling for real durability modes, full TS API surface
-//! (`aps.loadPassport`, `aps.check`, `aps.recoverSession`).
+//! Also exposes [`capture_environment`] so the TS-side benchmark
+//! runner can write spec §13.4 / §13.3 environment metadata into the
+//! L2/L3 result JSON without duplicating the probe logic across
+//! crates.
 
 #![deny(clippy::all)]
 
+use std::path::PathBuf;
+use std::process::Command;
 use std::sync::atomic::Ordering;
+use std::sync::Mutex;
+use std::time::Duration;
 
 use napi::bindgen_prelude::{BigInt, External};
 use napi_derive::napi;
 
 use aps_verifier_core::{
-    aps_check, ActionDescriptor, CompiledAuthority, DecisionType, NullSink, ReasonCode,
+    aps_check, ActionDescriptor, CompiledAuthority, DecisionType, GroupCommitConfig,
+    ModeAReceiptSink, ModeB1ReceiptSink, ModeB2ReceiptSink, NullSink, ReasonCode, ReceiptSink,
     RuntimePassport, SystemClock, Tier, ToolEntry, ToolRegistry, VerifierContext,
 };
 
 // -----------------------------------------------------------------------
-// Chunk 1: parse-only API (kept for the simple smoke test)
+// Chunk 1: parse-only API
 // -----------------------------------------------------------------------
 
 #[napi(object)]
@@ -45,13 +47,11 @@ pub struct PassportSummary {
 }
 
 /// Parse a passport JSON string and return a typed summary. Does NOT
-/// verify the signature. Use [`load_passport`] for the end-to-end
-/// lifecycle including (optional) signature verification.
+/// verify the signature; see [`load_passport`] for the full lifecycle.
 #[napi]
 pub fn parse_passport_summary(json: String) -> napi::Result<PassportSummary> {
     let passport = RuntimePassport::from_json(&json)
         .map_err(|e| napi::Error::from_reason(format!("parse failed: {e}")))?;
-
     Ok(PassportSummary {
         passport_id: passport.passport_id,
         agent_id: passport.agent_id,
@@ -68,27 +68,140 @@ pub fn parse_passport_summary(json: String) -> napi::Result<PassportSummary> {
 }
 
 // -----------------------------------------------------------------------
-// Chunk 2: lifecycle handle + check
+// Chunk 3: sink configuration
+// -----------------------------------------------------------------------
+
+#[napi(string_enum)]
+pub enum SinkMode {
+    Null,
+    ModeA,
+    ModeB1,
+    ModeB2,
+}
+
+#[napi(object)]
+pub struct SinkConfig {
+    pub mode: SinkMode,
+    /// Filesystem path for the durable receipt log. Required when
+    /// `mode != Null`; ignored otherwise.
+    pub log_path: Option<String>,
+    /// Buffer capacity. Defaults: Mode A 4096, Mode B1/B2 1024.
+    pub buffer_capacity: Option<u32>,
+    /// Mode A flush interval in milliseconds. Default 100. Ignored
+    /// for Null and Mode B.
+    pub flush_interval_ms: Option<u32>,
+    /// Mode B1/B2 max batch size. Default 64. Ignored for Null and
+    /// Mode A.
+    pub max_batch_size: Option<u32>,
+    /// Mode B1/B2 max batch window in milliseconds. Default 1.
+    /// Ignored for Null and Mode A.
+    pub max_batch_window_ms: Option<u32>,
+}
+
+// Internal enum dispatching sink-specific behavior (the chunk-8/9a
+// ReceiptSink trait does not include `shutdown`, so we keep concrete
+// variants here and call mode-specific shutdown in `shutdown_authority`).
+enum SinkVariant {
+    Null(NullSink),
+    ModeA(ModeAReceiptSink),
+    ModeB1(ModeB1ReceiptSink),
+    ModeB2(ModeB2ReceiptSink),
+}
+
+impl SinkVariant {
+    fn as_sink(&self) -> &dyn ReceiptSink {
+        match self {
+            SinkVariant::Null(s) => s,
+            SinkVariant::ModeA(s) => s,
+            SinkVariant::ModeB1(s) => s,
+            SinkVariant::ModeB2(s) => s,
+        }
+    }
+
+    fn shutdown(self) -> Result<(), String> {
+        match self {
+            SinkVariant::Null(_) => Ok(()),
+            SinkVariant::ModeA(s) => s.shutdown().map_err(|e| e.to_string()),
+            SinkVariant::ModeB1(s) => s.shutdown().map_err(|e| e.to_string()),
+            SinkVariant::ModeB2(s) => s.shutdown().map_err(|e| e.to_string()),
+        }
+    }
+}
+
+fn build_sink_variant(cfg: &SinkConfig, receipt_key: [u8; 32]) -> napi::Result<SinkVariant> {
+    match cfg.mode {
+        SinkMode::Null => Ok(SinkVariant::Null(NullSink)),
+        SinkMode::ModeA => {
+            let path = cfg
+                .log_path
+                .as_ref()
+                .ok_or_else(|| napi::Error::from_reason("log_path required for Mode A".to_string()))?;
+            let capacity = cfg.buffer_capacity.unwrap_or(4096) as usize;
+            let interval = Duration::from_millis(u64::from(cfg.flush_interval_ms.unwrap_or(100)));
+            let sink = ModeAReceiptSink::new(&PathBuf::from(path), receipt_key, capacity, interval)
+                .map_err(|e| napi::Error::from_reason(format!("Mode A new: {e}")))?;
+            Ok(SinkVariant::ModeA(sink))
+        }
+        SinkMode::ModeB1 => {
+            let path = cfg.log_path.as_ref().ok_or_else(|| {
+                napi::Error::from_reason("log_path required for Mode B1".to_string())
+            })?;
+            let capacity = cfg.buffer_capacity.unwrap_or(1024) as usize;
+            let commit_cfg = GroupCommitConfig {
+                max_batch_size: cfg.max_batch_size.unwrap_or(64) as usize,
+                max_batch_window: Duration::from_millis(u64::from(
+                    cfg.max_batch_window_ms.unwrap_or(1),
+                )),
+            };
+            let sink = ModeB1ReceiptSink::new(
+                &PathBuf::from(path),
+                receipt_key,
+                capacity,
+                commit_cfg,
+            )
+            .map_err(|e| napi::Error::from_reason(format!("Mode B1 new: {e}")))?;
+            Ok(SinkVariant::ModeB1(sink))
+        }
+        SinkMode::ModeB2 => {
+            let path = cfg.log_path.as_ref().ok_or_else(|| {
+                napi::Error::from_reason("log_path required for Mode B2".to_string())
+            })?;
+            let capacity = cfg.buffer_capacity.unwrap_or(1024) as usize;
+            let commit_cfg = GroupCommitConfig {
+                max_batch_size: cfg.max_batch_size.unwrap_or(64) as usize,
+                max_batch_window: Duration::from_millis(u64::from(
+                    cfg.max_batch_window_ms.unwrap_or(1),
+                )),
+            };
+            let sink = ModeB2ReceiptSink::new(
+                &PathBuf::from(path),
+                receipt_key,
+                capacity,
+                commit_cfg,
+            )
+            .map_err(|e| napi::Error::from_reason(format!("Mode B2 new: {e}")))?;
+            Ok(SinkVariant::ModeB2(sink))
+        }
+    }
+}
+
+// -----------------------------------------------------------------------
+// Handle + lifecycle
 // -----------------------------------------------------------------------
 
 #[napi(object)]
 pub struct ToolEntryInput {
-    /// 64-char hex of the descriptor hash.
     pub descriptor_hash_hex: String,
     pub local_id: u32,
 }
 
-/// Opaque handle returned by [`load_passport`] and consumed by
-/// [`check`]. Owns the CompiledAuthority and the verifier-side state
-/// needed to construct a VerifierContext per call.
-///
-/// External<AuthorityHandle> drops when JS GCs the wrapper; explicit
-/// release via [`close_authority`] is a no-op signaling the intent
-/// (force-drop from TS isn't cleanly supported by napi-rs).
 pub struct AuthorityHandle {
     authority: CompiledAuthority,
     clock: SystemClock,
-    sink: NullSink,
+    /// `Option<SinkVariant>` so `shutdown_authority` can take and
+    /// consume the variant for mode-specific drain. `Mutex` serializes
+    /// the borrow used by `check`.
+    sink: Mutex<Option<SinkVariant>>,
     verifier_instance_id_hash: [u8; 32],
     attested_tier: Tier,
     revocation_epoch: u32,
@@ -97,9 +210,7 @@ pub struct AuthorityHandle {
 #[napi(object)]
 pub struct ActionInput {
     pub version: u8,
-    /// 64-char hex.
     pub passport_id_hash_hex: String,
-    /// 64-char hex.
     pub tool_descriptor_hash_hex: String,
     pub local_tool_id: u32,
     pub operation_id: u16,
@@ -107,55 +218,28 @@ pub struct ActionInput {
     pub risk_class: u8,
     pub resource_path_depth: u8,
     pub cost_units: u32,
-    /// u64 via BigInt (JS Number can't hold above 2^53 safely).
     pub sequence_id: BigInt,
-    /// 32-char hex (16 bytes).
     pub nonce_hex: String,
-    /// 8 u64 values via BigInt. Pre-hashed resource path components;
-    /// see `aps_verifier_core::hash_path_component`.
     pub resource_path_hashes: Vec<BigInt>,
 }
 
 #[napi(object)]
 pub struct DecisionOutput {
-    /// `"Allow"`, `"Deny"`, or `"Escalate"`.
     pub decision_type: String,
     pub reason_code: u8,
-    /// Human-readable reason name per spec §7 (e.g. `"OK"`,
-    /// `"ACTION_HASH_INVALID"`).
     pub reason_name: String,
     pub sequence_id: BigInt,
-    /// 32-char hex (16 bytes).
     pub decision_id_hex: String,
-    /// 64-char hex (32 bytes).
     pub event_mac_hex: String,
 }
 
-/// Load a passport, build a [`CompiledAuthority`], return an opaque
-/// handle.
-///
-/// - `passport_json`: the passport as received from the gateway.
-/// - `tools`: descriptor-hash + local-id pairs the verifier's local
-///   registry will be initialized with. The registry root MUST match
-///   the passport's `tool_registry_root`, or compile fails.
-/// - `gateway_public_key_hex`: optional 64-char hex of the gateway's
-///   Ed25519 verifying key. If `null`/`None`, signature verification
-///   is SKIPPED — use only for tests / dev. Production callers MUST
-///   supply the key.
-///
-/// Chunk-2 simplifications:
-/// - `clock` = `SystemClock` (wall clock; passports must be in-window)
-/// - `sink` = `NullSink` (no durable receipt stream wiring yet)
-/// - `verifier_instance_id_hash`, `attested_tier`, `revocation_epoch`
-///   are taken from the passport itself. Real deployments derive
-///   these from independent verifier-side state.
 #[napi]
 pub fn load_passport(
     passport_json: String,
     tools: Vec<ToolEntryInput>,
     gateway_public_key_hex: Option<String>,
+    sink_config: SinkConfig,
 ) -> napi::Result<External<AuthorityHandle>> {
-    // 1. Parse + (optional) verify the passport JSON.
     let passport = match gateway_public_key_hex {
         Some(hex) => {
             let key_bytes = hex_to_array::<32>(&hex)
@@ -168,13 +252,11 @@ pub fn load_passport(
             .map_err(|e| napi::Error::from_reason(format!("passport parse: {e}")))?,
     };
 
-    // 2. Build the verifier's local tool registry.
     let entries: napi::Result<Vec<ToolEntry>> = tools
         .into_iter()
         .map(|t| {
-            let descriptor_hash = hex_to_array::<32>(&t.descriptor_hash_hex).map_err(|e| {
-                napi::Error::from_reason(format!("tool descriptor_hash_hex: {e}"))
-            })?;
+            let descriptor_hash = hex_to_array::<32>(&t.descriptor_hash_hex)
+                .map_err(|e| napi::Error::from_reason(format!("tool descriptor_hash_hex: {e}")))?;
             Ok(ToolEntry {
                 descriptor_hash,
                 local_id: t.local_id,
@@ -184,40 +266,48 @@ pub fn load_passport(
     let registry = ToolRegistry::from_entries(entries?)
         .map_err(|e| napi::Error::from_reason(format!("registry build: {e}")))?;
 
-    // 3. Compile.
     let authority = CompiledAuthority::from_passport(&passport, registry)
         .map_err(|e| napi::Error::from_reason(format!("compile: {e}")))?;
 
-    // 4. Pack into the opaque handle.
+    let receipt_key = authority.receipt_stream_key;
+    let sink = build_sink_variant(&sink_config, receipt_key)?;
+
     let verifier_instance_id_hash =
         *blake3::hash(passport.verifier_instance_id.as_bytes()).as_bytes();
 
-    let handle = AuthorityHandle {
+    Ok(External::new(AuthorityHandle {
         authority,
         clock: SystemClock,
-        sink: NullSink,
+        sink: Mutex::new(Some(sink)),
         verifier_instance_id_hash,
         attested_tier: passport.tier_attested,
         revocation_epoch: passport.revocation_epoch,
-    };
-    Ok(External::new(handle))
+    }))
 }
 
-/// Run `aps_check` against the loaded authority.
 #[napi]
 pub fn check(
     handle: External<AuthorityHandle>,
     action: ActionInput,
 ) -> napi::Result<DecisionOutput> {
     let descriptor = build_action_descriptor(&action)?;
+    let guard = handle
+        .sink
+        .lock()
+        .map_err(|e| napi::Error::from_reason(format!("sink mutex poisoned: {e}")))?;
+    let sink_variant = guard
+        .as_ref()
+        .ok_or_else(|| napi::Error::from_reason("authority has been shut down".to_string()))?;
+    let sink_ref: &dyn ReceiptSink = sink_variant.as_sink();
     let ctx = VerifierContext::with_sink(
         &handle.clock,
         handle.verifier_instance_id_hash,
         handle.attested_tier,
         handle.revocation_epoch,
-        &handle.sink,
+        sink_ref,
     );
     let decision = aps_check(&handle.authority, &descriptor, &ctx);
+    drop(guard);
 
     Ok(DecisionOutput {
         decision_type: decision_type_name(decision.decision_type).to_string(),
@@ -229,37 +319,44 @@ pub fn check(
     })
 }
 
-/// Signal that the caller is done with the handle. No-op in chunk 2:
-/// the handle drops when JS GCs the wrapper. Kept as the
-/// deterministic-lifecycle API surface; future chunks may wire
-/// real teardown (background flush thread, log handle, etc.) and
-/// will use this hook.
+/// Release the handle without draining. The sink continues running in
+/// the background until JS GCs the wrapper; for deterministic drain,
+/// use [`shutdown_authority`].
 #[napi]
 pub fn close_authority(_handle: External<AuthorityHandle>) -> napi::Result<()> {
-    // _handle drops at end of scope, but napi-rs External owns the
-    // inner state via the JS wrapper's lifetime, so this drop is
-    // advisory only. Reaffirmed when later chunks add real teardown.
-    let _ = Ordering::Acquire; // suppress unused-import lint on no-op path
+    let _ = Ordering::Acquire;
+    Ok(())
+}
+
+/// Drain the sink (flush Mode A buffer, wait for Mode B pending
+/// batches) and close. After this returns the durable log reflects
+/// every successfully `emit`'d decision.
+#[napi]
+pub fn shutdown_authority(handle: External<AuthorityHandle>) -> napi::Result<()> {
+    let variant = {
+        let mut guard = handle
+            .sink
+            .lock()
+            .map_err(|e| napi::Error::from_reason(format!("sink mutex poisoned: {e}")))?;
+        guard.take()
+    };
+    if let Some(v) = variant {
+        v.shutdown()
+            .map_err(|e| napi::Error::from_reason(format!("shutdown: {e}")))?;
+    }
     Ok(())
 }
 
 // -----------------------------------------------------------------------
-// Helpers exposed for callers building actions and matching passports
+// Helpers exposed for callers building actions
 // -----------------------------------------------------------------------
 
 #[napi(object)]
 pub struct AuthorityInfo {
-    /// 64-char hex of the BLAKE3 hash of passport_id (matches
-    /// `ActionInput.passport_id_hash_hex` for the active session).
     pub passport_id_hash_hex: String,
-    /// 64-char hex of the verifier's current tool registry Merkle
-    /// root.
     pub tool_registry_root_hex: String,
 }
 
-/// Read identity-hash fields off the loaded authority. Useful for
-/// building [`ActionInput`] structures (passport_id_hash must match)
-/// and for verifying the registry-root commitment.
 #[napi]
 pub fn authority_info(handle: External<AuthorityHandle>) -> AuthorityInfo {
     AuthorityInfo {
@@ -268,10 +365,6 @@ pub fn authority_info(handle: External<AuthorityHandle>) -> AuthorityInfo {
     }
 }
 
-/// Compute the canonical registry Merkle root for a set of tools,
-/// matching the verifier's [`ToolRegistry::current_root`] convention.
-/// Callers use this to embed the right `tool_registry_root` value in
-/// the passport they're issuing or verifying.
 #[napi]
 pub fn compute_registry_root(tools: Vec<ToolEntryInput>) -> napi::Result<String> {
     let entries: napi::Result<Vec<ToolEntry>> = tools
@@ -290,9 +383,6 @@ pub fn compute_registry_root(tools: Vec<ToolEntryInput>) -> napi::Result<String>
     Ok(hex_encode_slice(&registry.current_root()))
 }
 
-/// Hash a sequence of resource-path components into the 8 u64 slots
-/// that fit [`ActionInput::resource_path_hashes`]. Pads with zeros
-/// past the supplied components; rejects more than 8.
 #[napi]
 pub fn hash_resource_path(components: Vec<String>) -> napi::Result<Vec<BigInt>> {
     if components.len() > 8 {
@@ -309,7 +399,49 @@ pub fn hash_resource_path(components: Vec<String>) -> napi::Result<Vec<BigInt>> 
 }
 
 // -----------------------------------------------------------------------
-// Helpers
+// Environment capture (host metadata for benchmark JSON output)
+// -----------------------------------------------------------------------
+
+#[napi(object)]
+pub struct EnvHost {
+    pub cpu_brand: String,
+    pub cpu_arch: String,
+    pub os_name: String,
+    pub os_version: String,
+    pub hostname: String,
+    pub memory_bytes: i64,
+}
+
+#[napi(object)]
+pub struct EnvSnapshot {
+    pub label: String,
+    pub spec_section: String,
+    pub canonical: bool,
+    pub host: EnvHost,
+}
+
+/// Capture host environment metadata for the active machine. macOS-
+/// only in chunk 3; Linux capture lands with the canonical benchmark
+/// target.
+#[napi]
+pub fn capture_environment() -> EnvSnapshot {
+    EnvSnapshot {
+        label: "mac-apple-silicon".into(),
+        spec_section: "13.3".into(),
+        canonical: false,
+        host: EnvHost {
+            cpu_brand: sysctl_string("machdep.cpu.brand_string"),
+            cpu_arch: shell_string("uname", &["-m"]),
+            os_name: shell_string("sw_vers", &["-productName"]),
+            os_version: shell_string("sw_vers", &["-productVersion"]),
+            hostname: shell_string("hostname", &[]),
+            memory_bytes: sysctl_string("hw.memsize").parse::<i64>().unwrap_or(0),
+        },
+    }
+}
+
+// -----------------------------------------------------------------------
+// Internals
 // -----------------------------------------------------------------------
 
 fn build_action_descriptor(input: &ActionInput) -> napi::Result<ActionDescriptor> {
@@ -327,8 +459,6 @@ fn build_action_descriptor(input: &ActionInput) -> napi::Result<ActionDescriptor
     }
     let mut resource_path_hashes = [0u64; 8];
     for (i, h) in input.resource_path_hashes.iter().enumerate() {
-        // napi 2.16 BigInt::get_u64 returns `(sign_bit, value, lossless)`
-        // -- the second element is the u64 value.
         let (_sign, value, _lossless) = h.get_u64();
         resource_path_hashes[i] = value;
     }
@@ -414,4 +544,23 @@ fn hex_encode_slice(bytes: &[u8]) -> String {
 fn ed25519_dalek_verifying_key(bytes: &[u8; 32]) -> napi::Result<ed25519_dalek::VerifyingKey> {
     ed25519_dalek::VerifyingKey::from_bytes(bytes)
         .map_err(|e| napi::Error::from_reason(format!("verifying key from bytes: {e}")))
+}
+
+fn sysctl_string(name: &str) -> String {
+    shell_string("sysctl", &["-n", name])
+}
+
+fn shell_string(cmd: &str, args: &[&str]) -> String {
+    Command::new(cmd)
+        .args(args)
+        .output()
+        .ok()
+        .and_then(|o| {
+            if o.status.success() {
+                Some(String::from_utf8_lossy(&o.stdout).trim().to_string())
+            } else {
+                None
+            }
+        })
+        .unwrap_or_else(|| "unknown".into())
 }

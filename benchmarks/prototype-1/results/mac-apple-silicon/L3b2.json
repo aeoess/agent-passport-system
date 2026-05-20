@@ -1,0 +1,49 @@
+{
+  "benchmark": "L3b2",
+  "description": "ts_sdk_napi_mode_b2_queued_group_commit",
+  "sink_mode": "ModeB2",
+  "environment": {
+    "label": "mac-apple-silicon",
+    "specSection": "13.3",
+    "canonical": false,
+    "host": {
+      "cpuBrand": "Apple M3",
+      "cpuArch": "arm64",
+      "osName": "macOS",
+      "osVersion": "26.3",
+      "hostname": "Tima-MacBook-Air.local",
+      "memoryBytes": 17179869184
+    }
+  },
+  "methodology": {
+    "sample_count": 50000,
+    "warmup_count": 2000,
+    "single_threaded": true,
+    "timer": "process.hrtime.bigint()",
+    "percentile_method": "raw sample at index ceil(p * (n-1)), no interpolation",
+    "includes_durability": true,
+    "sink_buffer_capacity": 131072,
+    "sink_flush_interval_ms": null,
+    "sink_batch_size": 64,
+    "sink_batch_window_ms": 1,
+    "notes": "TS → N-API → Rust full path. True Allow per call: sequence_id increments and matches authority.sequence_next."
+  },
+  "samples": {
+    "n": 50000,
+    "meanNs": 4950,
+    "stddevNs": 88582,
+    "minNs": 3541,
+    "maxNs": 14627500,
+    "p50Ns": 4000,
+    "p95Ns": 4459,
+    "p99Ns": 8833,
+    "p99_9Ns": 46542
+  },
+  "throughput_ops_per_sec": 199557.21606316813,
+  "total_wall_time_ns": 250554708,
+  "run": {
+    "timestamp_unix_ns": "7796874796350125",
+    "node_version": "v24.11.1",
+    "git_commit": "03e87d8daf88a15e45ab7b74f929040a7a34cf89"
+  }
+}

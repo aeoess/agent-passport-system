@@ -70,7 +70,7 @@ function freshHandle() {
   ];
   const rootHex = computeRegistryRoot(tools);
   const passportJson = buildPassport(rootHex);
-  return loadPassport(passportJson, tools, null);
+  return loadPassport(passportJson, tools, null, { mode: 'Null' });
 }
 
 function buildAllowAction(handle: ReturnType<typeof loadPassport>) {
@@ -182,5 +182,8 @@ test('load_passport rejects mismatched registry root', () => {
   // Lie about the root: pass an all-zeros root in the passport while
   // the registry actually has the tool.
   const passportJson = buildPassport('0'.repeat(64));
-  assert.throws(() => loadPassport(passportJson, tools, null), /compile/);
+  assert.throws(
+    () => loadPassport(passportJson, tools, null, { mode: 'Null' }),
+    /compile/
+  );
 });
