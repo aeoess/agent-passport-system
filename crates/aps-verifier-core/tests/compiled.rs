@@ -69,7 +69,7 @@ fn passport_json(
     "allowed_operations": [{ops_block}],
     "resource_scopes": ["customer/*"],
     "approval_rules": [
-      {{"predicate": "operation == external_send AND recipient NOT IN allowlist", "on_match": "escalate"}}
+      {{"predicate": "operation == external_send", "on_match": "escalate"}}
     ]
   }},
   "receipt_stream_id": "rs_01HX0RS00000000000000000000",

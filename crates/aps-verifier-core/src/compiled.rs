@@ -47,7 +47,10 @@ use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 
 use thiserror::Error;
 
-use crate::passport::{ApprovalAction, DurabilityMode, PassportError, RiskClass, RuntimePassport};
+use crate::approval::{
+    operation_id_from_name, ApprovalCompileError, CompiledApprovalRule,
+};
+use crate::passport::{DurabilityMode, PassportError, RiskClass, RuntimePassport};
 use crate::resource_trie::TrieNode;
 
 // -----------------------------------------------------------------------
@@ -166,20 +169,6 @@ impl ToolRegistry {
 }
 
 // -----------------------------------------------------------------------
-// Approval-rule stub (chunk 3 compiles the predicate)
-// -----------------------------------------------------------------------
-
-/// Raw approval rule carried unparsed. Chunk 3 compiles the predicate
-/// string into an executable form. `TrieNode` lives in
-/// [`crate::resource_trie`] and is re-used here as a hot-field pointer
-/// inside [`CompiledAuthority`].
-#[derive(Debug, Clone)]
-pub struct RawApprovalRule {
-    pub predicate: String,
-    pub on_match: ApprovalAction,
-}
-
-// -----------------------------------------------------------------------
 // CompiledAuthority
 // -----------------------------------------------------------------------
 
@@ -213,7 +202,9 @@ pub struct CompiledAuthority {
 
     // Stubs for later chunks.
     pub resource_trie: Option<Box<TrieNode>>,
-    pub approval_rules: Vec<RawApprovalRule>,
+    /// Compiled approval rules (chunk 4). Empty Vec when the passport
+    /// carries no rules.
+    pub approval_rules: Vec<CompiledApprovalRule>,
 
     // Mode dispatch.
     pub durability_mode: DurabilityMode,
@@ -234,6 +225,8 @@ pub enum CompileError {
     UnknownOperation { name: String },
     #[error("invalid passport: {0}")]
     InvalidPassport(#[from] PassportError),
+    #[error("approval rule compile error: {0}")]
+    ApprovalRule(#[from] ApprovalCompileError),
 }
 
 fn hex32(bytes: &[u8; 32]) -> String {
@@ -243,23 +236,6 @@ fn hex32(bytes: &[u8; 32]) -> String {
         let _ = write!(s, "{b:02x}");
     }
     s
-}
-
-// -----------------------------------------------------------------------
-// Operation mapping (Prototype 1 fixed enum)
-// -----------------------------------------------------------------------
-
-fn operation_bit(name: &str) -> Option<u32> {
-    match name {
-        "read" => Some(0),
-        "write" => Some(1),
-        "delete" => Some(2),
-        "external_send" => Some(3),
-        "money_move" => Some(4),
-        "data_export" => Some(5),
-        "approval_request" => Some(6),
-        _ => None,
-    }
 }
 
 // -----------------------------------------------------------------------
@@ -310,13 +286,14 @@ impl CompiledAuthority {
         let passport_id_hash = blake3_32(passport.passport_id.as_bytes());
         let verifier_instance_id_hash = blake3_32(passport.verifier_instance_id.as_bytes());
 
-        // Allowed operation mask.
+        // Allowed operation mask (bit position == operation id, fixed
+        // enum shared with `approval::operation_id_from_name`).
         let mut allowed_op_mask: u32 = 0;
         for op in &passport.authority_blob.allowed_operations {
-            let bit = operation_bit(op).ok_or_else(|| CompileError::UnknownOperation {
-                name: op.clone(),
+            let id = operation_id_from_name(op).ok_or_else(|| {
+                CompileError::UnknownOperation { name: op.clone() }
             })?;
-            allowed_op_mask |= 1u32 << bit;
+            allowed_op_mask |= 1u32 << u32::from(id);
         }
 
         // Allowed-tool bitmap.
@@ -337,16 +314,15 @@ impl CompiledAuthority {
             allowed_tool_bitmap.set(local_id);
         }
 
-        // Approval rules: carry raw, compile in chunk 3.
-        let approval_rules = passport
-            .authority_blob
-            .approval_rules
-            .iter()
-            .map(|r| RawApprovalRule {
-                predicate: r.predicate.clone(),
-                on_match: r.on_match,
-            })
-            .collect();
+        // Approval rules: compile each predicate (chunk 4). Fail-closed:
+        // any uncompilable rule rejects the entire passport. The gateway
+        // is responsible for issuing only predicates the verifier can
+        // compile (either by narrowing rules at issuance time or by
+        // knowing the verifier's DSL capability set).
+        let mut approval_rules = Vec::with_capacity(passport.authority_blob.approval_rules.len());
+        for r in &passport.authority_blob.approval_rules {
+            approval_rules.push(CompiledApprovalRule::compile(&r.predicate, r.on_match)?);
+        }
 
         Ok(CompiledAuthority {
             expires_at_unix_ns,

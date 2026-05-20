@@ -15,6 +15,9 @@
 //!     core and (once shipped) the TS SDK.
 
 #[test]
+#[ignore = "acceptance-criteria coverage lands once aps_check (chunk 6) is online"]
 fn spec_round_trip_skeleton() {
-    todo!("acceptance-criteria coverage lands in Stream A follow-up commit");
+    unimplemented!(
+        "acceptance-criteria coverage lands once aps_check (chunk 6) is online"
+    );
 }

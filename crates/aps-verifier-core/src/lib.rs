@@ -17,6 +17,7 @@
 pub mod passport;
 pub mod action;
 pub mod decision;
+pub mod approval;
 pub mod compiled;
 pub mod check;
 pub mod registry;
@@ -26,9 +27,11 @@ pub mod recovery;
 pub mod resource_trie;
 
 pub use action::{ActionDescriptor, ActionError, ACTION_DESCRIPTOR_SIZE};
-pub use compiled::{
-    BitMap, CompileError, CompiledAuthority, RawApprovalRule, ToolEntry, ToolRegistry,
+pub use approval::{
+    operation_id_from_name, risk_class_value_from_name, ApprovalCompileError, CompareOp,
+    CompiledApprovalRule, CompiledPredicate, PredicateField, SetOp,
 };
+pub use compiled::{BitMap, CompileError, CompiledAuthority, ToolEntry, ToolRegistry};
 pub use resource_trie::{hash_path_component, parse_scope, ParsedScope, TrieNode};
 pub use decision::{Decision, DecisionError, DecisionType, ReasonCode, DECISION_SIZE};
 pub use passport::{
