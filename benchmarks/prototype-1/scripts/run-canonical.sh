@@ -157,9 +157,8 @@ clone_repo() {
         git -C "$repo_dir" reset --hard "origin/$REPO_REF"
     else
         log "cloning $REPO_URL at $REPO_REF into $repo_dir"
-        git clone --depth 50 "$REPO_URL" "$repo_dir"
-        git -C "$repo_dir" fetch origin "$REPO_REF"
-        git -C "$repo_dir" checkout "$REPO_REF"
+        git clone --depth 50 --branch "$REPO_REF" --single-branch \
+            "$REPO_URL" "$repo_dir"
     fi
 }
 
