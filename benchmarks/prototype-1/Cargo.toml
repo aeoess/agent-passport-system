@@ -6,21 +6,16 @@ description = "APS Runtime Passport Prototype 1 benchmark harness (Stream C)"
 license = "Apache-2.0"
 publish = false
 
-# Workspace member. When a workspace root is introduced, add this path
-# under `[workspace] members`. Until then this builds standalone.
+# Narrow Stream C scope: L0 + L1 only. L2/L3 land with Stream B; L4
+# (gateway baseline) is an independent task. Concurrency sweep
+# deferred.
 
 [[bin]]
 name = "aps-bench"
 path = "src/main.rs"
 
 [dependencies]
-criterion = { version = "0.5", features = ["html_reports"] }
 serde = { version = "1", features = ["derive"] }
-toml = "0.8"
-# Stream A core. Path-relative against the repo layout; do not hardcode.
+serde_json = "1"
+blake3 = "1"
 aps-verifier-core = { path = "../../crates/aps-verifier-core" }
-
-[[bench]]
-name = "matrix"
-harness = false
-path = "src/main.rs"

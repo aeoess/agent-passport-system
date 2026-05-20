@@ -1,54 +1,66 @@
-//! Environment metadata capture for Mode B results.
+//! Host environment capture.
 //!
-//! Spec reference: `specs/PROTOTYPE-1-RUNTIME-PASSPORT.md` Section 13.4
-//! ("Required storage configuration logging for Mode B results").
-//!
-//! Without this metadata, Mode B numbers are not comparable across
-//! environments, so every Mode B benchmark run MUST emit a populated
-//! `EnvironmentSnapshot`.
+//! Spec §13.3 (Apple Silicon developer reference). This narrow Stream
+//! C scope covers the pure-verifier benchmarks L0 and L1 only; the
+//! storage-config logging requirements of §13.4 are Mode-B-specific
+//! and land alongside the L3b1 / L3b2 benchmarks.
 
-/// Captures the Section 13.4 fields that must accompany every Mode B
-/// number. All fields are required — `Option` is only used where the
-/// underlying OS may genuinely not expose the value (e.g. power loss
-/// protection on consumer hardware).
-#[derive(Debug, Clone)]
+use std::process::Command;
+
+use serde::Serialize;
+
+#[derive(Debug, Clone, Serialize)]
 pub struct EnvironmentSnapshot {
-    /// Disk type and exact model string.
-    pub disk_type_and_model: String,
-    /// Filesystem and mount options (e.g. `ext4 data=ordered,noatime`).
-    pub filesystem_and_mount_options: String,
-    /// Fsync / group commit batch size.
-    pub fsync_group_commit_batch_size: u32,
-    /// Fsync / group commit window in microseconds.
-    pub fsync_group_commit_window_us: u32,
-    /// IOPS limit if cloud-provisioned (e.g. AWS gp3 default 3000).
-    pub iops_limit: Option<u32>,
-    /// Write cache enabled at the device level.
-    pub write_cache_enabled: bool,
-    /// Power loss protection if known (cloud / enterprise SSDs).
-    pub power_loss_protection: Option<bool>,
-    /// Sample size used for the published number.
-    pub sample_size: u64,
-    /// Statistical methodology (e.g. "criterion warm-up 3s, measure 10s,
-    /// p50/p95/p99/p99.9 reported, 95% CI via bootstrap").
-    pub methodology: String,
+    pub label: String,
+    pub spec_section: String,
+    pub canonical: bool,
+    pub host: Host,
 }
 
-/// Capture the host environment by probing the OS. Implementations are
-/// platform-specific (Linux: `/sys/block`, `/proc/mounts`, `lsblk`;
-/// macOS: `diskutil`, `sysctl`).
-pub fn capture() -> EnvironmentSnapshot {
-    todo!(
-        "Stream C env capture: probe disk model, filesystem and mount options, \
-         IOPS limit, write cache, power loss protection. See spec Section 13.4."
-    );
+#[derive(Debug, Clone, Serialize)]
+pub struct Host {
+    pub cpu_brand: String,
+    pub cpu_arch: String,
+    pub os_name: String,
+    pub os_version: String,
+    pub hostname: String,
+    pub memory_bytes: u64,
 }
 
-/// Validate that a snapshot has every field required for a publishable
-/// Mode B number. Run before recording any L3b1 / L3b2 result.
-pub fn validate_for_mode_b(_snapshot: &EnvironmentSnapshot) -> Result<(), String> {
-    todo!(
-        "Stream C: enforce Section 13.4 completeness. Reject if any required \
-         field is missing or empty before persisting a Mode B result."
-    );
+/// Capture the current host environment. macOS-only in this narrow
+/// scope; Linux and bare-metal capture land alongside the canonical
+/// benchmark target.
+pub fn capture_mac_apple_silicon() -> EnvironmentSnapshot {
+    EnvironmentSnapshot {
+        label: "mac-apple-silicon".into(),
+        spec_section: "13.3".into(),
+        canonical: false,
+        host: Host {
+            cpu_brand: sysctl_string("machdep.cpu.brand_string"),
+            cpu_arch: shell_string("uname", &["-m"]),
+            os_name: shell_string("sw_vers", &["-productName"]),
+            os_version: shell_string("sw_vers", &["-productVersion"]),
+            hostname: shell_string("hostname", &[]),
+            memory_bytes: sysctl_string("hw.memsize").parse().unwrap_or(0),
+        },
+    }
+}
+
+fn sysctl_string(name: &str) -> String {
+    shell_string("sysctl", &["-n", name])
+}
+
+fn shell_string(cmd: &str, args: &[&str]) -> String {
+    Command::new(cmd)
+        .args(args)
+        .output()
+        .ok()
+        .and_then(|o| {
+            if o.status.success() {
+                Some(String::from_utf8_lossy(&o.stdout).trim().to_string())
+            } else {
+                None
+            }
+        })
+        .unwrap_or_else(|| "unknown".into())
 }

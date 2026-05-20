@@ -1,0 +1,45 @@
+{
+  "benchmark": "L0",
+  "description": "rust_core_allow_hot_cache_no_event",
+  "environment": {
+    "label": "mac-apple-silicon",
+    "spec_section": "13.3",
+    "canonical": false,
+    "host": {
+      "cpu_brand": "Apple M3",
+      "cpu_arch": "arm64",
+      "os_name": "macOS",
+      "os_version": "26.3",
+      "hostname": "Tima-MacBook-Air.local",
+      "memory_bytes": 17179869184
+    }
+  },
+  "methodology": {
+    "warmup_iterations": 100000,
+    "measure_iterations": 1000000,
+    "single_threaded": true,
+    "timer": "std::time::Instant",
+    "percentile_method": "raw sample at index ceil(p * (n-1)), no interpolation",
+    "includes_durability": false,
+    "sink": "NullSink (no-op trait dispatch only)",
+    "deny_kind": null,
+    "spec_step": "§9 all 13 steps + §9 step 13 emit via NullSink",
+    "notes": "L0 measures the full aps_check pipeline on the happy path, including the NullSink trait dispatch overhead and the BLAKE3 event_mac computation in finalize(). Sequence window is sized to accommodate WARMUP + MEASURE iterations from a single fixture."
+  },
+  "samples": {
+    "n": 1000000,
+    "mean_ns": 305,
+    "stddev_ns": 70,
+    "min_ns": 250,
+    "max_ns": 13958,
+    "p50_ns": 292,
+    "p95_ns": 334,
+    "p99_ns": 334,
+    "p99_9_ns": 417
+  },
+  "run": {
+    "git_commit": "e24690f178ee5b0dd4dd0d5b3181ec4d6fce56df",
+    "git_branch": "stream-C",
+    "timestamp_unix_ns": 1779286341943178000
+  }
+}
