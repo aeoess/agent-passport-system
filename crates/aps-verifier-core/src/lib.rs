@@ -26,6 +26,10 @@ pub mod recovery;
 pub mod resource_trie;
 
 pub use action::{ActionDescriptor, ActionError, ACTION_DESCRIPTOR_SIZE};
+pub use compiled::{
+    BitMap, CompileError, CompiledAuthority, RawApprovalRule, ToolEntry, ToolRegistry,
+};
+pub use resource_trie::TrieNode;
 pub use decision::{Decision, DecisionError, DecisionType, ReasonCode, DECISION_SIZE};
 pub use passport::{
     ApprovalAction, ApprovalRule, AuthorityBlob, BudgetLease, DurabilityMode, PassportError,
