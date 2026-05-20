@@ -592,11 +592,50 @@ pub struct EnvSnapshot {
     pub host: EnvHost,
 }
 
-/// Capture host environment metadata for the active machine. macOS-
-/// only in chunk 3; Linux capture lands with the canonical benchmark
-/// target.
+/// Capture host environment metadata for the active machine.
+/// Dispatches by `target_os`. Mirrors
+/// `benchmarks/prototype-1/src/env_capture.rs` (the reference
+/// implementation that landed in PR #34) so both the TS and Rust
+/// benchmark paths emit the same label / spec_section / host shape
+/// on a given host.
+///
+/// Labels:
+/// - `mac-apple-silicon` (§13.3) on macOS
+/// - `aws-c7i-gp3` (§13.2) on AWS EC2 when IMDSv2 reports c7i.2xlarge
+/// - `aws-other` (§13.2) on any other EC2 instance type
+/// - `bare-metal-linux` (§13.1) on Linux with no hypervisor
+/// - `linux-vm` (no spec section) on Linux with a non-AWS hypervisor
+/// - `unknown` on any other platform
 #[napi]
 pub fn capture_environment() -> EnvSnapshot {
+    #[cfg(target_os = "macos")]
+    {
+        capture_mac()
+    }
+    #[cfg(target_os = "linux")]
+    {
+        capture_linux()
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
+    {
+        EnvSnapshot {
+            label: "unknown".into(),
+            spec_section: String::new(),
+            canonical: false,
+            host: EnvHost {
+                cpu_brand: "unknown".into(),
+                cpu_arch: "unknown".into(),
+                os_name: "unknown".into(),
+                os_version: "unknown".into(),
+                hostname: "unknown".into(),
+                memory_bytes: 0,
+            },
+        }
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn capture_mac() -> EnvSnapshot {
     EnvSnapshot {
         label: "mac-apple-silicon".into(),
         spec_section: "13.3".into(),
@@ -610,6 +649,133 @@ pub fn capture_environment() -> EnvSnapshot {
             memory_bytes: sysctl_string("hw.memsize").parse::<i64>().unwrap_or(0),
         },
     }
+}
+
+#[cfg(target_os = "linux")]
+fn capture_linux() -> EnvSnapshot {
+    let sys_vendor = read_trim("/sys/class/dmi/id/sys_vendor");
+    let hypervisor = read_trim("/sys/hypervisor/type");
+
+    let (label, spec_section, canonical) = if sys_vendor == "Amazon EC2" {
+        let instance_type = imdsv2_instance_type();
+        if instance_type == "c7i.2xlarge" {
+            ("aws-c7i-gp3".to_string(), "13.2".to_string(), false)
+        } else {
+            ("aws-other".to_string(), "13.2".to_string(), false)
+        }
+    } else if hypervisor.is_empty() || hypervisor == "none" {
+        ("bare-metal-linux".to_string(), "13.1".to_string(), true)
+    } else {
+        ("linux-vm".to_string(), String::new(), false)
+    };
+
+    EnvSnapshot {
+        label,
+        spec_section,
+        canonical,
+        host: EnvHost {
+            cpu_brand: cpuinfo_field("model name"),
+            cpu_arch: shell_string("uname", &["-m"]),
+            os_name: os_release_field("PRETTY_NAME"),
+            os_version: shell_string("uname", &["-r"]),
+            hostname: shell_string("hostname", &[]),
+            memory_bytes: meminfo_total_bytes(),
+        },
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn cpuinfo_field(name: &str) -> String {
+    let body = std::fs::read_to_string("/proc/cpuinfo").unwrap_or_default();
+    for line in body.lines() {
+        let mut parts = line.splitn(2, ':');
+        let key = parts.next().unwrap_or("").trim();
+        let val = parts.next().unwrap_or("").trim();
+        if key == name {
+            return val.to_string();
+        }
+    }
+    "unknown".into()
+}
+
+#[cfg(target_os = "linux")]
+fn meminfo_total_bytes() -> i64 {
+    let body = std::fs::read_to_string("/proc/meminfo").unwrap_or_default();
+    for line in body.lines() {
+        if let Some(rest) = line.strip_prefix("MemTotal:") {
+            let kb_str = rest.trim().split_whitespace().next().unwrap_or("0");
+            let kb: i64 = kb_str.parse().unwrap_or(0);
+            return kb.saturating_mul(1024);
+        }
+    }
+    0
+}
+
+#[cfg(target_os = "linux")]
+fn os_release_field(name: &str) -> String {
+    let body = std::fs::read_to_string("/etc/os-release").unwrap_or_default();
+    let prefix = format!("{name}=");
+    for line in body.lines() {
+        if let Some(rest) = line.strip_prefix(&prefix) {
+            return rest.trim_matches('"').to_string();
+        }
+    }
+    "unknown".into()
+}
+
+/// Read a sysfs file, trim whitespace, return empty string on missing
+/// or unreadable. Sysfs probes treat absence as "not present" rather
+/// than "error."
+#[cfg(target_os = "linux")]
+fn read_trim(path: &str) -> String {
+    std::fs::read_to_string(path)
+        .map(|s| s.trim().to_string())
+        .unwrap_or_default()
+}
+
+/// IMDSv2 instance-type lookup. Returns empty string if IMDSv2 is
+/// unreachable. Used only on Linux with sys_vendor == "Amazon EC2".
+#[cfg(target_os = "linux")]
+fn imdsv2_instance_type() -> String {
+    let token = Command::new("curl")
+        .args([
+            "-fsS",
+            "-X",
+            "PUT",
+            "-H",
+            "X-aws-ec2-metadata-token-ttl-seconds: 60",
+            "http://169.254.169.254/latest/api/token",
+        ])
+        .output()
+        .ok()
+        .and_then(|o| {
+            if o.status.success() {
+                Some(String::from_utf8_lossy(&o.stdout).trim().to_string())
+            } else {
+                None
+            }
+        })
+        .unwrap_or_default();
+    if token.is_empty() {
+        return String::new();
+    }
+    Command::new("curl")
+        .args([
+            "-fsS",
+            "-H",
+            &format!("X-aws-ec2-metadata-token: {token}"),
+            "http://169.254.169.254/latest/meta-data/instance-type",
+        ])
+        .output()
+        .ok()
+        .and_then(|o| {
+            if o.status.success() {
+                Some(String::from_utf8_lossy(&o.stdout).trim().to_string())
+            } else {
+                None
+            }
+        })
+        .unwrap_or_default()
 }
 
 // -----------------------------------------------------------------------
@@ -714,6 +880,7 @@ fn hex_encode_slice(bytes: &[u8]) -> String {
 }
 
 
+#[cfg(target_os = "macos")]
 fn sysctl_string(name: &str) -> String {
     shell_string("sysctl", &["-n", name])
 }
