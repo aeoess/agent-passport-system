@@ -1,0 +1,96 @@
+{
+  "benchmark": "L0",
+  "description": "rust_core_allow_hot_cache_no_event",
+  "environment": {
+    "label": "mac-apple-silicon",
+    "spec_section": "13.3",
+    "canonical": false,
+    "host": {
+      "cpu_brand": "Apple M3",
+      "cpu_arch": "arm64",
+      "os_name": "macOS",
+      "os_version": "26.3",
+      "hostname": "Tima-MacBook-Air.local",
+      "memory_bytes": 17179869184
+    }
+  },
+  "concurrency_level": 4,
+  "per_thread_samples": 250000,
+  "total_samples": 1000000,
+  "total_wall_time_ns": 83921268,
+  "throughput_ops_per_sec": 11915930.536225932,
+  "merged_samples": {
+    "n": 1000000,
+    "mean_ns": 325,
+    "stddev_ns": 2215,
+    "min_ns": 208,
+    "max_ns": 2201750,
+    "p50_ns": 333,
+    "p95_ns": 334,
+    "p99_ns": 375,
+    "p99_9_ns": 709
+  },
+  "per_thread_samples_stats": [
+    {
+      "n": 250000,
+      "mean_ns": 324,
+      "stddev_ns": 317,
+      "min_ns": 250,
+      "max_ns": 99375,
+      "p50_ns": 333,
+      "p95_ns": 334,
+      "p99_ns": 375,
+      "p99_9_ns": 709
+    },
+    {
+      "n": 250000,
+      "mean_ns": 335,
+      "stddev_ns": 4411,
+      "min_ns": 208,
+      "max_ns": 2201750,
+      "p50_ns": 333,
+      "p95_ns": 334,
+      "p99_ns": 667,
+      "p99_9_ns": 750
+    },
+    {
+      "n": 250000,
+      "mean_ns": 322,
+      "stddev_ns": 234,
+      "min_ns": 209,
+      "max_ns": 96458,
+      "p50_ns": 333,
+      "p95_ns": 334,
+      "p99_ns": 375,
+      "p99_9_ns": 708
+    },
+    {
+      "n": 250000,
+      "mean_ns": 320,
+      "stddev_ns": 118,
+      "min_ns": 208,
+      "max_ns": 22541,
+      "p50_ns": 333,
+      "p95_ns": 334,
+      "p99_ns": 334,
+      "p99_9_ns": 708
+    }
+  ],
+  "methodology": {
+    "warmup_iterations": 2048,
+    "measure_iterations": 250000,
+    "single_threaded": false,
+    "timer": "std::time::Instant",
+    "percentile_method": "raw sample at index ceil(p * (n-1)), no interpolation",
+    "includes_durability": false,
+    "sink": "NullSink (no-op trait dispatch only)",
+    "deny_kind": null,
+    "spec_step": "§9 all 13 steps + §9 step 13 emit via NullSink (true Allow per call)",
+    "notes": "Concurrent L0: N independent sessions per spec §5.2 — each thread owns its CompiledAuthority and a 1024-entry pool of pre-finalized actions with incrementing sequence_ids. Authority.sequence_next is reset to ALLOW_SEQ_START when the pool wraps (untimed atomic store). Every per-call sample is a true Allow; deviates from the single-threaded L0 methodology (which used one action repeatedly and got SEQUENCE_REPLAY for iters 1..N)."
+  },
+  "run": {
+    "git_commit": "913cb1214bebe0bf3608a9a74b2b722c5e75bb6e",
+    "git_branch": "stream-C",
+    "timestamp_unix_ns": 1779287606614221000
+  }
+}

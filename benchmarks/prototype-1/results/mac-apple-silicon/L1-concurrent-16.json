@@ -1,0 +1,228 @@
+{
+  "benchmark": "L1",
+  "description": "rust_core_deny_hot_cache_action_hash_invalid",
+  "environment": {
+    "label": "mac-apple-silicon",
+    "spec_section": "13.3",
+    "canonical": false,
+    "host": {
+      "cpu_brand": "Apple M3",
+      "cpu_arch": "arm64",
+      "os_name": "macOS",
+      "os_version": "26.3",
+      "hostname": "Tima-MacBook-Air.local",
+      "memory_bytes": 17179869184
+    }
+  },
+  "concurrency_level": 16,
+  "per_thread_samples": 100000,
+  "total_samples": 1600000,
+  "total_wall_time_ns": 89183659,
+  "throughput_ops_per_sec": 17940506.343208008,
+  "merged_samples": {
+    "n": 1600000,
+    "mean_ns": 770,
+    "stddev_ns": 62522,
+    "min_ns": 250,
+    "max_ns": 21838666,
+    "p50_ns": 333,
+    "p95_ns": 667,
+    "p99_ns": 667,
+    "p99_9_ns": 709
+  },
+  "per_thread_samples_stats": [
+    {
+      "n": 100000,
+      "mean_ns": 864,
+      "stddev_ns": 64712,
+      "min_ns": 250,
+      "max_ns": 14240291,
+      "p50_ns": 333,
+      "p95_ns": 667,
+      "p99_ns": 667,
+      "p99_9_ns": 750
+    },
+    {
+      "n": 100000,
+      "mean_ns": 773,
+      "stddev_ns": 60006,
+      "min_ns": 250,
+      "max_ns": 14134500,
+      "p50_ns": 333,
+      "p95_ns": 667,
+      "p99_ns": 667,
+      "p99_9_ns": 708
+    },
+    {
+      "n": 100000,
+      "mean_ns": 876,
+      "stddev_ns": 48969,
+      "min_ns": 250,
+      "max_ns": 11152875,
+      "p50_ns": 625,
+      "p95_ns": 667,
+      "p99_ns": 667,
+      "p99_9_ns": 4250
+    },
+    {
+      "n": 100000,
+      "mean_ns": 813,
+      "stddev_ns": 66607,
+      "min_ns": 250,
+      "max_ns": 18699666,
+      "p50_ns": 333,
+      "p95_ns": 667,
+      "p99_ns": 667,
+      "p99_9_ns": 750
+    },
+    {
+      "n": 100000,
+      "mean_ns": 626,
+      "stddev_ns": 46855,
+      "min_ns": 250,
+      "max_ns": 12899875,
+      "p50_ns": 292,
+      "p95_ns": 667,
+      "p99_ns": 667,
+      "p99_9_ns": 667
+    },
+    {
+      "n": 100000,
+      "mean_ns": 789,
+      "stddev_ns": 60452,
+      "min_ns": 250,
+      "max_ns": 16339708,
+      "p50_ns": 333,
+      "p95_ns": 667,
+      "p99_ns": 667,
+      "p99_9_ns": 709
+    },
+    {
+      "n": 100000,
+      "mean_ns": 776,
+      "stddev_ns": 77057,
+      "min_ns": 250,
+      "max_ns": 21008666,
+      "p50_ns": 292,
+      "p95_ns": 625,
+      "p99_ns": 667,
+      "p99_9_ns": 667
+    },
+    {
+      "n": 100000,
+      "mean_ns": 785,
+      "stddev_ns": 73586,
+      "min_ns": 250,
+      "max_ns": 19593292,
+      "p50_ns": 292,
+      "p95_ns": 667,
+      "p99_ns": 667,
+      "p99_9_ns": 708
+    },
+    {
+      "n": 100000,
+      "mean_ns": 807,
+      "stddev_ns": 80853,
+      "min_ns": 250,
+      "max_ns": 21828000,
+      "p50_ns": 292,
+      "p95_ns": 666,
+      "p99_ns": 667,
+      "p99_9_ns": 667
+    },
+    {
+      "n": 100000,
+      "mean_ns": 499,
+      "stddev_ns": 14406,
+      "min_ns": 250,
+      "max_ns": 2835083,
+      "p50_ns": 333,
+      "p95_ns": 667,
+      "p99_ns": 667,
+      "p99_9_ns": 709
+    },
+    {
+      "n": 100000,
+      "mean_ns": 891,
+      "stddev_ns": 78321,
+      "min_ns": 250,
+      "max_ns": 21644375,
+      "p50_ns": 333,
+      "p95_ns": 667,
+      "p99_ns": 667,
+      "p99_9_ns": 750
+    },
+    {
+      "n": 100000,
+      "mean_ns": 595,
+      "stddev_ns": 34095,
+      "min_ns": 250,
+      "max_ns": 7726417,
+      "p50_ns": 333,
+      "p95_ns": 667,
+      "p99_ns": 667,
+      "p99_9_ns": 708
+    },
+    {
+      "n": 100000,
+      "mean_ns": 765,
+      "stddev_ns": 71838,
+      "min_ns": 250,
+      "max_ns": 21838666,
+      "p50_ns": 333,
+      "p95_ns": 667,
+      "p99_ns": 667,
+      "p99_9_ns": 708
+    },
+    {
+      "n": 100000,
+      "mean_ns": 850,
+      "stddev_ns": 61895,
+      "min_ns": 250,
+      "max_ns": 16578709,
+      "p50_ns": 333,
+      "p95_ns": 667,
+      "p99_ns": 667,
+      "p99_9_ns": 709
+    },
+    {
+      "n": 100000,
+      "mean_ns": 774,
+      "stddev_ns": 62629,
+      "min_ns": 250,
+      "max_ns": 18593083,
+      "p50_ns": 333,
+      "p95_ns": 667,
+      "p99_ns": 667,
+      "p99_9_ns": 791
+    },
+    {
+      "n": 100000,
+      "mean_ns": 830,
+      "stddev_ns": 61342,
+      "min_ns": 250,
+      "max_ns": 16457167,
+      "p50_ns": 334,
+      "p95_ns": 667,
+      "p99_ns": 667,
+      "p99_9_ns": 709
+    }
+  ],
+  "methodology": {
+    "warmup_iterations": 2048,
+    "measure_iterations": 100000,
+    "single_threaded": false,
+    "timer": "std::time::Instant",
+    "percentile_method": "raw sample at index ceil(p * (n-1)), no interpolation",
+    "includes_durability": false,
+    "sink": "NullSink (never invoked on deny path)",
+    "deny_kind": "ACTION_HASH_INVALID (cheapest deny)",
+    "spec_step": "§9 step 0",
+    "notes": "Concurrent L1: N independent sessions, each thread runs the same tampered-action_hash deny in a tight loop. Deny short-circuits at step 0 and never touches sequence/budget, so a single action per thread is sufficient — same methodology as single-threaded L1."
+  },
+  "run": {
+    "git_commit": "913cb1214bebe0bf3608a9a74b2b722c5e75bb6e",
+    "git_branch": "stream-C",
+    "timestamp_unix_ns": 1779287608021280000
+  }
+}

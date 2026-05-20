@@ -1,0 +1,96 @@
+{
+  "benchmark": "L1",
+  "description": "rust_core_deny_hot_cache_action_hash_invalid",
+  "environment": {
+    "label": "mac-apple-silicon",
+    "spec_section": "13.3",
+    "canonical": false,
+    "host": {
+      "cpu_brand": "Apple M3",
+      "cpu_arch": "arm64",
+      "os_name": "macOS",
+      "os_version": "26.3",
+      "hostname": "Tima-MacBook-Air.local",
+      "memory_bytes": 17179869184
+    }
+  },
+  "concurrency_level": 4,
+  "per_thread_samples": 250000,
+  "total_samples": 1000000,
+  "total_wall_time_ns": 123480333,
+  "throughput_ops_per_sec": 8098455.646374067,
+  "merged_samples": {
+    "n": 1000000,
+    "mean_ns": 483,
+    "stddev_ns": 20422,
+    "min_ns": 250,
+    "max_ns": 8905958,
+    "p50_ns": 292,
+    "p95_ns": 666,
+    "p99_ns": 667,
+    "p99_9_ns": 7209
+  },
+  "per_thread_samples_stats": [
+    {
+      "n": 250000,
+      "mean_ns": 479,
+      "stddev_ns": 20360,
+      "min_ns": 250,
+      "max_ns": 7249750,
+      "p50_ns": 292,
+      "p95_ns": 666,
+      "p99_ns": 667,
+      "p99_9_ns": 2792
+    },
+    {
+      "n": 250000,
+      "mean_ns": 481,
+      "stddev_ns": 27015,
+      "min_ns": 250,
+      "max_ns": 8905958,
+      "p50_ns": 292,
+      "p95_ns": 625,
+      "p99_ns": 667,
+      "p99_9_ns": 1750
+    },
+    {
+      "n": 250000,
+      "mean_ns": 493,
+      "stddev_ns": 17986,
+      "min_ns": 250,
+      "max_ns": 6340125,
+      "p50_ns": 292,
+      "p95_ns": 666,
+      "p99_ns": 667,
+      "p99_9_ns": 9625
+    },
+    {
+      "n": 250000,
+      "mean_ns": 478,
+      "stddev_ns": 14155,
+      "min_ns": 250,
+      "max_ns": 5334000,
+      "p50_ns": 292,
+      "p95_ns": 666,
+      "p99_ns": 667,
+      "p99_9_ns": 8500
+    }
+  ],
+  "methodology": {
+    "warmup_iterations": 2048,
+    "measure_iterations": 250000,
+    "single_threaded": false,
+    "timer": "std::time::Instant",
+    "percentile_method": "raw sample at index ceil(p * (n-1)), no interpolation",
+    "includes_durability": false,
+    "sink": "NullSink (never invoked on deny path)",
+    "deny_kind": "ACTION_HASH_INVALID (cheapest deny)",
+    "spec_step": "§9 step 0",
+    "notes": "Concurrent L1: N independent sessions, each thread runs the same tampered-action_hash deny in a tight loop. Deny short-circuits at step 0 and never touches sequence/budget, so a single action per thread is sufficient — same methodology as single-threaded L1."
+  },
+  "run": {
+    "git_commit": "913cb1214bebe0bf3608a9a74b2b722c5e75bb6e",
+    "git_branch": "stream-C",
+    "timestamp_unix_ns": 1779287607782063000
+  }
+}

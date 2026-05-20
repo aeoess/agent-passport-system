@@ -113,6 +113,137 @@ pub fn run_check(authority: &CompiledAuthority, action: &ActionDescriptor, ctx: 
 }
 
 // -----------------------------------------------------------------------
+// Concurrent sweep fixtures
+// -----------------------------------------------------------------------
+
+/// Pool size for the pre-built incrementing-`sequence_id` action set.
+/// Each thread's timed loop cycles through this pool and resets the
+/// authority's `sequence_next` atomic when wrapping. 1024 = power of
+/// 2 so the wrap test is `i & (POOL_SIZE - 1)`.
+pub const ALLOW_POOL_SIZE: usize = 1024;
+pub const ALLOW_SEQ_START: u64 = 1000;
+
+/// Per-thread fixture for L0 with true-Allow semantics. The action
+/// pool is pre-finalized so the timed loop never recomputes
+/// `action_hash`; only the verifier-side hash check runs per call.
+pub struct AllowThreadFixture {
+    pub authority: CompiledAuthority,
+    pub actions: Vec<ActionDescriptor>,
+    pub clock: ManualClock,
+    pub instance_id_hash: [u8; 32],
+    pub revocation_epoch: u32,
+    pub sink: NullSink,
+}
+
+impl AllowThreadFixture {
+    pub fn build() -> Result<Self, BuildError> {
+        let tool_hash = hash_from_hex(TOOL_HEX);
+        let registry = ToolRegistry::from_entries(vec![ToolEntry {
+            descriptor_hash: tool_hash,
+            local_id: 0,
+        }])
+        .map_err(|e| BuildError(format!("registry: {e}")))?;
+        let root_hex = hex_encode(&registry.current_root());
+
+        let json = build_passport_json(&root_hex, &hex_encode(&tool_hash));
+        let passport = RuntimePassport::from_json(&json).map_err(BuildError::from_passport)?;
+        let authority = CompiledAuthority::from_passport(&passport, registry)
+            .map_err(|e| BuildError(format!("compile: {e}")))?;
+
+        let mut template = blank_action();
+        template.passport_id_hash = blake3_32_str("rp_01HX0EXAMPLE000000000000000");
+        template.tool_descriptor_hash = tool_hash;
+        template.local_tool_id = 0;
+        template.operation_id = 0;
+        template.risk_class = 2;
+        template.resource_path_depth = 1;
+        template.resource_path_hashes[0] = hash_path_component("customer");
+        template.cost_units = 1;
+        template.nonce = [0x55; 16];
+
+        let mut actions = Vec::with_capacity(ALLOW_POOL_SIZE);
+        for i in 0..ALLOW_POOL_SIZE {
+            let mut a = template.clone();
+            a.sequence_id = ALLOW_SEQ_START + i as u64;
+            a.finalize();
+            actions.push(a);
+        }
+
+        Ok(AllowThreadFixture {
+            authority,
+            actions,
+            clock: ManualClock::new(default_clock_ns()),
+            instance_id_hash: blake3_32_str("vi_01HX0VI00000000000000000000"),
+            revocation_epoch: 1842,
+            sink: NullSink,
+        })
+    }
+
+    pub fn context(&self) -> VerifierContext<'_> {
+        VerifierContext::with_sink(
+            &self.clock,
+            self.instance_id_hash,
+            Tier::T2,
+            self.revocation_epoch,
+            &self.sink,
+        )
+    }
+}
+
+/// Per-thread fixture for L1 (deny via `ACTION_HASH_INVALID`). One
+/// tampered action repeated; the deny path doesn't advance sequence
+/// or budget, so no pool / reset trick needed.
+pub struct DenyThreadFixture {
+    pub authority: CompiledAuthority,
+    pub action: ActionDescriptor,
+    pub clock: ManualClock,
+    pub instance_id_hash: [u8; 32],
+    pub revocation_epoch: u32,
+    pub sink: NullSink,
+}
+
+impl DenyThreadFixture {
+    pub fn build() -> Result<Self, BuildError> {
+        let base = Fixture::build()?;
+        Ok(DenyThreadFixture {
+            authority: base.authority,
+            action: base.action_deny_action_hash_invalid,
+            clock: base.clock,
+            instance_id_hash: base.instance_id_hash,
+            revocation_epoch: base.revocation_epoch,
+            sink: base.sink,
+        })
+    }
+
+    pub fn context(&self) -> VerifierContext<'_> {
+        VerifierContext::with_sink(
+            &self.clock,
+            self.instance_id_hash,
+            Tier::T2,
+            self.revocation_epoch,
+            &self.sink,
+        )
+    }
+}
+
+pub fn concurrency_levels() -> &'static [usize] {
+    &[1, 2, 4, 8, 16]
+}
+
+/// Per-thread sample count scaled to keep total samples ~1-2M
+/// regardless of concurrency level.
+pub fn per_thread_samples(level: usize) -> usize {
+    match level {
+        1 => 1_000_000,
+        2 => 500_000,
+        4 => 250_000,
+        8 => 125_000,
+        16 => 100_000,
+        _ => 100_000,
+    }
+}
+
+// -----------------------------------------------------------------------
 // Helpers (kept here so main.rs stays focused on dispatch + timing).
 // -----------------------------------------------------------------------
 
