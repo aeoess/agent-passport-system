@@ -104,11 +104,14 @@ install_prereqs() {
             build-essential pkg-config libssl-dev sqlite3 libsqlite3-dev \
             git curl ca-certificates jq
     elif command -v dnf >/dev/null 2>&1; then
-        sudo dnf install -y gcc gcc-c++ make pkgconf-pkg-config openssl-devel \
-            sqlite sqlite-devel git curl jq tar gzip
+        # curl is omitted: AL2023 ships curl-minimal preinstalled and the
+        # full curl package conflicts with it. curl-minimal is sufficient
+        # for the IMDSv2 + healthz probes we do.
+        sudo dnf install -y --allowerasing gcc gcc-c++ make pkgconf-pkg-config \
+            openssl-devel sqlite sqlite-devel git jq tar gzip
     elif command -v yum >/dev/null 2>&1; then
         sudo yum install -y gcc gcc-c++ make pkgconfig openssl-devel \
-            sqlite sqlite-devel git curl jq tar gzip
+            sqlite sqlite-devel git jq tar gzip
     else
         die "no supported package manager found (apt-get, dnf, yum)"
     fi
