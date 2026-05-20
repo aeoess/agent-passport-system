@@ -267,6 +267,63 @@ pub fn test_commit_config() -> GroupCommitConfig {
     }
 }
 
+// -----------------------------------------------------------------------
+// Recovery test helpers
+// -----------------------------------------------------------------------
+
+use std::io::{Read, Seek, SeekFrom, Write};
+use std::path::PathBuf;
+
+use aps_verifier_core::{DecisionType, LogWriter, ReasonCode};
+
+/// Write a log file with `n_entries` valid decisions using the
+/// canonical [`LogWriter`]. Sequence IDs start at `start_seq_id` and
+/// increment. Returns the tempdir (drop it to clean up) and the path.
+pub fn write_test_log(
+    n_entries: u64,
+    start_seq_id: u64,
+    mac_key: &[u8; 32],
+) -> (tempfile::TempDir, PathBuf) {
+    let dir = tempfile::TempDir::new().expect("tempdir");
+    let path = dir.path().join("receipts.log");
+    let mut w = LogWriter::open(&path, *mac_key).expect("LogWriter::open");
+    for i in 0..n_entries {
+        let d = Decision {
+            decision_type: DecisionType::Allow,
+            reason_code: ReasonCode::Ok,
+            reserved: [0; 6],
+            sequence_id: start_seq_id + i,
+            decision_id: [0; 16],
+            event_mac: [0; 32],
+        };
+        w.append(&d).expect("LogWriter::append");
+    }
+    w.flush().expect("LogWriter::flush");
+    drop(w);
+    (dir, path)
+}
+
+/// XOR a single byte at `offset` to corrupt it. Returns the original
+/// byte value.
+pub fn corrupt_log_byte(path: &std::path::Path, offset: u64) -> std::io::Result<u8> {
+    let mut f = std::fs::OpenOptions::new().read(true).write(true).open(path)?;
+    f.seek(SeekFrom::Start(offset))?;
+    let mut byte = [0u8; 1];
+    f.read_exact(&mut byte)?;
+    let original = byte[0];
+    byte[0] ^= 0xFF;
+    f.seek(SeekFrom::Start(offset))?;
+    f.write_all(&byte)?;
+    Ok(original)
+}
+
+/// Truncate file to `new_len` bytes.
+pub fn truncate_log(path: &std::path::Path, new_len: u64) -> std::io::Result<()> {
+    let f = std::fs::OpenOptions::new().write(true).open(path)?;
+    f.set_len(new_len)?;
+    Ok(())
+}
+
 /// Parse a 64-char lowercase hex string into a 32-byte hash. Panics on
 /// wrong length or non-hex characters (test-only convenience).
 pub fn hash_from_hex(hex: &str) -> [u8; 32] {

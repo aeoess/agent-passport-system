@@ -38,6 +38,9 @@ pub use durability::{
     NullSink, ReceiptError, ReceiptSink,
 };
 pub use receipt_log::{LogError, LogWriter, LOG_ENTRY_BYTES, LOG_ENTRY_PAYLOAD};
+pub use recovery::{
+    recover_log, RecoveryError, RecoveryReport, RecoveryStatus, TruncationReason,
+};
 pub use clock::{
     time_anchor_freshness, ClockAnchor, ClockAnchorPoller, ClockError, FreshnessVerdict,
     MockClockAnchorPoller, R3_MAX_ANCHOR_AGE_NS,

@@ -43,6 +43,7 @@
 //!
 //! Expansion beyond these seven operations is deferred to Phase 2.
 
+use std::path::Path;
 use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 
 use thiserror::Error;
@@ -51,6 +52,7 @@ use crate::approval::{
     operation_id_from_name, ApprovalCompileError, CompiledApprovalRule,
 };
 use crate::passport::{DurabilityMode, PassportError, RiskClass, RuntimePassport};
+use crate::recovery::{recover_log, RecoveryError, RecoveryReport, RecoveryStatus};
 use crate::registry::ToolRegistry;
 use crate::resource_trie::TrieNode;
 
@@ -155,6 +157,13 @@ pub struct CompiledAuthority {
 
     // Receipt stream (chunk 5 populates the real key).
     pub receipt_stream_key: [u8; 32],
+
+    /// Spec §11.4 recovery floor. `0` is the no-recovery / fresh-start
+    /// sentinel — gateway-allocated sequence windows start above 0 (see
+    /// spec §4 example: `sequence_start: 1000`), so a recovered
+    /// `last_committed_sequence_id` of 0 is unreachable in practice.
+    /// The aps_check step 10 only consults this field when it is > 0.
+    pub recovered_floor: AtomicU64,
 }
 
 // -----------------------------------------------------------------------
@@ -178,6 +187,14 @@ pub enum CompileError {
     },
     #[error("invalid field value in passport: {0}")]
     InvalidFieldValue(String),
+    #[error("recovery failed: {0}")]
+    RecoveryFailed(#[from] RecoveryError),
+    #[error("log/passport mismatch: recovered_floor={recovered_floor} outside sequence window [{sequence_start}, {sequence_end})")]
+    LogPassportMismatch {
+        recovered_floor: u64,
+        sequence_start: u64,
+        sequence_end: u64,
+    },
 }
 
 fn hex32(bytes: &[u8; 32]) -> String {
@@ -313,7 +330,56 @@ impl CompiledAuthority {
             approval_rules,
             durability_mode: default_durability_for(passport.risk_class),
             receipt_stream_key: [0u8; 32],
+            recovered_floor: AtomicU64::new(0),
         })
+    }
+
+    /// Compile a passport with crash recovery against the durable log
+    /// at `log_path`. Spec §11.4. On clean recovery, `sequence_next`
+    /// resumes at `last_committed_sequence_id + 1`; on fresh start,
+    /// behaves identically to [`Self::from_passport`].
+    ///
+    /// `log_path` is the receipt log for THIS passport's session. The
+    /// mapping from passport to log path is a caller responsibility.
+    /// `mac_key` MUST be the same `receipt_stream_key` used when the
+    /// log was originally written.
+    pub fn from_passport_with_recovery(
+        passport: &RuntimePassport,
+        registry: &ToolRegistry,
+        log_path: &Path,
+        mac_key: [u8; 32],
+    ) -> Result<(Self, RecoveryReport), CompileError> {
+        let report = recover_log(log_path, mac_key)?;
+
+        // Validate recovered floor against the passport's window.
+        let validated_floor = match &report.status {
+            RecoveryStatus::FreshStart => None,
+            RecoveryStatus::CleanRecovery | RecoveryStatus::PartialRecovery { .. } => {
+                let floor = report.last_committed_sequence_id;
+                if floor != 0 && floor < passport.sequence_start {
+                    return Err(CompileError::LogPassportMismatch {
+                        recovered_floor: floor,
+                        sequence_start: passport.sequence_start,
+                        sequence_end: passport.sequence_end,
+                    });
+                }
+                if floor >= passport.sequence_end {
+                    return Err(CompileError::LogPassportMismatch {
+                        recovered_floor: floor,
+                        sequence_start: passport.sequence_start,
+                        sequence_end: passport.sequence_end,
+                    });
+                }
+                Some(floor)
+            }
+        };
+
+        let auth = Self::from_passport(passport, registry.clone())?;
+        if let Some(floor) = validated_floor {
+            auth.recovered_floor.store(floor, Ordering::Release);
+            auth.sequence_next.store(floor + 1, Ordering::Release);
+        }
+        Ok((auth, report))
     }
 }
 

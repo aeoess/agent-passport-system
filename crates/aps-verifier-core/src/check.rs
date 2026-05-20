@@ -334,6 +334,24 @@ pub fn aps_check(
         );
     }
 
+    // Step 10a: recovery floor (spec §11.4). `recovered_floor` is 0
+    // on fresh-start authorities so this gate is a no-op for sessions
+    // that never crashed. After recovery, any `sequence_id <= floor`
+    // means the action was already committed pre-crash; deny with
+    // `SEQUENCE_RECOVERY_INVALID` rather than the general
+    // `SEQUENCE_REPLAY` so the gateway can distinguish in audit.
+    let floor = authority.recovered_floor.load(Ordering::Relaxed);
+    if floor > 0 && action.sequence_id <= floor {
+        return finalize(
+            ctx,
+            authority,
+            action.sequence_id,
+            DecisionType::Deny,
+            ReasonCode::SequenceRecoveryInvalid,
+            action,
+        );
+    }
+
     // Step 10: sequence (atomic CAS).
     let expected = authority.sequence_next.load(Ordering::Acquire);
     if action.sequence_id != expected || action.sequence_id >= authority.sequence_end {
