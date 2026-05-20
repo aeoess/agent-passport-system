@@ -13,8 +13,6 @@
 //! - [`durability`]   Section 11.3: Mode A / B1 / B2 event durability.
 //! - [`recovery`]     Section 11.4: crash recovery floor.
 //! - [`resource_trie`] Section 8: resource-scope matcher.
-//!
-//! This crate is skeleton-only at v0.0.1; bodies land in follow-up commits.
 
 pub mod passport;
 pub mod action;
@@ -26,3 +24,10 @@ pub mod clock;
 pub mod durability;
 pub mod recovery;
 pub mod resource_trie;
+
+pub use action::{ActionDescriptor, ActionError, ACTION_DESCRIPTOR_SIZE};
+pub use decision::{Decision, DecisionError, DecisionType, ReasonCode, DECISION_SIZE};
+pub use passport::{
+    ApprovalAction, ApprovalRule, AuthorityBlob, BudgetLease, DurabilityMode, PassportError,
+    RiskClass, RuntimePassport, Tier,
+};
