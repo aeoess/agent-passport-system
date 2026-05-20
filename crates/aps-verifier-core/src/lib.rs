@@ -23,6 +23,7 @@ pub mod check;
 pub mod registry;
 pub mod clock;
 pub mod durability;
+pub mod receipt_log;
 pub mod recovery;
 pub mod resource_trie;
 
@@ -32,6 +33,10 @@ pub use approval::{
     CompiledApprovalRule, CompiledPredicate, PredicateField, SetOp,
 };
 pub use check::{aps_check, Clock, ManualClock, SystemClock, VerifierContext};
+pub use durability::{
+    EmitOutcome, ModeAReceiptSink, NullSink, ReceiptError, ReceiptSink,
+};
+pub use receipt_log::{LogError, LogWriter, LOG_ENTRY_BYTES, LOG_ENTRY_PAYLOAD};
 pub use clock::{
     time_anchor_freshness, ClockAnchor, ClockAnchorPoller, ClockError, FreshnessVerdict,
     MockClockAnchorPoller, R3_MAX_ANCHOR_AGE_NS,

@@ -23,9 +23,11 @@
 //! Production code is not imported beyond the public crate surface;
 //! these helpers exercise only `aps_verifier_core::*`.
 
+use std::sync::Mutex;
+
 use aps_verifier_core::{
-    canonical_signed_bytes, hash_path_component, ActionDescriptor, ApprovalAction, ManualClock,
-    Tier, VerifierContext,
+    canonical_signed_bytes, hash_path_component, ActionDescriptor, ApprovalAction, Decision,
+    EmitOutcome, ManualClock, ReceiptError, ReceiptSink, Tier, VerifierContext,
 };
 
 use ed25519_dalek::{Signer, SigningKey, VerifyingKey};
@@ -222,6 +224,36 @@ impl ActionBuilder {
     pub fn build(mut self) -> ActionDescriptor {
         self.descriptor.finalize();
         self.descriptor
+    }
+}
+
+// -----------------------------------------------------------------------
+// Receipt sinks for tests
+// -----------------------------------------------------------------------
+
+/// In-memory `ReceiptSink` that records every decision passed to
+/// `emit`. Tests assert on the recorded history.
+#[derive(Default)]
+pub struct RecordingSink {
+    decisions: Mutex<Vec<Decision>>,
+}
+
+impl RecordingSink {
+    pub fn new() -> Self {
+        Self::default()
+    }
+    pub fn recorded(&self) -> Vec<Decision> {
+        self.decisions.lock().unwrap().clone()
+    }
+    pub fn count(&self) -> usize {
+        self.decisions.lock().unwrap().len()
+    }
+}
+
+impl ReceiptSink for RecordingSink {
+    fn emit(&self, decision: &Decision) -> Result<EmitOutcome, ReceiptError> {
+        self.decisions.lock().unwrap().push(decision.clone());
+        Ok(EmitOutcome::default())
     }
 }
 

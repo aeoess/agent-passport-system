@@ -31,6 +31,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use crate::action::ActionDescriptor;
 use crate::compiled::CompiledAuthority;
 use crate::decision::{Decision, DecisionType, ReasonCode};
+use crate::durability::{NullSink, ReceiptSink};
 use crate::passport::{ApprovalAction, Tier};
 
 const R3_MAX_ANCHOR_AGE_NS: u64 = 30 * 1_000_000_000;
@@ -84,12 +85,17 @@ impl Clock for ManualClock {
 /// Verifier-side state held across all `aps_check` calls. Spec §9 names
 /// the external helpers (`local_instance_hash`, `current_time_ns`,
 /// `local_revocation_epoch`, `local_attested_tier`); they are bundled
-/// here.
+/// here, alongside the chunk-8 [`ReceiptSink`] for the §9 step-13 emit.
 pub struct VerifierContext<'a> {
     pub clock: &'a dyn Clock,
     pub verifier_instance_id_hash: [u8; 32],
     pub attested_tier: Tier,
     pub revocation_epoch: u32,
+    /// Sink that receives Allow decisions per spec §9 step 13. Defaults
+    /// to [`NullSink`] when constructed via `VerifierContext::new`;
+    /// production use plugs in a [`crate::durability::ModeAReceiptSink`]
+    /// or chunk-9 Mode B variant.
+    pub receipt_sink: &'a dyn ReceiptSink,
     /// Monotonic decision-id counter. Encoded as the lower 8 bytes of
     /// each generated `decision_id`; the upper 8 bytes are zero in
     /// Prototype 1. Real-world deployments may swap for a UUID generator
@@ -97,7 +103,13 @@ pub struct VerifierContext<'a> {
     pub decision_id_counter: AtomicU64,
 }
 
+/// Singleton `NullSink` used by [`VerifierContext::new`] when no sink is
+/// supplied. `'static` lifetime since it's a unit struct with no state.
+static NULL_SINK: NullSink = NullSink;
+
 impl<'a> VerifierContext<'a> {
+    /// Construct with a [`NullSink`] receipt sink. Use
+    /// [`VerifierContext::with_sink`] to wire a real durability mode.
     pub fn new(
         clock: &'a dyn Clock,
         verifier_instance_id_hash: [u8; 32],
@@ -109,6 +121,25 @@ impl<'a> VerifierContext<'a> {
             verifier_instance_id_hash,
             attested_tier,
             revocation_epoch,
+            receipt_sink: &NULL_SINK,
+            decision_id_counter: AtomicU64::new(0),
+        }
+    }
+
+    /// Construct with an explicit receipt sink (Mode A / B1 / B2).
+    pub fn with_sink(
+        clock: &'a dyn Clock,
+        verifier_instance_id_hash: [u8; 32],
+        attested_tier: Tier,
+        revocation_epoch: u32,
+        receipt_sink: &'a dyn ReceiptSink,
+    ) -> Self {
+        VerifierContext {
+            clock,
+            verifier_instance_id_hash,
+            attested_tier,
+            revocation_epoch,
+            receipt_sink,
             decision_id_counter: AtomicU64::new(0),
         }
     }
@@ -375,16 +406,26 @@ pub fn aps_check(
         }
     }
 
-    // Step 13: emit decision event. Durability dispatch (Mode A / B1 /
-    // B2) is chunks 8-9; chunk 7 stops at producing the signed Decision.
-    finalize(
+    // Step 13: emit decision event per spec §9 LITERAL — Allow path
+    // only. Deny and Escalate paths return at their respective steps
+    // above and do NOT call emit. Spec §11.3 frames durability as
+    // "independent of the decision itself", which arguably contradicts
+    // §9's Allow-only emit; following the §9 literal here. If buffer
+    // is full, that means the flush thread is starved (configuration
+    // bug), so `expect` panics loudly — there is no internal-error
+    // reason code in spec §7 to encode this otherwise.
+    let decision = finalize(
         ctx,
         authority,
         action.sequence_id,
         DecisionType::Allow,
         ReasonCode::Ok,
         action,
-    )
+    );
+    ctx.receipt_sink
+        .emit(&decision)
+        .expect("receipt sink emit failed (buffer full or shutdown)");
+    decision
 }
 
 // -----------------------------------------------------------------------
