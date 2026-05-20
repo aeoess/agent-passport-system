@@ -1,10 +1,13 @@
 //! Chunk-4 tests for the approval-rule predicate compiler.
 
+mod common;
+
 use aps_verifier_core::{
-    ActionDescriptor, ApprovalAction, ApprovalCompileError, CompareOp, CompileError,
-    CompiledApprovalRule, CompiledAuthority, CompiledPredicate, PredicateField, RuntimePassport,
-    SetOp, ToolRegistry,
+    ApprovalAction, ApprovalCompileError, CompareOp, CompileError, CompiledApprovalRule,
+    CompiledAuthority, CompiledPredicate, PredicateField, RuntimePassport, SetOp, ToolRegistry,
 };
+
+use common::{empty_action_descriptor as empty_action, hash_from_hex, PassportBuilder};
 
 // -----------------------------------------------------------------------
 // Helpers
@@ -16,37 +19,6 @@ fn compile(predicate: &str) -> Result<CompiledApprovalRule, ApprovalCompileError
 
 fn must_compile(predicate: &str) -> CompiledApprovalRule {
     compile(predicate).unwrap_or_else(|e| panic!("compile failed for {predicate:?}: {e}"))
-}
-
-/// Minimal valid ActionDescriptor with all-zero fields except `version`,
-/// to be mutated per test.
-fn empty_action() -> ActionDescriptor {
-    ActionDescriptor {
-        version: 1,
-        reserved: [0; 3],
-        passport_id_hash: [0; 32],
-        tool_descriptor_hash: [0; 32],
-        local_tool_id: 0,
-        operation_id: 0,
-        resource_type: 0,
-        risk_class: 0,
-        resource_path_depth: 0,
-        reserved2: [0; 2],
-        cost_units: 0,
-        sequence_id: 0,
-        nonce: [0; 16],
-        resource_path_hashes: [0; 8],
-        action_hash: [0; 32],
-    }
-}
-
-fn hash_from_hex(hex: &str) -> [u8; 32] {
-    assert_eq!(hex.len(), 64);
-    let mut out = [0u8; 32];
-    for (i, byte) in out.iter_mut().enumerate() {
-        *byte = u8::from_str_radix(&hex[i * 2..i * 2 + 2], 16).unwrap();
-    }
-    out
 }
 
 const TOOL_HEX_0: &str = "abcd000000000000000000000000000000000000000000000000000000000000";
@@ -296,75 +268,33 @@ fn matches_conjunction_one_false() {
 // Integration through CompiledAuthority::from_passport
 // -----------------------------------------------------------------------
 
-fn hex_encode(bytes: &[u8; 32]) -> String {
-    use std::fmt::Write;
-    let mut s = String::with_capacity(64);
-    for b in bytes {
-        let _ = write!(s, "{b:02x}");
-    }
-    s
-}
-
-fn passport_with_rules(rules_json: &str, root_hex: &str) -> RuntimePassport {
-    let json = format!(
-        r#"{{
-  "type": "aps.runtime_passport",
-  "version": "0.1",
-  "passport_id": "rp_01HX0EXAMPLE000000000000000",
-  "agent_id": "ag_01HX0AGENT000000000000000000",
-  "principal_id": "pr_01HX0PRINCIPAL00000000000000",
-  "beneficiary_id": "bn_01HX0BEN00000000000000000000",
-  "issuer": "https://gateway.example.test",
-  "issued_at": "2026-05-19T22:38:56.000Z",
-  "expires_at": "2026-05-19T22:39:56.000Z",
-  "max_clock_skew_ms": 1000,
-  "policy_epoch": 42,
-  "revocation_epoch": 1842,
-  "tool_registry_root": "blake3:{root_hex}",
-  "delegation_chain_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
-  "effective_authority_hash": "blake3:0000000000000000000000000000000000000000000000000000000000000000",
-  "risk_class": "R2",
-  "minimum_tier_required": "T2",
-  "tier_attested": "T2",
-  "verifier_instance_id": "vi_01HX0VI00000000000000000000",
-  "verifier_build_hash": "blake3:1111111111111111111111111111111111111111111111111111111111111111",
-  "session_id": "sn_01HX0SESS00000000000000000000",
-  "sequence_start": 1000,
-  "sequence_end": 2000,
-  "budget_lease": {{
-    "lease_id": "bl_01HX0LEASE0000000000000000000",
-    "max_actions": 1000,
-    "max_cost_units": 50000,
-    "sublease_parent": null
-  }},
-  "authority_blob_encoding": "application/aps-authority+json",
-  "authority_blob": {{
-    "allowed_tools": ["blake3:{TOOL_HEX_0}"],
-    "allowed_operations": ["read", "external_send"],
-    "resource_scopes": ["customer/*"],
-    "approval_rules": {rules_json}
-  }},
-  "receipt_stream_id": "rs_01HX0RS00000000000000000000",
-  "signature": "ed25519:{sig}"
-}}"#,
-        sig = "0".repeat(128)
-    );
-    RuntimePassport::from_json(&json).expect("parse passport")
-}
-
-fn registry_with_tool0() -> (ToolRegistry, String) {
+fn registry_with_tool0() -> (ToolRegistry, [u8; 32]) {
     let mut reg = ToolRegistry::new();
     reg.add(hash_from_hex(TOOL_HEX_0), 0).unwrap();
-    let root_hex = hex_encode(&reg.current_root());
-    (reg, root_hex)
+    let root = reg.current_root();
+    (reg, root)
+}
+
+fn passport_for_approval_test(
+    rules: Vec<(String, ApprovalAction)>,
+    root: [u8; 32],
+) -> RuntimePassport {
+    let json = PassportBuilder::new()
+        .with_root(root)
+        .with_allowed_tools(vec![hash_from_hex(TOOL_HEX_0)])
+        .with_allowed_operations(vec!["read", "external_send"])
+        .with_resource_scopes(vec!["customer/*"])
+        .with_approval_rules(rules)
+        .build_json();
+    RuntimePassport::from_json(&json).expect("parse passport")
 }
 
 #[test]
 fn compiled_authority_with_approval_rules() {
-    let (reg, root_hex) = registry_with_tool0();
-    let passport = passport_with_rules(
-        r#"[{"predicate": "operation == external_send", "on_match": "escalate"}]"#,
-        &root_hex,
+    let (reg, root) = registry_with_tool0();
+    let passport = passport_for_approval_test(
+        vec![("operation == external_send".into(), ApprovalAction::Escalate)],
+        root,
     );
     let auth = CompiledAuthority::from_passport(&passport, reg).unwrap();
     assert_eq!(auth.approval_rules.len(), 1);
@@ -376,10 +306,10 @@ fn compiled_authority_with_approval_rules() {
 
 #[test]
 fn compiled_authority_uncompilable_rule_rejects_passport() {
-    let (reg, root_hex) = registry_with_tool0();
-    let passport = passport_with_rules(
-        r#"[{"predicate": "recipient NOT IN allowlist", "on_match": "escalate"}]"#,
-        &root_hex,
+    let (reg, root) = registry_with_tool0();
+    let passport = passport_for_approval_test(
+        vec![("recipient NOT IN allowlist".into(), ApprovalAction::Escalate)],
+        root,
     );
     match CompiledAuthority::from_passport(&passport, reg) {
         Err(CompileError::ApprovalRule(ApprovalCompileError::UnknownField(s))) => {
@@ -391,8 +321,8 @@ fn compiled_authority_uncompilable_rule_rejects_passport() {
 
 #[test]
 fn compiled_authority_empty_approval_rules_ok() {
-    let (reg, root_hex) = registry_with_tool0();
-    let passport = passport_with_rules("[]", &root_hex);
+    let (reg, root) = registry_with_tool0();
+    let passport = passport_for_approval_test(vec![], root);
     let auth = CompiledAuthority::from_passport(&passport, reg).unwrap();
     assert!(auth.approval_rules.is_empty());
 }

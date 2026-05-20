@@ -1,101 +1,22 @@
 //! Chunk-2 (CompiledAuthority + BitMap + ToolRegistry) tests, updated
 //! for chunk 5's registry-root validation and Result-returning add().
 
+mod common;
+
 use std::sync::atomic::Ordering;
 
 use chrono::{DateTime, Utc};
 
 use aps_verifier_core::{
-    BitMap, CompileError, CompiledAuthority, DurabilityMode, RuntimePassport, ToolRegistry,
+    ApprovalAction, BitMap, CompileError, CompiledAuthority, DurabilityMode, RuntimePassport,
+    ToolRegistry,
 };
+
+use common::{hash_from_hex, PassportBuilder};
 
 // -----------------------------------------------------------------------
 // Test helpers
 // -----------------------------------------------------------------------
-
-#[allow(clippy::too_many_arguments)]
-fn passport_json(
-    root_hex: &str,
-    risk: &str,
-    minimum: &str,
-    attested: &str,
-    operations: &[&str],
-    tool_hashes_64hex: &[&str],
-) -> String {
-    let tools_block = tool_hashes_64hex
-        .iter()
-        .map(|h| format!("\"blake3:{h}\""))
-        .collect::<Vec<_>>()
-        .join(",");
-    let ops_block = operations
-        .iter()
-        .map(|o| format!("\"{o}\""))
-        .collect::<Vec<_>>()
-        .join(",");
-    format!(
-        r#"{{
-  "type": "aps.runtime_passport",
-  "version": "0.1",
-  "passport_id": "rp_01HX0EXAMPLE000000000000000",
-  "agent_id": "ag_01HX0AGENT000000000000000000",
-  "principal_id": "pr_01HX0PRINCIPAL00000000000000",
-  "beneficiary_id": "bn_01HX0BEN00000000000000000000",
-  "issuer": "https://gateway.example.test",
-  "issued_at": "2026-05-19T22:38:56.000Z",
-  "expires_at": "2026-05-19T22:39:56.000Z",
-  "max_clock_skew_ms": 1000,
-  "policy_epoch": 42,
-  "revocation_epoch": 1842,
-  "tool_registry_root": "blake3:{root_hex}",
-  "delegation_chain_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
-  "effective_authority_hash": "blake3:0000000000000000000000000000000000000000000000000000000000000000",
-  "risk_class": "{risk}",
-  "minimum_tier_required": "{minimum}",
-  "tier_attested": "{attested}",
-  "verifier_instance_id": "vi_01HX0VI00000000000000000000",
-  "verifier_build_hash": "blake3:1111111111111111111111111111111111111111111111111111111111111111",
-  "session_id": "sn_01HX0SESS00000000000000000000",
-  "sequence_start": 1000,
-  "sequence_end": 2000,
-  "budget_lease": {{
-    "lease_id": "bl_01HX0LEASE0000000000000000000",
-    "max_actions": 1000,
-    "max_cost_units": 50000,
-    "sublease_parent": null
-  }},
-  "authority_blob_encoding": "application/aps-authority+json",
-  "authority_blob": {{
-    "allowed_tools": [{tools_block}],
-    "allowed_operations": [{ops_block}],
-    "resource_scopes": ["customer/*"],
-    "approval_rules": [
-      {{"predicate": "operation == external_send", "on_match": "escalate"}}
-    ]
-  }},
-  "receipt_stream_id": "rs_01HX0RS00000000000000000000",
-  "signature": "ed25519:{sig}"
-}}"#,
-        sig = "0".repeat(128)
-    )
-}
-
-fn hex_encode(bytes: &[u8; 32]) -> String {
-    use std::fmt::Write;
-    let mut s = String::with_capacity(64);
-    for b in bytes {
-        let _ = write!(s, "{b:02x}");
-    }
-    s
-}
-
-fn hash_from_hex(hex: &str) -> [u8; 32] {
-    assert_eq!(hex.len(), 64);
-    let mut out = [0u8; 32];
-    for (i, byte) in out.iter_mut().enumerate() {
-        *byte = u8::from_str_radix(&hex[i * 2..i * 2 + 2], 16).unwrap();
-    }
-    out
-}
 
 const TOOL_HEX_0: &str = "abcd000000000000000000000000000000000000000000000000000000000000";
 const TOOL_HEX_1: &str = "ef01000000000000000000000000000000000000000000000000000000000000";
@@ -104,15 +25,19 @@ fn standard_happy_setup() -> (RuntimePassport, ToolRegistry) {
     let mut reg = ToolRegistry::new();
     reg.add(hash_from_hex(TOOL_HEX_0), 0).unwrap();
     reg.add(hash_from_hex(TOOL_HEX_1), 1).unwrap();
-    let root_hex = hex_encode(&reg.current_root());
-    let json = passport_json(
-        &root_hex,
-        "R2",
-        "T2",
-        "T2",
-        &["read", "external_send"],
-        &[TOOL_HEX_0, TOOL_HEX_1],
-    );
+    let root = reg.current_root();
+    let json = PassportBuilder::new()
+        .with_root(root)
+        .with_risk_class("R2")
+        .with_tier("T2", "T2")
+        .with_allowed_tools(vec![hash_from_hex(TOOL_HEX_0), hash_from_hex(TOOL_HEX_1)])
+        .with_allowed_operations(vec!["read", "external_send"])
+        .with_resource_scopes(vec!["customer/*"])
+        .with_approval_rules(vec![(
+            "operation == external_send".into(),
+            ApprovalAction::Escalate,
+        )])
+        .build_json();
     let passport = RuntimePassport::from_json(&json).expect("happy passport parses");
     (passport, reg)
 }
@@ -210,15 +135,13 @@ fn compiled_authority_unknown_tool_errors() {
     // contents don't actually carry TOOL_HEX_0. The runtime catches the
     // mismatch as UnknownTool at the per-tool lookup step.
     let reg = ToolRegistry::new();
-    let root_hex = hex_encode(&reg.current_root());
-    let json = passport_json(
-        &root_hex,
-        "R2",
-        "T2",
-        "T2",
-        &["read"],
-        &[TOOL_HEX_0],
-    );
+    let root = reg.current_root();
+    let json = PassportBuilder::new()
+        .with_root(root)
+        .with_allowed_tools(vec![hash_from_hex(TOOL_HEX_0)])
+        .with_allowed_operations(vec!["read"])
+        .with_resource_scopes(vec!["customer/*"])
+        .build_json();
     let passport = RuntimePassport::from_json(&json).expect("parse");
 
     match CompiledAuthority::from_passport(&passport, reg) {
@@ -233,15 +156,13 @@ fn compiled_authority_unknown_tool_errors() {
 fn compiled_authority_unknown_operation_errors() {
     let mut reg = ToolRegistry::new();
     reg.add(hash_from_hex(TOOL_HEX_0), 0).unwrap();
-    let root_hex = hex_encode(&reg.current_root());
-    let json = passport_json(
-        &root_hex,
-        "R2",
-        "T2",
-        "T2",
-        &["read", "frobnicate"],
-        &[TOOL_HEX_0],
-    );
+    let root = reg.current_root();
+    let json = PassportBuilder::new()
+        .with_root(root)
+        .with_allowed_tools(vec![hash_from_hex(TOOL_HEX_0)])
+        .with_allowed_operations(vec!["read", "frobnicate"])
+        .with_resource_scopes(vec!["customer/*"])
+        .build_json();
     let passport = RuntimePassport::from_json(&json).expect("parse");
 
     match CompiledAuthority::from_passport(&passport, reg) {
@@ -263,8 +184,14 @@ fn durability_mode_by_risk_class() {
     ] {
         let mut reg = ToolRegistry::new();
         reg.add(hash_from_hex(TOOL_HEX_0), 0).unwrap();
-        let root_hex = hex_encode(&reg.current_root());
-        let json = passport_json(&root_hex, risk, "T2", "T2", &["read"], &[TOOL_HEX_0]);
+        let root = reg.current_root();
+        let json = PassportBuilder::new()
+            .with_root(root)
+            .with_risk_class(risk)
+            .with_allowed_tools(vec![hash_from_hex(TOOL_HEX_0)])
+            .with_allowed_operations(vec!["read"])
+            .with_resource_scopes(vec!["customer/*"])
+            .build_json();
         let passport = RuntimePassport::from_json(&json)
             .unwrap_or_else(|e| panic!("parse failed for {risk}: {e}"));
         let auth = CompiledAuthority::from_passport(&passport, reg)
@@ -324,15 +251,14 @@ fn compiled_authority_rejects_registry_root_mismatch() {
 
     // Passport claims a wrong root (all zeros) while the verifier's
     // registry has its actual root.
-    let wrong_root = "0".repeat(64);
-    let json = passport_json(
-        &wrong_root,
-        "R2",
-        "T2",
-        "T2",
-        &["read", "external_send"],
-        &[TOOL_HEX_0, TOOL_HEX_1],
-    );
+    let wrong_root = [0u8; 32];
+    let wrong_root_hex = "0".repeat(64);
+    let json = PassportBuilder::new()
+        .with_root(wrong_root)
+        .with_allowed_tools(vec![hash_from_hex(TOOL_HEX_0), hash_from_hex(TOOL_HEX_1)])
+        .with_allowed_operations(vec!["read", "external_send"])
+        .with_resource_scopes(vec!["customer/*"])
+        .build_json();
     let passport = RuntimePassport::from_json(&json).expect("parse");
 
     match CompiledAuthority::from_passport(&passport, reg) {
@@ -340,8 +266,8 @@ fn compiled_authority_rejects_registry_root_mismatch() {
             passport_root,
             verifier_root,
         }) => {
-            assert_eq!(passport_root, wrong_root);
-            assert_ne!(verifier_root, wrong_root);
+            assert_eq!(passport_root, wrong_root_hex);
+            assert_ne!(verifier_root, wrong_root_hex);
             assert_eq!(verifier_root.len(), 64);
         }
         other => panic!("expected RegistryRootMismatch, got {other:?}"),
