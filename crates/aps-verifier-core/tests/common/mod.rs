@@ -23,7 +23,9 @@
 //! Production code is not imported beyond the public crate surface;
 //! these helpers exercise only `aps_verifier_core::*`.
 
-use aps_verifier_core::{ActionDescriptor, ApprovalAction};
+use aps_verifier_core::{canonical_signed_bytes, ActionDescriptor, ApprovalAction};
+
+use ed25519_dalek::{Signer, SigningKey, VerifyingKey};
 
 // -----------------------------------------------------------------------
 // Hex helpers
@@ -37,6 +39,29 @@ pub fn hex_encode(bytes: &[u8; 32]) -> String {
         let _ = write!(s, "{b:02x}");
     }
     s
+}
+
+/// Lowercase hex encoding of a 64-byte Ed25519 signature (128 chars).
+pub fn hex_encode_64(bytes: &[u8; 64]) -> String {
+    use std::fmt::Write;
+    let mut s = String::with_capacity(128);
+    for b in bytes {
+        let _ = write!(s, "{b:02x}");
+    }
+    s
+}
+
+/// Deterministic Ed25519 test keypair. Fixed seed for reproducible
+/// test signatures. NEVER use in production.
+pub fn test_gateway_keypair() -> (SigningKey, VerifyingKey) {
+    let signing = SigningKey::from_bytes(&[0x42; 32]);
+    let verifying = signing.verifying_key();
+    (signing, verifying)
+}
+
+/// Deterministic 32-byte receipt-stream key for MAC tests.
+pub fn test_receipt_stream_key() -> [u8; 32] {
+    [0x77; 32]
 }
 
 /// Parse a 64-char lowercase hex string into a 32-byte hash. Panics on
@@ -226,6 +251,23 @@ impl PassportBuilder {
     ) -> Self {
         self.approval_rules = rules;
         self
+    }
+
+    /// Build the unsigned JSON, canonicalize via JCS, sign with the
+    /// supplied key, reinsert the signature in `"ed25519:<hex>"` form,
+    /// and return the final JSON. Simulates the gateway-side flow.
+    pub fn build_signed_json(self, signing_key: &SigningKey) -> String {
+        let unsigned_json = self.build_json();
+        let canonical = canonical_signed_bytes(&unsigned_json)
+            .expect("canonical_signed_bytes on builder output");
+        let sig = signing_key.sign(&canonical);
+        let sig_str = format!("ed25519:{}", hex_encode_64(&sig.to_bytes()));
+        let mut value: serde_json::Value =
+            serde_json::from_str(&unsigned_json).expect("re-parse unsigned JSON");
+        if let Some(obj) = value.as_object_mut() {
+            obj.insert("signature".into(), serde_json::Value::String(sig_str));
+        }
+        serde_json::to_string_pretty(&value).expect("re-serialize signed JSON")
     }
 
     pub fn build_json(self) -> String {

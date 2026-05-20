@@ -173,12 +173,119 @@ pub enum PassportError {
     TierMismatch { attested: Tier, minimum: Tier },
     #[error("sequence window invalid: sequence_end must be strictly greater than sequence_start")]
     SequenceWindowInvalid,
+    #[error("missing signature field")]
+    MissingSignature,
+    #[error("signature decoding failed: {0}")]
+    SignatureDecode(String),
+    #[error("signature verification failed")]
+    SignatureInvalid,
+    #[error("canonicalization failed: {0}")]
+    Canonicalization(String),
+}
+
+// -----------------------------------------------------------------------
+// Signature verification (chunk 6)
+// -----------------------------------------------------------------------
+//
+// The passport signature is over the JCS-canonical (RFC 8785) form of the
+// passport JSON with the `signature` key removed. The verifier MUST
+// retain the original JSON string until after signature verification; the
+// canonical bytes are computed from THAT string, not by re-serializing
+// the typed struct (re-serialization can change field ordering or
+// formatting, breaking byte-for-byte agreement with the gateway).
+
+/// Compute the canonical bytes that the gateway signed. Parses the JSON,
+/// removes the `signature` key, canonicalizes via JCS, returns the bytes.
+pub fn canonical_signed_bytes(json_str: &str) -> Result<Vec<u8>, PassportError> {
+    let mut value: serde_json::Value = serde_json::from_str(json_str)?;
+    match value.as_object_mut() {
+        Some(obj) => {
+            obj.remove("signature");
+        }
+        None => {
+            return Err(PassportError::Canonicalization(
+                "passport JSON is not an object".into(),
+            ));
+        }
+    }
+    serde_jcs::to_vec(&value)
+        .map_err(|e| PassportError::Canonicalization(e.to_string()))
+}
+
+/// Parse a signature string. Accepts `"ed25519:<hex>"` prefix-form or
+/// bare hex. Returns the 64-byte signature.
+pub(crate) fn decode_signature(sig: &str) -> Result<[u8; 64], PassportError> {
+    let hex = match sig.split_once(':') {
+        Some((_, rest)) => rest,
+        None => sig,
+    };
+    if hex.len() != 128 {
+        return Err(PassportError::SignatureDecode(format!(
+            "expected 128 hex chars (64-byte signature), got {}",
+            hex.len()
+        )));
+    }
+    let mut out = [0u8; 64];
+    for (i, byte) in out.iter_mut().enumerate() {
+        let chunk = hex.get(i * 2..i * 2 + 2).ok_or_else(|| {
+            PassportError::SignatureDecode("hex slice failed".into())
+        })?;
+        *byte = u8::from_str_radix(chunk, 16)
+            .map_err(|_| PassportError::SignatureDecode(format!("non-hex character in {sig:?}")))?;
+    }
+    Ok(out)
 }
 
 impl RuntimePassport {
+    /// Verify the passport's Ed25519 signature against the canonical
+    /// form of the supplied JSON string.
+    ///
+    /// `json_str` MUST be the original JSON received from the gateway,
+    /// not a re-serialization of the parsed struct.
+    /// `gateway_public_key` is the issuing gateway's Ed25519 verifying
+    /// key (caller-supplied in Prototype 1; gateway discovery via
+    /// `.well-known` is Phase 2).
+    pub fn verify_signature(
+        &self,
+        json_str: &str,
+        gateway_public_key: &ed25519_dalek::VerifyingKey,
+    ) -> Result<(), PassportError> {
+        if self.signature.trim().is_empty() {
+            return Err(PassportError::MissingSignature);
+        }
+        let sig_bytes = decode_signature(&self.signature)?;
+        let sig = ed25519_dalek::Signature::from_bytes(&sig_bytes);
+        let canonical = canonical_signed_bytes(json_str)?;
+        gateway_public_key
+            .verify_strict(&canonical, &sig)
+            .map_err(|_| PassportError::SignatureInvalid)
+    }
+
+    /// Parse JSON, validate structure, AND verify the Ed25519 signature
+    /// against the supplied gateway public key. One-shot wrapper around
+    /// `from_json` + `verify_signature`.
+    pub fn from_json_and_verify(
+        json_str: &str,
+        gateway_public_key: &ed25519_dalek::VerifyingKey,
+    ) -> Result<Self, PassportError> {
+        // Reject obviously-missing signature BEFORE running expensive
+        // structural validation so the diagnostic is precise.
+        let preview: serde_json::Value = serde_json::from_str(json_str)?;
+        if preview
+            .as_object()
+            .map(|o| !o.contains_key("signature"))
+            .unwrap_or(true)
+        {
+            return Err(PassportError::MissingSignature);
+        }
+        let passport = Self::from_json(json_str)?;
+        passport.verify_signature(json_str, gateway_public_key)?;
+        Ok(passport)
+    }
+
     /// Parse a passport from JSON and run the structural checks of §4.3
-    /// hardenings 2 and 3. Does NOT verify the signature; that lands in
-    /// chunk 2 alongside JCS canonicalization.
+    /// hardenings 2 and 3. Does NOT verify the signature; that's
+    /// [`Self::verify_signature`] / [`Self::from_json_and_verify`].
     pub fn from_json(s: &str) -> Result<Self, PassportError> {
         let p: Self = serde_json::from_str(s)?;
         if p.expires_at <= p.issued_at {

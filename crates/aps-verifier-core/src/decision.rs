@@ -102,7 +102,78 @@ pub enum DecisionError {
     InvalidReasonCode(u8),
 }
 
+/// Length of the canonical decision-event byte layout that feeds the
+/// keyed BLAKE3 MAC. Spec §6.1:
+/// `passport_id_hash(32) || action_hash(32) || sequence_id(8 LE) ||
+/// decision_type(1) || reason_code(1) || decision_id(16) ||
+/// timestamp_unix_ns(8 LE)`.
+pub const CANONICAL_DECISION_EVENT_LEN: usize = 32 + 32 + 8 + 1 + 1 + 16 + 8;
+
+/// Pack the canonical decision-event bytes (§6.1) into `buf`.
+fn pack_canonical_event(
+    decision: &Decision,
+    passport_id_hash: &[u8; 32],
+    action_hash: &[u8; 32],
+    timestamp_ns: u64,
+    buf: &mut [u8; CANONICAL_DECISION_EVENT_LEN],
+) {
+    buf[0..32].copy_from_slice(passport_id_hash);
+    buf[32..64].copy_from_slice(action_hash);
+    buf[64..72].copy_from_slice(&decision.sequence_id.to_le_bytes());
+    buf[72] = decision.decision_type as u8;
+    buf[73] = decision.reason_code as u8;
+    buf[74..90].copy_from_slice(&decision.decision_id);
+    buf[90..98].copy_from_slice(&timestamp_ns.to_le_bytes());
+}
+
 impl Decision {
+    /// Compute the keyed BLAKE3 MAC over the canonical decision-event
+    /// representation. Spec §6.1.
+    pub fn compute_event_mac(
+        &self,
+        receipt_stream_key: &[u8; 32],
+        passport_id_hash: &[u8; 32],
+        action_hash: &[u8; 32],
+        timestamp_ns: u64,
+    ) -> [u8; 32] {
+        let mut buf = [0u8; CANONICAL_DECISION_EVENT_LEN];
+        pack_canonical_event(self, passport_id_hash, action_hash, timestamp_ns, &mut buf);
+        let mut hasher = blake3::Hasher::new_keyed(receipt_stream_key);
+        hasher.update(&buf);
+        *hasher.finalize().as_bytes()
+    }
+
+    /// Set `event_mac` to the computed value over the supplied
+    /// pre-hash inputs.
+    pub fn finalize_mac(
+        &mut self,
+        receipt_stream_key: &[u8; 32],
+        passport_id_hash: &[u8; 32],
+        action_hash: &[u8; 32],
+        timestamp_ns: u64,
+    ) {
+        self.event_mac =
+            self.compute_event_mac(receipt_stream_key, passport_id_hash, action_hash, timestamp_ns);
+    }
+
+    /// True iff `event_mac` matches the value `compute_event_mac` would
+    /// produce for these inputs.
+    pub fn verify_event_mac(
+        &self,
+        receipt_stream_key: &[u8; 32],
+        passport_id_hash: &[u8; 32],
+        action_hash: &[u8; 32],
+        timestamp_ns: u64,
+    ) -> bool {
+        self.event_mac
+            == self.compute_event_mac(
+                receipt_stream_key,
+                passport_id_hash,
+                action_hash,
+                timestamp_ns,
+            )
+    }
+
     /// Serialize to the 64-byte canonical form.
     pub fn to_bytes(&self) -> [u8; DECISION_SIZE] {
         let mut buf = [0u8; DECISION_SIZE];

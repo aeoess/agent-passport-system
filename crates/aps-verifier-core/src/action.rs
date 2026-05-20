@@ -59,7 +59,13 @@ pub enum ActionError {
     InvalidRiskClass(u8),
     #[error("invalid resource_path_depth: {0} (must be 0..=8)")]
     InvalidPathDepth(u8),
+    #[error("action_hash mismatch")]
+    ActionHashInvalid,
 }
+
+/// Byte offset where `action_hash` begins inside the wire descriptor.
+/// `compute_action_hash` hashes only the bytes preceding this.
+pub const ACTION_HASH_OFFSET: usize = 172;
 
 fn read_u16_le(bytes: &[u8], off: usize) -> u16 {
     u16::from_le_bytes([bytes[off], bytes[off + 1]])
@@ -130,9 +136,31 @@ impl ActionDescriptor {
         buf
     }
 
+    /// Compute the BLAKE3 hash of the first 172 bytes of the descriptor
+    /// (every field except `action_hash` itself). Spec §5.1.
+    pub fn compute_action_hash(&self) -> [u8; 32] {
+        let buf = self.to_bytes();
+        *blake3::hash(&buf[..ACTION_HASH_OFFSET]).as_bytes()
+    }
+
+    /// Set `action_hash` to the computed value over the other fields.
+    /// Used by the SDK when building an ActionDescriptor.
+    pub fn finalize(&mut self) {
+        self.action_hash = self.compute_action_hash();
+    }
+
+    /// Return true if the stored `action_hash` matches what
+    /// `compute_action_hash` produces over the other fields. Spec §9
+    /// step 0 will call this on the hot path.
+    pub fn verify_action_hash(&self) -> bool {
+        self.compute_action_hash() == self.action_hash
+    }
+
     /// Parse from a 204-byte canonical wire form. Validates structural
     /// integrity only (version, risk_class range, depth range);
-    /// `action_hash` is parsed but not verified in chunk 1.
+    /// `action_hash` is parsed but NOT verified here. The hot path
+    /// controls the ordering of cheap checks per spec §9, so this stays
+    /// validation-of-format only.
     pub fn from_bytes(bytes: &[u8; ACTION_DESCRIPTOR_SIZE]) -> Result<Self, ActionError> {
         let version = bytes[0];
         if version != 1 {

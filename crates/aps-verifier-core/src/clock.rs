@@ -37,6 +37,33 @@ pub struct ClockAnchor {
 pub enum ClockError {
     #[error("poller error: {0}")]
     Poller(String),
+    #[error("clock anchor signature invalid")]
+    SignatureInvalid,
+    #[error("signature decoding failed: {0}")]
+    SignatureDecode(String),
+}
+
+impl ClockAnchor {
+    /// Verify the Ed25519 signature on the anchor's `timestamp_ns`.
+    /// The signed message is the 8 little-endian bytes of `timestamp_ns`.
+    pub fn verify_signature(
+        &self,
+        gateway_public_key: &ed25519_dalek::VerifyingKey,
+    ) -> Result<(), ClockError> {
+        if self.signature.len() != 64 {
+            return Err(ClockError::SignatureDecode(format!(
+                "expected 64-byte Ed25519 signature, got {} bytes",
+                self.signature.len()
+            )));
+        }
+        let mut sig_bytes = [0u8; 64];
+        sig_bytes.copy_from_slice(&self.signature);
+        let sig = ed25519_dalek::Signature::from_bytes(&sig_bytes);
+        let message = self.timestamp_ns.to_le_bytes();
+        gateway_public_key
+            .verify_strict(&message, &sig)
+            .map_err(|_| ClockError::SignatureInvalid)
+    }
 }
 
 /// Polls the gateway for fresh clock anchors. The HTTPS-backed

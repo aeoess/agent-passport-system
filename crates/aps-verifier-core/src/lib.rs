@@ -42,6 +42,8 @@ pub use registry::{
 pub use resource_trie::{hash_path_component, parse_scope, ParsedScope, TrieNode};
 pub use decision::{Decision, DecisionError, DecisionType, ReasonCode, DECISION_SIZE};
 pub use passport::{
-    ApprovalAction, ApprovalRule, AuthorityBlob, BudgetLease, DurabilityMode, PassportError,
-    RiskClass, RuntimePassport, Tier,
+    canonical_signed_bytes, ApprovalAction, ApprovalRule, AuthorityBlob, BudgetLease,
+    DurabilityMode, PassportError, RiskClass, RuntimePassport, Tier,
 };
+pub use action::ACTION_HASH_OFFSET;
+pub use decision::CANONICAL_DECISION_EVENT_LEN;
