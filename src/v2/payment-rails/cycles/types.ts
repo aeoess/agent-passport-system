@@ -131,19 +131,16 @@ export interface CyclesEvidenceView {
 
 // ── Authority-state-at-admission snapshot ─────────────────────────
 // Optional Track B field (aeoess/agent-passport-system#25, amavashev
-// catch): a content-addressed snapshot of the authority/revocation/
-// expiry state APS evaluated at admission, BEFORE calling Cycles. The
-// permit-receipt carries only the sha256 ref (see
-// `admission_authority_state_ref` below); the snapshot itself is the
-// pre-image. Staged for review — open design question is ref-to-snapshot
-// (here) vs inlining these fields directly on the receipt.
+// catch): a snapshot of the authority/revocation/expiry state APS
+// evaluated at admission, BEFORE calling Cycles. Carried inline on the
+// permit-receipt (see `authority_state_at_admission` below), not as a
+// content-hash ref. The delegation identity is not duplicated here — the
+// receipt's own `delegation_ref` names the delegation this state is for.
 
 /** Snapshot of the delegation-authority state APS saw at admission. */
 export interface AuthorityStateSnapshot {
   /** Admission-time ISO 8601 — when APS evaluated this authority state. */
   checked_at: string
-  /** The delegation this permit rode (mirrors the receipt's delegation_ref). */
-  delegation_ref: string
   /** Revocation state APS saw at admission. */
   delegation_revoked: boolean
   /** Delegation expiry APS saw at admission, when known. */
@@ -184,12 +181,11 @@ export interface CyclesPermitReceipt {
   timestamp?: string
   scope_of_claim?: ScopeOfClaim
 
-  /** Optional (Track B): SHA-256/JCS content-hash of an
-   *  AuthorityStateSnapshot — the authority/revocation/expiry state APS
-   *  evaluated at admission, before calling Cycles. Computed via
-   *  computeAuthorityStateRef. Optional so existing fixtures and call
-   *  sites that omit it stay valid. */
-  admission_authority_state_ref?: string
+  /** Optional (Track B): the authority/revocation/expiry state APS
+   *  evaluated at admission, before calling Cycles, carried inline.
+   *  Optional so existing fixtures and call sites that omit it stay
+   *  valid. */
+  authority_state_at_admission?: AuthorityStateSnapshot
 }
 
 // ── Cycles release-receipt ────────────────────────────────────────
@@ -299,10 +295,10 @@ export interface SignCyclesPermitReceiptInput {
   expires_at_ms?: number
   cycles_evidence: CyclesEvidenceRef
   /** Optional (Track B): the authority-state snapshot APS evaluated at
-   *  admission. When supplied, the permit-receipt's
-   *  admission_authority_state_ref is set to its computed content-hash;
-   *  when omitted, the field is left undefined. */
-  admission_authority_state?: AuthorityStateSnapshot
+   *  admission. When supplied, it is carried inline on the permit-receipt
+   *  as authority_state_at_admission; when omitted, the field is left
+   *  absent. */
+  authority_state_at_admission?: AuthorityStateSnapshot
   /** Override the rail's default scope_of_claim. */
   scope_of_claim?: ScopeOfClaim
   /** When supplied alongside `issuer_key_ref`, signer becomes a DID URI

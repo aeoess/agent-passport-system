@@ -1,7 +1,7 @@
 {
   "name": "agent-passport-system",
   "version": "2.6.0-alpha.7",
-  "description": "Enforcement and accountability layer for AI agents. Bring your own identity (did:key, did:web, SPIFFE, OAuth, did:aps). Verifier hot path p50 = 420ns bare-metal Linux EPYC 7313P (§13.1 canonical environment per spec), 347ns AWS c7i.2xlarge, 292ns Mac M3. Gateway enforcement, monotonic narrowing, cascade revocation, Bayesian reputation, wallet binding, unified four-axis attribution primitive, per-period attribution settlement, data lifecycle, mutual authentication, Wave 1 accountability primitives (action, authority-boundary, custody, contestability, bundle), evidentiary type safety (claim/evidence registry, claim verifier with forbidden-substitution detection, contestation cascade). 3,076 tests.",
+  "description": "Enforcement and accountability layer for AI agents. Bring your own identity (did:key, did:web, SPIFFE, OAuth, did:aps). Verifier hot path p50 = 420ns bare-metal Linux EPYC 7313P (§13.1 canonical environment per spec), 347ns AWS c7i.2xlarge, 292ns Mac M3. Gateway enforcement, monotonic narrowing, cascade revocation, Bayesian reputation, wallet binding, unified four-axis attribution primitive, per-period attribution settlement, data lifecycle, mutual authentication, Wave 1 accountability primitives (action, authority-boundary, custody, contestability, bundle), evidentiary type safety (claim/evidence registry, claim verifier with forbidden-substitution detection, contestation cascade). 3,079 tests.",
   "type": "module",
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",

@@ -6,7 +6,6 @@ import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import { generateKeyPair } from '../../../src/crypto/keys.js'
 import {
-  computeAuthorityStateRef,
   mapCyclesDenialToFoundation,
   RAIL_BUDGET_RESERVATION_DENIAL_CLAIM_TYPE,
   RAIL_BUDGET_RESERVATION_PERMIT_CLAIM_TYPE,
@@ -24,21 +23,17 @@ import type {
   CyclesEvidenceView,
 } from '../../../src/v2/payment-rails/cycles/types.js'
 
-// ── Authority-state-at-admission fixtures (Track B, aps#25) ───────
-// Pinned snapshot + its content-hash ref. The ref is a regression pin:
-// computed once via computeAuthorityStateRef (sha256 over JCS-canonical
-// bytes) and frozen here so a canonicalization or scheme change trips.
+// ── Authority-state-at-admission fixture (Track B, aps#25) ────────
+// The authority/revocation/expiry state APS saw at admission, carried
+// inline on the permit-receipt (delegation identity is not duplicated —
+// the receipt's own delegation_ref names it).
 
 const ADMISSION_SNAPSHOT_FIXTURE: AuthorityStateSnapshot = {
   checked_at: '2026-05-30T12:00:00.000Z',
-  delegation_ref: 'aps:delegation:cycles-admission-001',
   delegation_revoked: false,
   delegation_expires_at: '2026-06-30T00:00:00.000Z',
   source: 'aps_admission',
 }
-
-const ADMISSION_SNAPSHOT_REF =
-  '33cadcb7385de69c38f7a3b897dee12e70c6ecf505e1da3c7691baee14748d23'
 
 // ── Test helpers ──────────────────────────────────────────────────
 
@@ -462,19 +457,9 @@ test('verifyCyclesPermitReceipt (sync): DID URI signer → DID_RESOLVER_MISSING'
   if (!result.valid) assert.equal(result.reason, 'DID_RESOLVER_MISSING')
 })
 
-// ── Authority-state-at-admission (Track B, aps#25, staged) ────────
+// ── Authority-state-at-admission (Track B, aps#25, staged, inline) ─
 
-test('computeAuthorityStateRef: deterministic and matches the pinned fixture ref', () => {
-  // (a) deterministic — same snapshot, same ref across calls.
-  const r1 = computeAuthorityStateRef(ADMISSION_SNAPSHOT_FIXTURE)
-  const r2 = computeAuthorityStateRef(ADMISSION_SNAPSHOT_FIXTURE)
-  assert.equal(r1, r2)
-  // matches the frozen fixture ref (regression pin on the hash scheme).
-  assert.equal(r1, ADMISSION_SNAPSHOT_REF)
-  assert.match(r1, /^[0-9a-f]{64}$/)
-})
-
-test('signCyclesPermitReceipt: WITH admission_authority_state → carries the ref and verifies', () => {
+test('signCyclesPermitReceipt: WITH authority_state_at_admission → carries the inline object and verifies', () => {
   const { privateKey } = generateKeyPair()
   const receipt = signCyclesPermitReceipt(
     {
@@ -485,16 +470,40 @@ test('signCyclesPermitReceipt: WITH admission_authority_state → carries the re
       reserved: { unit: 'USD_MICROCENTS', amount: 1500000 },
       decision: 'ALLOW',
       cycles_evidence: evidenceRef(),
-      admission_authority_state: ADMISSION_SNAPSHOT_FIXTURE,
+      authority_state_at_admission: ADMISSION_SNAPSHOT_FIXTURE,
     },
     privateKey,
   )
-  // (b) the optional field is set to the snapshot's computed ref...
-  assert.equal(receipt.admission_authority_state_ref, ADMISSION_SNAPSHOT_REF)
-  // ...and the receipt (with the field inside the signed body) verifies.
+  // (a) the inline snapshot is carried verbatim on the receipt...
+  assert.deepEqual(receipt.authority_state_at_admission, ADMISSION_SNAPSHOT_FIXTURE)
+  // ...and the receipt (with the object inside the signed body) verifies.
   assert.deepEqual(verifyCyclesPermitReceipt(receipt), { valid: true })
-  // tampering the snapshot ref breaks the signature (field is signed-over).
-  const tampered = { ...receipt, admission_authority_state_ref: 'b'.repeat(64) }
+})
+
+test('signCyclesPermitReceipt: tampering a field inside authority_state_at_admission → SIGNATURE_INVALID', () => {
+  const { privateKey } = generateKeyPair()
+  const receipt = signCyclesPermitReceipt(
+    {
+      agent_id: 'agent-cycles-001',
+      delegation_ref: 'aps:delegation:cycles-admission-001',
+      action_ref: 'aps:action:cycles-admission-001',
+      reservation_id: 'rsv_admission_001',
+      reserved: { unit: 'USD_MICROCENTS', amount: 1500000 },
+      decision: 'ALLOW',
+      cycles_evidence: evidenceRef(),
+      authority_state_at_admission: ADMISSION_SNAPSHOT_FIXTURE,
+    },
+    privateKey,
+  )
+  // (b) flip delegation_revoked inside the inline object — the snapshot is
+  // part of the signed body, so the signature must catch it.
+  const tampered = {
+    ...receipt,
+    authority_state_at_admission: {
+      ...receipt.authority_state_at_admission!,
+      delegation_revoked: true,
+    },
+  }
   const result = verifyCyclesPermitReceipt(tampered)
   assert.equal(result.valid, false)
   if (!result.valid) assert.equal(result.reason, 'SIGNATURE_INVALID')
@@ -514,9 +523,8 @@ test('signCyclesPermitReceipt: WITHOUT the snapshot → field absent, receipt ve
     },
     privateKey,
   )
-  // (c) callers that pass nothing get the field undefined (absent from the
-  // object, so existing fixtures/canonical bytes are unchanged) and verify.
-  assert.equal(receipt.admission_authority_state_ref, undefined)
-  assert.equal(Object.prototype.hasOwnProperty.call(receipt, 'admission_authority_state_ref'), false)
+  // (c) callers that pass nothing get the field absent from the object (so
+  // existing fixtures/canonical bytes are unchanged) and verify.
+  assert.equal(Object.prototype.hasOwnProperty.call(receipt, 'authority_state_at_admission'), false)
   assert.deepEqual(verifyCyclesPermitReceipt(receipt), { valid: true })
 })
