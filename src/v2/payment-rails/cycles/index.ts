@@ -47,6 +47,7 @@
 
 import { randomUUID } from 'node:crypto'
 import { canonicalizeJCS } from '../../../core/canonical-jcs.js'
+import { sha256Hex } from '../canonicalize.js'
 import { publicKeyFromPrivate, sign, verify as edVerify } from '../../../crypto/keys.js'
 import {
   parseDidUri,
@@ -69,6 +70,7 @@ export {
   RAIL_BUDGET_RESERVATION_DENIAL_CLAIM_TYPE,
 } from './types.js'
 import type {
+  AuthorityStateSnapshot,
   CyclesDenial,
   CyclesDenialDetail,
   CyclesEvidenceView,
@@ -260,6 +262,19 @@ export function mapCyclesDenialToFoundation(
   return null
 }
 
+// ── Authority-state-at-admission ref ──────────────────────────────
+
+/**
+ * Content-addresses an AuthorityStateSnapshot: SHA-256 hex over the
+ * RFC 8785 JCS canonical bytes of the snapshot. Reuses the existing
+ * payment-rails hashing path (canonicalizeJCS + sha256Hex) — same
+ * scheme as cycles_evidence_id_sha256; no new canonicalization is
+ * introduced. Pure and deterministic for a given snapshot.
+ */
+export function computeAuthorityStateRef(snapshot: AuthorityStateSnapshot): string {
+  return sha256Hex(canonicalizeJCS(snapshot))
+}
+
 // ── Sign / verify: permit receipt ─────────────────────────────────
 
 export function signCyclesPermitReceipt(
@@ -286,6 +301,11 @@ export function signCyclesPermitReceipt(
   }
   if (input.expires_at_ms !== undefined) {
     unsigned.expires_at_ms = input.expires_at_ms
+  }
+  if (input.admission_authority_state !== undefined) {
+    unsigned.admission_authority_state_ref = computeAuthorityStateRef(
+      input.admission_authority_state,
+    )
   }
   const sigBytes = canonicalizeJCS(unsigned)
   const signature = sign(sigBytes, signerPrivateKeyHex)
