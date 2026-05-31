@@ -350,6 +350,26 @@ export interface SignCyclesDenialInput {
   issuer_key_ref?: string
 }
 
+// ── Fetched CyclesEvidence envelope (join-integrity input) ────────
+// The full Cycles-side envelope a receipt's `cycles_evidence` references,
+// as fetched from `cycles_evidence_url`. Unlike `CyclesEvidenceView`
+// (the read-only denial-mapping subset), this carries `evidence_id` and
+// `signature` so the verifier can recompute the content hash. APS treats
+// the envelope as opaque beyond those two fields, hence the index
+// signature — the recompute canonicalizes ALL fields, so every field the
+// Cycles server emitted must survive the round-trip byte-for-byte.
+
+/** A fetched CyclesEvidence envelope, for the join-integrity check. */
+export interface CyclesEvidenceEnvelopeInput {
+  /** Content-addressed id: sha256 of the JCS-canonical envelope bytes
+   *  with `evidence_id` and `signature` both set to the empty string.
+   *  Per runcycles/cycles-protocol drafts/cycles-evidence-v0.1.yaml. */
+  evidence_id: string
+  /** Ed25519 signature hex; emptied (not omitted) during the recompute. */
+  signature: string
+  [key: string]: unknown
+}
+
 // ── Verify-options shape ──────────────────────────────────────────
 
 export interface VerifyCyclesOptions {
@@ -372,6 +392,16 @@ export interface VerifyCyclesOptions {
    *  degraded, still non-matching outcome; it never makes an unmatched
    *  envelope read as resolved. */
   evidenceFailurePolicy?: import('./evidence-resolution.js').EvidenceFailurePolicy
+  /** The fetched CyclesEvidence envelope this receipt's `cycles_evidence`
+   *  references (retrieved from `cycles_evidence_url`). When supplied,
+   *  verify performs the join-integrity check: recompute the envelope's
+   *  content hash and confirm it matches BOTH the envelope's own
+   *  `evidence_id` (envelope untampered) AND the receipt's
+   *  `cycles_evidence.cycles_evidence_id_sha256` (receipt binds to THIS
+   *  envelope). When omitted, the check is skipped — signature-only
+   *  verification, preserving prior behavior. APS does not own the fetch
+   *  contract; the caller retrieves the envelope and passes it in. */
+  evidence?: CyclesEvidenceEnvelopeInput
 }
 
 /** DID document resolver — mirrors MppResolveDidDocument. */

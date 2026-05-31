@@ -19,6 +19,7 @@ import {
 } from '../../../src/v2/payment-rails/cycles/index.js'
 import type {
   AuthorityStateSnapshot,
+  CyclesEvidenceEnvelopeInput,
   CyclesEvidenceRef,
   CyclesEvidenceView,
 } from '../../../src/v2/payment-rails/cycles/types.js'
@@ -527,4 +528,105 @@ test('signCyclesPermitReceipt: WITHOUT the snapshot → field absent, receipt ve
   // existing fixtures/canonical bytes are unchanged) and verify.
   assert.equal(Object.prototype.hasOwnProperty.call(receipt, 'authority_state_at_admission'), false)
   assert.deepEqual(verifyCyclesPermitReceipt(receipt), { valid: true })
+})
+
+// ── Join-integrity: receipt ↔ CyclesEvidence envelope binding ─────
+// The load-bearing offline-audit guarantee (aps#25, lowkey-divine). When
+// the fetched envelope is supplied, verify recomputes its content hash and
+// confirms it matches BOTH the envelope's own evidence_id AND the receipt's
+// cycles_evidence.cycles_evidence_id_sha256. The fixtures' evidence_id was
+// derived by the Cycles server; reproducing it here proves APS's JCS +
+// sha256 is byte-compatible with cycles-evidence-v0.1's normative algorithm.
+
+/** A full CyclesEvidence envelope (with evidence_id + signature). */
+function loadEnvelope(filename: string): CyclesEvidenceEnvelopeInput {
+  return JSON.parse(readFileSync(join(FIXTURE_DIR, filename), 'utf-8'))
+}
+
+/** A permit receipt whose cycles_evidence binds to `env` by content hash. */
+function permitBoundTo(env: CyclesEvidenceEnvelopeInput, privateKey: string) {
+  return signCyclesPermitReceipt(
+    {
+      agent_id: 'agent-cycles-001',
+      delegation_ref: 'aps:delegation:cycles-001',
+      action_ref: 'aps:action:cycles-001',
+      reservation_id: 'rsv_join_integrity',
+      reserved: { unit: 'USD_MICROCENTS', amount: 2000000 },
+      decision: 'ALLOW',
+      cycles_evidence: { ...evidenceRef(), cycles_evidence_id_sha256: env.evidence_id },
+    },
+    privateKey,
+  )
+}
+
+test('join-integrity: permit receipt + matching envelope → valid', () => {
+  const { privateKey } = generateKeyPair()
+  const env = loadEnvelope('02-reserve-allow.json')
+  const receipt = permitBoundTo(env, privateKey)
+  assert.deepEqual(verifyCyclesPermitReceipt(receipt, { evidence: env }), { valid: true })
+})
+
+test('join-integrity: envelope omitted → check skipped, signature-only verify still passes', () => {
+  const { privateKey } = generateKeyPair()
+  const env = loadEnvelope('02-reserve-allow.json')
+  const receipt = permitBoundTo(env, privateKey)
+  // No options.evidence → backward-compatible signature-only path.
+  assert.deepEqual(verifyCyclesPermitReceipt(receipt), { valid: true })
+})
+
+test('join-integrity: tampered envelope (recomputed != evidence_id) → EVIDENCE_REF_HASH_MISMATCH', () => {
+  const { privateKey } = generateKeyPair()
+  const env = loadEnvelope('02-reserve-allow.json')
+  const receipt = permitBoundTo(env, privateKey)
+  // Mutate any signed field; evidence_id no longer matches the bytes.
+  const tampered = { ...env, server_id: 'https://evil.example.com/v1' }
+  const result = verifyCyclesPermitReceipt(receipt, { evidence: tampered })
+  assert.equal(result.valid, false)
+  if (!result.valid) assert.equal(result.reason, 'EVIDENCE_REF_HASH_MISMATCH')
+})
+
+test('join-integrity: receipt bound to a different envelope → EVIDENCE_REF_HASH_MISMATCH', () => {
+  const { privateKey } = generateKeyPair()
+  const env = loadEnvelope('02-reserve-allow.json')
+  // Receipt binds to the DEFAULT placeholder hash, not env.evidence_id.
+  const receipt = signCyclesPermitReceipt(
+    {
+      agent_id: 'agent-cycles-001',
+      delegation_ref: 'aps:delegation:cycles-001',
+      action_ref: 'aps:action:cycles-001',
+      reservation_id: 'rsv_wrong_binding',
+      reserved: { unit: 'USD_MICROCENTS', amount: 2000000 },
+      decision: 'ALLOW',
+      cycles_evidence: evidenceRef(), // cycles_evidence_id_sha256 = 'a'*64
+    },
+    privateKey,
+  )
+  const result = verifyCyclesPermitReceipt(receipt, { evidence: env })
+  assert.equal(result.valid, false)
+  if (!result.valid) assert.equal(result.reason, 'EVIDENCE_REF_HASH_MISMATCH')
+})
+
+test('join-integrity: applies on the denial path too (shared core verifier)', () => {
+  const { privateKey } = generateKeyPair()
+  const env = loadEnvelope('11-reserve-live-budget-exceeded.json')
+  const mapping = mapCyclesDenialToFoundation(loadFixture('11-reserve-live-budget-exceeded.json'))
+  assert.ok(mapping)
+  const denial = signCyclesDenial(
+    {
+      agent_id: 'agent-cycles-001',
+      delegation_ref: 'aps:delegation:cycles-001',
+      action_ref: 'aps:action:cycles-001',
+      denial_reason: mapping.denial_reason,
+      cycles: mapping.cycles,
+      cycles_evidence: { ...evidenceRef(), cycles_evidence_id_sha256: env.evidence_id },
+    },
+    privateKey,
+  )
+  assert.deepEqual(verifyCyclesDenial(denial, { evidence: env }), { valid: true })
+  // And a mismatched binding is caught on the denial path.
+  const wrong = verifyCyclesDenial(denial, {
+    evidence: { ...env, server_id: 'https://evil.example.com/v1' },
+  })
+  assert.equal(wrong.valid, false)
+  if (!wrong.valid) assert.equal(wrong.reason, 'EVIDENCE_REF_HASH_MISMATCH')
 })

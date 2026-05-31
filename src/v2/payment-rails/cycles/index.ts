@@ -29,12 +29,19 @@
 // envelope this receipt binds to via `cycles_evidence.cycles_evidence_id_sha256`
 // IS content-addressed; the APS receipt carries its own UUID identifier.)
 //
+// Join-integrity (the load-bearing offline-audit guarantee):
+//   When the caller passes the fetched CyclesEvidence envelope via
+//   VerifyCyclesOptions.evidence, verify recomputes its content hash
+//   (cycles-evidence-v0.1 normative algorithm: evidence_id + signature
+//   emptied, JCS-canonicalized, sha256) and confirms it matches BOTH the
+//   envelope's own evidence_id AND the receipt's
+//   cycles_evidence.cycles_evidence_id_sha256 → EVIDENCE_REF_HASH_MISMATCH
+//   on either failure. Omit the envelope for signature-only verification.
+//
 // Out of scope for this commit (TODO follow-up):
-//   - cycles_evidence_id_sha256 join-integrity check against a fetched
-//     CyclesEvidence envelope (the load-bearing offline-audit guarantee).
-//     Stub: VerifyCyclesOptions has no envelope field today; future
-//     option add will pass the envelope in and recompute the sha256.
-//   - preAuthorizeCyclesReserve gateway hook into PaymentRail interface.
+//   - preAuthorizeCyclesReserve gateway hook into PaymentRail interface
+//     (gateway-flow placement — held for the AEOESS gateway-flow ADR,
+//     aeoess/agent-passport-system#25).
 //
 // Spec refs:
 //   - runcycles/cycles-protocol drafts/cycles-evidence-v0.1.yaml (#90, 61186a2)
@@ -47,6 +54,7 @@
 
 import { randomUUID } from 'node:crypto'
 import { canonicalizeJCS } from '../../../core/canonical-jcs.js'
+import { sha256Hex } from '../canonicalize.js'
 import { publicKeyFromPrivate, sign, verify as edVerify } from '../../../crypto/keys.js'
 import {
   parseDidUri,
@@ -71,6 +79,7 @@ export {
 import type {
   CyclesDenial,
   CyclesDenialDetail,
+  CyclesEvidenceEnvelopeInput,
   CyclesEvidenceView,
   CyclesPermitReceipt,
   CyclesReleaseReceipt,
@@ -423,6 +432,59 @@ export async function verifyCyclesDenialWithDID(
 
 type AnyCyclesSigned = CyclesPermitReceipt | CyclesReleaseReceipt | CyclesDenial
 
+/**
+ * Join-integrity check: bind the APS receipt to the Cycles-side evidence
+ * it references. Recomputes the fetched envelope's content hash per the
+ * cycles-evidence-v0.1 normative algorithm (evidence_id + signature both
+ * emptied → JCS canonicalize → sha256) and confirms it matches:
+ *   (a) the envelope's own `evidence_id`  — the envelope is internally
+ *                                           consistent (its id is the true
+ *                                           hash of its own content);
+ *   (b) the receipt's `cycles_evidence.cycles_evidence_id_sha256`
+ *                                          — the receipt binds to THIS envelope.
+ *
+ * Returns a failing result on mismatch, or `null` when the check passes
+ * or is skipped (no envelope supplied → signature-only verification).
+ *
+ * Scope: verifies the receipt↔envelope HASH binding and envelope self-
+ * consistency. It does NOT verify the envelope's OWN Ed25519 signature
+ * against the Cycles signer key — cycles-evidence-v0.1 defers Cycles
+ * signer-key resolution (did:cycles / JWKS) to v0.2, so envelope-
+ * authenticity verification lands then. The APS receipt's own signature
+ * (verified separately below) attests that APS vouched for this binding.
+ *
+ * Cross-system byte-match note: APS `canonicalizeJCS` reproduces the
+ * `evidence_id` of every cycles-protocol reference fixture, so the empty-
+ * string-sentinel rule here is the SAME canonicalization the Cycles server
+ * used to derive the hash. Field omission would produce different bytes.
+ */
+function _checkEvidenceJoin(
+  obj: AnyCyclesSigned,
+  options: VerifyCyclesOptions,
+): CyclesVerifyResult | null {
+  const env: CyclesEvidenceEnvelopeInput | undefined = options.evidence
+  if (!env) return null
+
+  const recomputed = sha256Hex(
+    canonicalizeJCS({ ...env, evidence_id: '', signature: '' }),
+  )
+  if (recomputed !== env.evidence_id) {
+    return {
+      valid: false,
+      reason: 'EVIDENCE_REF_HASH_MISMATCH',
+      detail: `envelope evidence_id ${String(env.evidence_id)} != recomputed ${recomputed}`,
+    }
+  }
+  if (recomputed !== obj.cycles_evidence.cycles_evidence_id_sha256) {
+    return {
+      valid: false,
+      reason: 'EVIDENCE_REF_HASH_MISMATCH',
+      detail: `receipt cycles_evidence_id_sha256 ${obj.cycles_evidence.cycles_evidence_id_sha256} != envelope ${recomputed}`,
+    }
+  }
+  return null
+}
+
 function _verifyReceiptCore(
   obj: AnyCyclesSigned,
   expectedClaimType:
@@ -445,6 +507,12 @@ function _verifyReceiptCore(
   if (!obj.cycles_evidence?.cycles_evidence_url || !obj.cycles_evidence?.cycles_evidence_id_sha256) {
     return { valid: false, reason: 'MISSING_REQUIRED_FIELD', detail: 'cycles_evidence' }
   }
+  // Join-integrity: when the fetched envelope is supplied, bind it to the
+  // receipt. Runs before signature/DID checks so a broken receipt↔envelope
+  // join surfaces regardless of signer type (the DID path calls this core
+  // first and propagates any non-DID_RESOLVER_MISSING failure unchanged).
+  const joinFailure = _checkEvidenceJoin(obj, options)
+  if (joinFailure) return joinFailure
   if (options.expected_signer && obj.signer !== options.expected_signer) {
     return { valid: false, reason: 'SIGNATURE_INVALID', detail: 'signer mismatch' }
   }
