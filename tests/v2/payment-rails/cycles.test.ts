@@ -630,3 +630,39 @@ test('join-integrity: applies on the denial path too (shared core verifier)', ()
   assert.equal(wrong.valid, false)
   if (!wrong.valid) assert.equal(wrong.reason, 'EVIDENCE_REF_HASH_MISMATCH')
 })
+
+test('join-integrity: non-string envelope evidence_id → EVIDENCE_REF_HASH_MISMATCH', () => {
+  const { privateKey } = generateKeyPair()
+  const env = loadEnvelope('02-reserve-allow.json')
+  const receipt = permitBoundTo(env, privateKey)
+  // A malformed envelope whose evidence_id is not the canonical hex string.
+  // The recompute (a 64-char lowercase hex) can never equal a non-string,
+  // so the self-consistency check (a) fails closed.
+  const malformed = { ...env, evidence_id: ['not', 'a', 'string'] as unknown as string }
+  const result = verifyCyclesPermitReceipt(receipt, { evidence: malformed })
+  assert.equal(result.valid, false)
+  if (!result.valid) assert.equal(result.reason, 'EVIDENCE_REF_HASH_MISMATCH')
+})
+
+test('join-integrity: receipt hash correct but uppercase → EVIDENCE_REF_HASH_MISMATCH (byte-exact, no case-folding)', () => {
+  const { privateKey } = generateKeyPair()
+  const env = loadEnvelope('02-reserve-allow.json')
+  // Bind the receipt to the UPPERCASE form of the (lowercase) evidence_id.
+  // The recompute is lowercase hex; the comparison is byte-exact, so an
+  // otherwise-correct hash that differs only in case must be rejected.
+  const receipt = signCyclesPermitReceipt(
+    {
+      agent_id: 'agent-cycles-001',
+      delegation_ref: 'aps:delegation:cycles-001',
+      action_ref: 'aps:action:cycles-001',
+      reservation_id: 'rsv_uppercase_hash',
+      reserved: { unit: 'USD_MICROCENTS', amount: 2000000 },
+      decision: 'ALLOW',
+      cycles_evidence: { ...evidenceRef(), cycles_evidence_id_sha256: env.evidence_id.toUpperCase() },
+    },
+    privateKey,
+  )
+  const result = verifyCyclesPermitReceipt(receipt, { evidence: env })
+  assert.equal(result.valid, false)
+  if (!result.valid) assert.equal(result.reason, 'EVIDENCE_REF_HASH_MISMATCH')
+})

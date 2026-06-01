@@ -315,6 +315,11 @@ export function signCyclesPermitReceipt(
   return { ...unsigned, signature }
 }
 
+/** Verify a Cycles permit receipt (sync). With `options.evidence`, also
+ *  checks the receipt↔envelope hash binding (see `_checkEvidenceJoin`).
+ *  NOTE: `valid: true` does NOT assert the envelope's own Ed25519
+ *  authenticity or signer authority — that is the v0.2 item (#43). Pin
+ *  `expected_signer` for issuer trust until then. */
 export function verifyCyclesPermitReceipt(
   receipt: CyclesPermitReceipt,
   options: VerifyCyclesOptions = {},
@@ -326,6 +331,9 @@ export function verifyCyclesPermitReceipt(
   )
 }
 
+/** Verify a Cycles permit receipt (async, DID-URI signers). Join-integrity
+ *  caveat as in `verifyCyclesPermitReceipt`: `valid: true` does NOT assert
+ *  the envelope's own Ed25519 authenticity (v0.2 — #43). */
 export async function verifyCyclesPermitReceiptWithDID(
   receipt: CyclesPermitReceipt,
   options: VerifyCyclesOptions = {},
@@ -364,6 +372,11 @@ export function signCyclesReleaseReceipt(
   return { ...unsigned, signature }
 }
 
+/** Verify a Cycles release receipt (sync). With `options.evidence`, also
+ *  checks the receipt↔envelope hash binding (see `_checkEvidenceJoin`).
+ *  NOTE: `valid: true` does NOT assert the envelope's own Ed25519
+ *  authenticity or signer authority — that is the v0.2 item (#43). Pin
+ *  `expected_signer` for issuer trust until then. */
 export function verifyCyclesReleaseReceipt(
   receipt: CyclesReleaseReceipt,
   options: VerifyCyclesOptions = {},
@@ -375,6 +388,9 @@ export function verifyCyclesReleaseReceipt(
   )
 }
 
+/** Verify a Cycles release receipt (async, DID-URI signers). Join-integrity
+ *  caveat as in `verifyCyclesReleaseReceipt`: `valid: true` does NOT assert
+ *  the envelope's own Ed25519 authenticity (v0.2 — #43). */
 export async function verifyCyclesReleaseReceiptWithDID(
   receipt: CyclesReleaseReceipt,
   options: VerifyCyclesOptions = {},
@@ -410,6 +426,11 @@ export function signCyclesDenial(
   return { ...unsigned, signature }
 }
 
+/** Verify a Cycles denial (sync). With `options.evidence`, also checks the
+ *  receipt↔envelope hash binding (see `_checkEvidenceJoin`). NOTE:
+ *  `valid: true` does NOT assert the envelope's own Ed25519 authenticity or
+ *  signer authority — that is the v0.2 item (#43). Pin `expected_signer`
+ *  for issuer trust until then. */
 export function verifyCyclesDenial(
   denial: CyclesDenial,
   options: VerifyCyclesOptions = {},
@@ -421,6 +442,9 @@ export function verifyCyclesDenial(
   )
 }
 
+/** Verify a Cycles denial (async, DID-URI signers). Join-integrity caveat
+ *  as in `verifyCyclesDenial`: `valid: true` does NOT assert the envelope's
+ *  own Ed25519 authenticity (v0.2 — #43). */
 export async function verifyCyclesDenialWithDID(
   denial: CyclesDenial,
   options: VerifyCyclesOptions = {},
