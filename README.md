@@ -17,6 +17,8 @@ Accepts did:key, did:web, SPIFFE SVIDs, OAuth tokens, and native did:aps. Author
 npm install agent-passport-system
 ```
 
+Also implemented in [Python](https://pypi.org/project/agent-passport-system/) and [Go](https://pkg.go.dev/github.com/aeoess/agent-passport-go), byte-parity-checked against this TypeScript reference.
+
 ## Quick Start
 
 Lead with the curated essentials. `agent-passport-system/core` exposes the ~25 functions that 90% of integrations need: identity, delegation, enforcement, commerce, reputation, key management. The full `agent-passport-system` root import is unchanged and backward compatible: pull from it when Core does not cover your case.
@@ -182,7 +184,7 @@ Coordination (task lifecycle with 9-state machine), EU AI Act compliance (signed
 
 Forward-looking governance. Published, tested, available.
 
-26 v2 constitutional modules: approval fatigue detection, epistemic isolation, blind evaluation, separation of powers, affected-party standing, circuit breakers, constitutional amendment, authority laundering audit, emergence detection.
+23 v2 constitutional modules: approval fatigue detection, epistemic isolation, blind evaluation, separation of powers, affected-party standing, circuit breakers, constitutional amendment, authority laundering audit, emergence detection.
 
 Wave 1 accountability primitives: Ed25519 ActionReceipt, AuthorityBoundaryReceipt, CustodyReceipt, ContestabilityReceipt, APSBundle. RFC 8785 JCS canonicalization for cross-implementation receipts and conformance fixtures, content-addressed, byte-match across implementations.
 
