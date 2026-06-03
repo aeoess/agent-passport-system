@@ -18,8 +18,8 @@ it offline.
 
 ### What CPA proves
 
-- Custody of the declared context basis by the producer key at the stated
-  time.
+- Custody of the declared context basis signed by the producer key at the
+  stated producer time.
 - Admissibility of the disclosed evidence under a declared selection policy.
 - Tamper-evidence: any change to a committed field breaks the signature or
   the Merkle recomputation.

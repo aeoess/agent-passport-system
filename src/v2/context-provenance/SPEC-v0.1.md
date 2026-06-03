@@ -16,14 +16,14 @@ A CPA is a signed, partitioned-Merkle commitment to a declared context
 basis. A producer groups the context items it used into structural-origin
 channels, builds one Merkle partition per non-empty channel, commits the
 present partition roots into a single top root, and signs the result with a
-producer key at a stated time. A verifier checks the signature, the key
+producer key at a producer-stated time. A verifier checks the signature, the key
 state at that time, the binding to an action, and the Merkle structure,
 offline and fail-closed.
 
 ### 1.1 What CPA proves
 
-- Custody of the declared context basis by the producer key at the stated
-  time.
+- Custody of the declared context basis signed by the producer key at the
+  stated producer time.
 - Admissibility of the disclosed evidence under a declared selection policy
   (the disclosure mode).
 - Tamper-evidence over the committed structure: any change to a committed

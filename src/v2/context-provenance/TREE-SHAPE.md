@@ -8,7 +8,7 @@ sentinel is a new version, not a patch.
 ## What CPA attests
 
 A CPA records custody of the declared context basis by a producer key at a
-stated time, and the admissibility of the disclosed evidence under a
+producer-stated time, and the admissibility of the disclosed evidence under a
 declared selection policy (the disclosure mode). The truth of any item's
 content, and whether the declared channel for an item reflects its real
 origin, are downstream consumer responsibilities. `trust_tier` is optional

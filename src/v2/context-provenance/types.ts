@@ -10,7 +10,7 @@
 // present partition roots in CHANNEL_ORDER.
 //
 // What the primitive attests: custody of the declared context basis by a
-// producer key at a stated time, and admissibility of the disclosed
+// producer key at a producer-stated time, and admissibility of the disclosed
 // evidence under a declared selection policy (the disclosure mode). The
 // content of any item, and the question of whether the declared channel
 // for an item reflects its real origin, are downstream consumer
