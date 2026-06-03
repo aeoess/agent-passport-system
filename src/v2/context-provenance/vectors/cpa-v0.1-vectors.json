@@ -1,0 +1,445 @@
+{
+  "_layering": "jcs_kats are HAND-DERIVED (the trust anchor), copied byte-for-byte from known-answer.test.ts KAV1..KAV4. The tree-layer values (partition_root, root, cpa_ref, signature) are REFERENCE-IMPLEMENTATION-DERIVED, computed by the real buildCPA/computeCpaRef/merkle helpers. Cross-language agreement on the tree layer proves both languages implement the same tree shape over the same hand-anchored JCS bytes. The tree-layer values are NOT hand-derived; only the jcs_kats are.",
+  "version": "cpa/0.1",
+  "fixed_inputs": {
+    "seed": "0000000000000000000000000000000000000000000000000000000000000001",
+    "producer_pubkey": "4cb5abf6ad79fbf5abbccafcc269d85cd2651ed4b885b5869f241aedf0a5ba29",
+    "attested_at": "2026-06-03T00:00:00Z",
+    "action_ref": "1111111111111111111111111111111111111111111111111111111111111111",
+    "producer_did": "did:aps:cpa-parity-producer"
+  },
+  "jcs_kats": [
+    {
+      "name": "KAV1",
+      "input": {
+        "é": "non-ascii",
+        "apple": {
+          "b": 2,
+          "a": 1
+        },
+        "Zebra": "upper",
+        "1key": "digit-first"
+      },
+      "expected": "{\"1key\":\"digit-first\",\"Zebra\":\"upper\",\"apple\":{\"a\":1,\"b\":2},\"é\":\"non-ascii\"}",
+      "sha256": "347dfed718913d7fdc34a874777cf95d7a4722d47f2ce72aa86e1aa40a8f6b40"
+    },
+    {
+      "name": "KAV2",
+      "input": {
+        "zero": 0,
+        "neg": -7,
+        "int": 42,
+        "dec": 3.5,
+        "arr": [
+          3,
+          1,
+          2
+        ]
+      },
+      "expected": "{\"arr\":[3,1,2],\"dec\":3.5,\"int\":42,\"neg\":-7,\"zero\":0}",
+      "sha256": "534b228144a885b47caf14bc5ac3275a2d4ca818f8bb5607d9f3088262fa96e2"
+    },
+    {
+      "name": "KAV3",
+      "input": {
+        "s": "a\"b\\c\td\ne/f\u0001g_ü"
+      },
+      "expected": "{\"s\":\"a\\\"b\\\\c\\td\\ne/f\\u0001g_ü\"}",
+      "sha256": "6359e665aff8e54d4e09f10ea19c27080fdc12ee1929ee0bb86c32d0e06302aa"
+    },
+    {
+      "name": "KAV4",
+      "input": {
+        "ctx_id": "sc-001",
+        "content_ref": "aa00",
+        "channel": "system-config",
+        "byte_len": 15
+      },
+      "expected": "{\"byte_len\":15,\"channel\":\"system-config\",\"content_ref\":\"aa00\",\"ctx_id\":\"sc-001\"}",
+      "sha256": "abaf17ec1e412bb212629249f6a27fea90adcca658f95f7a2abcce304a18a300"
+    }
+  ],
+  "ed25519": {
+    "seed": "0000000000000000000000000000000000000000000000000000000000000001",
+    "pubkey": "4cb5abf6ad79fbf5abbccafcc269d85cd2651ed4b885b5869f241aedf0a5ba29",
+    "msg": "{\"hello\":\"cpa\"}",
+    "signature": "83642edc6f607f6388ab90db08a8c6eb4f59a09de9b21027281e1245f4d60847f5d1f7ed2c0f5b6bcb14bb1deba3b51a410acd032f3bd850c5de6982ebe15704"
+  },
+  "cpa_cases": [
+    {
+      "name": "full-set-multi-channel",
+      "description": "full-set mode, 3 present channels: system-config single-leaf, developer 3-leaf (odd-promotion), tool-result 2-leaf",
+      "mode": "full-set",
+      "items": [
+        {
+          "ctx_id": "sc-001",
+          "channel": "system-config",
+          "content_ref": "aa00",
+          "byte_len": 15
+        },
+        {
+          "ctx_id": "dev-001",
+          "channel": "developer",
+          "content_ref": "bb11",
+          "byte_len": 11
+        },
+        {
+          "ctx_id": "dev-002",
+          "channel": "developer",
+          "content_ref": "cc22",
+          "byte_len": 7
+        },
+        {
+          "ctx_id": "dev-003",
+          "channel": "developer",
+          "content_ref": "dd33",
+          "byte_len": 23
+        },
+        {
+          "ctx_id": "tr-001",
+          "channel": "tool-result",
+          "content_ref": "ee44",
+          "byte_len": 100
+        },
+        {
+          "ctx_id": "tr-002",
+          "channel": "tool-result",
+          "content_ref": "ff55",
+          "byte_len": 64
+        }
+      ],
+      "producer_pubkey": "4cb5abf6ad79fbf5abbccafcc269d85cd2651ed4b885b5869f241aedf0a5ba29",
+      "partitions": [
+        {
+          "channel": "system-config",
+          "leaf_count": 1,
+          "leaf_preimages": [
+            {
+              "byte_len": 15,
+              "channel": "system-config",
+              "content_ref": "aa00",
+              "ctx_id": "sc-001"
+            }
+          ],
+          "partition_root": "8ae40845742748e088cad6766634b23fb45d562039061594376ba93c15f08727"
+        },
+        {
+          "channel": "developer",
+          "leaf_count": 3,
+          "leaf_preimages": [
+            {
+              "byte_len": 11,
+              "channel": "developer",
+              "content_ref": "bb11",
+              "ctx_id": "dev-001"
+            },
+            {
+              "byte_len": 7,
+              "channel": "developer",
+              "content_ref": "cc22",
+              "ctx_id": "dev-002"
+            },
+            {
+              "byte_len": 23,
+              "channel": "developer",
+              "content_ref": "dd33",
+              "ctx_id": "dev-003"
+            }
+          ],
+          "partition_root": "52649f626b4cbb71542dbcbe9ebc8814521d6a7cf2eae84138d31ff240bde896"
+        },
+        {
+          "channel": "tool-result",
+          "leaf_count": 2,
+          "leaf_preimages": [
+            {
+              "byte_len": 100,
+              "channel": "tool-result",
+              "content_ref": "ee44",
+              "ctx_id": "tr-001"
+            },
+            {
+              "byte_len": 64,
+              "channel": "tool-result",
+              "content_ref": "ff55",
+              "ctx_id": "tr-002"
+            }
+          ],
+          "partition_root": "713a2c2adb1ffd8456109304daf90a6bb43ab34bd19e624995c5919736ade796"
+        }
+      ],
+      "root": "1fc8c227f594da5191633fbbaa9fbc37e0b6641ff60d4bafc7386de4e526862a",
+      "cpa_ref": "0114f2194ffd279e550046e6c7ddc47f65086f4c37231f782eb1d42b48ec9c50",
+      "signature": "f750f037799fd94f845f20eb670e7f5e25946bfb9dc3e14530ddfbe32e381ab1a281b777d0e39fce3bcd58e63bee89d5bd475ca8b046a14e679bd4d453385501",
+      "signed_cpa": {
+        "version": "cpa/0.1",
+        "action_ref": "1111111111111111111111111111111111111111111111111111111111111111",
+        "producer_did": "did:aps:cpa-parity-producer",
+        "producer_pubkey": "4cb5abf6ad79fbf5abbccafcc269d85cd2651ed4b885b5869f241aedf0a5ba29",
+        "attested_at": "2026-06-03T00:00:00Z",
+        "mode": "full-set",
+        "partitions": [
+          {
+            "channel": "system-config",
+            "partition_root": "8ae40845742748e088cad6766634b23fb45d562039061594376ba93c15f08727",
+            "leaf_count": 1,
+            "leaves": [
+              {
+                "ctx_id": "sc-001",
+                "channel": "system-config",
+                "content_ref": "aa00",
+                "byte_len": 15
+              }
+            ]
+          },
+          {
+            "channel": "developer",
+            "partition_root": "52649f626b4cbb71542dbcbe9ebc8814521d6a7cf2eae84138d31ff240bde896",
+            "leaf_count": 3,
+            "leaves": [
+              {
+                "ctx_id": "dev-001",
+                "channel": "developer",
+                "content_ref": "bb11",
+                "byte_len": 11
+              },
+              {
+                "ctx_id": "dev-002",
+                "channel": "developer",
+                "content_ref": "cc22",
+                "byte_len": 7
+              },
+              {
+                "ctx_id": "dev-003",
+                "channel": "developer",
+                "content_ref": "dd33",
+                "byte_len": 23
+              }
+            ]
+          },
+          {
+            "channel": "tool-result",
+            "partition_root": "713a2c2adb1ffd8456109304daf90a6bb43ab34bd19e624995c5919736ade796",
+            "leaf_count": 2,
+            "leaves": [
+              {
+                "ctx_id": "tr-001",
+                "channel": "tool-result",
+                "content_ref": "ee44",
+                "byte_len": 100
+              },
+              {
+                "ctx_id": "tr-002",
+                "channel": "tool-result",
+                "content_ref": "ff55",
+                "byte_len": 64
+              }
+            ]
+          }
+        ],
+        "root": "1fc8c227f594da5191633fbbaa9fbc37e0b6641ff60d4bafc7386de4e526862a",
+        "signature": "f750f037799fd94f845f20eb670e7f5e25946bfb9dc3e14530ddfbe32e381ab1a281b777d0e39fce3bcd58e63bee89d5bd475ca8b046a14e679bd4d453385501"
+      }
+    },
+    {
+      "name": "inclusion-count-only-multi-channel",
+      "description": "inclusion mode, count-only (no disclosed leaves), 3 present channels",
+      "mode": "inclusion",
+      "items": [
+        {
+          "ctx_id": "sc-001",
+          "channel": "system-config",
+          "content_ref": "aa00",
+          "byte_len": 15
+        },
+        {
+          "ctx_id": "usr-001",
+          "channel": "user-socket",
+          "content_ref": "1234",
+          "byte_len": 42
+        },
+        {
+          "ctx_id": "usr-002",
+          "channel": "user-socket",
+          "content_ref": "5678",
+          "byte_len": 8
+        },
+        {
+          "ctx_id": "ext-001",
+          "channel": "external",
+          "content_ref": "9abc",
+          "byte_len": 256
+        }
+      ],
+      "producer_pubkey": "4cb5abf6ad79fbf5abbccafcc269d85cd2651ed4b885b5869f241aedf0a5ba29",
+      "partitions": [
+        {
+          "channel": "system-config",
+          "leaf_count": 1,
+          "leaf_preimages": [
+            {
+              "byte_len": 15,
+              "channel": "system-config",
+              "content_ref": "aa00",
+              "ctx_id": "sc-001"
+            }
+          ],
+          "partition_root": "8ae40845742748e088cad6766634b23fb45d562039061594376ba93c15f08727"
+        },
+        {
+          "channel": "user-socket",
+          "leaf_count": 2,
+          "leaf_preimages": [
+            {
+              "byte_len": 42,
+              "channel": "user-socket",
+              "content_ref": "1234",
+              "ctx_id": "usr-001"
+            },
+            {
+              "byte_len": 8,
+              "channel": "user-socket",
+              "content_ref": "5678",
+              "ctx_id": "usr-002"
+            }
+          ],
+          "partition_root": "e2b215fadc1b8f474fb4d7fd9753f083cdb414a0a8166595b007415428adc082"
+        },
+        {
+          "channel": "external",
+          "leaf_count": 1,
+          "leaf_preimages": [
+            {
+              "byte_len": 256,
+              "channel": "external",
+              "content_ref": "9abc",
+              "ctx_id": "ext-001"
+            }
+          ],
+          "partition_root": "bd6246ed758bd9ba0f7056ebdca217a435d723273ad3824d4728c464f037884a"
+        }
+      ],
+      "root": "63791077ae7e21b2ee5c1b6367d3dd61932582d7f80b66600ee721f58f4e24ee",
+      "cpa_ref": "acb2bf5556ce3d49af3b1199135d5c43bf5c3a508b8677362ef51b46b4c22b7f",
+      "signature": "ab7c837872f3082604355d10a1fb6c7808cf17edb70c4a4133ca692fa7bbb471f43c09e7a14637e4485fb9d007a611516e2ac6e4849aa2d7fd9687de4c13c40a",
+      "signed_cpa": {
+        "version": "cpa/0.1",
+        "action_ref": "1111111111111111111111111111111111111111111111111111111111111111",
+        "producer_did": "did:aps:cpa-parity-producer",
+        "producer_pubkey": "4cb5abf6ad79fbf5abbccafcc269d85cd2651ed4b885b5869f241aedf0a5ba29",
+        "attested_at": "2026-06-03T00:00:00Z",
+        "mode": "inclusion",
+        "partitions": [
+          {
+            "channel": "system-config",
+            "partition_root": "8ae40845742748e088cad6766634b23fb45d562039061594376ba93c15f08727",
+            "leaf_count": 1,
+            "context_profile": {
+              "channel": "system-config",
+              "hidden_leaf_count": 1
+            }
+          },
+          {
+            "channel": "user-socket",
+            "partition_root": "e2b215fadc1b8f474fb4d7fd9753f083cdb414a0a8166595b007415428adc082",
+            "leaf_count": 2,
+            "context_profile": {
+              "channel": "user-socket",
+              "hidden_leaf_count": 2
+            }
+          },
+          {
+            "channel": "external",
+            "partition_root": "bd6246ed758bd9ba0f7056ebdca217a435d723273ad3824d4728c464f037884a",
+            "leaf_count": 1,
+            "context_profile": {
+              "channel": "external",
+              "hidden_leaf_count": 1
+            }
+          }
+        ],
+        "root": "63791077ae7e21b2ee5c1b6367d3dd61932582d7f80b66600ee721f58f4e24ee",
+        "signature": "ab7c837872f3082604355d10a1fb6c7808cf17edb70c4a4133ca692fa7bbb471f43c09e7a14637e4485fb9d007a611516e2ac6e4849aa2d7fd9687de4c13c40a"
+      }
+    },
+    {
+      "name": "single-channel-single-leaf",
+      "description": "full-set mode, one channel with exactly one leaf (root == partition_root == leaf hash)",
+      "mode": "full-set",
+      "items": [
+        {
+          "ctx_id": "mem-001",
+          "channel": "memory",
+          "content_ref": "face",
+          "byte_len": 33
+        }
+      ],
+      "producer_pubkey": "4cb5abf6ad79fbf5abbccafcc269d85cd2651ed4b885b5869f241aedf0a5ba29",
+      "partitions": [
+        {
+          "channel": "memory",
+          "leaf_count": 1,
+          "leaf_preimages": [
+            {
+              "byte_len": 33,
+              "channel": "memory",
+              "content_ref": "face",
+              "ctx_id": "mem-001"
+            }
+          ],
+          "partition_root": "b037785b29dda1e30604974eebd65c988827cc0231961b4062b261281b2a15e2"
+        }
+      ],
+      "root": "b037785b29dda1e30604974eebd65c988827cc0231961b4062b261281b2a15e2",
+      "cpa_ref": "53b177d4f7e22d1ee1e86baa9537cc44d5fb4ea53658965e692ef0b0cab65654",
+      "signature": "ec432f44751b6b08e5b1272df68cf7914d412228810bd18c2e0d2aef13124fd63d8fe0c259f52ec6a2fe663b80072658e081fb46ddaea3cfad6663d3e6264109",
+      "signed_cpa": {
+        "version": "cpa/0.1",
+        "action_ref": "1111111111111111111111111111111111111111111111111111111111111111",
+        "producer_did": "did:aps:cpa-parity-producer",
+        "producer_pubkey": "4cb5abf6ad79fbf5abbccafcc269d85cd2651ed4b885b5869f241aedf0a5ba29",
+        "attested_at": "2026-06-03T00:00:00Z",
+        "mode": "full-set",
+        "partitions": [
+          {
+            "channel": "memory",
+            "partition_root": "b037785b29dda1e30604974eebd65c988827cc0231961b4062b261281b2a15e2",
+            "leaf_count": 1,
+            "leaves": [
+              {
+                "ctx_id": "mem-001",
+                "channel": "memory",
+                "content_ref": "face",
+                "byte_len": 33
+              }
+            ]
+          }
+        ],
+        "root": "b037785b29dda1e30604974eebd65c988827cc0231961b4062b261281b2a15e2",
+        "signature": "ec432f44751b6b08e5b1272df68cf7914d412228810bd18c2e0d2aef13124fd63d8fe0c259f52ec6a2fe663b80072658e081fb46ddaea3cfad6663d3e6264109"
+      }
+    },
+    {
+      "name": "empty-tree",
+      "description": "full-set mode, zero leaves: partitions empty, root is the EMPTY sentinel",
+      "mode": "full-set",
+      "items": [],
+      "producer_pubkey": "4cb5abf6ad79fbf5abbccafcc269d85cd2651ed4b885b5869f241aedf0a5ba29",
+      "partitions": [],
+      "root": "ea68ba631e38467ead09f9f818aaa98cea5c894c32e3d15195e5851d9562d637",
+      "cpa_ref": "e8cdf669451be0dbf2d8e27a0ddbed73682f3f8431b406cfc2f5feb502b4fb29",
+      "signature": "991854c12d5af61c691ec2d592714b4740e3bc811631593adbb79997f2a517081cc5aa41b68569a22785a7df83b46ee4408ac34c05937ef9b41de8c443e5ca04",
+      "signed_cpa": {
+        "version": "cpa/0.1",
+        "action_ref": "1111111111111111111111111111111111111111111111111111111111111111",
+        "producer_did": "did:aps:cpa-parity-producer",
+        "producer_pubkey": "4cb5abf6ad79fbf5abbccafcc269d85cd2651ed4b885b5869f241aedf0a5ba29",
+        "attested_at": "2026-06-03T00:00:00Z",
+        "mode": "full-set",
+        "partitions": [],
+        "root": "ea68ba631e38467ead09f9f818aaa98cea5c894c32e3d15195e5851d9562d637",
+        "signature": "991854c12d5af61c691ec2d592714b4740e3bc811631593adbb79997f2a517081cc5aa41b68569a22785a7df83b46ee4408ac34c05937ef9b41de8c443e5ca04"
+      }
+    }
+  ]
+}
