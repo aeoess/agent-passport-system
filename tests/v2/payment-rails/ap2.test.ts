@@ -47,6 +47,10 @@ const SIGNER_PRIV = '99'.repeat(32)
 const SIGNER_PUB = publicKeyFromPrivate(SIGNER_PRIV)
 const VALID_FROM = '2026-05-03T20:00:00.000Z'
 const VALID_UNTIL = '2026-06-03T20:00:00.000Z'
+// Fixed verification clock inside the VALID_FROM..VALID_UNTIL window, so the
+// mandate ttl tests do not depend on real wall-clock time. Matches the fixed
+// clock the fixture tests below already use.
+const NOW = new Date('2026-05-10T00:00:00.000Z')
 
 function _delegation(overrides: Partial<V2Delegation> = {}): V2Delegation {
   const base: V2Delegation = {
@@ -302,7 +306,7 @@ describe('signAp2Mandate + verifyAp2Mandate', () => {
     const signed = signAp2Mandate(m, SIGNER_PRIV)
     assert.equal(signed.signer_did, SIGNER_PUB)
     assert.equal(signed.signature.length, 128)
-    const v = verifyAp2Mandate(signed)
+    const v = verifyAp2Mandate(signed, { now: NOW })
     assert.equal(v.valid, true)
   })
 
@@ -312,7 +316,7 @@ describe('signAp2Mandate + verifyAp2Mandate', () => {
     const last = signed.signature.slice(-1)
     const flipped = signed.signature.slice(0, -1) + (last === '0' ? '1' : '0')
     const tampered: SignedAP2Mandate = { ...signed, signature: flipped }
-    const v = verifyAp2Mandate(tampered)
+    const v = verifyAp2Mandate(tampered, { now: NOW })
     assert.equal(v.valid, false)
     assert.equal(v.reason, 'SIGNATURE_INVALID')
   })
@@ -320,7 +324,7 @@ describe('signAp2Mandate + verifyAp2Mandate', () => {
   it('rejects mandate when expected_signer_did mismatches', () => {
     const m = apsToAp2IntentMandate(_delegation(), { currency: 'USD' })
     const signed = signAp2Mandate(m, SIGNER_PRIV)
-    const v = verifyAp2Mandate(signed, { expected_signer_did: '0'.repeat(64) })
+    const v = verifyAp2Mandate(signed, { expected_signer_did: '0'.repeat(64), now: NOW })
     assert.equal(v.valid, false)
     assert.equal(v.reason, 'SIGNATURE_INVALID')
   })
@@ -332,7 +336,7 @@ describe('signAp2Mandate + verifyAp2Mandate', () => {
       ...signed,
       mandate: { ...signed.mandate, vct: 'mandate.unknown.1' as never },
     }
-    const v = verifyAp2Mandate(tampered as SignedAP2Mandate)
+    const v = verifyAp2Mandate(tampered as SignedAP2Mandate, { now: NOW })
     assert.equal(v.valid, false)
     assert.equal(v.reason, 'INVALID_VCT')
   })
@@ -380,7 +384,7 @@ describe('signAp2Mandate + verifyAp2Mandate', () => {
     // Force the schema gap.
     const badMandate: AP2CheckoutMandate = { ...m, checkout_hash: '' }
     const signed = signAp2Mandate(badMandate, SIGNER_PRIV)
-    const v = verifyAp2Mandate(signed)
+    const v = verifyAp2Mandate(signed, { now: NOW })
     assert.equal(v.valid, false)
     assert.equal(v.reason, 'MISSING_REQUIRED_FIELD')
   })
@@ -394,7 +398,7 @@ describe('signAp2Mandate + verifyAp2Mandate', () => {
     })
     const bad: AP2PaymentMandate = { ...m, payment_instrument: undefined as unknown as AP2PaymentMandate['payment_instrument'] }
     const signed = signAp2Mandate(bad, SIGNER_PRIV)
-    const v = verifyAp2Mandate(signed)
+    const v = verifyAp2Mandate(signed, { now: NOW })
     assert.equal(v.valid, false)
     assert.equal(v.reason, 'MISSING_REQUIRED_FIELD')
   })
@@ -420,7 +424,7 @@ describe('AP2 fixtures — byte-parity round trip', () => {
     const signed = JSON.parse(
       readFileSync(join(FIXTURE_DIR, 'ap2-intent-mandate-001.json'), 'utf8'),
     ) as SignedAP2Mandate<AP2OpenCheckoutMandate>
-    const v = verifyAp2Mandate(signed, { now: new Date('2026-05-10T00:00:00.000Z') })
+    const v = verifyAp2Mandate(signed, { now: NOW })
     assert.equal(v.valid, true, `verify failed: ${v.reason} ${v.detail}`)
   })
 
@@ -428,7 +432,7 @@ describe('AP2 fixtures — byte-parity round trip', () => {
     const signed = JSON.parse(
       readFileSync(join(FIXTURE_DIR, 'ap2-cart-mandate-002.json'), 'utf8'),
     ) as SignedAP2Mandate<AP2CheckoutMandate>
-    const v = verifyAp2Mandate(signed, { now: new Date('2026-05-10T00:00:00.000Z') })
+    const v = verifyAp2Mandate(signed, { now: NOW })
     assert.equal(v.valid, true, `verify failed: ${v.reason} ${v.detail}`)
   })
 
@@ -436,7 +440,7 @@ describe('AP2 fixtures — byte-parity round trip', () => {
     const signed = JSON.parse(
       readFileSync(join(FIXTURE_DIR, 'ap2-payment-mandate-003.json'), 'utf8'),
     ) as SignedAP2Mandate<AP2PaymentMandate>
-    const v = verifyAp2Mandate(signed, { now: new Date('2026-05-10T00:00:00.000Z') })
+    const v = verifyAp2Mandate(signed, { now: NOW })
     assert.equal(v.valid, true, `verify failed: ${v.reason} ${v.detail}`)
   })
 
