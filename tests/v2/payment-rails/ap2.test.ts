@@ -636,7 +636,7 @@ describe('AP2 Q1 — accountability shape', () => {
     assert.equal(signed.claim_type, 'rail.ap2.mandate.v1')
     assert.equal(typeof signed.timestamp, 'string')
     assert.ok(signed.scope_of_claim && signed.scope_of_claim.asserts.length > 0)
-    assert.equal(verifyAp2Mandate(signed).valid, true)
+    assert.equal(verifyAp2Mandate(signed, { now: NOW }).valid, true)
   })
 
   it('legacy-shape SignedAP2Mandate (no claim_type) still verifies', () => {
@@ -644,7 +644,7 @@ describe('AP2 Q1 — accountability shape', () => {
     const m = apsToAp2IntentMandate(intent(), { currency: 'USD' })
     const signed = signAp2Mandate(m, kp.privateKey)
     assert.equal(signed.claim_type, undefined)
-    assert.equal(verifyAp2Mandate(signed).valid, true)
+    assert.equal(verifyAp2Mandate(signed, { now: NOW }).valid, true)
   })
 
   it('SignedAP2Mandate with mismatched claim_type literal rejected', () => {
@@ -652,7 +652,7 @@ describe('AP2 Q1 — accountability shape', () => {
     const m = apsToAp2IntentMandate(intent(), { currency: 'USD' })
     const signed = signAp2Mandate(m, kp.privateKey, { accountability_shape: true })
     const tampered = { ...signed, claim_type: 'rail.payment.v1' as unknown as 'rail.ap2.mandate.v1' }
-    assert.equal(verifyAp2Mandate(tampered).valid, false)
+    assert.equal(verifyAp2Mandate(tampered, { now: NOW }).valid, false)
   })
 
   it('scope_of_claim override propagates', () => {
