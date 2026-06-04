@@ -401,3 +401,37 @@ export type {
   DimensionNarrowingResult,
   ScopeDimensionRegistry,
 } from './scope-registry/index.js'
+
+
+// v2 Context Provenance Attestation (CPA v0.1). General partitioned-Merkle
+// context-basis commitment: custody of a declared context basis signed by the
+// producer key at the stated producer time, admissibility under a disclosure
+// policy, tamper-evidence, action-bound and receipt-bound replay-resistance,
+// and structural-origin partitioning. Pure public SDK primitive (no network,
+// no scoring, no stateful store). Frozen tree shape in
+// context-provenance/TREE-SHAPE.md. The low-level Merkle and hex helpers stay
+// module-internal; this barrel exposes the high-level primitive only.
+export {
+  buildCPA,
+  verifyCPA,
+  computeCpaRef,
+  carryCpaRef,
+  bindCpaRefToReceipt,
+  CHANNEL_ORDER,
+} from './context-provenance/index.js'
+export type {
+  ContextChannel,
+  DisclosureMode,
+  ContextItem,
+  ContextProfile,
+  CpaPartition,
+  ContextProvenanceAttestation,
+  UnsignedCPA,
+  CpaReasonCode,
+  CpaVerifyResult,
+  InclusionProof,
+  InclusionStep,
+  BuildCpaInput,
+  CpaReceipt,
+  CpaVerifyOptions,
+} from './context-provenance/index.js'
