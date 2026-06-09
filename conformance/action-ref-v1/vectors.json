@@ -6,27 +6,27 @@
   "vectors": [
     {
       "id": "av-001",
-      "description": "Basic happy path. Byte-matches the independent argentum-core (giskard09) implementation, so a pass proves agreement with the ecosystem, not just self-consistency.",
+      "description": "Basic happy path. Minimal tuple with a DID agent_id and a zero-millisecond timestamp written in full.",
       "input": {
-        "agent_id": "pioneer-agent-001",
-        "action_type": "payment.send",
-        "scope": "mycelium:payment",
-        "timestamp": "2026-05-24T10:30:00.000Z"
+        "agent_id": "did:aps:zExampleAgent001",
+        "action_type": "document.sign",
+        "scope": "repo:example/docs",
+        "timestamp": "2026-06-09T12:00:00.000Z"
       },
-      "canonical": "{\"action_type\":\"payment.send\",\"agent_id\":\"pioneer-agent-001\",\"scope\":\"mycelium:payment\",\"timestamp\":\"2026-05-24T10:30:00.000Z\"}",
-      "expected": "584bc79bb11ce3af5058b3da84d03f85e4aa464a175bd4f913aeb82a22cef60f"
+      "canonical": "{\"action_type\":\"document.sign\",\"agent_id\":\"did:aps:zExampleAgent001\",\"scope\":\"repo:example/docs\",\"timestamp\":\"2026-06-09T12:00:00.000Z\"}",
+      "expected": "f5cc735aa740b1a5006bf4d41f6e3cacbabcab3e369043b58d924e3bb69b4988"
     },
     {
       "id": "av-002",
-      "description": "Second independent ecosystem anchor (andysalvo 0001-giskard-baseline).",
+      "description": "Second basic vector: did:web agent_id and a non-zero millisecond timestamp.",
       "input": {
-        "agent_id": "nexus-agent-xa12.onrender.com",
-        "action_type": "oracle.signal",
-        "scope": "BTC",
-        "timestamp": "2025-05-18T11:40:31.000Z"
+        "agent_id": "did:web:example.org:agents:42",
+        "action_type": "calendar.create_event",
+        "scope": "calendar:work",
+        "timestamp": "2026-01-15T08:30:45.123Z"
       },
-      "canonical": "{\"action_type\":\"oracle.signal\",\"agent_id\":\"nexus-agent-xa12.onrender.com\",\"scope\":\"BTC\",\"timestamp\":\"2025-05-18T11:40:31.000Z\"}",
-      "expected": "fdd7f810499f06be24355ca8e2bfb8c4b965cc80c838f41fa074683443d89f5a"
+      "canonical": "{\"action_type\":\"calendar.create_event\",\"agent_id\":\"did:web:example.org:agents:42\",\"scope\":\"calendar:work\",\"timestamp\":\"2026-01-15T08:30:45.123Z\"}",
+      "expected": "baae7b7a8ab833556cffdfbf199bd77cc9b88f41f5ad75a02edee0f5429c1b55"
     },
     {
       "id": "av-003",
@@ -44,18 +44,18 @@
       "id": "av-004",
       "description": "Key-order independence. The same tuple presented in three different JSON key orders canonicalizes to one byte sequence and one hash (identical to av-001). Verifiers parse each variant and recompute.",
       "input": {
-        "agent_id": "pioneer-agent-001",
-        "action_type": "payment.send",
-        "scope": "mycelium:payment",
-        "timestamp": "2026-05-24T10:30:00.000Z"
+        "agent_id": "did:aps:zExampleAgent001",
+        "action_type": "document.sign",
+        "scope": "repo:example/docs",
+        "timestamp": "2026-06-09T12:00:00.000Z"
       },
       "input_json_variants": [
-        "{\"agent_id\":\"pioneer-agent-001\",\"action_type\":\"payment.send\",\"scope\":\"mycelium:payment\",\"timestamp\":\"2026-05-24T10:30:00.000Z\"}",
-        "{\"timestamp\":\"2026-05-24T10:30:00.000Z\",\"scope\":\"mycelium:payment\",\"action_type\":\"payment.send\",\"agent_id\":\"pioneer-agent-001\"}",
-        "{\"scope\":\"mycelium:payment\",\"agent_id\":\"pioneer-agent-001\",\"timestamp\":\"2026-05-24T10:30:00.000Z\",\"action_type\":\"payment.send\"}"
+        "{\"agent_id\":\"did:aps:zExampleAgent001\",\"action_type\":\"document.sign\",\"scope\":\"repo:example/docs\",\"timestamp\":\"2026-06-09T12:00:00.000Z\"}",
+        "{\"timestamp\":\"2026-06-09T12:00:00.000Z\",\"scope\":\"repo:example/docs\",\"action_type\":\"document.sign\",\"agent_id\":\"did:aps:zExampleAgent001\"}",
+        "{\"scope\":\"repo:example/docs\",\"agent_id\":\"did:aps:zExampleAgent001\",\"timestamp\":\"2026-06-09T12:00:00.000Z\",\"action_type\":\"document.sign\"}"
       ],
-      "canonical": "{\"action_type\":\"payment.send\",\"agent_id\":\"pioneer-agent-001\",\"scope\":\"mycelium:payment\",\"timestamp\":\"2026-05-24T10:30:00.000Z\"}",
-      "expected": "584bc79bb11ce3af5058b3da84d03f85e4aa464a175bd4f913aeb82a22cef60f"
+      "canonical": "{\"action_type\":\"document.sign\",\"agent_id\":\"did:aps:zExampleAgent001\",\"scope\":\"repo:example/docs\",\"timestamp\":\"2026-06-09T12:00:00.000Z\"}",
+      "expected": "f5cc735aa740b1a5006bf4d41f6e3cacbabcab3e369043b58d924e3bb69b4988"
     },
     {
       "id": "av-005",

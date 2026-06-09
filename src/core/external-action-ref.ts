@@ -9,8 +9,8 @@
 // and this external key are distinct primitives with intentionally different
 // preimages. Use computeActionRef for APS receipts and request equivalence.
 // Use this helper only to correlate an APS action with the external
-// action-ref-v1 form that argentum-core (action-ref-v1.0), x402 #2332, Gonka,
-// and the joint I-D on A2A #1850 compute.
+// action-ref-v1 form computed by independent ecosystem implementations
+// (see docs/specs/action-ref-v1.md and conformance/action-ref-v1/).
 //
 // Differences from the APS-native §4.1 form:
 //   - snake_case preimage keys {action_type, agent_id, scope, timestamp}

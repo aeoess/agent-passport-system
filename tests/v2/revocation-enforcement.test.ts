@@ -213,9 +213,13 @@ describe('W2-B3 delegation refresh: reissue only when not revoked and same trace
   beforeEach(() => {
     clearV2DelegationStore()
     delegatorKeys = generateKeyPair()
+    // Both ends pinned to the fake clock: createPolicyContext defaults
+    // valid_from to the real wall clock, which made these contexts born
+    // expired once real time passed the pinned valid_until.
     ctx = createPolicyContext({
       policy_version: '1.0', values_floor_version: '1.0', trust_epoch: 1,
       issuer_id: delegatorKeys.publicKey,
+      valid_from: now.toISOString(),
       valid_until: new Date(nowMs + 7 * 24 * 3600_000).toISOString(),
     })
   })
@@ -224,7 +228,8 @@ describe('W2-B3 delegation refresh: reissue only when not revoked and same trace
     return createPolicyContext({
       policy_version: '1.0', values_floor_version: '1.0', trust_epoch: 1,
       issuer_id: delegatorKeys.publicKey,
-      valid_until: new Date(Date.now() + 14 * 24 * 3600_000).toISOString(),
+      valid_from: now.toISOString(),
+      valid_until: new Date(nowMs + 14 * 24 * 3600_000).toISOString(),
     })
   }
 
@@ -240,6 +245,7 @@ describe('W2-B3 delegation refresh: reissue only when not revoked and same trace
     const out = refreshDelegation({
       token, trace_id: 'trace-xyz', policy_context: freshCtx(),
       delegator_private_key: delegatorKeys.privateKey, renewal_reason: 'rotation window',
+      now,
     })
     assert.equal(out.reissued, true)
     assert.ok(out.new_delegation_id)
@@ -259,6 +265,7 @@ describe('W2-B3 delegation refresh: reissue only when not revoked and same trace
     const out = refreshDelegation({
       token, trace_id: 'trace-xyz', policy_context: freshCtx(),
       delegator_private_key: delegatorKeys.privateKey, renewal_reason: 'rotation window',
+      now,
     })
     assert.equal(out.reissued, false)
     assert.equal(out.reason, 'revoked')
@@ -276,6 +283,7 @@ describe('W2-B3 delegation refresh: reissue only when not revoked and same trace
     const out = refreshDelegation({
       token, trace_id: 'trace-DIFFERENT', policy_context: freshCtx(),
       delegator_private_key: delegatorKeys.privateKey, renewal_reason: 'rotation window',
+      now,
     })
     assert.equal(out.reissued, false)
     assert.equal(out.reason, 'trace_mismatch')
@@ -289,6 +297,7 @@ describe('W2-B3 delegation refresh: reissue only when not revoked and same trace
     const out = refreshDelegation({
       token, trace_id: 'trace-xyz', policy_context: freshCtx(),
       delegator_private_key: delegatorKeys.privateKey, renewal_reason: 'rotation window',
+      now,
     })
     assert.equal(out.reissued, false)
     assert.equal(out.reason, 'not_found')
@@ -306,6 +315,7 @@ describe('W2-B3 delegation refresh: reissue only when not revoked and same trace
     const out = refreshDelegation({
       token, trace_id: 'trace-xyz', policy_context: freshCtx(),
       delegator_private_key: delegatorKeys.privateKey, renewal_reason: 'rotation window',
+      now,
     })
     assert.equal(out.reissued, true)
     // The renewal path supersedes keeping scope; the original is no longer active.

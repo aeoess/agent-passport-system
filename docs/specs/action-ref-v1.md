@@ -8,9 +8,9 @@
   defined here do not change under the v1 label. See Versioning.
 
 This document specifies the cross-ecosystem `action_ref` v1 form, the one
-computed by `computeExternalActionRefV1` and by independent implementations in
-the action-ref-v1 ecosystem (argentum-core, x402 #2332, Gonka, the joint I-D
-work on A2A #1850). It is distinct from the APS-native `action_ref` of
+computed by `computeExternalActionRefV1`. The derivation follows the form
+converged in public standards discussion in 2026 (w3c-cg/ai-agent-protocol#34).
+It is distinct from the APS-native `action_ref` of
 `draft-pidlisnyi-aps` section 4.1 (`computeActionRef`), whose preimage uses
 camelCase keys, a multi-scope array, and second-precision timestamps. The two
 are separate primitives with intentionally different preimages; this document
@@ -84,16 +84,16 @@ always, in this exact key order:
 {"action_type":"...","agent_id":"...","scope":"...","timestamp":"..."}
 ```
 
-Worked example (pinned against independent ecosystem implementations):
+Worked example:
 
 ```
-agent_id    = "pioneer-agent-001"
-action_type = "payment.send"
-scope       = "mycelium:payment"
-timestamp   = "2026-05-24T10:30:00.000Z"
+agent_id    = "did:aps:zExampleAgent001"
+action_type = "document.sign"
+scope       = "repo:example/docs"
+timestamp   = "2026-06-09T12:00:00.000Z"
 
-canonical   = {"action_type":"payment.send","agent_id":"pioneer-agent-001","scope":"mycelium:payment","timestamp":"2026-05-24T10:30:00.000Z"}
-action_ref  = 584bc79bb11ce3af5058b3da84d03f85e4aa464a175bd4f913aeb82a22cef60f
+canonical   = {"action_type":"document.sign","agent_id":"did:aps:zExampleAgent001","scope":"repo:example/docs","timestamp":"2026-06-09T12:00:00.000Z"}
+action_ref  = f5cc735aa740b1a5006bf4d41f6e3cacbabcab3e369043b58d924e3bb69b4988
 ```
 
 ## Non-goals
