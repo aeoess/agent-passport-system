@@ -58,6 +58,15 @@ export interface BuildCpaInput {
    * (no `leaves`, hidden_leaf_count = leaf_count).
    */
   disclose?: Set<string> | string[]
+  /**
+   * Optional hash-bound reference to an external producer attestation,
+   * carried inside the signed bytes when supplied. Added to the unsigned
+   * shape by CONDITIONAL SPREAD, never as an explicitly-undefined key
+   * (strict JCS would render that as null and change the bytes); an
+   * omitting CPA keeps its exact prior canonical form. See
+   * src/v2/producer-attestation.
+   */
+  producer_attestation?: import('../producer-attestation/types.js').CpaProducerAttestationRef
 }
 
 /**
@@ -158,6 +167,11 @@ export function buildCPA(input: BuildCpaInput): ContextProvenanceAttestation {
     mode,
     partitions,
     root,
+    // Conditional spread, not an undefined-valued key: strict JCS renders
+    // an explicitly-set undefined as null, which would change the bytes.
+    ...(input.producer_attestation !== undefined
+      ? { producer_attestation: input.producer_attestation }
+      : {}),
     signature: '',
   }
 

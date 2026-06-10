@@ -299,6 +299,24 @@ function decodeShape(input: unknown): DecodeResult {
     }
   }
 
+  // producer_attestation: OPTIONAL additive slot. Absent is fine and keeps
+  // the pre-slot bytes. Present-but-malformed is SHAPE_INVALID (fail
+  // closed): a reference that cannot say what it binds is not carried.
+  if (v.producer_attestation !== undefined) {
+    const pa = v.producer_attestation
+    if (typeof pa !== 'object' || pa === null || Array.isArray(pa)) {
+      reasons.push('SHAPE_INVALID')
+    } else {
+      const p = pa as Record<string, unknown>
+      if (typeof p.format !== 'string' || p.format.trim().length === 0) reasons.push('SHAPE_INVALID')
+      if (typeof p.content_hash !== 'string' || !HEX_64.test(p.content_hash)) reasons.push('SHAPE_INVALID')
+      if (p.locator_uri !== undefined && (typeof p.locator_uri !== 'string' || p.locator_uri.length === 0)) {
+        reasons.push('SHAPE_INVALID')
+      }
+      if (p.binding_note !== undefined && typeof p.binding_note !== 'string') reasons.push('SHAPE_INVALID')
+    }
+  }
+
   if (reasons.length > 0) return fail()
   return { ok: true, value: v as unknown as ContextProvenanceAttestation }
 }

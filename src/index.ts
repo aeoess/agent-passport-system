@@ -1908,3 +1908,18 @@ export {
   type VerificationSource,
   type VerificationSourceValidation,
 } from './v2/verification-source/index.js'
+
+// ── Producer attestation: an external attestation (EAT, TEE quote, vendor
+// report) bound into receipt evidence and into a CPA by hash reference.
+// APS does not parse or evaluate attestations; the claim is custody of
+// the reference, not validity of the attestation.
+export {
+  createProducerAttestationCommitment,
+  verifyProducerAttestationCommitment,
+  validateProducerAttestationCommitment,
+  buildCpaProducerAttestationRef,
+  validateCpaProducerAttestationRef,
+  type ProducerAttestationCommitment,
+  type CpaProducerAttestationRef,
+  type ProducerAttestationValidation,
+} from './v2/producer-attestation/index.js'

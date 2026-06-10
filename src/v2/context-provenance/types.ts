@@ -139,6 +139,11 @@ export interface CpaPartition {
  *   - mode: disclosure mode.
  *   - partitions: present partitions only, sorted by CHANNEL_ORDER.
  *   - root: 64-hex top Merkle root over partition roots.
+ *   - producer_attestation: OPTIONAL additive slot, a hash-bound reference
+ *     to an external producer attestation; absent on a CPA that does not
+ *     carry one, and the absent form is byte-identical to the pre-slot
+ *     shape (the builder adds the key by conditional spread, never as an
+ *     explicitly-undefined key, which strict JCS would render as null).
  *   - signature: 128-hex Ed25519; '' in the unsigned/canonical shape.
  */
 export interface ContextProvenanceAttestation {
@@ -150,6 +155,11 @@ export interface ContextProvenanceAttestation {
   mode: DisclosureMode
   partitions: CpaPartition[]
   root: string
+  /** Optional hash-bound reference to an external producer attestation
+   *  (an EAT, a TEE quote, a vendor report). When present it sits inside
+   *  the signed bytes. APS does not parse or evaluate the attestation;
+   *  see src/v2/producer-attestation. */
+  producer_attestation?: import('../producer-attestation/types.js').CpaProducerAttestationRef
   signature: string
 }
 
