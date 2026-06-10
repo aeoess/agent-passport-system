@@ -67,6 +67,11 @@ export interface SignerClaim {
   /** Cryptographic result. `null` = signer expected but no signature
    *  present (absent-signer tri-state, matching BilateralReceiptVerification). */
   signatureValid: boolean | null
+  /** How the verifier obtained the key behind this check, when the caller
+   *  recorded it (src/v2/verification-source). Optional and additive: a
+   *  claim without it is shaped exactly as before. One more mechanical
+   *  fact; never an input to independence or corroboration. */
+  verificationSource?: import('../verification-source/types.js').VerificationSource
 }
 
 /**
@@ -172,6 +177,11 @@ export interface CheckedSignature {
   /** Anchors this signer chains to (issuer DID, gateway root, JWKS origin,
    *  trust-anchor fingerprint). Feeds the independence graph. */
   chainsTo?: string[]
+  /** How the caller obtained the key for this check, when it recorded that
+   *  (src/v2/verification-source). Echoed onto the SignerClaim fact;
+   *  never consulted by the independence graph or the corroboration
+   *  status. */
+  verificationSource?: import('../verification-source/types.js').VerificationSource
 }
 
 export interface BuildDescriptorInput {
@@ -313,6 +323,9 @@ export function buildEvidenceDescriptor(input: BuildDescriptorInput): EvidenceDe
     role: s.role,
     claim: s.claim,
     signatureValid: s.valid,
+    // Conditional spread: a fact without a recorded source carries no key,
+    // keeping the claim shape identical to the pre-field form.
+    ...(s.verificationSource !== undefined ? { verificationSource: s.verificationSource } : {}),
   }))
 
   // Signer set: distinct signer identities, sorted.

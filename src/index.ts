@@ -1897,3 +1897,14 @@ export {
   type AdvisoryScalar,
   type BilateralVerificationLike,
 } from './v2/assurance/descriptor.js'
+
+// ── Verification source: how a verifying key was obtained, carried in
+// signed evidence (EvidenceCommitment.verificationSource) and in the
+// descriptor's signer facts. Record and validation only; judging the
+// acquisition posture is relying-party policy and is not exported here.
+export {
+  buildVerificationSource,
+  validateVerificationSource,
+  type VerificationSource,
+  type VerificationSourceValidation,
+} from './v2/verification-source/index.js'

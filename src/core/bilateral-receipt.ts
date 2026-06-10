@@ -165,6 +165,11 @@ export function createEvidenceCommitment(opts: {
   issuerKid?: string
   jwks?: string
   pass?: boolean
+  // Optional record of how the committing party obtained the key used for
+  // its credential check (src/v2/verification-source). Added by conditional
+  // spread so an omitting commitment carries no key at all and stays
+  // byte-identical to the pre-change shape under canonicalization.
+  verificationSource?: import('../v2/verification-source/types.js').VerificationSource
 }): EvidenceCommitment {
   return {
     type: opts.type,
@@ -173,6 +178,7 @@ export function createEvidenceCommitment(opts: {
     jwks: opts.jwks,
     pass: opts.pass,
     committedAt: new Date().toISOString(),
+    ...(opts.verificationSource !== undefined ? { verificationSource: opts.verificationSource } : {}),
   }
 }
 

@@ -82,6 +82,12 @@ export interface EvidenceCommitment {
   jwks?: string                  // JWKS endpoint for offline verification
   pass?: boolean                 // whether the credential check passed
   committedAt: string            // ISO 8601
+  // How the committing party obtained the key it used when it checked the
+  // credential behind credentialHash. Additive and optional: a commitment
+  // that omits it serializes and signs byte-for-byte as before (the receipt
+  // body is canonicalized with canonicalize(), which strips undefined keys).
+  // Shape and validation rules live in src/v2/verification-source.
+  verificationSource?: import('../v2/verification-source/types.js').VerificationSource
 }
 
 // ── Revocation Reason ──
