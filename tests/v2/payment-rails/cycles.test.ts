@@ -4,7 +4,9 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
-import { generateKeyPair } from '../../../src/crypto/keys.js'
+import { generateKeyPair, publicKeyFromPrivate, sign } from '../../../src/crypto/keys.js'
+import { canonicalizeJCS } from '../../../src/core/canonical-jcs.js'
+import { sha256Hex } from '../../../src/v2/payment-rails/canonicalize.js'
 import {
   mapCyclesDenialToFoundation,
   RAIL_BUDGET_RESERVATION_DENIAL_CLAIM_TYPE,
@@ -563,7 +565,12 @@ test('join-integrity: permit receipt + matching envelope → valid', () => {
   const { privateKey } = generateKeyPair()
   const env = loadEnvelope('02-reserve-allow.json')
   const receipt = permitBoundTo(env, privateKey)
-  assert.deepEqual(verifyCyclesPermitReceipt(receipt, { evidence: env }), { valid: true })
+  // Envelope supplied → join + envelope-signature both checked; the passing
+  // result tags the unpinned authenticity state (APS#43 (a)).
+  assert.deepEqual(verifyCyclesPermitReceipt(receipt, { evidence: env }), {
+    valid: true,
+    evidence_authenticity: 'signature_valid',
+  })
 })
 
 test('join-integrity: envelope omitted → check skipped, signature-only verify still passes', () => {
@@ -622,7 +629,10 @@ test('join-integrity: applies on the denial path too (shared core verifier)', ()
     },
     privateKey,
   )
-  assert.deepEqual(verifyCyclesDenial(denial, { evidence: env }), { valid: true })
+  assert.deepEqual(verifyCyclesDenial(denial, { evidence: env }), {
+    valid: true,
+    evidence_authenticity: 'signature_valid',
+  })
   // And a mismatched binding is caught on the denial path.
   const wrong = verifyCyclesDenial(denial, {
     evidence: { ...env, server_id: 'https://evil.example.com/v1' },
@@ -665,4 +675,100 @@ test('join-integrity: receipt hash correct but uppercase → EVIDENCE_REF_HASH_M
   const result = verifyCyclesPermitReceipt(receipt, { evidence: env })
   assert.equal(result.valid, false)
   if (!result.valid) assert.equal(result.reason, 'EVIDENCE_REF_HASH_MISMATCH')
+})
+
+// ── Envelope authenticity: APS#43 (a) — envelope Ed25519 signature ─
+// Beyond the hash binding, a supplied envelope's OWN signature is verified
+// against its signer_did (signature emptied, evidence_id populated — the
+// cycles-evidence-v0.1 "Signature derivation" canonicalization, distinct
+// from the content-hash recipe). A passing verify tags evidence_authenticity:
+// 'signature_valid' (bytes verify against signer_did) or 'pinned_issuer'
+// (that PLUS expected_signer pinning the receipt issuer = full authenticity
+// for the pinned case). Dynamic signer-AUTHORITY resolution is (b), gated on
+// runcycles/cycles-protocol#103 and intentionally NOT done here.
+
+/** Re-derive a fully self-consistent envelope signed by `privateKey`:
+ *  re-points signer_did to that key, recomputes evidence_id, and re-signs.
+ *  Models an envelope an arbitrary key produced (used for the (a)/(b)
+ *  boundary test). */
+function resignEnvelope(
+  env: CyclesEvidenceEnvelopeInput,
+  privateKey: string,
+): CyclesEvidenceEnvelopeInput {
+  const signer_did = publicKeyFromPrivate(privateKey)
+  const evidence_id = sha256Hex(
+    canonicalizeJCS({ ...env, signer_did, evidence_id: '', signature: '' }),
+  )
+  const signature = sign(
+    canonicalizeJCS({ ...env, signer_did, evidence_id, signature: '' }),
+    privateKey,
+  )
+  return { ...env, signer_did, evidence_id, signature }
+}
+
+test('envelope-authenticity: valid signature + pinned receipt issuer → pinned_issuer', () => {
+  const { privateKey } = generateKeyPair()
+  const env = loadEnvelope('02-reserve-allow.json')
+  const receipt = permitBoundTo(env, privateKey)
+  // expected_signer pins the receipt issuer (the trust anchor / manual (b)).
+  const result = verifyCyclesPermitReceipt(receipt, {
+    evidence: env,
+    expected_signer: publicKeyFromPrivate(privateKey),
+  })
+  assert.deepEqual(result, { valid: true, evidence_authenticity: 'pinned_issuer' })
+})
+
+test('envelope-authenticity: hash-consistent envelope with a bad signature → EVIDENCE_SIGNATURE_INVALID', () => {
+  const { privateKey } = generateKeyPair()
+  const env = loadEnvelope('02-reserve-allow.json')
+  const receipt = permitBoundTo(env, privateKey)
+  // Zero the signature. The hash recompute empties `signature`, so the
+  // binding/self-consistency check still PASSES — only the (a) signature
+  // check catches it. This is the core (a) guarantee.
+  const forged = { ...env, signature: '0'.repeat(128) }
+  const result = verifyCyclesPermitReceipt(receipt, { evidence: forged })
+  assert.equal(result.valid, false)
+  if (!result.valid) assert.equal(result.reason, 'EVIDENCE_SIGNATURE_INVALID')
+})
+
+test('envelope-authenticity: (a)/(b) boundary — attacker self-signs, signature_valid still holds (NOT authenticity)', () => {
+  const { privateKey: issuerKey } = generateKeyPair()
+  const { privateKey: attackerKey } = generateKeyPair()
+  const env = loadEnvelope('02-reserve-allow.json')
+  // Attacker re-signs the envelope with THEIR OWN key and embeds their own
+  // pubkey as signer_did — a fully self-consistent forgery.
+  const forged = resignEnvelope(env, attackerKey)
+  const receipt = permitBoundTo(forged, issuerKey)
+  // (a) alone passes: the bytes verify against the embedded signer_did. This
+  // is exactly why signature_valid is NOT authenticity — it is the (b) gap
+  // that did:cycles / JWKS resolution (cycles-protocol#103) closes.
+  assert.deepEqual(verifyCyclesPermitReceipt(receipt, { evidence: forged }), {
+    valid: true,
+    evidence_authenticity: 'signature_valid',
+  })
+})
+
+test('envelope-authenticity: self-consistent envelope missing signer_did → EVIDENCE_SIGNATURE_INVALID', () => {
+  const { privateKey } = generateKeyPair()
+  const env = loadEnvelope('02-reserve-allow.json')
+  // Drop signer_did and recompute evidence_id over the reduced shape, so the
+  // hash binding still passes and the missing-signer_did guard is what fires.
+  const { signer_did: _omit, ...noDid } = env
+  const evidence_id = sha256Hex(canonicalizeJCS({ ...noDid, evidence_id: '', signature: '' }))
+  const consistent = { ...noDid, evidence_id } as unknown as CyclesEvidenceEnvelopeInput
+  const receipt = permitBoundTo(consistent, privateKey)
+  const result = verifyCyclesPermitReceipt(receipt, { evidence: consistent })
+  assert.equal(result.valid, false)
+  if (!result.valid) assert.equal(result.reason, 'EVIDENCE_SIGNATURE_INVALID')
+})
+
+test('envelope-authenticity: empty signature (hash-consistent) → EVIDENCE_SIGNATURE_INVALID', () => {
+  const { privateKey } = generateKeyPair()
+  const env = loadEnvelope('02-reserve-allow.json')
+  const receipt = permitBoundTo(env, privateKey)
+  // `signature` is emptied during the hash recompute, so an empty signature
+  // leaves the binding intact — the empty-signature guard is what fires.
+  const result = verifyCyclesPermitReceipt(receipt, { evidence: { ...env, signature: '' } })
+  assert.equal(result.valid, false)
+  if (!result.valid) assert.equal(result.reason, 'EVIDENCE_SIGNATURE_INVALID')
 })

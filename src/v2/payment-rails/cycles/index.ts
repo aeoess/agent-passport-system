@@ -38,7 +38,22 @@
 //   cycles_evidence.cycles_evidence_id_sha256 → EVIDENCE_REF_HASH_MISMATCH
 //   on either failure. Omit the envelope for signature-only verification.
 //
+// Envelope authenticity — APS#43 (a):
+//   With the same VerifyCyclesOptions.evidence, verify also checks the
+//   envelope's OWN Ed25519 signature against its signer_did (signature
+//   emptied, evidence_id populated — cycles-evidence-v0.1 "Signature
+//   derivation") → EVIDENCE_SIGNATURE_INVALID on failure. A passing result
+//   reports `evidence_authenticity`: 'signature_valid' (bytes verify against
+//   signer_did) or 'pinned_issuer' (that PLUS expected_signer pinning the
+//   APS receipt issuer — envelope authenticity then holds TRANSITIVELY, to
+//   the extent the pinned issuer is trusted to bind only legitimate
+//   envelopes; not a proof of signer_did's own authority). Resolving
+//   signer-AUTHORITY directly — (b) — is the v0.2 work tracked at
+//   runcycles/cycles-protocol#103, not done here.
+//
 // Out of scope for this commit (TODO follow-up):
+//   - (b) envelope signer-authority resolution (did:cycles / JWKS /
+//     rotation), gated on runcycles/cycles-protocol#103.
 //   - preAuthorizeCyclesReserve gateway hook into PaymentRail interface
 //     (gateway-flow placement — held for the AEOESS gateway-flow ADR,
 //     aeoess/agent-passport-system#25).
@@ -467,20 +482,33 @@ type AnyCyclesSigned = CyclesPermitReceipt | CyclesReleaseReceipt | CyclesDenial
  *   (b) the receipt's `cycles_evidence.cycles_evidence_id_sha256`
  *                                          — the receipt binds to THIS envelope.
  *
- * Returns a failing result on mismatch, or `null` when the check passes
- * or is skipped (no envelope supplied → signature-only verification).
+ * Returns a failing result on mismatch, or `null` when the checks pass
+ * or are skipped (no envelope supplied → signature-only verification).
  *
- * Scope: verifies the receipt↔envelope HASH binding and envelope self-
- * consistency. It does NOT verify the envelope's OWN Ed25519 signature
- * against the Cycles signer key — cycles-evidence-v0.1 defers Cycles
- * signer-key resolution (did:cycles / JWKS) to v0.2, so envelope-
- * authenticity verification lands then. The APS receipt's own signature
- * (verified separately below) attests that APS vouched for this binding.
+ * Two checks, both gated on a supplied envelope:
  *
- * Cross-system byte-match note: APS `canonicalizeJCS` reproduces the
- * `evidence_id` of every cycles-protocol reference fixture, so the empty-
- * string-sentinel rule here is the SAME canonicalization the Cycles server
- * used to derive the hash. Field omission would produce different bytes.
+ *   1. HASH BINDING + self-consistency (recompute empties BOTH `evidence_id`
+ *      and `signature`): the receipt binds to THIS envelope and the envelope
+ *      is internally consistent. Mismatch → EVIDENCE_REF_HASH_MISMATCH.
+ *
+ *   2. ENVELOPE SIGNATURE (APS#43 (a)): the envelope's OWN Ed25519
+ *      `signature` verifies against the key named in `signer_did`. The
+ *      signed bytes use a DIFFERENT canonicalization — `signature` emptied
+ *      but `evidence_id` POPULATED — per cycles-evidence-v0.1's normative
+ *      "Signature derivation". Failure → EVIDENCE_SIGNATURE_INVALID.
+ *
+ * Scope boundary (the (a)/(b) split): check 2 proves the bytes were signed
+ * by the key in `signer_did` — it does NOT prove that key is the legitimate
+ * Cycles signer rather than an attacker key inside a self-consistent forgery.
+ * That is signer-*authority* resolution (did:cycles / JWKS / rotation), the
+ * v0.2 (b) work tracked at runcycles/cycles-protocol#103. The manual form of
+ * (b) is pinning the receipt issuer via `options.expected_signer`; the
+ * verify result reports which guarantee held via `evidence_authenticity`.
+ *
+ * Cross-system byte-match note: APS `canonicalizeJCS` reproduces both the
+ * `evidence_id` AND the signed bytes of every cycles-protocol reference
+ * fixture, so the empty-string-sentinel rules here are the SAME
+ * canonicalizations the Cycles server used. Field omission would differ.
  */
 function _checkEvidenceJoin(
   obj: AnyCyclesSigned,
@@ -506,7 +534,46 @@ function _checkEvidenceJoin(
       detail: `receipt cycles_evidence_id_sha256 ${obj.cycles_evidence.cycles_evidence_id_sha256} != envelope ${recomputed}`,
     }
   }
+
+  // (a) Envelope authenticity: verify the envelope's own Ed25519 signature
+  // against signer_did. Canonical bytes = envelope with `signature` emptied
+  // and `evidence_id` left populated (the post-hash, pre-signature form).
+  // Fail closed when either field is absent — a supplied envelope without a
+  // verifiable self-signature is not authenticatable. (A `did:`-method
+  // signer_did is not resolvable here in v0.1; that is the (b) path.)
+  const signerDid = env.signer_did
+  if (typeof signerDid !== 'string' || signerDid.length === 0) {
+    return { valid: false, reason: 'EVIDENCE_SIGNATURE_INVALID', detail: 'envelope missing signer_did' }
+  }
+  if (typeof env.signature !== 'string' || env.signature.length === 0) {
+    return { valid: false, reason: 'EVIDENCE_SIGNATURE_INVALID', detail: 'envelope missing signature' }
+  }
+  const envSigBytes = canonicalizeJCS({ ...env, signature: '' })
+  if (!edVerify(envSigBytes, env.signature, signerDid)) {
+    return {
+      valid: false,
+      reason: 'EVIDENCE_SIGNATURE_INVALID',
+      detail: 'envelope Ed25519 signature does not verify against signer_did',
+    }
+  }
   return null
+}
+
+/**
+ * Build the passing result, tagging envelope authenticity (APS#43) when an
+ * envelope was supplied. Reaching here with `options.evidence` set means the
+ * join check passed, i.e. the envelope's signature verified ((a) held), so
+ * the tag is 'pinned_issuer' when the APS receipt issuer is pinned via
+ * `expected_signer` (envelope authenticity then holds transitively through
+ * the trusted issuer — not a direct proof of signer_did authority) and
+ * 'signature_valid' otherwise. Omitted entirely when no envelope was passed.
+ */
+function _validResult(options: VerifyCyclesOptions): CyclesVerifyResult {
+  if (!options.evidence) return { valid: true }
+  return {
+    valid: true,
+    evidence_authenticity: options.expected_signer ? 'pinned_issuer' : 'signature_valid',
+  }
 }
 
 function _verifyReceiptCore(
@@ -577,7 +644,7 @@ function _verifyReceiptCore(
   if (!edVerify(sigBytes, signature, obj.signer)) {
     return { valid: false, reason: 'SIGNATURE_INVALID', detail: 'Ed25519 verify failed' }
   }
-  return { valid: true }
+  return _validResult(options)
 }
 
 async function _verifyReceiptWithDID(
@@ -613,7 +680,7 @@ async function _verifyReceiptWithDID(
   if (!edVerify(sigBytes, signature, pubHex)) {
     return { valid: false, reason: 'SIGNATURE_INVALID', detail: 'Ed25519 verify failed' }
   }
-  return { valid: true }
+  return _validResult(options)
 }
 
 // ── External-evidence resolution: claimed vs resolved (W2-A2) ─────

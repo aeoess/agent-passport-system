@@ -282,14 +282,43 @@ export type CyclesVerifyReason =
   | 'SIGNATURE_INVALID'
   | 'EXPIRED'
   | 'EVIDENCE_REF_HASH_MISMATCH'
+  /** The supplied CyclesEvidence envelope's OWN Ed25519 signature does not
+   *  verify against the key in its `signer_did` (or `signer_did`/`signature`
+   *  is absent). APS#43 (a): envelope signature validity. Distinct from
+   *  EVIDENCE_REF_HASH_MISMATCH, which is the receipt↔envelope hash binding. */
+  | 'EVIDENCE_SIGNATURE_INVALID'
   | 'DID_RESOLVER_MISSING'
   | 'DID_URI_INVALID'
   | 'DID_DOC_NOT_FOUND'
   | 'DID_KEY_NOT_IN_DOC'
   | 'DID_KEY_RETIRED'
 
+/**
+ * Which envelope-authenticity guarantee a passing verify actually checked,
+ * surfaced when `options.evidence` is supplied (APS#43, the (a)/(b) split).
+ * Present ONLY on a `valid: true` result that carried an envelope.
+ *
+ *  - 'signature_valid' : the envelope's own Ed25519 `signature` verifies
+ *      against the key named in its `signer_did`. This is (a). It proves
+ *      the bytes were signed by *that* key — NOT that the key is the
+ *      legitimate Cycles signer. A forger can embed their own key and
+ *      self-sign a consistent envelope, so signature_valid alone is not
+ *      authenticity.
+ *  - 'pinned_issuer'   : signature_valid AND the caller pinned the receipt
+ *      issuer via `expected_signer` (enforced separately). NOTE the pin is on
+ *      the APS *receipt* signer (`obj.signer`), not the envelope's
+ *      `signer_did`. Envelope authenticity is therefore TRANSITIVE: it holds
+ *      only insofar as you trust the pinned receipt issuer to have bound this
+ *      receipt solely to a legitimate Cycles envelope. This is the manual
+ *      form of (b) — a trust assumption about the pinned issuer, not a
+ *      cryptographic proof of `signer_did`'s authority. Resolving that
+ *      authority directly (so the unpinned case is also covered) is (b),
+ *      gated on runcycles/cycles-protocol#103.
+ */
+export type EvidenceAuthenticity = 'signature_valid' | 'pinned_issuer'
+
 export type CyclesVerifyResult =
-  | { valid: true }
+  | { valid: true; evidence_authenticity?: EvidenceAuthenticity }
   | { valid: false; reason: CyclesVerifyReason; detail?: string }
 
 // ── Sign-function input shapes (mirror the mpp/x402 pattern) ──────
@@ -365,8 +394,17 @@ export interface CyclesEvidenceEnvelopeInput {
    *  with `evidence_id` and `signature` both set to the empty string.
    *  Per runcycles/cycles-protocol drafts/cycles-evidence-v0.1.yaml. */
   evidence_id: string
-  /** Ed25519 signature hex; emptied (not omitted) during the recompute. */
+  /** Ed25519 signature hex over the JCS-canonical envelope with `signature`
+   *  emptied and `evidence_id` POPULATED (distinct from the content-hash
+   *  recipe, which empties both). Emptied (not omitted) during the recompute;
+   *  verified as-is against `signer_did` for the APS#43 (a) authenticity
+   *  check. Per runcycles/cycles-protocol drafts/cycles-evidence-v0.1.yaml. */
   signature: string
+  /** The Cycles signer key the envelope `signature` is verified against.
+   *  v0.1 form is a bare Ed25519 hex pubkey (self-describing); a future
+   *  `did:cycles` / JWKS resolvable form is the v0.2 (b) work tracked at
+   *  runcycles/cycles-protocol#103. */
+  signer_did: string
   [key: string]: unknown
 }
 
