@@ -13,6 +13,15 @@
 
 Accepts did:key, did:web, SPIFFE SVIDs, OAuth tokens, and native did:aps. Authority can only decrease at each transfer point. The gateway is both judge and executor. Every action produces a signed receipt. Gateway evaluation under 2ms.
 
+The narrowing invariant:
+
+```mermaid
+flowchart LR
+    P["Principal<br/>full authority"] -->|"scope: payments<br/>limit: $500, 30 days"| A["Agent A<br/>payments, $500"]
+    A -->|"scope: refunds only<br/>limit: $100, 7 days"| B["Agent B<br/>refunds, $100"]
+    B -.->|"$200 request:<br/>exceeds chain authority"| X["denied + signed receipt"]
+```
+
 ```bash
 npm install agent-passport-system
 ```
@@ -40,6 +49,16 @@ Every primitive in this README carries one of three labels so you know how much 
 - **Canonical** -- stable, signed-bytes frozen, covered by conformance fixtures. Breaking these would break cross-implementation verification. Build on them.
 - **Production-Extension** -- shipped and tested, optional, additive to the canonical core. Safe in production; the surface may still grow.
 - **Experimental** -- published for review and tested, but the shape may change. Pin a version before depending on it.
+
+Where enforcement sits:
+
+```mermaid
+flowchart LR
+    AG[Agent] -->|signed intent| GW{"Gateway<br/>scope / spend / revocation / values floor"}
+    GW -->|permit| ACT[Action executes]
+    GW -->|deny| STOP[Blocked]
+    GW --> RC[("Signed receipt<br/>every outcome, both verdicts")]
+```
 
 ## Core Protocol
 
