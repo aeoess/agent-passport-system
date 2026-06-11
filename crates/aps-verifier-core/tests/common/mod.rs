@@ -295,6 +295,7 @@ pub fn write_test_log(
             sequence_id: start_seq_id + i,
             decision_id: [0; 16],
             event_mac: [0; 32],
+            timestamp_unix_ns: 0,
         };
         w.append(&d).expect("LogWriter::append");
     }

@@ -222,6 +222,7 @@ fn recovery_clean_chain_continuation() {
             sequence_id: 1000 + i,
             decision_id: [0; 16],
             event_mac: [0; 32],
+            timestamp_unix_ns: 0,
         };
         w.append(&d).unwrap();
     }

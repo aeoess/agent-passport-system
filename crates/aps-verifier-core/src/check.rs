@@ -30,7 +30,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::action::ActionDescriptor;
 use crate::compiled::CompiledAuthority;
-use crate::decision::{Decision, DecisionType, ReasonCode};
+use crate::decision::{derive_decision_id, Decision, DecisionType, ReasonCode};
 use crate::durability::{NullSink, ReceiptSink};
 use crate::passport::{ApprovalAction, Tier};
 
@@ -96,11 +96,6 @@ pub struct VerifierContext<'a> {
     /// production use plugs in a [`crate::durability::ModeAReceiptSink`]
     /// or chunk-9 Mode B variant.
     pub receipt_sink: &'a dyn ReceiptSink,
-    /// Monotonic decision-id counter. Encoded as the lower 8 bytes of
-    /// each generated `decision_id`; the upper 8 bytes are zero in
-    /// Prototype 1. Real-world deployments may swap for a UUID generator
-    /// or randomness source.
-    pub decision_id_counter: AtomicU64,
 }
 
 /// Singleton `NullSink` used by [`VerifierContext::new`] when no sink is
@@ -122,7 +117,6 @@ impl<'a> VerifierContext<'a> {
             attested_tier,
             revocation_epoch,
             receipt_sink: &NULL_SINK,
-            decision_id_counter: AtomicU64::new(0),
         }
     }
 
@@ -140,15 +134,7 @@ impl<'a> VerifierContext<'a> {
             attested_tier,
             revocation_epoch,
             receipt_sink,
-            decision_id_counter: AtomicU64::new(0),
         }
-    }
-
-    fn next_decision_id(&self) -> [u8; 16] {
-        let n = self.decision_id_counter.fetch_add(1, Ordering::Relaxed);
-        let mut out = [0u8; 16];
-        out[0..8].copy_from_slice(&n.to_le_bytes());
-        out
     }
 }
 
@@ -502,8 +488,17 @@ fn finalize(
         reason_code,
         reserved: [0u8; 6],
         sequence_id,
-        decision_id: ctx.next_decision_id(),
+        // Content-derived decision identity (spec §6.2): BLAKE3
+        // derive_key over the packed identity preimage. Identity
+        // fields only; time and ordering live elsewhere (spec §6.3).
+        decision_id: derive_decision_id(
+            &authority.passport_id_hash,
+            &action.action_hash,
+            decision_type,
+            reason_code,
+        ),
         event_mac: [0u8; 32],
+        timestamp_unix_ns: timestamp_ns,
     };
     decision.finalize_mac(
         &authority.receipt_stream_key,

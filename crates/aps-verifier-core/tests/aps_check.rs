@@ -529,20 +529,59 @@ fn deny_decisions_carry_event_mac() {
 }
 
 #[test]
-fn decision_id_unique_across_calls() {
+fn decision_id_content_derived_and_stable() {
     let (auth, _reg) = happy_setup();
     let action = happy_action();
     let v = TestVerifier::new();
     let ctx = v.context();
+    // The first call advances auth.sequence_next and allows (Ok);
+    // every subsequent call re-submits the same action bytes at the
+    // same sequence_id and denies with SequenceReplay. decision_id is
+    // content-derived (spec §6.2), so identical identity fields share
+    // an id: 100 calls yield exactly 2 distinct decision_ids, one for
+    // the Allow identity and one for the repeated Deny identity.
     let mut ids = std::collections::HashSet::new();
-    // The first call advances auth.sequence_next; subsequent calls
-    // (with the same action.sequence_id = 1000) will hit SequenceReplay,
-    // but decision_id still increments per call.
+    let mut decisions = Vec::new();
     for _ in 0..100 {
         let d = aps_check(&auth, &action, &ctx);
         ids.insert(d.decision_id);
+        decisions.push(d);
     }
-    assert_eq!(ids.len(), 100, "expected 100 distinct decision_ids");
+    assert_eq!(ids.len(), 2, "expected exactly 2 distinct decision_ids");
+    assert_eq!(decisions[0].reason_code as u8, ReasonCode::Ok as u8);
+    assert_eq!(
+        decisions[1].reason_code as u8,
+        ReasonCode::SequenceReplay as u8
+    );
+    assert_eq!(
+        decisions[1].decision_id, decisions[99].decision_id,
+        "byte-identical re-submissions share a decision_id"
+    );
+    assert_ne!(
+        decisions[0].decision_id, decisions[1].decision_id,
+        "different reason_code means a different decision identity"
+    );
+
+    // Offline recomputation from disclosed fields, packed independently
+    // of the production helper: BLAKE3 derive_key with the exact
+    // context string "APS decision_id v1" over passport_id_hash(32) ||
+    // action_hash(32) || decision_type(1) || reason_code(1), reading a
+    // 16-byte XOF output.
+    for d in [&decisions[0], &decisions[1]] {
+        let mut buf = [0u8; 66];
+        buf[0..32].copy_from_slice(&auth.passport_id_hash);
+        buf[32..64].copy_from_slice(&action.action_hash);
+        buf[64] = d.decision_type as u8;
+        buf[65] = d.reason_code as u8;
+        let mut hasher = blake3::Hasher::new_derive_key("APS decision_id v1");
+        hasher.update(&buf);
+        let mut expected = [0u8; 16];
+        hasher.finalize_xof().fill(&mut expected);
+        assert_eq!(
+            d.decision_id, expected,
+            "decision_id must be offline-recomputable from disclosed fields"
+        );
+    }
 }
 
 // -----------------------------------------------------------------------
@@ -569,6 +608,7 @@ impl DecisionDefault for Decision {
             sequence_id: 0,
             decision_id: [0; 16],
             event_mac: [0; 32],
+            timestamp_unix_ns: 0,
         }
     }
 }

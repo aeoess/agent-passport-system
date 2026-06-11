@@ -219,6 +219,7 @@ fn populated_decision() -> Decision {
         sequence_id: 1000,
         decision_id: [0x55; 16],
         event_mac: [0; 32],
+        timestamp_unix_ns: 0,
     }
 }
 

@@ -255,6 +255,9 @@ fn decision_round_trips() {
         sequence_id: 0xFEED_FACE_DEAD_BEEF,
         decision_id: [0xAB; 16],
         event_mac: [0xCD; 32],
+        // Not carried by the 64-byte wire form (spec §6.3); from_bytes
+        // parses it as 0, so the round trip compares equal only at 0.
+        timestamp_unix_ns: 0,
     };
     let bytes = d1.to_bytes();
     assert_eq!(bytes.len(), DECISION_SIZE);

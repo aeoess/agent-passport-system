@@ -84,6 +84,13 @@ impl ReasonCode {
 }
 
 /// Section 6 Decision result. 64 bytes on the wire.
+///
+/// `timestamp_unix_ns` is disclosed alongside the packed 64-byte wire
+/// form, not inside it: the wire layout (spec §6) is frozen at 64
+/// bytes, and the timestamp is bound to the record through `event_mac`
+/// (spec §6.1). The verifier MUST disclose the bound timestamp with
+/// the record so consumers can recheck the MAC; `from_bytes` cannot
+/// recover it and sets it to 0.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Decision {
     pub decision_type: DecisionType,
@@ -92,6 +99,10 @@ pub struct Decision {
     pub sequence_id: u64,
     pub decision_id: [u8; 16],
     pub event_mac: [u8; 32],
+    /// Producer-observed time (unix nanoseconds) bound into
+    /// `event_mac`. Event-instance scoped (spec §6.3); NOT part of the
+    /// 64-byte wire form.
+    pub timestamp_unix_ns: u64,
 }
 
 #[derive(Debug, Error, PartialEq, Eq)]
@@ -108,6 +119,46 @@ pub enum DecisionError {
 /// decision_type(1) || reason_code(1) || decision_id(16) ||
 /// timestamp_unix_ns(8 LE)`.
 pub const CANONICAL_DECISION_EVENT_LEN: usize = 32 + 32 + 8 + 1 + 1 + 16 + 8;
+
+/// Domain-separation context string for content-derived decision ids
+/// (spec §6.2). The exact string is normative.
+pub const DECISION_ID_CONTEXT: &str = "APS decision_id v1";
+
+/// Length of the packed `decision_id` preimage (spec §6.2): the
+/// canonical decision record minus `decision_id` itself, minus the
+/// ordering field, minus the event-instance fields.
+/// `passport_id_hash(32) || action_hash(32) || decision_type(1) ||
+/// reason_code(1)`.
+pub const DECISION_ID_PREIMAGE_LEN: usize = 32 + 32 + 1 + 1;
+
+/// Derive the content-derived decision identity (spec §6.2):
+/// BLAKE3 derive_key with [`DECISION_ID_CONTEXT`], reading 16 bytes of
+/// XOF output, over the 66-byte packed identity preimage.
+///
+/// Hot-path legal per spec §8: fixed stack buffer, no heap, no string
+/// operations, no JSON. Path-independent by construction and
+/// offline-recomputable from disclosed fields: evaluations with
+/// identical identity fields share a `decision_id` even at different
+/// times. Because `action_hash` covers descriptor bytes 0..172
+/// (including `sequence_id` and `nonce`), identical identity fields
+/// mean byte-identical re-submissions.
+pub fn derive_decision_id(
+    passport_id_hash: &[u8; 32],
+    action_hash: &[u8; 32],
+    decision_type: DecisionType,
+    reason_code: ReasonCode,
+) -> [u8; 16] {
+    let mut buf = [0u8; DECISION_ID_PREIMAGE_LEN];
+    buf[0..32].copy_from_slice(passport_id_hash);
+    buf[32..64].copy_from_slice(action_hash);
+    buf[64] = decision_type as u8;
+    buf[65] = reason_code as u8;
+    let mut hasher = blake3::Hasher::new_derive_key(DECISION_ID_CONTEXT);
+    hasher.update(&buf);
+    let mut out = [0u8; 16];
+    hasher.finalize_xof().fill(&mut out);
+    out
+}
 
 /// Pack the canonical decision-event bytes (§6.1) into `buf`.
 fn pack_canonical_event(
@@ -189,6 +240,8 @@ impl Decision {
     /// Parse from the 64-byte canonical form. Validates that
     /// decision_type and reason_code are spec-defined; carries
     /// `event_mac` opaquely until chunk 2 wires the MAC check.
+    /// `timestamp_unix_ns` is not carried by the wire form and parses
+    /// as 0; the bound timestamp is disclosed out of band (spec §6.3).
     pub fn from_bytes(bytes: &[u8; DECISION_SIZE]) -> Result<Self, DecisionError> {
         let decision_type = DecisionType::from_u8(bytes[0])?;
         let reason_code = ReasonCode::from_u8(bytes[1])?;
@@ -210,6 +263,7 @@ impl Decision {
             sequence_id,
             decision_id,
             event_mac,
+            timestamp_unix_ns: 0,
         })
     }
 }

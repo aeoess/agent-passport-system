@@ -153,6 +153,10 @@ struct DecisionJson {
     sequence_id: u64,
     decision_id_hex: String,
     event_mac_hex: String,
+    /// Producer-observed time bound into `event_mac`, disclosed so the
+    /// MAC can be rechecked (spec §6.3). On this surface it echoes the
+    /// caller-supplied `now_unix_ns`.
+    timestamp_unix_ns: u64,
 }
 
 // The wasm crate avoids pulling serde_json to keep the bundle minimal.
@@ -173,13 +177,14 @@ fn serde_to_string(decisions: &[DecisionJson]) -> Result<String, JsValue> {
             out.push(',');
         }
         out.push_str(&format!(
-            "{{\"decisionType\":\"{}\",\"reasonCode\":{},\"reasonName\":\"{}\",\"sequenceId\":{},\"decisionIdHex\":\"{}\",\"eventMacHex\":\"{}\"}}",
+            "{{\"decisionType\":\"{}\",\"reasonCode\":{},\"reasonName\":\"{}\",\"sequenceId\":{},\"decisionIdHex\":\"{}\",\"eventMacHex\":\"{}\",\"timestampUnixNs\":{}}}",
             d.decision_type,
             d.reason_code,
             d.reason_name,
             d.sequence_id,
             d.decision_id_hex,
-            d.event_mac_hex
+            d.event_mac_hex,
+            d.timestamp_unix_ns
         ));
     }
     out.push(']');
@@ -280,6 +285,7 @@ fn decision_json(decision: &Decision) -> DecisionJson {
         sequence_id: decision.sequence_id,
         decision_id_hex: hex_encode(&decision.decision_id),
         event_mac_hex: hex_encode(&decision.event_mac),
+        timestamp_unix_ns: decision.timestamp_unix_ns,
     }
 }
 

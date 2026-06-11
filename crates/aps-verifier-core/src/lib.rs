@@ -50,7 +50,10 @@ pub use registry::{
     MockRegistryFetcher, RegistryError, RegistryFetcher, SyncError, ToolEntry, ToolRegistry,
 };
 pub use resource_trie::{hash_path_component, parse_scope, ParsedScope, TrieNode};
-pub use decision::{Decision, DecisionError, DecisionType, ReasonCode, DECISION_SIZE};
+pub use decision::{
+    derive_decision_id, Decision, DecisionError, DecisionType, ReasonCode,
+    DECISION_ID_CONTEXT, DECISION_ID_PREIMAGE_LEN, DECISION_SIZE,
+};
 pub use passport::{
     canonical_signed_bytes, ApprovalAction, ApprovalRule, AuthorityBlob, BudgetLease,
     DurabilityMode, PassportError, RiskClass, RuntimePassport, Tier,

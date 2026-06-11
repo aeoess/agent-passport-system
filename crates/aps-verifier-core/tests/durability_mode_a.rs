@@ -72,6 +72,7 @@ fn sample_decision() -> Decision {
         sequence_id: 42,
         decision_id: [0xAB; 16],
         event_mac: [0xCD; 32],
+        timestamp_unix_ns: 0,
     }
 }
 
