@@ -1,6 +1,6 @@
 ---
 name: agent-passport-system
-description: "Enforcement and accountability layer for AI agents. Bring your own identity (did:key, did:web, SPIFFE, OAuth, did:aps). Gateway enforcement boundary, monotonic narrowing, cascade revocation, spending controls, data lifecycle, observation governance (telemetry scopes, derivation rights, behavioral memory). Use when agents need scoped delegation, trust scoring, constraint enforcement, or cryptographic audit trails. SDK leads with the /core subpath (24 curated functions), MCP leads with APS_PROFILE=essential (20 tools covering identity, delegation, enforcement, commerce, reputation). 3,792 tests. 8 framework adapters: Stripe, Composio, IBAC/Cedar, LangChain, CrewAI, MCP, A2A, Gonka. Full surface area (107 modules, 150 MCP tools) still available under APS_PROFILE=full and the root import. SDK 2.6.0 on npm adds evidentiary type safety primitives (claim/evidence registry, claim verifier, contestation cascade) on top of Wave 1 accountability (action, authority-boundary, custody, contestability, bundle), Instruction Provenance Receipt, and bilateral receipts via in-toto Decision Receipt v0.1 predicate."
+description: "Enforcement and accountability layer for AI agents. Bring your own identity (did:key, did:web, SPIFFE, OAuth, did:aps). Gateway enforcement boundary, monotonic narrowing, cascade revocation, spending controls, data lifecycle, observation governance (telemetry scopes, derivation rights, behavioral memory). Use when agents need scoped delegation, trust scoring, constraint enforcement, or cryptographic audit trails. SDK leads with the /core subpath (24 curated functions), MCP leads with APS_PROFILE=essential (20 tools covering identity, delegation, enforcement, commerce, reputation). 3,791 tests. 8 framework adapters: Stripe, Composio, IBAC/Cedar, LangChain, CrewAI, MCP, A2A, Gonka. Full surface area (107 modules, 150 MCP tools) still available under APS_PROFILE=full and the root import. SDK 2.6.0 on npm adds evidentiary type safety primitives (claim/evidence registry, claim verifier, contestation cascade) on top of Wave 1 accountability (action, authority-boundary, custody, contestability, bundle), Instruction Provenance Receipt, and bilateral receipts via in-toto Decision Receipt v0.1 predicate."
 metadata:
   clawdbot:
     emoji: "🔑"
@@ -179,7 +179,7 @@ Grade travels with the passport. Any consumer reads it without understanding sco
 - **SDK `/core` subpath**: 24 curated functions for 90% of integrations
 - **MCP `essential` profile**: 20 tools by default (identity, delegation, enforcement, commerce, reputation)
 - **Policy eval <2ms**, 403 ops/sec, 14 constraint dimensions
-- **3,792 tests** including 50 adversarial attack scenarios
+- **3,791 tests** including 50 adversarial attack scenarios
 - **Zero heavy dependencies**: Node.js crypto + uuid only
 - **Apache-2.0** license
 - *Full surface area: 107 modules, 150 MCP tools, available under `APS_PROFILE=full` and the root `agent-passport-system` import.*
