@@ -72,6 +72,10 @@ delegated task. It binds the action to the delegation that authorized it.
 }
 ```
 
+#### Third-party namespaces
+
+Note that `action.type` is a generic category and specific services appear only as `target` values; this split is normative. Contributor deployments are credited as named targets inside generic categories; they are not granted top-level namespaces. The schema names canonical properties; implementers are targets, not owners. This applies regardless of technical merit.
+
 ### 1.2 Signing Rules
 
 - The agent that performed the action MUST sign the receipt with its Ed25519 key
