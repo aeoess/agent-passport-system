@@ -3,17 +3,36 @@
  *
  * Validates that the batched `check_many(handle, actions[])` API in the
  * napi runtime (`packages/aps-sdk-runtime/src/lib.rs`) yields, for each
- * action in the batch, exactly the same decision and receipt a single
- * `check(handle, action)` call would. The batched path amortizes only
- * the FFI marshalling cost; it changes no verifier semantics.
+ * action in the batch, the same decision a single `check(handle, action)`
+ * call would. The batched path amortizes only the FFI marshalling cost;
+ * it changes no verifier semantics.
+ *
+ * decision_id is content-derived (spec section 6.2): BLAKE3 derive_key
+ * with context string "APS decision_id v1", 16 bytes, over the packed
+ * identity preimage passport_id_hash || action_hash || decision_type ||
+ * reason_code. The decision-record field taxonomy (spec section 6.3)
+ * splits fields three ways, and the two live tests below mirror it:
+ *
+ * 1. Pinned determinism: with the handle clock pinned via ManualClock,
+ *    a single check() and a check_many() over the same inputs return
+ *    FULL-BYTE-equal decision records, including decision_id, the
+ *    disclosed timestamp, and event_mac.
+ * 2. Field classification under the real clock: identity fields
+ *    (decision_type, reason_code, decision_id) and the ordering field
+ *    (sequence_id) match across paths; the event-instance fields
+ *    (timestamp, event_mac) are well-formed and the MAC checks out
+ *    against the disclosed timestamp. Timestamp inequality across paths
+ *    is NOT asserted: two evaluations can land on the same nanosecond
+ *    reading on hosts with coarse clock granularity, so that assertion
+ *    is not flake-safe.
  *
  * Proof box
  *   Proves: a check_many result shows each action was evaluated under
  *   the same policy as a single check. Every element runs the identical
  *   aps_check code path against the same compiled authority and verifier
- *   context, in input order, so the i-th batched decision is byte-equal
- *   to the i-th sequential decision (decisionType, reasonCode,
- *   sequenceId, decisionIdHex, eventMacHex all match).
+ *   context, in input order, and decision_id is a pure function of the
+ *   decision content, so the i-th batched decision is byte-equal to the
+ *   i-th sequential decision whenever the clock reading is equal too.
  *   Does NOT prove: anything about wall-clock latency on any platform
  *   other than where a measurement was actually taken. No public latency
  *   claim is approved from this test.
@@ -22,14 +41,13 @@
  *   The live comparison needs the compiled native binding
  *   (`@aeoess/aps-sdk-runtime` -> `*.node`). That artifact is produced by
  *   the napi CLI build (`napi build`), which is not available in every
- *   environment (notably this macOS arm64 dev host has no napi CLI
- *   installed and no `.node` present). When the binding is absent this
- *   test does NOT fake a pass: it runs the input-construction and
- *   parity-contract checks that need no native code, and marks the
- *   native comparison subtests as skipped with an explicit reason. The
- *   byte-level parity itself is also exercised host-independently by
- *   the Rust unit tests in `packages/aps-sdk-runtime/src/lib.rs`
- *   (`check_many_tests`), which run under `cargo test`.
+ *   environment. When the binding is absent this test does NOT fake a
+ *   pass: it runs the input-construction and parity-contract checks that
+ *   need no native code, and marks the native comparison subtests as
+ *   skipped with an explicit reason. The byte-level parity itself is
+ *   also exercised host-independently by the Rust unit tests in
+ *   `packages/aps-sdk-runtime/src/lib.rs` (`check_many_tests`), which
+ *   run under `cargo test`.
  */
 
 import { test } from 'node:test';
@@ -46,11 +64,17 @@ interface DecisionOutput {
   sequenceId: bigint;
   decisionIdHex: string;
   eventMacHex: string;
+  timestampUnixNs: bigint;
 }
 
 interface ToolEntryInput {
   descriptorHashHex: string;
   localId: number;
+}
+
+interface ClockConfig {
+  mode: 'System' | 'Manual';
+  manualTimeNs?: bigint;
 }
 
 interface ActionInput {
@@ -73,6 +97,7 @@ interface NativeBinding {
     passportJson: string,
     tools: ToolEntryInput[],
     sinkConfig: { mode: string },
+    clockConfig?: ClockConfig,
   ): unknown;
   authorityInfo(handle: unknown): {
     passportIdHashHex: string;
@@ -83,6 +108,11 @@ interface NativeBinding {
   check(handle: unknown, action: ActionInput): DecisionOutput;
   check_many?(handle: unknown, actions: ActionInput[]): DecisionOutput[];
   checkMany?(handle: unknown, actions: ActionInput[]): DecisionOutput[];
+  verifyEventMac?(
+    handle: unknown,
+    action: ActionInput,
+    decision: DecisionOutput,
+  ): boolean;
 }
 
 /** Try to load the compiled native binding. Returns null when absent. */
@@ -157,13 +187,20 @@ function buildPassport(rootHex: string): string {
   });
 }
 
-function sameDecision(a: DecisionOutput, b: DecisionOutput): void {
+/**
+ * Full-byte decision-record equality: every disclosed field, including
+ * the event-instance fields (timestamp, event_mac). No exclusion lists;
+ * the spec section 6.3 taxonomy is what tells us WHEN this comparator
+ * may be used (only with the clock pinned).
+ */
+function sameDecisionFullByte(a: DecisionOutput, b: DecisionOutput): void {
   assert.equal(a.decisionType, b.decisionType, 'decisionType');
   assert.equal(a.reasonCode, b.reasonCode, 'reasonCode');
   assert.equal(a.reasonName, b.reasonName, 'reasonName');
   assert.equal(a.sequenceId, b.sequenceId, 'sequenceId');
   assert.equal(a.decisionIdHex, b.decisionIdHex, 'decisionIdHex');
   assert.equal(a.eventMacHex, b.eventMacHex, 'eventMacHex');
+  assert.equal(a.timestampUnixNs, b.timestampUnixNs, 'timestampUnixNs');
 }
 
 function batchFn(native: NativeBinding):
@@ -184,30 +221,28 @@ const SKIP_REASON =
   'byte-level parity is also exercised host-independently by the Rust check_many_tests ' +
   '(cargo test). This is environment-gated, not a fabricated pass.';
 
-// decision_id is an unfinished placeholder in the native runtime: a per-context
-// counter, not a stable identity. So a standalone check() emits decision_id=0 while
-// check_many() numbers 0,1,2 within its batch, and event_mac (which binds decision_id
-// and a wall-clock timestamp) diverges accordingly. Single-vs-batch parity on these
-// fields is INTENTIONALLY NOT ASSERTED until the decision_id semantics are finalized
-// (content-derived identity vs an explicitly-named ordering counter). This primitive is
-// not on any publish surface: the native runtime package is unpublished and the SDK
-// neither depends on nor exports it. Un-skip once decision_id is content-derived.
-const PENDING_DECISION_ID =
-  'check_many decision_id is an unfinished placeholder (per-context counter, not a ' +
-  'stable identity); single-vs-batch parity on decision_id and event_mac is not ' +
-  'asserted until decision_id semantics are finalized. The primitive is unpublished ' +
-  'and not exported by the SDK. Un-skip once decision_id is content-derived.';
+// A stale prebuilt artifact may load yet predate the content-derived
+// decision_id surface (checkMany + clockConfig + verifyEventMac +
+// timestampUnixNs all landed together). Gate on capability, not mere
+// presence; otherwise skip with a reason rather than fail on an
+// environment artifact.
+const STALE_REASON =
+  'native binding present but predates the content-derived decision_id ' +
+  'surface (no checkMany/verifyEventMac); rebuild with `npm run build` in ' +
+  'packages/aps-sdk-runtime.';
 
 // Load-sensitive microbenchmark, not a correctness gate: passes in isolation, flakes
 // under concurrent full-suite load. Run manually to check batch throughput.
 const PERF_MICROBENCH =
   'load-sensitive microbenchmark, not a correctness gate; run manually to check ' +
   'batch throughput.';
-// A native binding may load yet predate check_many (a stale prebuilt
-// artifact). Parity is only testable when the binding actually exposes the
-// batch function, so gate on capability, not mere presence; otherwise skip
-// with the same reason rather than fail on an environment artifact.
+
 const nativeBatch = native ? batchFn(native) : null;
+const nativeFull =
+  native && nativeBatch && typeof native.verifyEventMac === 'function'
+    ? native
+    : null;
+const LIVE_SKIP = native ? (nativeFull ? false : STALE_REASON) : SKIP_REASON;
 
 // -----------------------------------------------------------------------
 // Contract checks that need no native code: these always run.
@@ -238,15 +273,47 @@ test('parity contract: batched result length equals action count', () => {
   }
   assert.equal(actions.length, 3, 'fixture arity');
   // The contract: a batched call over N actions yields N decisions.
-  // (Verified live below when the binding is present.)
+  // (Checked live below when the binding is present.)
 });
 
 // -----------------------------------------------------------------------
 // Live native parity. Skipped (with reason) when the binding is absent.
 // -----------------------------------------------------------------------
 
-test('check_many parity with N sequential check calls', { skip: nativeBatch ? PENDING_DECISION_ID : SKIP_REASON }, () => {
-  const n = native as NativeBinding;
+/**
+ * Shared mixed allow/deny ladder. The deny action uses operationId=1
+ * (write); the passport allows only read. OPERATION_NOT_ALLOWED denies
+ * before the sequence CAS, so it consumes no sequence slot and the
+ * surrounding Allow actions walk 1000, 1001, 1002 in order.
+ */
+function buildLadder(n: NativeBinding, handle: unknown): ActionInput[] {
+  const info = n.authorityInfo(handle);
+  const base = (seq: number, operationId: number): ActionInput => ({
+    version: 1,
+    passportIdHashHex: info.passportIdHashHex,
+    toolDescriptorHashHex: TOOL_DESCRIPTOR_HASH_HEX,
+    localToolId: 0,
+    operationId,
+    resourceType: 0,
+    riskClass: 2,
+    resourcePathDepth: 2,
+    costUnits: 1,
+    sequenceId: BigInt(seq),
+    nonceHex: '00112233445566778899aabbccddeeff',
+    resourcePathHashes: n.hashResourcePath(['customer', '12345']),
+  });
+  return [base(1000, 0), base(1001, 1), base(1001, 0), base(1002, 0)];
+}
+
+const EXPECTED_LADDER = [
+  { decisionType: 'Allow', reasonName: 'OK' },
+  { decisionType: 'Deny', reasonName: 'OPERATION_NOT_ALLOWED' },
+  { decisionType: 'Allow', reasonName: 'OK' },
+  { decisionType: 'Allow', reasonName: 'OK' },
+];
+
+test('pinned determinism: check vs check_many is full-byte equal under a pinned ManualClock', { skip: LIVE_SKIP }, () => {
+  const n = nativeFull as NativeBinding;
   const batch = batchFn(n);
   assert.ok(batch, 'native binding present but exposes no check_many');
 
@@ -254,48 +321,116 @@ test('check_many parity with N sequential check calls', { skip: nativeBatch ? PE
     { descriptorHashHex: TOOL_DESCRIPTOR_HASH_HEX, localId: 0 },
   ];
   const rootHex = n.computeRegistryRoot(tools);
+  // Pin both handles to the same instant, inside the passport's
+  // validity window (built around Date.now() +/- 30s).
+  const pinnedNs = BigInt(Date.now()) * 1_000_000n;
+  const pinned: ClockConfig = { mode: 'Manual', manualTimeNs: pinnedNs };
 
-  const allowAt = (handle: unknown, seq: number): ActionInput => {
-    const info = n.authorityInfo(handle);
-    return {
-      version: 1,
-      passportIdHashHex: info.passportIdHashHex,
-      toolDescriptorHashHex: TOOL_DESCRIPTOR_HASH_HEX,
-      localToolId: 0,
-      operationId: 0,
-      resourceType: 0,
-      riskClass: 2,
-      resourcePathDepth: 2,
-      costUnits: 1,
-      sequenceId: BigInt(seq),
-      nonceHex: '00112233445566778899aabbccddeeff',
-      resourcePathHashes: n.hashResourcePath(['customer', '12345']),
-    };
-  };
+  // Reference: N sequential check() calls on a fresh pinned handle.
+  const seqHandle = n.loadPassportUnverified(
+    buildPassport(rootHex), tools, { mode: 'Null' }, pinned,
+  );
+  const seqActions = buildLadder(n, seqHandle);
+  const seqDecisions = seqActions.map((a) => n.check(seqHandle, a));
 
-  // Reference: N sequential check() calls on a fresh handle.
-  const seqHandle = n.loadPassportUnverified(buildPassport(rootHex), tools, {
-    mode: 'Null',
-  });
-  const seqDecisions: DecisionOutput[] = [];
-  for (let i = 0; i < 5; i++) {
-    seqDecisions.push(n.check(seqHandle, allowAt(seqHandle, 1000 + i)));
-  }
-
-  // Batched: one check_many over the same actions on a fresh handle.
-  const batchHandle = n.loadPassportUnverified(buildPassport(rootHex), tools, {
-    mode: 'Null',
-  });
-  const batchActions: ActionInput[] = [];
-  for (let i = 0; i < 5; i++) {
-    batchActions.push(allowAt(batchHandle, 1000 + i));
-  }
-  const batchDecisions = batch(batchHandle, batchActions);
+  // Batched: one check_many over the same actions on a fresh pinned handle.
+  const batchHandle = n.loadPassportUnverified(
+    buildPassport(rootHex), tools, { mode: 'Null' }, pinned,
+  );
+  const batchDecisions = batch(batchHandle, buildLadder(n, batchHandle));
 
   assert.equal(batchDecisions.length, seqDecisions.length, 'batch length');
   for (let i = 0; i < seqDecisions.length; i++) {
-    sameDecision(seqDecisions[i], batchDecisions[i]);
-    assert.equal(seqDecisions[i].decisionType, 'Allow', `idx ${i} allow`);
+    // Full-byte equality of the entire disclosed decision record:
+    // identity fields (decision_id included), ordering field, AND the
+    // event-instance fields, which the pinned clock holds equal.
+    sameDecisionFullByte(seqDecisions[i], batchDecisions[i]);
+    assert.equal(
+      seqDecisions[i].decisionType, EXPECTED_LADDER[i].decisionType,
+      `idx ${i} decisionType`,
+    );
+    assert.equal(
+      seqDecisions[i].reasonName, EXPECTED_LADDER[i].reasonName,
+      `idx ${i} reasonName`,
+    );
+    assert.equal(
+      seqDecisions[i].timestampUnixNs, pinnedNs,
+      `idx ${i} discloses the pinned timestamp`,
+    );
+  }
+});
+
+test('field classification under real clock: identity fields path-equal; event MAC checks against the disclosed timestamp', { skip: LIVE_SKIP }, () => {
+  const n = nativeFull as NativeBinding;
+  const batch = batchFn(n);
+  assert.ok(batch, 'native binding present but exposes no check_many');
+  const macCheck = n.verifyEventMac;
+  assert.ok(macCheck, 'native binding present but exposes no verifyEventMac');
+
+  const tools: ToolEntryInput[] = [
+    { descriptorHashHex: TOOL_DESCRIPTOR_HASH_HEX, localId: 0 },
+  ];
+  const rootHex = n.computeRegistryRoot(tools);
+  const beforeNs = BigInt(Date.now() - 1) * 1_000_000n;
+
+  // Default clock (SystemClock): no clockConfig argument.
+  const seqHandle = n.loadPassportUnverified(
+    buildPassport(rootHex), tools, { mode: 'Null' },
+  );
+  const seqActions = buildLadder(n, seqHandle);
+  const seqDecisions = seqActions.map((a) => n.check(seqHandle, a));
+
+  const batchHandle = n.loadPassportUnverified(
+    buildPassport(rootHex), tools, { mode: 'Null' },
+  );
+  const batchActions = buildLadder(n, batchHandle);
+  const batchDecisions = batch(batchHandle, batchActions);
+
+  const afterNs = BigInt(Date.now() + 1) * 1_000_000n;
+  assert.equal(batchDecisions.length, seqDecisions.length, 'batch length');
+
+  for (let i = 0; i < seqDecisions.length; i++) {
+    const s = seqDecisions[i];
+    const b = batchDecisions[i];
+
+    // Identity fields (spec section 6.3) are path-equal even though the
+    // two paths ran at different wall-clock instants: decision_id is a
+    // pure function of the identity preimage.
+    assert.equal(s.decisionType, b.decisionType, `idx ${i} decisionType`);
+    assert.equal(s.reasonCode, b.reasonCode, `idx ${i} reasonCode`);
+    assert.equal(s.reasonName, b.reasonName, `idx ${i} reasonName`);
+    assert.equal(s.decisionIdHex, b.decisionIdHex, `idx ${i} decisionIdHex`);
+    assert.equal(s.decisionType, EXPECTED_LADDER[i].decisionType, `idx ${i} ladder`);
+
+    // Ordering field: same ladder position on both paths.
+    assert.equal(s.sequenceId, b.sequenceId, `idx ${i} sequenceId`);
+
+    // Event-instance fields: well-formed on both paths.
+    for (const [label, d] of [['seq', s], ['batch', b]] as const) {
+      assert.match(d.eventMacHex, /^[0-9a-f]{64}$/, `${label} idx ${i} eventMacHex shape`);
+      assert.notEqual(d.eventMacHex, '0'.repeat(64), `${label} idx ${i} eventMacHex nonzero`);
+      assert.ok(
+        d.timestampUnixNs >= beforeNs && d.timestampUnixNs <= afterNs,
+        `${label} idx ${i} timestamp within the test window`,
+      );
+    }
+
+    // The MAC checks out against the disclosed timestamp, and stops
+    // checking out when the disclosed timestamp is moved by 1ns: the
+    // event MAC binds the producer-observed time.
+    const sAction = seqActions[i];
+    const bAction = batchActions[i];
+    assert.equal(macCheck(seqHandle, sAction, s), true, `idx ${i} seq MAC`);
+    assert.equal(macCheck(batchHandle, bAction, b), true, `idx ${i} batch MAC`);
+    assert.equal(
+      macCheck(seqHandle, sAction, { ...s, timestampUnixNs: s.timestampUnixNs + 1n }),
+      false,
+      `idx ${i} MAC rejects a moved timestamp`,
+    );
+    // NOTE: timestamp/MAC inequality ACROSS paths is intentionally not
+    // asserted. The two paths usually read different nanosecond values,
+    // but equal readings are possible on hosts with coarse clock
+    // granularity, so the inequality assertion is not flake-safe.
   }
 });
 
@@ -312,102 +447,6 @@ test('check_many: empty batch returns empty', { skip: nativeBatch ? false : SKIP
   });
   const out = batch(handle, []);
   assert.equal(out.length, 0, 'empty input yields empty output');
-});
-
-test('check_many: single-element batch matches single check', { skip: nativeBatch ? PENDING_DECISION_ID : SKIP_REASON }, () => {
-  const n = native as NativeBinding;
-  const batch = batchFn(n);
-  assert.ok(batch);
-  const tools: ToolEntryInput[] = [
-    { descriptorHashHex: TOOL_DESCRIPTOR_HASH_HEX, localId: 0 },
-  ];
-  const rootHex = n.computeRegistryRoot(tools);
-
-  const mk = (handle: unknown): ActionInput => {
-    const info = n.authorityInfo(handle);
-    return {
-      version: 1,
-      passportIdHashHex: info.passportIdHashHex,
-      toolDescriptorHashHex: TOOL_DESCRIPTOR_HASH_HEX,
-      localToolId: 0,
-      operationId: 0,
-      resourceType: 0,
-      riskClass: 2,
-      resourcePathDepth: 2,
-      costUnits: 1,
-      sequenceId: 1000n,
-      nonceHex: '00112233445566778899aabbccddeeff',
-      resourcePathHashes: n.hashResourcePath(['customer', '12345']),
-    };
-  };
-
-  const h1 = n.loadPassportUnverified(buildPassport(rootHex), tools, { mode: 'Null' });
-  const single = n.check(h1, mk(h1));
-
-  const h2 = n.loadPassportUnverified(buildPassport(rootHex), tools, { mode: 'Null' });
-  const batched = batch(h2, [mk(h2)]);
-
-  assert.equal(batched.length, 1);
-  sameDecision(single, batched[0]);
-});
-
-test('check_many: mixed allow/deny batch, each action independent', { skip: nativeBatch ? PENDING_DECISION_ID : SKIP_REASON }, () => {
-  const n = native as NativeBinding;
-  const batch = batchFn(n);
-  assert.ok(batch);
-  const tools: ToolEntryInput[] = [
-    { descriptorHashHex: TOOL_DESCRIPTOR_HASH_HEX, localId: 0 },
-  ];
-  const rootHex = n.computeRegistryRoot(tools);
-
-  const base = (handle: unknown, seq: number): ActionInput => {
-    const info = n.authorityInfo(handle);
-    return {
-      version: 1,
-      passportIdHashHex: info.passportIdHashHex,
-      toolDescriptorHashHex: TOOL_DESCRIPTOR_HASH_HEX,
-      localToolId: 0,
-      operationId: 0,
-      resourceType: 0,
-      riskClass: 2,
-      resourcePathDepth: 2,
-      costUnits: 1,
-      sequenceId: BigInt(seq),
-      nonceHex: '00112233445566778899aabbccddeeff',
-      resourcePathHashes: n.hashResourcePath(['customer', '12345']),
-    };
-  };
-  // The deny action uses operationId=1 (write); passport allows only
-  // read. OPERATION_NOT_ALLOWED denies before the sequence CAS, so it
-  // consumes no sequence slot, so surrounding Allow actions are unaffected.
-  const deny = (handle: unknown, seq: number): ActionInput => ({
-    ...base(handle, seq),
-    operationId: 1,
-  });
-
-  const buildSeq = (handle: unknown): ActionInput[] => [
-    base(handle, 1000),
-    deny(handle, 1001),
-    base(handle, 1001),
-    base(handle, 1002),
-  ];
-
-  const hSeq = n.loadPassportUnverified(buildPassport(rootHex), tools, { mode: 'Null' });
-  const seqActions = buildSeq(hSeq);
-  const seqOut = seqActions.map((a) => n.check(hSeq, a));
-
-  const hBatch = n.loadPassportUnverified(buildPassport(rootHex), tools, { mode: 'Null' });
-  const batchOut = batch(hBatch, buildSeq(hBatch));
-
-  assert.equal(batchOut.length, 4);
-  assert.equal(seqOut[0].decisionType, 'Allow');
-  assert.equal(seqOut[1].decisionType, 'Deny');
-  assert.equal(seqOut[1].reasonName, 'OPERATION_NOT_ALLOWED');
-  assert.equal(seqOut[2].decisionType, 'Allow');
-  assert.equal(seqOut[3].decisionType, 'Allow');
-  for (let i = 0; i < 4; i++) {
-    sameDecision(seqOut[i], batchOut[i]);
-  }
 });
 
 test('check_many: batched path is not slower than sequential', { skip: nativeBatch ? PERF_MICROBENCH : SKIP_REASON }, () => {

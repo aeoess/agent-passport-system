@@ -24,10 +24,11 @@ use napi::bindgen_prelude::{BigInt, External};
 use napi_derive::napi;
 
 use aps_verifier_core::{
-    aps_check, ActionDescriptor, CompiledAuthority, DecisionType, GroupCommitConfig,
-    ModeAReceiptSink, ModeB1ReceiptSink, ModeB2ReceiptSink, NullSink, ReasonCode, ReceiptSink,
-    RecoveryReport as CoreRecoveryReport, RecoveryStatus, RuntimePassport, SystemClock, Tier,
-    ToolEntry, ToolRegistry, TruncationReason, VerifierContext,
+    aps_check, ActionDescriptor, Clock, CompiledAuthority, Decision, DecisionType,
+    GroupCommitConfig, ManualClock, ModeAReceiptSink, ModeB1ReceiptSink, ModeB2ReceiptSink,
+    NullSink, ReasonCode, ReceiptSink, RecoveryReport as CoreRecoveryReport, RecoveryStatus,
+    RuntimePassport, SystemClock, Tier, ToolEntry, ToolRegistry, TruncationReason,
+    VerifierContext, DECISION_SIZE,
 };
 
 // -----------------------------------------------------------------------
@@ -187,6 +188,62 @@ fn build_sink_variant(cfg: &SinkConfig, receipt_key: [u8; 32]) -> napi::Result<S
 }
 
 // -----------------------------------------------------------------------
+// Clock configuration
+// -----------------------------------------------------------------------
+
+#[napi(string_enum)]
+pub enum ClockMode {
+    System,
+    Manual,
+}
+
+/// Clock selection for the authority handle. Omitted entirely (or
+/// `mode: System`) means the real wall clock; `mode: Manual` pins the
+/// verifier clock to `manualTimeNs` so tests can drive `aps_check` at a
+/// fixed time. Reuses the core's `ManualClock`.
+#[napi(object)]
+pub struct ClockConfig {
+    pub mode: ClockMode,
+    /// Unix nanoseconds for Manual mode. Required when `mode ==
+    /// Manual`; ignored for System.
+    pub manual_time_ns: Option<BigInt>,
+}
+
+/// Clock variant held by the handle. Defaults to the system wall
+/// clock; tests inject a `ManualClock` through [`ClockConfig`].
+enum HandleClock {
+    System(SystemClock),
+    Manual(ManualClock),
+}
+
+impl HandleClock {
+    fn as_clock(&self) -> &dyn Clock {
+        match self {
+            HandleClock::System(c) => c,
+            HandleClock::Manual(c) => c,
+        }
+    }
+
+    fn from_config(cfg: Option<ClockConfig>) -> napi::Result<Self> {
+        match cfg {
+            None => Ok(HandleClock::System(SystemClock)),
+            Some(c) => match c.mode {
+                ClockMode::System => Ok(HandleClock::System(SystemClock)),
+                ClockMode::Manual => {
+                    let ns = c.manual_time_ns.ok_or_else(|| {
+                        napi::Error::from_reason(
+                            "manualTimeNs required for Manual clock mode".to_string(),
+                        )
+                    })?;
+                    let (_sign, value, _lossless) = ns.get_u64();
+                    Ok(HandleClock::Manual(ManualClock::new(value)))
+                }
+            },
+        }
+    }
+}
+
+// -----------------------------------------------------------------------
 // Handle + lifecycle
 // -----------------------------------------------------------------------
 
@@ -199,7 +256,7 @@ pub struct ToolEntryInput {
 
 pub struct AuthorityHandle {
     authority: CompiledAuthority,
-    clock: SystemClock,
+    clock: HandleClock,
     /// `Option<SinkVariant>` so `shutdown_authority` can take and
     /// consume the variant for mode-specific drain. `Mutex` serializes
     /// the borrow used by `check`.
@@ -262,8 +319,14 @@ pub struct DecisionOutput {
     pub reason_code: u8,
     pub reason_name: String,
     pub sequence_id: BigInt,
+    /// Content-derived decision identity (spec §6.2): BLAKE3
+    /// derive_key("APS decision_id v1"), 16 bytes, over the packed
+    /// identity preimage. Identical identity fields share an id.
     pub decision_id_hex: String,
     pub event_mac_hex: String,
+    /// Producer-observed time bound into `event_mac`, disclosed so the
+    /// MAC can be rechecked (spec §6.3, event-instance scoped).
+    pub timestamp_unix_ns: BigInt,
 }
 
 /// Load a passport with full Ed25519 signature verification against
@@ -274,6 +337,7 @@ pub fn load_passport_verified(
     tools: Vec<ToolEntryInput>,
     gateway_public_key_hex: String,
     sink_config: SinkConfig,
+    clock_config: Option<ClockConfig>,
 ) -> napi::Result<External<AuthorityHandle>> {
     let key_bytes = hex_to_array::<32>(&gateway_public_key_hex)
         .map_err(|e| reason_err("PassportInvalidPublicKey", &e))?;
@@ -281,7 +345,7 @@ pub fn load_passport_verified(
         .map_err(|e| reason_err("PassportInvalidPublicKey", e.to_string()))?;
     let passport = RuntimePassport::from_json_and_verify(&passport_json, &verifying_key)
         .map_err(|e| reason_err("PassportVerifyFailed", e.to_string()))?;
-    finish_load(passport, tools, sink_config, None)
+    finish_load(passport, tools, sink_config, clock_config, None)
 }
 
 /// Load a passport WITHOUT signature verification. Use only when the
@@ -293,10 +357,11 @@ pub fn load_passport_unverified(
     passport_json: String,
     tools: Vec<ToolEntryInput>,
     sink_config: SinkConfig,
+    clock_config: Option<ClockConfig>,
 ) -> napi::Result<External<AuthorityHandle>> {
     let passport = RuntimePassport::from_json(&passport_json)
         .map_err(|e| reason_err("PassportParseFailed", e.to_string()))?;
-    finish_load(passport, tools, sink_config, None)
+    finish_load(passport, tools, sink_config, clock_config, None)
 }
 
 /// Load a passport with crash recovery. Walks the existing log at
@@ -317,6 +382,7 @@ pub fn load_passport_with_recovery(
     gateway_public_key_hex: Option<String>,
     sink_config: SinkConfig,
     log_path: String,
+    clock_config: Option<ClockConfig>,
 ) -> napi::Result<External<AuthorityHandle>> {
     let passport = match gateway_public_key_hex {
         Some(hex) => {
@@ -353,7 +419,7 @@ pub fn load_passport_with_recovery(
         *blake3::hash(passport.verifier_instance_id.as_bytes()).as_bytes();
     Ok(External::new(AuthorityHandle {
         authority,
-        clock: SystemClock,
+        clock: HandleClock::from_config(clock_config)?,
         sink: Mutex::new(Some(sink)),
         verifier_instance_id_hash,
         attested_tier: passport.tier_attested,
@@ -382,6 +448,7 @@ fn finish_load(
     passport: RuntimePassport,
     tools: Vec<ToolEntryInput>,
     sink_config: SinkConfig,
+    clock_config: Option<ClockConfig>,
     last_recovery: Option<RecoveryReportInternal>,
 ) -> napi::Result<External<AuthorityHandle>> {
     let registry = build_registry(tools)?;
@@ -393,7 +460,7 @@ fn finish_load(
         *blake3::hash(passport.verifier_instance_id.as_bytes()).as_bytes();
     Ok(External::new(AuthorityHandle {
         authority,
-        clock: SystemClock,
+        clock: HandleClock::from_config(clock_config)?,
         sink: Mutex::new(Some(sink)),
         verifier_instance_id_hash,
         attested_tier: passport.tier_attested,
@@ -472,7 +539,7 @@ pub fn check(
         .ok_or_else(|| napi::Error::from_reason("authority has been shut down".to_string()))?;
     let sink_ref: &dyn ReceiptSink = sink_variant.as_sink();
     let ctx = VerifierContext::with_sink(
-        &handle.clock,
+        handle.clock.as_clock(),
         handle.verifier_instance_id_hash,
         handle.attested_tier,
         handle.revocation_epoch,
@@ -496,9 +563,10 @@ pub fn check(
 /// element of the result equals the decision a single `check` would
 /// return for `actions[i]` issued at that point in the sequence. Per
 /// spec §9 the verifier mutates shared session state (sequence CAS,
-/// budget decrement, decision-id counter) on each call, so order is
-/// significant and each action is evaluated independently against the
-/// state left by its predecessors in the batch.
+/// budget decrement) on each call, so order is significant and each
+/// action is evaluated independently against the state left by its
+/// predecessors in the batch. `decision_id` is content-derived (spec
+/// §6.2) and carries no per-call state.
 ///
 /// An empty `actions` vector returns an empty result vector without
 /// touching the authority. There is no cross-action short-circuit: a
@@ -524,7 +592,7 @@ pub fn check_many(
         .ok_or_else(|| napi::Error::from_reason("authority has been shut down".to_string()))?;
     let sink_ref: &dyn ReceiptSink = sink_variant.as_sink();
     let ctx = VerifierContext::with_sink(
-        &handle.clock,
+        handle.clock.as_clock(),
         handle.verifier_instance_id_hash,
         handle.attested_tier,
         handle.revocation_epoch,
@@ -575,7 +643,54 @@ fn decision_output(decision: &aps_verifier_core::Decision) -> DecisionOutput {
         sequence_id: BigInt::from(decision.sequence_id),
         decision_id_hex: hex_encode_slice(&decision.decision_id),
         event_mac_hex: hex_encode_slice(&decision.event_mac),
+        timestamp_unix_ns: BigInt::from(decision.timestamp_unix_ns),
     }
+}
+
+/// Recheck a decision's `event_mac` against the disclosed timestamp.
+/// Rebuilds the action descriptor (recomputing `action_hash`),
+/// reconstructs the decision from the output fields, and recomputes the
+/// keyed BLAKE3 MAC over the canonical decision event (spec §6.1) with
+/// this authority's `receipt_stream_key` and `passport_id_hash`.
+/// Returns true iff the recomputed MAC equals `event_mac_hex`. Any
+/// field change, including a different `timestamp_unix_ns`, makes this
+/// return false.
+#[napi]
+pub fn verify_event_mac(
+    handle: External<AuthorityHandle>,
+    action: ActionInput,
+    decision: DecisionOutput,
+) -> napi::Result<bool> {
+    let descriptor = build_action_descriptor(&action)?;
+    let mut buf = [0u8; DECISION_SIZE];
+    buf[0] = match decision.decision_type.as_str() {
+        "Allow" => 0,
+        "Deny" => 1,
+        "Escalate" => 2,
+        other => {
+            return Err(napi::Error::from_reason(format!(
+                "unknown decision_type: {other}"
+            )))
+        }
+    };
+    buf[1] = decision.reason_code;
+    let (_sign, seq, _lossless) = decision.sequence_id.get_u64();
+    buf[8..16].copy_from_slice(&seq.to_le_bytes());
+    let decision_id = hex_to_array::<16>(&decision.decision_id_hex)
+        .map_err(|e| napi::Error::from_reason(format!("decision_id_hex: {e}")))?;
+    buf[16..32].copy_from_slice(&decision_id);
+    let event_mac = hex_to_array::<32>(&decision.event_mac_hex)
+        .map_err(|e| napi::Error::from_reason(format!("event_mac_hex: {e}")))?;
+    buf[32..64].copy_from_slice(&event_mac);
+    let rebuilt = Decision::from_bytes(&buf)
+        .map_err(|e| napi::Error::from_reason(format!("decision rebuild: {e}")))?;
+    let (_sign, ts, _lossless) = decision.timestamp_unix_ns.get_u64();
+    Ok(rebuilt.verify_event_mac(
+        &handle.authority.receipt_stream_key,
+        &handle.authority.passport_id_hash,
+        &descriptor.action_hash,
+        ts,
+    ))
 }
 
 /// Release the handle without draining. The sink continues running in
@@ -1166,16 +1281,18 @@ mod check_many_tests {
     }
 
     /// Two decisions are observationally identical when every field a
-    /// caller can read matches. `event_mac` and `decision_id` are
-    /// included: the MAC binds passport, action, and a monotonic
-    /// decision-id counter, so identical decisions require the batch
-    /// loop to advance that counter in lockstep with sequential calls.
+    /// caller can read matches. `decision_id` is content-derived (spec
+    /// §6.2), so it matches across paths by construction; `event_mac`
+    /// binds passport, action, decision_id, and the producer-observed
+    /// timestamp, which the pinned `ManualClock` holds equal across
+    /// both paths.
     fn assert_same(a: &Decision, b: &Decision) {
         assert_eq!(a.decision_type, b.decision_type, "decision_type");
         assert_eq!(a.reason_code, b.reason_code, "reason_code");
         assert_eq!(a.sequence_id, b.sequence_id, "sequence_id");
         assert_eq!(a.decision_id, b.decision_id, "decision_id");
         assert_eq!(a.event_mac, b.event_mac, "event_mac");
+        assert_eq!(a.timestamp_unix_ns, b.timestamp_unix_ns, "timestamp_unix_ns");
     }
 
     /// Run `descriptors` one at a time through `aps_check` (the
