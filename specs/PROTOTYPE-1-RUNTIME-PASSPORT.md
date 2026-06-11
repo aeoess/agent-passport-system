@@ -177,7 +177,7 @@ struct Decision {
   reason_code:      u8,           //   1 byte   (see Section 7)
   reserved:         [u8; 6],      //   6 bytes
   sequence_id:      u64,          //   8 bytes
-  decision_id:      [u8; 16],     //  16 bytes  (ULID of decision event)
+  decision_id:      [u8; 16],     //  16 bytes  (content-derived decision identity, see 6.2)
   event_mac:        [u8; 32],     //  32 bytes  (keyed BLAKE3 over canonical decision event)
 }
 ```
@@ -191,6 +191,50 @@ event_mac = BLAKE3_keyed(receipt_stream_key, canonical_decision_event_bytes)
 Where:
 - `receipt_stream_key` is the 32-byte session key derived at passport load.
 - `canonical_decision_event_bytes` is the byte concatenation of: `passport_id_hash || action_hash || sequence_id || decision_type || reason_code || decision_id || timestamp_unix_ns`.
+
+### 6.2 decision_id derivation (Normative)
+
+`decision_id` is the content-derived identity of a decision, not an event identifier.
+
+```
+decision_id = BLAKE3_derive_key("APS decision_id v1", decision_id_preimage)[0..16]
+```
+
+Where:
+
+- `BLAKE3_derive_key(context, material)` is BLAKE3 in derive_key mode with the exact context string `"APS decision_id v1"`, read as a 16-byte XOF output.
+- `decision_id_preimage` is the 66-byte packed concatenation `passport_id_hash(32) || action_hash(32) || decision_type(1) || reason_code(1)`: the canonical decision event of 6.1 restricted to its identity fields (see the taxonomy in 6.3). The preimage rule is taxonomy-derived, not a bespoke field list: identity fields in, ordering and event-instance fields out, `decision_id` itself out.
+
+Properties:
+
+- Path-independent: a batched evaluation and a single-call evaluation over the same inputs carry the same `decision_id`.
+- Offline-recomputable from disclosed fields alone.
+- Hot-path legal (Section 8 rules): fixed stack buffer, no heap allocation, no string operations, no JSON.
+
+Evaluations with identical identity fields share a `decision_id`, even when they happen at different times. Because `action_hash` covers ActionDescriptor bytes 0..172, which include `sequence_id` and `nonce`, identical identity fields mean byte-identical re-submissions of the same action, not merely the same logical action. Event-instance uniqueness lives in the tuple `(decision_id, timestamp_unix_ns, event_mac)`.
+
+### 6.3 Decision-record field taxonomy (Normative)
+
+Every field of the canonical decision record (6.1) files under exactly one of three classes. The classes answer different questions and no field answers two.
+
+**Identity fields** (what was decided, about what):
+
+- `passport_id_hash`: which authority the decision was evaluated under.
+- `action_hash`: which action bytes were evaluated. Covers descriptor bytes 0..172, which include the ordering coordinates `sequence_id` and `nonce`; two submissions share an `action_hash` only when they are byte-identical.
+- `decision_type`: the outcome class (Allow, Deny, Escalate).
+- `reason_code`: why that outcome.
+- `decision_id`: derived from the four fields above per 6.2; the primary key of the decision content.
+
+**Ordering fields** (where in the session the evaluation sits):
+
+- `sequence_id`: position in the passport session's strict-monotonic window. Carried standalone in the record for ordering; also bound inside `action_hash` as an ordering coordinate of the submitted bytes.
+
+**Event-instance fields** (that this particular evaluation event happened):
+
+- `timestamp_unix_ns`: producer-observed time, bound into `event_mac`. The verifier MUST disclose the bound timestamp alongside the decision record; the packed 64-byte wire form of Section 6 does not carry it.
+- `event_mac`: keyed BLAKE3 over the canonical decision event (6.1), timestamp included. Distinguishes event instances that share a `decision_id`.
+
+The 6 `reserved` bytes of the packed Decision struct are non-semantic padding and stand outside the taxonomy.
 
 ## 7. Reason Codes (Normative)
 
