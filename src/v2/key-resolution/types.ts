@@ -40,6 +40,15 @@ export interface Ed25519JWK {
   alg?: 'EdDSA' | string
   /** If present MUST include "verify". */
   key_ops?: string[]
+  /** Cycles validity window — valid-from, epoch ms, INCLUSIVE. Present on
+   *  did:cycles JWK Sets; selection by window requires it (see selectKey).
+   *  Not an RFC 7517 member; ignored by non-cycles consumers. */
+  cycles_nbf_ms?: number
+  /** Cycles validity window — valid-until, epoch ms, EXCLUSIVE. Absent/null
+   *  ⇒ open-ended (the active key). */
+  cycles_exp_ms?: number | null
+  /** Advisory rotation status; selection is by window, never by status. */
+  status?: 'active' | 'retired' | string
 }
 
 /**
@@ -118,6 +127,14 @@ export interface KeyLocator {
   did?: string
   jwksUrl?: string
   kid?: string
+  /** Cycles window selection: pick the key whose
+   *  [cycles_nbf_ms, cycles_exp_ms) covers this issuance time (epoch ms).
+   *  When set, selection is window-gated; when absent, legacy kid-only. */
+  issuedAtMs?: number
+  /** Cycles raw-hex signer match: when the envelope's signer_did is a raw
+   *  64-hex Ed25519 key (not a did:cycles), select the JWK whose `x` decodes
+   *  to these bytes (confirming the raw key is published) rather than by kid. */
+  publicKeyHex?: string
 }
 
 /**

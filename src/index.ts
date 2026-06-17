@@ -332,7 +332,7 @@ export {
 // ── Key Resolution (M3): KeyResolver interface + did:cycles/JWKS ──
 export {
   CyclesKeyResolver,
-  parseDIDCycles, isDIDCycles, asJWKS, selectKey,
+  parseDIDCycles, isDIDCycles, cyclesJwksUrl, asJWKS, selectKey,
   decodeBase64Url, bytesToHex as keyResolutionBytesToHex,
   DEFAULT_TIMEOUT_MS as KEY_RESOLUTION_DEFAULT_TIMEOUT_MS,
   DEFAULT_CACHE_POLICY as KEY_RESOLUTION_DEFAULT_CACHE_POLICY,

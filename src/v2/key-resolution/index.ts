@@ -49,9 +49,11 @@ export { decodeBase64Url, bytesToHex } from './base64url.js'
 export {
   parseDIDCycles,
   isDIDCycles,
+  cyclesJwksUrl,
   asJWKS,
   selectKey,
   type ParsedDIDCycles,
+  type SelectKeyOptions,
   type JWKSelection,
 } from './did-cycles.js'
 

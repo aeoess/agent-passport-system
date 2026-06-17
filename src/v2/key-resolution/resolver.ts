@@ -100,11 +100,10 @@ export class CyclesKeyResolver implements KeyResolver {
     if (locator.jwksUrl) return true
     const did = locator.did
     if (!did) return false
-    return (
-      did.startsWith('did:key:') ||
-      did.startsWith('did:web:') ||
-      did.startsWith('did:cycles:')
-    )
+    // did:cycles is hash-bound, NOT self-locating: it cannot yield a URL on
+    // its own, so it is resolvable only with a jwksUrl (handled above, derived
+    // from the envelope's server_id by the cycles verify layer).
+    return did.startsWith('did:key:') || did.startsWith('did:web:')
   }
 
   async resolve(locator: KeyLocator): Promise<KeyResolution> {
@@ -231,20 +230,24 @@ export class CyclesKeyResolver implements KeyResolver {
   // ── did:cycles / direct JWKS (this module's mapping) ─────────────
 
   private async resolveJwks(locator: KeyLocator): Promise<KeyResolution> {
-    let jwksUrl: string
     let fragmentKid: string | undefined
     if (locator.did && isDIDCycles(locator.did)) {
+      // did:cycles is hash-bound: parse it for the kid fragment only. The
+      // JWKS URL is NOT derivable from the DID (the subject is a hash) — the
+      // cycles verify layer derives it from the envelope's server_id and
+      // passes it in as locator.jwksUrl after checking the sha256 binding.
       try {
-        const parsed = parseDIDCycles(locator.did)
-        jwksUrl = parsed.jwksUrl
-        fragmentKid = parsed.kid
+        fragmentKid = parseDIDCycles(locator.did).kid
       } catch (err) {
         return this.fail('unsupported', `did:cycles parse failed: ${safeMsg(err)}`)
       }
-    } else if (locator.jwksUrl) {
-      jwksUrl = locator.jwksUrl
-    } else {
-      return this.fail('unsupported', 'no did:cycles or jwksUrl present')
+    }
+    const jwksUrl = locator.jwksUrl
+    if (!jwksUrl) {
+      return this.fail(
+        'unsupported',
+        'did:cycles is not self-locating; supply jwksUrl derived from the envelope server_id',
+      )
     }
 
     // HTTPS only.
@@ -291,7 +294,11 @@ export class CyclesKeyResolver implements KeyResolver {
       return this.storeFail(cacheKey, 'malformed', 'JWKS missing non-empty keys[] array')
     }
 
-    const selection = selectKey(jwks, wantKid)
+    const selection = selectKey(jwks, {
+      kid: wantKid,
+      issuedAtMs: locator.issuedAtMs,
+      publicKeyHex: locator.publicKeyHex,
+    })
     if (!selection.ok) {
       return this.storeFail(cacheKey, selection.status, selection.reason)
     }
