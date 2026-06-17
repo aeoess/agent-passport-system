@@ -27,9 +27,13 @@ import type { ActionIntent } from '../types/policy.js'
  * Timestamp defaults to intent.createdAt; falls back to current time.
  *
  * Canonicalization follows RFC 8785 JCS strictly, per draft-pidlisnyi-aps-01
- * §4.1: null/undefined-valued keys are preserved (not stripped) so that
- * cross-engine correlation byte-matches against any other strict-JCS
- * implementation (x402 ecosystem, AgentGraph CTEF, Nobulex, etc.).
+ * §4.1: null/undefined-valued keys are preserved (not stripped) so that two
+ * APS engines independently hashing the same request produce the same
+ * action_ref. This is the APS-native form. Cross-ecosystem byte-parity with
+ * independent implementations (x402, AgentGraph CTEF, Nobulex) is provided by
+ * a separate primitive, computeExternalActionRefV1 in external-action-ref.js,
+ * which uses an intentionally different preimage; see that file and
+ * docs/specs/action-ref-v1.md.
  *
  * Returns: lowercase hex SHA-256 digest.
  */
