@@ -237,6 +237,12 @@ describe('selectKey (JWK selection by kid)', () => {
     assert.equal(sel.ok, false)
   })
 
+  it('window gate: a non-integer issuedAtMs fails closed (no coercion)', () => {
+    const jwks = fixtureJWKS(winJWK('k', 0, null))
+    assert.equal(selectKey(jwks, { issuedAtMs: 500.5 }).ok, false)
+    assert.equal(selectKey(jwks, { issuedAtMs: '500' as unknown as number }).ok, false)
+  })
+
   it('raw-hex match: selects the JWK whose x decodes to the signer key', () => {
     const sel = selectKey(fixtureJWKS(fixtureJWK('a'), fixtureJWK('b')), { publicKeyHex: PUB_HEX })
     // both fixtures carry PUB_HEX → ambiguous (two carriers, no other narrowing)
@@ -337,6 +343,22 @@ describe('CyclesKeyResolver: did:cycles / JWKS', () => {
     assert.equal(res.ok, false)
     assert.equal(res.status, 'malformed')
     assert.notEqual(res.degraded, true) // not a transient-network relaxation
+  })
+
+  it('cache key includes the window: an out-of-window issuance is not a stale hit', async () => {
+    // Same jwksUrl + kid, one key valid [0,1000). An in-window resolution must
+    // NOT be served from cache for an out-of-window issuance — the window is
+    // part of the cache key (regression guard for cross-window contamination).
+    const jwks = fixtureJWKS({
+      kty: 'OKP', crv: 'Ed25519', x: X_B64URL, kid: 'k', use: 'sig', alg: 'EdDSA',
+      cycles_nbf_ms: 0, cycles_exp_ms: 1000,
+    })
+    const { impl } = jsonFetch(jwks)
+    const r = new CyclesKeyResolver({ fetchImpl: impl })
+    const inWin = await r.resolve({ jwksUrl: CYCLES_URL, kid: 'k', issuedAtMs: 500 })
+    const outWin = await r.resolve({ jwksUrl: CYCLES_URL, kid: 'k', issuedAtMs: 5000 })
+    assert.equal(inWin.ok, true)
+    assert.equal(outWin.ok, false, 'out-of-window issuance must not reuse the in-window cache entry')
   })
 })
 

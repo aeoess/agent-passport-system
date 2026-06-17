@@ -260,7 +260,16 @@ export class CyclesKeyResolver implements KeyResolver {
       return this.fail('ambiguous', 'did:cycles fragment and explicit kid disagree')
     }
 
-    const cacheKey = `jwks:${jwksUrl}|kid:${wantKid ?? ''}`
+    // Cache the SELECTED key. Selection now depends on the validity window
+    // (issuedAtMs) and the raw-hex signer match (publicKeyHex) too, so both
+    // MUST be in the cache key — otherwise a key selected for one receipt's
+    // issuance window could be wrongly reused for another across a rotation
+    // (the [nbf, exp) gate would be bypassed). (A JWKS-document cache keyed by
+    // URL, with selection re-run per call, would also dedup the fetch across
+    // distinct issuance times — a future optimization.)
+    const cacheKey =
+      `jwks:${jwksUrl}|kid:${wantKid ?? ''}` +
+      `|iat:${locator.issuedAtMs ?? ''}|pk:${locator.publicKeyHex?.toLowerCase() ?? ''}`
     const cached = this.readCache(cacheKey)
     if (cached) return cached
 

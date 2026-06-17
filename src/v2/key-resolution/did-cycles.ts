@@ -197,6 +197,11 @@ export function selectKey(jwks: JWKS, sel?: string | SelectKeyOptions): JWKSelec
   // Validity-window gate (cycles): the key valid AT ISSUANCE, never the newest.
   if (opts.issuedAtMs !== undefined) {
     const t = opts.issuedAtMs
+    // Fail-closed on a non-finite-integer issuance time: never coerce a string
+    // or fractional value into the [nbf, exp) comparison.
+    if (typeof t !== 'number' || !Number.isInteger(t)) {
+      return { ok: false, status: 'not_found', reason: 'issuedAtMs must be an integer epoch-ms value' }
+    }
     candidates = candidates.filter((c) => windowCovers(c, t))
     if (candidates.length === 0) {
       return { ok: false, status: 'not_found', reason: 'no key whose validity window covers issued_at_ms' }
