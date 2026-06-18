@@ -69,21 +69,21 @@ describe('CyclesEvidence authority: 13 golden vectors resolve to authentic', () 
   }
 })
 
-// ── Strict dispositions: every degraded path → binding_only ──
-describe('CyclesEvidence authority: degraded paths fall to binding_only', () => {
+// ── Strict, DISTINCT dispositions for each degraded path ──
+describe('CyclesEvidence authority: distinct dispositions per failure mode', () => {
   const env = () => load('02-reserve-allow.json')
 
-  it('no resolver supplied → binding_only', async () => {
+  it('no resolver supplied → binding_only (authority not attempted)', async () => {
     const res = await verifyCyclesEvidenceSignerAuthority(env(), {})
     assert.equal(res.disposition, 'binding_only')
   })
 
-  it('unreachable JWKS → binding_only (not a forgery)', async () => {
+  it('unreachable JWKS → signer_resolution_failed (not a forgery, not authority)', async () => {
     const res = await verifyCyclesEvidenceSignerAuthority(env(), { cyclesKeyResolver: throwingResolver() })
-    assert.equal(res.disposition, 'binding_only')
+    assert.equal(res.disposition, 'signer_resolution_failed')
   })
 
-  it('a resolver that REJECTS → binding_only (verify path never throws)', async () => {
+  it('a resolver that REJECTS → signer_resolution_failed (verify path never throws)', async () => {
     // A non-conformant resolver that rejects its promise (the reference
     // CyclesKeyResolver never does, but a caller-supplied one might).
     const rejecting = {
@@ -91,28 +91,37 @@ describe('CyclesEvidence authority: degraded paths fall to binding_only', () => 
       resolve: async () => { throw new Error('resolver blew up') },
     } as unknown as CyclesKeyResolver
     const res = await verifyCyclesEvidenceSignerAuthority(env(), { cyclesKeyResolver: rejecting })
-    assert.equal(res.disposition, 'binding_only')
+    assert.equal(res.disposition, 'signer_resolution_failed')
   })
 
-  it('signer key absent from the set → binding_only', async () => {
-    const other = { ...JWKS, keys: [{ ...(JWKS.keys as object[])[0], x: 'AA'.repeat(0) + 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' }] }
+  it('signer key absent from the set → signer_authority_failed', async () => {
+    const other = { ...JWKS, keys: [{ ...(JWKS.keys as object[])[0], x: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' }] }
     const res = await verifyCyclesEvidenceSignerAuthority(env(), { cyclesKeyResolver: resolverServing(other) })
-    assert.equal(res.disposition, 'binding_only')
+    assert.equal(res.disposition, 'signer_authority_failed')
   })
 
-  it('key window does not cover issued_at_ms → binding_only', async () => {
+  it('key window does not cover issued_at_ms → signer_authority_failed', async () => {
     const e = env()
     const future = { ...JWKS, keys: [{ ...(JWKS.keys as Array<Record<string, unknown>>)[0], cycles_nbf_ms: (e.issued_at_ms as number) + 1 }] }
     const res = await verifyCyclesEvidenceSignerAuthority(e, { cyclesKeyResolver: resolverServing(future) })
-    assert.equal(res.disposition, 'binding_only')
+    assert.equal(res.disposition, 'signer_authority_failed')
   })
 
-  it('tampered signature → binding_only (does not verify under the resolved key)', async () => {
+  it('tampered signature → signature_invalid (NOT binding_only)', async () => {
     const e = env()
     const sig = e.signature as string
     e.signature = (sig[0] === '0' ? '1' : '0') + sig.slice(1)
     const res = await verifyCyclesEvidenceSignerAuthority(e, { cyclesKeyResolver: resolverServing(JWKS) })
-    assert.equal(res.disposition, 'binding_only')
+    assert.equal(res.disposition, 'signature_invalid')
+  })
+
+  it('wrong evidence_id (does not re-derive) → signature_invalid, even with an authorized key', async () => {
+    // A valid signature over a WRONG evidence_id must NOT read as authentic:
+    // the content id is re-derived and byte-compared first.
+    const e = env()
+    e.evidence_id = '0'.repeat(64)
+    const res = await verifyCyclesEvidenceSignerAuthority(e, { cyclesKeyResolver: resolverServing(JWKS) })
+    assert.equal(res.disposition, 'signature_invalid')
   })
 })
 
@@ -127,13 +136,13 @@ describe('CyclesEvidence authority: rotation overlap (two in-window keys)', () =
     assert.equal(res.disposition, 'authentic', res.reason)
   })
 
-  it('two in-window keys BOTH carrying the signer → binding_only (ambiguous, fail closed)', async () => {
+  it('two in-window keys BOTH carrying the signer → signer_authority_failed (ambiguous, fail closed)', async () => {
     const k0 = (JWKS.keys as Array<Record<string, unknown>>)[0]
     const dup = { ...k0, kid: 'rotated' } // same x, different kid, both in-window
     const res = await verifyCyclesEvidenceSignerAuthority(load('02-reserve-allow.json'), {
       cyclesKeyResolver: resolverServing({ keys: [k0, dup] }),
     })
-    assert.equal(res.disposition, 'binding_only')
+    assert.equal(res.disposition, 'signer_authority_failed')
   })
 })
 
@@ -174,10 +183,10 @@ describe('CyclesEvidence authority: did:cycles signer (hash-binding, path server
     assert.equal(res.resolvedKid, KID)
   })
 
-  it('server_id whose hash != the DID subject → binding_only (cross-server confusion blocked)', async () => {
+  it('server_id whose hash != the DID subject → signer_authority_failed (cross-server confusion blocked)', async () => {
     const env = signedDidCyclesEnvelope()
     env.server_id = 'https://evil.test/v1' // different server; DID hash no longer binds
     const res = await verifyCyclesEvidenceSignerAuthority(env, { cyclesKeyResolver: resolverServing(jwks) })
-    assert.equal(res.disposition, 'binding_only')
+    assert.equal(res.disposition, 'signer_authority_failed')
   })
 })
