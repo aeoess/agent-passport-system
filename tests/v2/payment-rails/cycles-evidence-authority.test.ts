@@ -73,9 +73,17 @@ describe('CyclesEvidence authority: 13 golden vectors resolve to authentic', () 
 describe('CyclesEvidence authority: distinct dispositions per failure mode', () => {
   const env = () => load('02-reserve-allow.json')
 
-  it('no resolver supplied → binding_only (authority not attempted)', async () => {
+  it('no resolver + raw-hex signer + VALID signature → binding_only', async () => {
     const res = await verifyCyclesEvidenceSignerAuthority(env(), {})
     assert.equal(res.disposition, 'binding_only')
+  })
+
+  it('no resolver + raw-hex signer + TAMPERED signature → signature_invalid (binding_only implies valid sig)', async () => {
+    const e = env()
+    const sig = e.signature as string
+    e.signature = (sig[0] === '0' ? '1' : '0') + sig.slice(1)
+    const res = await verifyCyclesEvidenceSignerAuthority(e, {})
+    assert.equal(res.disposition, 'signature_invalid')
   })
 
   it('unreachable JWKS → signer_resolution_failed (not a forgery, not authority)', async () => {
@@ -183,10 +191,35 @@ describe('CyclesEvidence authority: did:cycles signer (hash-binding, path server
     assert.equal(res.resolvedKid, KID)
   })
 
-  it('server_id whose hash != the DID subject → signer_authority_failed (cross-server confusion blocked)', async () => {
-    const env = signedDidCyclesEnvelope()
-    env.server_id = 'https://evil.test/v1' // different server; DID hash no longer binds
+  it('DID subject hash != sha256(server_id) → signer_authority_failed (cross-server confusion blocked)', async () => {
+    // A CONSISTENTLY-signed envelope (evidence_id re-derives) whose did:cycles
+    // subject commits to a DIFFERENT server_id than the envelope's own. The
+    // sha256 binding is what fails — not content integrity.
+    const wrongHash = sha256Hex('https://other.test/v1')
+    const env: Record<string, unknown> = {
+      schema_version: 'cycles-evidence/v0.1', artifact_type: 'reserve',
+      server_id: SERVER_ID, signer_did: `did:cycles:${wrongHash}#${KID}`,
+      issued_at_ms: 1810000000100, payload: { reserve: { request: {}, response: {} } },
+      evidence_id: '', signature: '',
+    }
+    env.evidence_id = sha256Hex(canonicalizeJCS({ ...env, evidence_id: '', signature: '' }))
+    env.signature = sign(canonicalizeJCS({ ...env, signature: '' }), SEED)
     const res = await verifyCyclesEvidenceSignerAuthority(env, { cyclesKeyResolver: resolverServing(jwks) })
+    assert.equal(res.disposition, 'signer_authority_failed')
+  })
+
+  it('did:cycles signer with NO resolver → signer_authority_failed (not checkable, never binding_only)', async () => {
+    const res = await verifyCyclesEvidenceSignerAuthority(signedDidCyclesEnvelope(), {})
+    assert.equal(res.disposition, 'signer_authority_failed')
+  })
+
+  it('selected key (by kid) with malformed x → signer_authority_failed (not resolution_failed)', async () => {
+    // The kid matches but its x is not a 32-byte key: a malformed selected KEY
+    // is an authority failure, distinct from an unparseable JWK Set body.
+    const badKey = { kty: 'OKP', crv: 'Ed25519', alg: 'EdDSA', x: 'AA', kid: KID, cycles_nbf_ms: 0, status: 'active' }
+    const res = await verifyCyclesEvidenceSignerAuthority(signedDidCyclesEnvelope(), {
+      cyclesKeyResolver: resolverServing({ keys: [badKey] }),
+    })
     assert.equal(res.disposition, 'signer_authority_failed')
   })
 })

@@ -728,9 +728,10 @@ export interface CyclesVerifyWithEvidenceResult {
  *  - `authentic`              — signature verifies under the window-selected key
  *                               resolved from the server's JWK Set (validity AND
  *                               authority).
- *  - `binding_only`           — authority was NOT attempted/establishable (no
- *                               resolver, or a signer_did form we don't resolve);
- *                               no claim about the signature.
+ *  - `binding_only`           — signature cryptographically VALID against the
+ *                               named raw-hex signer, but JWKS authority was not
+ *                               resolved (no resolver / v0.1 posture). Only ever
+ *                               returned after a successful signature check.
  *  - `signer_resolution_failed` — the DID method / JWK Set could not be reached
  *                               or parsed (network/availability). Establishes
  *                               NOTHING about the bytes; NOT a forgery.
@@ -760,52 +761,88 @@ const _authority = (
 
 const RAW_HEX_KEY = /^[0-9a-fA-F]{64}$/
 
-/** Map a non-ok KeyResolution status to the spec disposition: failure to
- *  OBTAIN/parse the set (network) is resolution_failed; a parsed set with no
- *  single authorized key (incl. the did:cycles hash-bind mismatch, which the
- *  resolver reports as not_found) is authority_failed. */
-function _authorityFromResolutionStatus(
+/** Map a non-ok KeyResolution status to the spec disposition. Failure to
+ *  OBTAIN/parse the SET (network, or an unparseable set body) is
+ *  resolution_failed; a parsed set with no single authorized key — incl. the
+ *  did:cycles hash-bind mismatch (reported as not_found) and a malformed
+ *  selected KEY's `x` — is authority_failed. The resolver reports both an
+ *  unparseable set body AND a malformed selected key as `malformed`, so they
+ *  are split by the reason text (the set-body case is the only one that
+ *  mentions the missing `keys[]` array). */
+function _authorityFromResolution(
   status: string,
+  reason?: string,
 ): 'signer_resolution_failed' | 'signer_authority_failed' {
-  return status === 'unreachable' || status === 'malformed'
-    ? 'signer_resolution_failed'
-    : 'signer_authority_failed'
+  if (status === 'unreachable') return 'signer_resolution_failed'
+  if (status === 'malformed') {
+    return reason && /keys\[\]|missing non-empty|not valid JSON/i.test(reason)
+      ? 'signer_resolution_failed' // unparseable JWK Set body
+      : 'signer_authority_failed' // malformed selected key material
+  }
+  return 'signer_authority_failed' // not_found / ambiguous / unsupported
 }
 
 /**
  * Resolve and verify the FETCHED envelope's own Ed25519 signature against the
- * Cycles signer's published key. Reads `signer_did` / `server_id` /
- * `issued_at_ms` / `signature` off the envelope, builds the key locator
- * (did:cycles → sha256-bound, window-gated; raw-hex → JWK `x` match + window),
- * resolves via the caller-supplied resolver (which owns the JWKS transport),
- * RE-DERIVES `evidence_id` and byte-compares it (per the normative recipe),
- * then verifies the cycles signing input (JCS with `signature` emptied,
- * `evidence_id` left populated). Reports one of the five distinct dispositions;
- * only a verified signature under a resolved key is `authentic`.
+ * Cycles signer's published key. RE-DERIVES `evidence_id` and byte-compares it
+ * (normative recipe) BEFORE verifying the cycles signing input (JCS with
+ * `signature` emptied, `evidence_id` left populated). Reports one of the five
+ * distinct dispositions; `binding_only` is returned ONLY when the signature is
+ * cryptographically VALID against the named raw-hex signer but JWKS authority
+ * was not resolved — it never labels an unchecked or invalid signature.
  */
 async function _resolveEnvelopeAuthority(
   env: FetchedCyclesEvidenceEnvelope | undefined,
   options: VerifyCyclesOptions,
 ): Promise<CyclesEvidenceAuthorityResult> {
-  if (!env) return _authority('binding_only', 'no envelope fetched (evidence not resolved)')
+  if (!env) return _authority('signer_resolution_failed', 'no envelope fetched (evidence not resolved)')
   const signerDid = typeof env.signer_did === 'string' ? env.signer_did : ''
   const serverId = typeof env.server_id === 'string' ? env.server_id : ''
   const issuedAtMs = env.issued_at_ms
   const signature = typeof env.signature === 'string' ? env.signature : ''
-  if (!signerDid || !serverId || typeof issuedAtMs !== 'number' || !Number.isInteger(issuedAtMs) || !signature) {
-    return _authority('binding_only', 'envelope missing/invalid authority fields (signer_did/server_id/issued_at_ms/signature)')
+  if (!signerDid || !signature) {
+    return _authority('signature_invalid', 'envelope has no signer_did/signature — no verifiable signature')
   }
-  const resolver: KeyResolver | undefined = options.cyclesKeyResolver
-  if (!resolver) return _authority('binding_only', 'no cyclesKeyResolver supplied; authority not resolved')
+  if (!serverId || typeof issuedAtMs !== 'number' || !Number.isInteger(issuedAtMs)) {
+    return _authority('signer_authority_failed', 'envelope missing server_id / integer issued_at_ms — cannot resolve a windowed key')
+  }
+  const isDid = isDIDCycles(signerDid)
+  const isRaw = RAW_HEX_KEY.test(signerDid)
+  if (!isDid && !isRaw) {
+    return _authority('signer_authority_failed', 'signer_did is neither a did:cycles nor a raw 64-hex key')
+  }
 
-  let locator: KeyLocator
-  if (isDIDCycles(signerDid)) {
-    locator = { did: signerDid, serverId, issuedAtMs }
-  } else if (RAW_HEX_KEY.test(signerDid)) {
-    locator = { jwksUrl: cyclesJwksUrl(serverId), publicKeyHex: signerDid, issuedAtMs }
-  } else {
-    return _authority('binding_only', 'signer_did is neither a did:cycles nor a raw 64-hex key')
+  // Content integrity FIRST (envelope-intrinsic, independent of the resolver):
+  // re-derive evidence_id and byte-compare; a mismatch is tamper.
+  let recomputedId: string
+  let signingInput: string
+  try {
+    recomputedId = sha256Hex(canonicalizeJCS({ ...env, evidence_id: '', signature: '' }))
+    signingInput = canonicalizeJCS({ ...env, signature: '' })
+  } catch (err) {
+    return _authority('signature_invalid', `envelope canonicalization failed: ${err instanceof Error ? err.message : String(err)}`)
   }
+  if (recomputedId !== env.evidence_id) {
+    return _authority('signature_invalid', `evidence_id does not re-derive (${recomputedId} != ${String(env.evidence_id)}) — envelope tampered`)
+  }
+
+  const resolver: KeyResolver | undefined = options.cyclesKeyResolver
+  if (!resolver) {
+    // No JWKS authority resolution. Raw-hex: the signer_did IS the key, so the
+    // signature can be checked against it — a VALID signature is binding_only
+    // (the v0.1 posture), an invalid one is signature_invalid. did:cycles: the
+    // subject is a hash, so the signature is not checkable without the JWK Set.
+    if (isRaw) {
+      return edVerify(signingInput, signature, signerDid)
+        ? _authority('binding_only', 'signature valid against the named raw-hex signer; JWKS authority not resolved (no resolver)')
+        : _authority('signature_invalid', 'signature did not verify against the named raw-hex signer')
+    }
+    return _authority('signer_authority_failed', 'did:cycles authority requires a key resolver; signature not checkable without the JWK Set')
+  }
+
+  const locator: KeyLocator = isDid
+    ? { did: signerDid, serverId, issuedAtMs }
+    : { jwksUrl: cyclesJwksUrl(serverId), publicKeyHex: signerDid, issuedAtMs }
 
   // The verify path must never throw — a non-conformant resolver that rejects
   // is treated as a resolution failure, never authentic.
@@ -817,25 +854,9 @@ async function _resolveEnvelopeAuthority(
   }
   if (!resolution.ok || !resolution.publicKeyHex) {
     return _authority(
-      _authorityFromResolutionStatus(resolution.status),
+      _authorityFromResolution(resolution.status, resolution.reason),
       `signer-key resolution failed (status=${resolution.status}${resolution.reason ? `: ${resolution.reason}` : ''})`,
     )
-  }
-
-  // Content integrity FIRST: re-derive evidence_id (sha256 of the JCS with
-  // evidence_id AND signature emptied) and byte-compare it to the field. A
-  // mismatch is tamper — a valid signature over a wrong evidence_id is NOT
-  // authentic.
-  let recomputedId: string
-  let signingInput: string
-  try {
-    recomputedId = sha256Hex(canonicalizeJCS({ ...env, evidence_id: '', signature: '' }))
-    signingInput = canonicalizeJCS({ ...env, signature: '' })
-  } catch (err) {
-    return _authority('signature_invalid', `envelope canonicalization failed: ${err instanceof Error ? err.message : String(err)}`)
-  }
-  if (recomputedId !== env.evidence_id) {
-    return _authority('signature_invalid', `evidence_id does not re-derive (${recomputedId} != ${String(env.evidence_id)}) — envelope tampered`)
   }
   if (!edVerify(signingInput, signature, resolution.publicKeyHex)) {
     return _authority('signature_invalid', 'envelope signature did not verify under the resolved key')
