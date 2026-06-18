@@ -435,9 +435,12 @@ export interface VerifyCyclesOptions {
    *  verifier resolves the fetched envelope's `signer_did` to a public key
    *  (did:cycles sha256-binding + window-gated selection, or raw-hex match)
    *  and verifies the envelope's OWN Ed25519 signature, yielding the
-   *  `authentic` authority disposition. Omitted ⇒ `binding_only` (no authority
-   *  resolved). The SDK performs no network egress itself: the resolver owns
-   *  the transport (mirrors `resolveEvidence`). */
+   *  `authentic` authority disposition (else signer_resolution_failed /
+   *  signer_authority_failed / signature_invalid). Omitted ⇒ a raw-hex signer
+   *  with a VALID signature is `binding_only`, an invalid one is
+   *  `signature_invalid`, and a did:cycles signer is `signer_authority_failed`
+   *  (not checkable without the set). The SDK performs no network egress
+   *  itself: the resolver owns the transport (mirrors `resolveEvidence`). */
   cyclesKeyResolver?: import('../../key-resolution/index.js').KeyResolver
   /** The fetched CyclesEvidence envelope this receipt's `cycles_evidence`
    *  references (retrieved from `cycles_evidence_url`). When supplied,

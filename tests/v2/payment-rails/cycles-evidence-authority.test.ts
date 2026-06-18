@@ -7,8 +7,10 @@
 // reference verifier and canonicalizer validate against) plus the
 // published JWK Set. Proves a key RESOLVED from the server's JWK Set —
 // under the issuance-time validity window — verifies the envelope's own
-// Ed25519 signature → `authentic`, and that every degraded path lands
-// `binding_only` (strict disposition per the #43 sign-off).
+// Ed25519 signature → `authentic`, and that each degraded path maps to its
+// DISTINCT disposition (binding_only only for a valid raw-hex signature with
+// no resolver; signer_resolution_failed / signer_authority_failed /
+// signature_invalid otherwise) per the #43 five-disposition model.
 //
 // Edge coverage requested on the cycles-server#194 / APS#46 merge:
 //   - open-ended cycles_exp_ms (active key)  → the golden JWKS key

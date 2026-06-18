@@ -47,13 +47,18 @@
 //   signer_did) or 'pinned_issuer' (that PLUS expected_signer pinning the
 //   APS receipt issuer — envelope authenticity then holds TRANSITIVELY, to
 //   the extent the pinned issuer is trusted to bind only legitimate
-//   envelopes; not a proof of signer_did's own authority). Resolving
-//   signer-AUTHORITY directly — (b) — is the v0.2 work tracked at
-//   runcycles/cycles-protocol#103, not done here.
+//   envelopes; not a proof of signer_did's own authority).
+//
+//   Signer-AUTHORITY resolution — (b) — IS now implemented (#43): the
+//   *WithEvidence paths resolve the fetched envelope's signer_did to a key via
+//   a caller-supplied cyclesKeyResolver (did:cycles sha256-binding +
+//   window-gated selection, or raw-hex match), re-derive evidence_id, and
+//   verify the envelope's own signature, reporting `authority` as one of the
+//   five dispositions (authentic / binding_only / signer_resolution_failed /
+//   signer_authority_failed / signature_invalid). See `_resolveEnvelopeAuthority`
+//   and `verifyCyclesEvidenceSignerAuthority`.
 //
 // Out of scope for this commit (TODO follow-up):
-//   - (b) envelope signer-authority resolution (did:cycles / JWKS /
-//     rotation), gated on runcycles/cycles-protocol#103.
 //   - preAuthorizeCyclesReserve gateway hook into PaymentRail interface
 //     (gateway-flow placement — held for the AEOESS gateway-flow ADR,
 //     aeoess/agent-passport-system#25).
@@ -912,9 +917,11 @@ export async function verifyCyclesReleaseReceiptWithEvidence(
  * Verify a FETCHED CyclesEvidence envelope's own signer authority directly
  * (#43), independent of any APS receipt. Resolves `signer_did` to a public key
  * via the caller-supplied `cyclesKeyResolver` (did:cycles sha256-binding +
- * window-gated selection, or raw-hex match) and verifies the envelope's
- * Ed25519 signature, returning `authentic` or `binding_only`. The conformance
- * surface a consumer (e.g. against the Cycles golden vectors) runs.
+ * window-gated selection, or raw-hex match), re-derives `evidence_id`, and
+ * verifies the envelope's Ed25519 signature, returning one of the five
+ * dispositions (authentic / binding_only / signer_resolution_failed /
+ * signer_authority_failed / signature_invalid). The conformance surface a
+ * consumer (e.g. against the Cycles golden vectors) runs.
  */
 export async function verifyCyclesEvidenceSignerAuthority(
   envelope: FetchedCyclesEvidenceEnvelope,
