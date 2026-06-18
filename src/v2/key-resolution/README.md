@@ -103,6 +103,8 @@ off-host redirects are not followed.
 - JWK Set + `kid`/`use`/`alg`: RFC 7517.
 - OKP/Ed25519 JWK (`kty`/`crv`/`x`, EdDSA): RFC 8037.
 - Ed25519 algorithm + Test 1 vector: RFC 8032 §7.1.
-- DID-to-HTTPS mapping pattern mirrored from: did:web.
 - base64url: RFC 7515 §2 / RFC 4648 §5.
-- `did:cycles`: no external spec exists; AEOESS-defined here.
+- `did:cycles`: hash-bound (subject = `sha256(server_id)`) + API-base-relative
+  JWKS + validity-window selection, settled with the Cycles maintainers on
+  `runcycles/cycles-protocol` (#43; spec `drafts/cycles-evidence-v0.1`). NOT a
+  did:web-style host mapping — that earlier M3 shape was dropped.

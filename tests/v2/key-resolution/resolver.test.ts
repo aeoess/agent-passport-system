@@ -11,6 +11,10 @@
 
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
+
+/** sha256 hex of a server_id — the did:cycles subject binding. */
+const sha256Hex = (s: string) => createHash('sha256').update(s, 'utf8').digest('hex')
 
 import {
   CyclesKeyResolver,
@@ -264,17 +268,15 @@ describe('selectKey (JWK selection by kid)', () => {
     if (!sel.ok) assert.equal(sel.status, 'malformed')
   })
 
-  it('strips a private d member (never used)', () => {
-    // d present is a misconfiguration; selection still returns the public x.
+  it('rejects a JWK carrying a private d member (public-only key set)', () => {
+    // A published verification set must be public-only; a leaked private `d`
+    // makes the JWK a non-candidate (fail-closed), never selected.
     const jwks = fixtureJWKS({
       kty: 'OKP', crv: 'Ed25519', x: X_B64URL, kid: 'p', d: SEED_HEX,
     } as object)
     const sel = selectKey(jwks, 'p')
-    assert.equal(sel.ok, true)
-    if (sel.ok) {
-      assert.equal(sel.publicKeyHex, PUB_HEX)
-      assert.equal('d' in (sel.jwk as Record<string, unknown>) , true) // input untouched
-    }
+    assert.equal(sel.ok, false)
+    if (!sel.ok) assert.equal(sel.status, 'not_found')
   })
 })
 
@@ -288,25 +290,29 @@ describe('asJWKS structural validation', () => {
 })
 
 // ════════════════════════════════════════════════════════════════
-describe('CyclesKeyResolver: did:cycles / JWKS', () => {
-  // did:cycles is hash-bound (not self-locating): the cycles verify layer
-  // derives the JWKS URL from the envelope's server_id and supplies it. These
-  // tests pass jwksUrl directly (optionally alongside the hash-bound did to
-  // exercise the #fragment kid), mirroring how the verify path calls in.
-  const HASH = 'a'.repeat(64)
+describe('CyclesKeyResolver: did:cycles (hash-bound) + direct JWKS', () => {
+  // did:cycles is HASH-BOUND: the resolver checks sha256(serverId) against the
+  // DID subject and derives the JWKS URL from serverId itself. The window gate
+  // (issuedAtMs) is mandatory for did:cycles. A windowed JWK is required.
+  const SERVER_ID = 'https://h.test/v1'
+  const HASH = sha256Hex(SERVER_ID)
   const CYCLES_URL = 'https://h.test/v1/.well-known/cycles-jwks.json'
+  const winJWK = (kid: string, x: string = X_B64URL) => ({
+    kty: 'OKP', crv: 'Ed25519', x, kid, use: 'sig', alg: 'EdDSA',
+    cycles_nbf_ms: 0, cycles_exp_ms: null,
+  })
 
-  it('resolves a did:cycles key (fragment kid) to the RFC 8032 public key', async () => {
-    const { impl } = jsonFetch(fixtureJWKS(fixtureJWK('test-1')))
+  it('resolves a bound did:cycles key (fragment kid) to the RFC 8032 public key', async () => {
+    const { impl } = jsonFetch(fixtureJWKS(winJWK('test-1')))
     const r = new CyclesKeyResolver({ fetchImpl: impl })
-    const res = await r.resolve({ did: `did:cycles:${HASH}#test-1`, jwksUrl: CYCLES_URL })
+    const res = await r.resolve({ did: `did:cycles:${HASH}#test-1`, serverId: SERVER_ID, issuedAtMs: 500 })
     assert.equal(res.ok, true)
     assert.equal(res.publicKeyHex, PUB_HEX)
     assert.equal(res.kid, 'test-1')
     assert.ok(res.scope_of_claim, 'resolved key carries scope_of_claim')
   })
 
-  it('resolves a direct jwksUrl + explicit kid', async () => {
+  it('resolves a direct jwksUrl + explicit kid (non-cycles, window optional)', async () => {
     const { impl } = jsonFetch(fixtureJWKS(fixtureJWK('k1')))
     const r = new CyclesKeyResolver({ fetchImpl: impl })
     const res = await r.resolve({ jwksUrl: CYCLES_URL, kid: 'k1' })
@@ -321,17 +327,34 @@ describe('CyclesKeyResolver: did:cycles / JWKS', () => {
     assert.equal(res.status, 'unsupported')
   })
 
-  it('a did:cycles locator with no jwksUrl is unsupported (not self-locating)', async () => {
+  it('did:cycles without serverId is unsupported (binding cannot be established)', async () => {
     const r = new CyclesKeyResolver()
-    const res = await r.resolve({ did: `did:cycles:${HASH}#k` })
+    const res = await r.resolve({ did: `did:cycles:${HASH}#k`, issuedAtMs: 500 })
     assert.equal(res.ok, false)
     assert.equal(res.status, 'unsupported')
   })
 
-  it('fails closed when DID fragment and explicit kid disagree', async () => {
-    const { impl } = jsonFetch(fixtureJWKS(fixtureJWK('a')))
+  it('did:cycles fails closed when sha256(serverId) != subject hash', async () => {
+    const { impl } = jsonFetch(fixtureJWKS(winJWK('test-1')))
     const r = new CyclesKeyResolver({ fetchImpl: impl })
-    const res = await r.resolve({ did: `did:cycles:${HASH}#a`, jwksUrl: CYCLES_URL, kid: 'b' })
+    // a different server_id than the one the DID hash commits to
+    const res = await r.resolve({ did: `did:cycles:${HASH}#test-1`, serverId: 'https://evil.test/v1', issuedAtMs: 500 })
+    assert.equal(res.ok, false)
+    assert.equal(res.status, 'not_found') // signer not bound to this server
+  })
+
+  it('did:cycles requires an integer issuedAtMs (mandatory window)', async () => {
+    const { impl } = jsonFetch(fixtureJWKS(winJWK('test-1')))
+    const r = new CyclesKeyResolver({ fetchImpl: impl })
+    const res = await r.resolve({ did: `did:cycles:${HASH}#test-1`, serverId: SERVER_ID })
+    assert.equal(res.ok, false)
+    assert.equal(res.status, 'not_found')
+  })
+
+  it('fails closed when DID fragment and explicit kid disagree', async () => {
+    const { impl } = jsonFetch(fixtureJWKS(winJWK('a')))
+    const r = new CyclesKeyResolver({ fetchImpl: impl })
+    const res = await r.resolve({ did: `did:cycles:${HASH}#a`, serverId: SERVER_ID, issuedAtMs: 500, kid: 'b' })
     assert.equal(res.ok, false)
     assert.equal(res.status, 'ambiguous')
   })
@@ -506,7 +529,7 @@ describe('did:key and did:web registered behind the interface', () => {
     const r = new CyclesKeyResolver()
     assert.equal(r.canResolve({ did: 'did:key:z6Mk...' }), true)
     assert.equal(r.canResolve({ did: 'did:web:e.test' }), true)
-    assert.equal(r.canResolve({ did: 'did:cycles:e.test' }), false) // hash-bound, needs jwksUrl
+    assert.equal(r.canResolve({ did: 'did:cycles:e.test' }), true) // handled (binding checked at resolve time)
     assert.equal(r.canResolve({ jwksUrl: 'https://e.test/v1/.well-known/cycles-jwks.json' }), true)
     assert.equal(r.canResolve({ jwksUrl: 'https://e.test/jwks.json' }), true)
     assert.equal(r.canResolve({ did: 'did:example:nope' }), false)

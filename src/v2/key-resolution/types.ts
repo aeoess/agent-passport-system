@@ -53,9 +53,10 @@ export interface Ed25519JWK {
 
 /**
  * RFC 7517 JWK Set. The single REQUIRED member is `keys`, an array of
- * JWK objects. A resolver MUST treat a private `d` member on any JWK
- * as a misconfiguration and never use it; this type does not surface
- * `d`, and the loader strips it.
+ * JWK objects. A published verification set must contain public keys
+ * only: a JWK carrying a private `d` member is a misconfiguration (leaked
+ * private material), so it is REJECTED as a signing candidate and never
+ * selected — fail-closed rather than silently stripped-and-used.
  */
 export interface JWKS {
   keys: Ed25519JWK[]
@@ -135,6 +136,12 @@ export interface KeyLocator {
    *  64-hex Ed25519 key (not a did:cycles), select the JWK whose `x` decodes
    *  to these bytes (confirming the raw key is published) rather than by kid. */
   publicKeyHex?: string
+  /** Cycles authority binding: the envelope's `server_id`. REQUIRED for a
+   *  `did:cycles` locator — the resolver checks `sha256(server_id)` against the
+   *  DID subject hash and derives the JWKS URL from it (cyclesJwksUrl), failing
+   *  closed on mismatch. A `did:cycles` locator without `serverId` is rejected
+   *  (the binding cannot be established). */
+  serverId?: string
 }
 
 /**

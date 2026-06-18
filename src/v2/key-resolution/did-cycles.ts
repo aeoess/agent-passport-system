@@ -132,6 +132,10 @@ function isEd25519SigningCandidate(jwk: unknown): jwk is Ed25519JWK {
   if (k.kty !== 'OKP') return false
   if (k.crv !== 'Ed25519') return false
   if (typeof k.x !== 'string' || k.x.length === 0) return false
+  // A published verification key set must be public-only. A JWK carrying a
+  // private `d` member is leaked private material / a misconfiguration —
+  // reject it (fail-closed), never select it.
+  if (k.d !== undefined) return false
   if (k.use !== undefined && k.use !== 'sig') return false
   if (k.alg !== undefined && k.alg !== 'EdDSA') return false
   if (k.key_ops !== undefined) {
