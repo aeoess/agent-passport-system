@@ -247,18 +247,43 @@ describe('selectKey (JWK selection by kid)', () => {
     assert.equal(selectKey(jwks, { issuedAtMs: '500' as unknown as number }).ok, false)
   })
 
-  it('raw-hex match: selects the JWK whose x decodes to the signer key', () => {
-    const sel = selectKey(fixtureJWKS(fixtureJWK('a'), fixtureJWK('b')), { publicKeyHex: PUB_HEX })
-    // both fixtures carry PUB_HEX → ambiguous (two carriers, no other narrowing)
-    assert.equal(sel.ok, false)
-    if (!sel.ok) assert.equal(sel.status, 'ambiguous')
+  it('raw-hex match: selects the unique windowed JWK carrying the signer key', () => {
+    // winJWK(kid, nbf, exp) carries X_B64URL (=PUB_HEX); the 'b' key's x is
+    // overridden so it does not carry the signer's bytes.
+    const sel = selectKey(fixtureJWKS(winJWK('a', 0, null), { ...winJWK('b', 0, null), x: 'AA' }), {
+      publicKeyHex: PUB_HEX, issuedAtMs: 500,
+    })
+    assert.equal(sel.ok, true)
+    if (sel.ok) assert.equal(sel.kid, 'a')
+  })
+
+  it('raw-hex match REQUIRES an integer issuedAtMs (window applies to raw signers too)', () => {
+    const jwks = fixtureJWKS(winJWK('a', 0, null))
+    assert.equal(selectKey(jwks, { publicKeyHex: PUB_HEX }).ok, false) // no window → fail closed
+    assert.equal(selectKey(jwks, { publicKeyHex: PUB_HEX, issuedAtMs: 1.5 }).ok, false)
+  })
+
+  it('raw-hex match: out-of-window key fails closed', () => {
+    const covering = selectKey(fixtureJWKS(winJWK('a', 0, null)), { publicKeyHex: PUB_HEX, issuedAtMs: 500 })
+    assert.equal(covering.ok, true)
+    const expired = winJWK('a', 0, 100) // [0,100), 500 not covered
+    assert.equal(selectKey(fixtureJWKS(expired), { publicKeyHex: PUB_HEX, issuedAtMs: 500 }).ok, false)
   })
 
   it('raw-hex match: no JWK carries the signer key → not_found', () => {
     const other = Buffer.from(PUB_HEX, 'hex'); other[0] ^= 0xff
-    const sel = selectKey(fixtureJWKS(fixtureJWK('a')), { publicKeyHex: other.toString('hex') })
+    const sel = selectKey(fixtureJWKS(winJWK('a', 0, null)), { publicKeyHex: other.toString('hex'), issuedAtMs: 500 })
     assert.equal(sel.ok, false)
     if (!sel.ok) assert.equal(sel.status, 'not_found')
+  })
+
+  it('duplicate kid is an authority failure BEFORE the window gate (disjoint windows do not rescue it)', () => {
+    // Two kid="dup" keys with NON-overlapping windows: only one covers
+    // issued_at=500, but the duplicate kid must fail ambiguous up front.
+    const jwks = fixtureJWKS(winJWK('dup', 0, 1000), winJWK('dup', 1000, null))
+    const sel = selectKey(jwks, { kid: 'dup', issuedAtMs: 500 })
+    assert.equal(sel.ok, false)
+    if (!sel.ok) assert.equal(sel.status, 'ambiguous')
   })
 
   it('rejects x that does not decode to 32 bytes', () => {

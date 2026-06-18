@@ -180,8 +180,14 @@ export function selectKey(jwks: JWKS, sel?: string | SelectKeyOptions): JWKSelec
     return { ok: false, status: 'not_found', reason: 'no Ed25519 signing key in JWKS' }
   }
 
-  // Raw-hex signer match (cycles): the published key must carry the signer's bytes.
+  // Raw-hex signer match (cycles): the published key must carry the signer's
+  // bytes — and the spec applies the SAME validity-window gate to raw-hex
+  // signers as to did:cycles, so a raw-hex selection REQUIRES an integer
+  // issued_at_ms (no window-less raw acceptance).
   if (opts.publicKeyHex !== undefined) {
+    if (typeof opts.issuedAtMs !== 'number' || !Number.isInteger(opts.issuedAtMs)) {
+      return { ok: false, status: 'not_found', reason: 'raw-hex signer selection requires an integer issuedAtMs (window gate)' }
+    }
     const want = opts.publicKeyHex.toLowerCase()
     candidates = candidates.filter((c) => candidateToHex(c) === want)
     if (candidates.length === 0) {
@@ -189,11 +195,16 @@ export function selectKey(jwks: JWKS, sel?: string | SelectKeyOptions): JWKSelec
     }
   }
 
-  // kid match (exact, case-sensitive).
+  // kid match (exact, case-sensitive). kid MUST be unique within the set: a
+  // duplicate kid is an authority failure BEFORE any window discretion (so two
+  // same-kid keys with disjoint windows can't sneak one survivor through).
   if (opts.kid !== undefined) {
     const matches = candidates.filter((c) => c.kid === opts.kid)
     if (matches.length === 0) {
       return { ok: false, status: 'not_found', reason: `no key with kid='${opts.kid}'` }
+    }
+    if (matches.length > 1) {
+      return { ok: false, status: 'ambiguous', reason: `duplicate kid='${opts.kid}' in JWK Set` }
     }
     candidates = matches
   }
