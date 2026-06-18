@@ -889,7 +889,7 @@ async function _verifyWithEvidence(
   )
   // Signer authority (#43): resolve the fetched envelope's signer key and
   // verify the envelope's own signature. Independent of the receipt verdict
-  // and the hash join; degrades to binding_only, never throws.
+  // and the hash join; reports one of the five distinct dispositions, never throws.
   const authority = await _resolveEnvelopeAuthority(evidence.envelope, options)
   return {
     verify,
