@@ -40,13 +40,23 @@ export interface Ed25519JWK {
   alg?: 'EdDSA' | string
   /** If present MUST include "verify". */
   key_ops?: string[]
+  /** Cycles validity window — valid-from, epoch ms, INCLUSIVE. Present on
+   *  did:cycles JWK Sets; selection by window requires it (see selectKey).
+   *  Not an RFC 7517 member; ignored by non-cycles consumers. */
+  cycles_nbf_ms?: number
+  /** Cycles validity window — valid-until, epoch ms, EXCLUSIVE. Absent/null
+   *  ⇒ open-ended (the active key). */
+  cycles_exp_ms?: number | null
+  /** Advisory rotation status; selection is by window, never by status. */
+  status?: 'active' | 'retired' | string
 }
 
 /**
  * RFC 7517 JWK Set. The single REQUIRED member is `keys`, an array of
- * JWK objects. A resolver MUST treat a private `d` member on any JWK
- * as a misconfiguration and never use it; this type does not surface
- * `d`, and the loader strips it.
+ * JWK objects. A published verification set must contain public keys
+ * only: a JWK carrying a private `d` member is a misconfiguration (leaked
+ * private material), so it is REJECTED as a signing candidate and never
+ * selected — fail-closed rather than silently stripped-and-used.
  */
 export interface JWKS {
   keys: Ed25519JWK[]
@@ -118,6 +128,20 @@ export interface KeyLocator {
   did?: string
   jwksUrl?: string
   kid?: string
+  /** Cycles window selection: pick the key whose
+   *  [cycles_nbf_ms, cycles_exp_ms) covers this issuance time (epoch ms).
+   *  When set, selection is window-gated; when absent, legacy kid-only. */
+  issuedAtMs?: number
+  /** Cycles raw-hex signer match: when the envelope's signer_did is a raw
+   *  64-hex Ed25519 key (not a did:cycles), select the JWK whose `x` decodes
+   *  to these bytes (confirming the raw key is published) rather than by kid. */
+  publicKeyHex?: string
+  /** Cycles authority binding: the envelope's `server_id`. REQUIRED for a
+   *  `did:cycles` locator — the resolver checks `sha256(server_id)` against the
+   *  DID subject hash and derives the JWKS URL from it (cyclesJwksUrl), failing
+   *  closed on mismatch. A `did:cycles` locator without `serverId` is rejected
+   *  (the binding cannot be established). */
+  serverId?: string
 }
 
 /**

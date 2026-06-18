@@ -21,11 +21,13 @@
 // across tenants, expose an endpoint, or alert.
 // ══════════════════════════════════════════════════════════════════
 
+import { createHash } from 'node:crypto'
 import { fromDIDKey, resolveDIDWeb } from '../../core/did-interop.js'
 import { multibaseToHex } from '../../core/did.js'
 import type { ScopeOfClaim } from '../accountability/types/base.js'
 import {
   asJWKS,
+  cyclesJwksUrl,
   isDIDCycles,
   parseDIDCycles,
   selectKey,
@@ -100,11 +102,11 @@ export class CyclesKeyResolver implements KeyResolver {
     if (locator.jwksUrl) return true
     const did = locator.did
     if (!did) return false
-    return (
-      did.startsWith('did:key:') ||
-      did.startsWith('did:web:') ||
-      did.startsWith('did:cycles:')
-    )
+    // did:cycles is handled here, but is hash-bound: it resolves only with a
+    // serverId (the resolver checks sha256(serverId) against the DID subject and
+    // derives the JWKS URL). A did:cycles locator without serverId fails closed
+    // in resolve(); canResolve reports the method is handled.
+    return did.startsWith('did:key:') || did.startsWith('did:web:') || did.startsWith('did:cycles:')
   }
 
   async resolve(locator: KeyLocator): Promise<KeyResolution> {
@@ -231,20 +233,49 @@ export class CyclesKeyResolver implements KeyResolver {
   // ── did:cycles / direct JWKS (this module's mapping) ─────────────
 
   private async resolveJwks(locator: KeyLocator): Promise<KeyResolution> {
-    let jwksUrl: string
     let fragmentKid: string | undefined
+    let jwksUrl: string | undefined
+
     if (locator.did && isDIDCycles(locator.did)) {
+      // did:cycles is HASH-BOUND. The resolver enforces the binding itself and
+      // derives the JWKS URL — it never accepts an unbound did:cycles:
+      //   1. parse the subject hash + kid fragment;
+      //   2. require server_id, and check sha256(server_id) === subject hash
+      //      (fail closed on mismatch) — anchors authority to that server_id;
+      //   3. derive the JWKS URL from server_id (cyclesJwksUrl), NOT from a
+      //      caller-supplied URL (which could point at a different server);
+      //   4. the validity-window gate (issued_at_ms) is MANDATORY here.
+      let serverIdHash: string
       try {
-        const parsed = parseDIDCycles(locator.did)
-        jwksUrl = parsed.jwksUrl
-        fragmentKid = parsed.kid
+        ;({ serverIdHash, kid: fragmentKid } = parseDIDCycles(locator.did))
       } catch (err) {
         return this.fail('unsupported', `did:cycles parse failed: ${safeMsg(err)}`)
       }
-    } else if (locator.jwksUrl) {
-      jwksUrl = locator.jwksUrl
+      // The canonical signer_did form is did:cycles:<hash>#<kid>; the fragment
+      // names the key in the set and is REQUIRED for resolution.
+      if (!fragmentKid) {
+        return this.fail('unsupported', 'did:cycles requires a #<kid> fragment')
+      }
+      if (!locator.serverId) {
+        return this.fail('unsupported', 'did:cycles requires serverId to establish the sha256 binding')
+      }
+      const computed = createHash('sha256').update(locator.serverId, 'utf8').digest('hex')
+      if (computed !== serverIdHash) {
+        return this.fail(
+          'not_found',
+          'did:cycles subject does not match sha256(server_id) — signer not bound to this server',
+        )
+      }
+      if (typeof locator.issuedAtMs !== 'number' || !Number.isInteger(locator.issuedAtMs)) {
+        return this.fail('not_found', 'did:cycles resolution requires an integer issuedAtMs (validity window)')
+      }
+      jwksUrl = cyclesJwksUrl(locator.serverId)
     } else {
-      return this.fail('unsupported', 'no did:cycles or jwksUrl present')
+      jwksUrl = locator.jwksUrl
+    }
+
+    if (!jwksUrl) {
+      return this.fail('unsupported', 'no did:cycles (with serverId) or jwksUrl present')
     }
 
     // HTTPS only.
@@ -257,7 +288,16 @@ export class CyclesKeyResolver implements KeyResolver {
       return this.fail('ambiguous', 'did:cycles fragment and explicit kid disagree')
     }
 
-    const cacheKey = `jwks:${jwksUrl}|kid:${wantKid ?? ''}`
+    // Cache the SELECTED key. Selection now depends on the validity window
+    // (issuedAtMs) and the raw-hex signer match (publicKeyHex) too, so both
+    // MUST be in the cache key — otherwise a key selected for one receipt's
+    // issuance window could be wrongly reused for another across a rotation
+    // (the [nbf, exp) gate would be bypassed). (A JWKS-document cache keyed by
+    // URL, with selection re-run per call, would also dedup the fetch across
+    // distinct issuance times — a future optimization.)
+    const cacheKey =
+      `jwks:${jwksUrl}|kid:${wantKid ?? ''}` +
+      `|iat:${locator.issuedAtMs ?? ''}|pk:${locator.publicKeyHex?.toLowerCase() ?? ''}`
     const cached = this.readCache(cacheKey)
     if (cached) return cached
 
@@ -291,7 +331,11 @@ export class CyclesKeyResolver implements KeyResolver {
       return this.storeFail(cacheKey, 'malformed', 'JWKS missing non-empty keys[] array')
     }
 
-    const selection = selectKey(jwks, wantKid)
+    const selection = selectKey(jwks, {
+      kid: wantKid,
+      issuedAtMs: locator.issuedAtMs,
+      publicKeyHex: locator.publicKeyHex,
+    })
     if (!selection.ok) {
       return this.storeFail(cacheKey, selection.status, selection.reason)
     }

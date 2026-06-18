@@ -1,47 +1,67 @@
 // Copyright 2024-2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
 // ══════════════════════════════════════════════════════════════════
-// did:cycles: DID-to-JWKS mapping and Ed25519 JWK selection (M3)
+// did:cycles: hash-bound DID → JWKS mapping and Ed25519 JWK selection
 // ══════════════════════════════════════════════════════════════════
-// did:cycles is an AEOESS-defined, did:web-style, HTTPS-anchored
-// method. There is no external registry to conform to; this file IS
-// its specification. It mirrors didWebToUrl() in core/did-interop.ts
-// exactly, except the method name is `cycles` and the resolved
-// document is a JWKS (RFC 7517) rather than a DID Document.
+// did:cycles is an AEOESS-defined method for Cycles evidence signers.
+// The design is settled with the Cycles maintainers on
+// runcycles/cycles-protocol (issue #43, spec drafts/cycles-evidence-v0.1).
+// There is no external registry to conform to; this file IS its
+// specification on the APS side.
 //
-//   did:cycles:example.com          -> https://example.com/.well-known/jwks.json
-//   did:cycles:example.com:agents:7 -> https://example.com/agents/7/jwks.json
-//   did:cycles:example.com%3A8443   -> https://example.com:8443/.well-known/jwks.json
+// SUBJECT IS A HASH, NOT A HOST (the load-bearing difference from a
+// did:web-style method):
 //
-// A DID-URL fragment is the kid:
-//   did:cycles:example.com#agent-7-2026
-// selects the JWK whose kid === "agent-7-2026" from the resolved set.
+//   did:cycles:<sha256(server_id)>            (optionally with #<kid>)
+//
+// The subject is the lowercase hex sha256 of the envelope's `server_id`
+// string — a BINDING, not a locator. The DID does NOT encode where the
+// keys live; a hash cannot be reversed to a URL. The JWK Set is located
+// from the envelope's own `server_id`:
+//
+//   {server_id}/.well-known/cycles-jwks.json            (API-base-relative)
+//
+// and the DID's hash is checked against `sha256(server_id)` so the key
+// authority stays anchored to the exact `server_id` (path included) the
+// envelope claims — closing the cross-tenant key-confusion path that an
+// origin-rooted JWKS would open under a path-multi-tenant host. (The
+// sha256 binding check itself is performed by the cycles verify layer,
+// which holds the envelope's `server_id` and the sha256 primitive.)
+//
+// A DID-URL fragment is the kid:  did:cycles:<hash>#2026-06  selects the
+// JWK whose kid === "2026-06" from the resolved set.
+//
+// Key selection adds a validity-WINDOW gate over the M3 kid match: pick
+// the key whose [cycles_nbf_ms, cycles_exp_ms) covers the envelope's
+// issued_at_ms, never "the current key" — so a receipt verified after a
+// rotation is checked against the key valid when it was signed.
 // ══════════════════════════════════════════════════════════════════
 
 import { decodeBase64Url, bytesToHex } from './base64url.js'
 import type { Ed25519JWK, JWKS } from './types.js'
 
 export interface ParsedDIDCycles {
-  /** https JWKS endpoint the DID maps to. */
-  jwksUrl: string
+  /** Lowercase hex sha256 of `server_id`, as carried in the DID subject.
+   *  A BINDING value: the cycles verify layer checks it against
+   *  sha256(envelope.server_id). Not a locator. */
+  serverIdHash: string
   /** kid taken from the DID-URL fragment, if present. */
   kid?: string
 }
 
+const SERVER_ID_HASH_RE = /^[0-9a-f]{64}$/
+
 /**
  * Parse a did:cycles identifier (optionally with a #fragment) into its
- * JWKS URL and kid. Mirrors didWebToUrl: colon-separated segments,
- * each percent-decoded, segment[0] is the authority, the rest is the
- * path; a bare authority uses /.well-known/jwks.json.
+ * `server_id` hash and kid. The fragment is split off BEFORE the subject
+ * is read so a `#` never lands inside the hash.
  *
- * Throws on a structurally invalid did:cycles string. The fragment is
- * split off BEFORE segment parsing so a `#` never lands inside a path
- * segment.
+ * Throws on a structurally invalid did:cycles string (wrong method, or a
+ * subject that is not a 64-char lowercase hex sha256).
  */
 export function parseDIDCycles(did: string): ParsedDIDCycles {
   if (typeof did !== 'string') {
     throw new Error('did:cycles must be a string')
   }
-  // Split the DID-URL fragment (the kid) off first.
   const hashIndex = did.indexOf('#')
   let kid: string | undefined
   let core = did
@@ -54,23 +74,14 @@ export function parseDIDCycles(did: string): ParsedDIDCycles {
   }
 
   const parts = core.split(':')
-  if (parts.length < 3 || parts[0] !== 'did' || parts[1] !== 'cycles') {
+  if (parts.length !== 3 || parts[0] !== 'did' || parts[1] !== 'cycles') {
     throw new Error(`Invalid did:cycles format: ${core}`)
   }
-  // Everything after "did:cycles:" is authority-and-path, colon-separated.
-  const segments = parts.slice(2).map(s => decodeURIComponent(s))
-  const authority = segments[0]
-  if (!authority) {
-    throw new Error('did:cycles must include an authority')
+  const serverIdHash = parts[2]
+  if (!SERVER_ID_HASH_RE.test(serverIdHash)) {
+    throw new Error('did:cycles subject must be a 64-char lowercase hex sha256(server_id)')
   }
-  let jwksUrl: string
-  if (segments.length === 1) {
-    jwksUrl = `https://${authority}/.well-known/jwks.json`
-  } else {
-    const path = segments.slice(1).join('/')
-    jwksUrl = `https://${authority}/${path}/jwks.json`
-  }
-  return { jwksUrl, kid }
+  return { serverIdHash, kid }
 }
 
 /** True if the value looks like a did:cycles identifier. */
@@ -78,21 +89,34 @@ export function isDIDCycles(value: string): boolean {
   return typeof value === 'string' && value.startsWith('did:cycles:')
 }
 
+/**
+ * The JWK Set URL for a Cycles server, API-base-relative: append
+ * `/.well-known/cycles-jwks.json` to the verbatim `server_id` (collapsing
+ * only a doubled `/` at the join). Deliberately NOT origin-rooted —
+ * `server_id` carries its path (e.g. `https://cycles.example.com/v1`), so
+ * the set lives at `…/v1/.well-known/cycles-jwks.json`, keeping key
+ * authority anchored to the base the DID hash commits to.
+ */
+export function cyclesJwksUrl(serverId: string): string {
+  const base = serverId.endsWith('/') ? serverId.slice(0, -1) : serverId
+  return `${base}/.well-known/cycles-jwks.json`
+}
+
 export type JWKSelection =
   | { ok: true; jwk: Ed25519JWK; publicKeyHex: string; kid?: string }
   | { ok: false; status: 'not_found' | 'ambiguous' | 'malformed'; reason: string }
 
-/**
- * Validate that a parsed object is a well-formed JWKS with a non-empty
- * `keys` array. Returns the JWKS on success or null on any structural
- * problem. Does NOT validate individual JWK key material; that happens
- * during candidate filtering / selection.
- */
-export function asJWKS(body: unknown): JWKS | null {
-  if (!body || typeof body !== 'object') return null
-  const keys = (body as Record<string, unknown>).keys
-  if (!Array.isArray(keys) || keys.length === 0) return null
-  return { keys: keys as Ed25519JWK[] }
+/** Selection criteria. Legacy callers pass a bare kid string; the cycles
+ *  path passes the window + raw-key form. */
+export interface SelectKeyOptions {
+  /** Match the JWK whose kid strictly equals this (exact, case-sensitive). */
+  kid?: string
+  /** Window gate: keep only keys whose [cycles_nbf_ms, cycles_exp_ms) covers
+   *  this issuance time (epoch ms). Omitted ⇒ no window gate (legacy). */
+  issuedAtMs?: number
+  /** Raw-hex signer match: keep only keys whose `x` decodes to these 32 bytes
+   *  (64-char hex). Used when the envelope's signer_did is a raw key. */
+  publicKeyHex?: string
 }
 
 /**
@@ -101,7 +125,6 @@ export function asJWKS(body: unknown): JWKS | null {
  *   (use absent || use === "sig")
  *   (alg absent || alg === "EdDSA")
  *   (key_ops absent || includes "verify")
- * X-curves, enc keys, and non-EdDSA algs are excluded here.
  */
 function isEd25519SigningCandidate(jwk: unknown): jwk is Ed25519JWK {
   if (!jwk || typeof jwk !== 'object') return false
@@ -109,6 +132,10 @@ function isEd25519SigningCandidate(jwk: unknown): jwk is Ed25519JWK {
   if (k.kty !== 'OKP') return false
   if (k.crv !== 'Ed25519') return false
   if (typeof k.x !== 'string' || k.x.length === 0) return false
+  // A published verification key set must be public-only. A JWK carrying a
+  // private `d` member is leaked private material / a misconfiguration —
+  // reject it (fail-closed), never select it.
+  if (k.d !== undefined) return false
   if (k.use !== undefined && k.use !== 'sig') return false
   if (k.alg !== undefined && k.alg !== 'EdDSA') return false
   if (k.key_ops !== undefined) {
@@ -117,61 +144,121 @@ function isEd25519SigningCandidate(jwk: unknown): jwk is Ed25519JWK {
   return true
 }
 
-/**
- * Decode a candidate's `x` to a 32-byte Ed25519 public key, returned
- * as 64-char lowercase hex. Returns null if `x` does not base64url-
- * decode to exactly 32 bytes (malformed key material).
- */
+/** Decode a candidate's `x` to a 32-byte key as 64-char lowercase hex, or
+ *  null if `x` does not base64url-decode to exactly 32 bytes. */
 function candidateToHex(jwk: Ed25519JWK): string | null {
   const bytes = decodeBase64Url(jwk.x)
   if (!bytes || bytes.length !== 32) return null
   return bytesToHex(bytes)
 }
 
+/** `cycles_nbf_ms <= t AND (cycles_exp_ms absent/null OR t < cycles_exp_ms)`.
+ *  A non-integer `cycles_nbf_ms` (or a non-integer present `cycles_exp_ms`)
+ *  makes the window unusable → the key does not cover `t`. */
+function windowCovers(jwk: Ed25519JWK, t: number): boolean {
+  const nbf = jwk.cycles_nbf_ms
+  if (typeof nbf !== 'number' || !Number.isInteger(nbf)) return false
+  if (t < nbf) return false
+  const exp = jwk.cycles_exp_ms
+  if (exp === undefined || exp === null) return true
+  if (typeof exp !== 'number' || !Number.isInteger(exp)) return false
+  return t < exp
+}
+
 /**
- * Select exactly one Ed25519 verification key from a JWKS by kid.
- *
- *  1. Filter to Ed25519 signing candidates.
- *  2. If a kid is requested: the candidate whose kid strictly equals it
- *     must be unique. Zero matches -> not_found. Duplicate kids ->
- *     ambiguous. kid comparison is exact, case-sensitive.
- *  3. If no kid is requested: exactly one candidate -> use it; more than
- *     one -> ambiguous; zero -> not_found.
- *  4. Decode `x` -> 32 bytes -> hex. A candidate that survives filtering
- *     but whose `x` is not 32 bytes is malformed.
- *
- * Never silently falls back to a different kid than requested.
+ * Select exactly one Ed25519 verification key from a JWKS. Filters, in
+ * order: Ed25519 signing candidacy, optional raw-hex `x` match, optional
+ * kid match, optional validity-window gate; then requires the survivor to
+ * be unique. Never silently falls back to a different key. Legacy callers
+ * may pass a bare kid string.
  */
-export function selectKey(jwks: JWKS, requestedKid?: string): JWKSelection {
-  const candidates = jwks.keys.filter(isEd25519SigningCandidate)
+export function selectKey(jwks: JWKS, sel?: string | SelectKeyOptions): JWKSelection {
+  const opts: SelectKeyOptions = typeof sel === 'string' ? { kid: sel } : (sel ?? {})
+
+  let candidates = jwks.keys.filter(isEd25519SigningCandidate)
   if (candidates.length === 0) {
     return { ok: false, status: 'not_found', reason: 'no Ed25519 signing key in JWKS' }
   }
 
-  if (requestedKid !== undefined) {
-    const matches = candidates.filter(c => c.kid === requestedKid)
-    if (matches.length === 0) {
-      return { ok: false, status: 'not_found', reason: `no key with kid='${requestedKid}'` }
+  // Cycles authority paths carry a window (issuedAtMs) and/or a raw-hex signer
+  // match (publicKeyHex). On those, `kid` MUST be unique across the whole set —
+  // a duplicate kid is an authority failure SET-WIDE, before any selection, so
+  // it can't be rescued by the window leaving one survivor or by selecting via
+  // the raw-hex path. (Generic non-cycles kid-only lookups keep RFC 7517's
+  // looser handling, enforced per-requested-kid below.)
+  if (opts.issuedAtMs !== undefined || opts.publicKeyHex !== undefined) {
+    const seen = new Set<string>()
+    for (const c of candidates) {
+      if (typeof c.kid !== 'string') continue
+      if (seen.has(c.kid)) {
+        return { ok: false, status: 'ambiguous', reason: `duplicate kid='${c.kid}' in JWK Set` }
+      }
+      seen.add(c.kid)
     }
-    if (matches.length > 1) {
-      return { ok: false, status: 'ambiguous', reason: `duplicate kid='${requestedKid}' in JWKS` }
-    }
-    const jwk = matches[0]
-    const hex = candidateToHex(jwk)
-    if (!hex) {
-      return { ok: false, status: 'malformed', reason: `kid='${requestedKid}' x is not a 32-byte key` }
-    }
-    return { ok: true, jwk, publicKeyHex: hex, kid: jwk.kid }
   }
 
-  // No kid requested: require an unambiguous single candidate.
+  // Raw-hex signer match (cycles): the published key must carry the signer's
+  // bytes — and the spec applies the SAME validity-window gate to raw-hex
+  // signers as to did:cycles, so a raw-hex selection REQUIRES an integer
+  // issued_at_ms (no window-less raw acceptance).
+  if (opts.publicKeyHex !== undefined) {
+    if (typeof opts.issuedAtMs !== 'number' || !Number.isInteger(opts.issuedAtMs)) {
+      return { ok: false, status: 'not_found', reason: 'raw-hex signer selection requires an integer issuedAtMs (window gate)' }
+    }
+    const want = opts.publicKeyHex.toLowerCase()
+    candidates = candidates.filter((c) => candidateToHex(c) === want)
+    if (candidates.length === 0) {
+      return { ok: false, status: 'not_found', reason: 'no JWK carries the raw signer key' }
+    }
+  }
+
+  // kid match (exact, case-sensitive). kid MUST be unique within the set: a
+  // duplicate kid is an authority failure BEFORE any window discretion (so two
+  // same-kid keys with disjoint windows can't sneak one survivor through).
+  if (opts.kid !== undefined) {
+    const matches = candidates.filter((c) => c.kid === opts.kid)
+    if (matches.length === 0) {
+      return { ok: false, status: 'not_found', reason: `no key with kid='${opts.kid}'` }
+    }
+    if (matches.length > 1) {
+      return { ok: false, status: 'ambiguous', reason: `duplicate kid='${opts.kid}' in JWK Set` }
+    }
+    candidates = matches
+  }
+
+  // Validity-window gate (cycles): the key valid AT ISSUANCE, never the newest.
+  if (opts.issuedAtMs !== undefined) {
+    const t = opts.issuedAtMs
+    // Fail-closed on a non-finite-integer issuance time: never coerce a string
+    // or fractional value into the [nbf, exp) comparison.
+    if (typeof t !== 'number' || !Number.isInteger(t)) {
+      return { ok: false, status: 'not_found', reason: 'issuedAtMs must be an integer epoch-ms value' }
+    }
+    candidates = candidates.filter((c) => windowCovers(c, t))
+    if (candidates.length === 0) {
+      return { ok: false, status: 'not_found', reason: 'no key whose validity window covers issued_at_ms' }
+    }
+  }
+
   if (candidates.length > 1) {
-    return { ok: false, status: 'ambiguous', reason: 'multiple signing keys and no kid requested' }
+    return { ok: false, status: 'ambiguous', reason: 'more than one key matches the selection criteria' }
   }
   const jwk = candidates[0]
   const hex = candidateToHex(jwk)
   if (!hex) {
-    return { ok: false, status: 'malformed', reason: 'sole candidate x is not a 32-byte key' }
+    return { ok: false, status: 'malformed', reason: 'selected key x is not a 32-byte key' }
   }
   return { ok: true, jwk, publicKeyHex: hex, kid: jwk.kid }
+}
+
+/**
+ * Validate that a parsed object is a well-formed JWKS with a non-empty
+ * `keys` array. Returns the JWKS on success or null on any structural
+ * problem.
+ */
+export function asJWKS(body: unknown): JWKS | null {
+  if (!body || typeof body !== 'object') return null
+  const keys = (body as Record<string, unknown>).keys
+  if (!Array.isArray(keys) || keys.length === 0) return null
+  return { keys: keys as Ed25519JWK[] }
 }

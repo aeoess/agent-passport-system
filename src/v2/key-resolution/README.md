@@ -20,7 +20,9 @@ no registry, no alerting, and no network endpoint exposed by this module.
   - `did:web`: fetches the DID Document (reuses existing `resolveDIDWeb`),
     selects a `verificationMethod` by fragment.
   - `did:cycles` / direct `jwksUrl`: fetches a JWKS (RFC 7517), selects an
-    Ed25519 key (RFC 8037) by `kid`.
+    Ed25519 key (RFC 8037) by `kid`, with an optional validity-window gate
+    (`issuedAtMs`) and raw-hex signer match (`publicKeyHex`). `did:cycles` is
+    hash-bound and NOT self-locating — the caller supplies `jwksUrl` (see below).
 - **Caching**: in-process TTL cache with distinct hit/miss handling. A cached
   miss is never promoted to a key.
 - **Failure policy**: explicit `fail-open` vs `fail-closed`, defaulting to
@@ -28,19 +30,37 @@ no registry, no alerting, and no network endpoint exposed by this module.
 
 ## did:cycles method shape
 
-`did:cycles` is an AEOESS-defined, `did:web`-style, HTTPS-anchored method. It
-mirrors `didWebToUrl` exactly, except the resolved document is a JWKS:
+`did:cycles` is an AEOESS-defined method for Cycles evidence signers, settled
+with the Cycles maintainers on `runcycles/cycles-protocol` (#43, spec
+`drafts/cycles-evidence-v0.1`). The subject is a **hash, not a host** — it is the
+lowercase hex `sha256(server_id)`, a BINDING value, not a locator:
 
 ```
-did:cycles:example.com          -> https://example.com/.well-known/jwks.json
-did:cycles:example.com:agents:7 -> https://example.com/agents/7/jwks.json
-did:cycles:example.com%3A8443   -> https://example.com:8443/.well-known/jwks.json
+did:cycles:<sha256(server_id)>#<kid>      (the #<kid> fragment is REQUIRED)
 ```
 
-A DID-URL fragment is the `kid`: `did:cycles:example.com#agent-7-2026` selects
-the JWK whose `kid === "agent-7-2026"`. With no fragment and exactly one signing
-key, that key is used; with more than one and no `kid`, resolution fails closed
-(ambiguous).
+A hash cannot be reversed to a URL, so `did:cycles` is **not self-locating**.
+The JWK Set is located from the envelope's own `server_id`, API-base-relative
+(NOT origin-rooted — `server_id` carries its path):
+
+```
+{server_id}/.well-known/cycles-jwks.json     (see cyclesJwksUrl)
+```
+
+The cycles verify layer (which holds the envelope) checks
+`sha256(server_id) === <subject>` and hands the resolver the derived `jwksUrl`.
+Keeping the JWKS under the same base anchors key authority to the exact
+`server_id` the DID hash commits to, closing the cross-tenant key-confusion path
+an origin-rooted JWKS would open under a path-multi-tenant host.
+
+The REQUIRED DID-URL fragment is the `kid`: `did:cycles:<hash>#2026-06` selects
+the JWK whose `kid === "2026-06"` (resolution fails closed for a did:cycles with
+no fragment). Selection adds a validity-WINDOW gate over the kid match: the key
+whose `[cycles_nbf_ms, cycles_exp_ms)` covers the envelope's `issued_at_ms` —
+never "the current key", so a receipt verified after a rotation checks against
+the key valid when it was signed. `kid` MUST be unique across the set (a
+duplicate kid is an authority failure set-wide); zero/ambiguous matches fail
+closed.
 
 ## Key selection
 
@@ -85,6 +105,8 @@ off-host redirects are not followed.
 - JWK Set + `kid`/`use`/`alg`: RFC 7517.
 - OKP/Ed25519 JWK (`kty`/`crv`/`x`, EdDSA): RFC 8037.
 - Ed25519 algorithm + Test 1 vector: RFC 8032 §7.1.
-- DID-to-HTTPS mapping pattern mirrored from: did:web.
 - base64url: RFC 7515 §2 / RFC 4648 §5.
-- `did:cycles`: no external spec exists; AEOESS-defined here.
+- `did:cycles`: hash-bound (subject = `sha256(server_id)`) + API-base-relative
+  JWKS + validity-window selection, settled with the Cycles maintainers on
+  `runcycles/cycles-protocol` (#43; spec `drafts/cycles-evidence-v0.1`). NOT a
+  did:web-style host mapping — that earlier M3 shape was dropped.

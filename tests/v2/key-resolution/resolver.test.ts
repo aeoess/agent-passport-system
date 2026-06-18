@@ -11,11 +11,16 @@
 
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
+
+/** sha256 hex of a server_id — the did:cycles subject binding. */
+const sha256Hex = (s: string) => createHash('sha256').update(s, 'utf8').digest('hex')
 
 import {
   CyclesKeyResolver,
   parseDIDCycles,
   isDIDCycles,
+  cyclesJwksUrl,
   selectKey,
   asJWKS,
   decodeBase64Url,
@@ -72,36 +77,26 @@ function throwingFetch() {
 }
 
 // ════════════════════════════════════════════════════════════════
-describe('did:cycles URL mapping (mirrors didWebToUrl)', () => {
-  it('bare authority -> /.well-known/jwks.json', () => {
-    assert.equal(
-      parseDIDCycles('did:cycles:example.com').jwksUrl,
-      'https://example.com/.well-known/jwks.json',
-    )
-  })
+describe('did:cycles hash-bound parsing (subject = sha256(server_id))', () => {
+  const H = 'a'.repeat(64) // a valid 64-char lowercase hex sha256
 
-  it('authority + path -> /<path>/jwks.json', () => {
-    assert.equal(
-      parseDIDCycles('did:cycles:example.com:agents:7').jwksUrl,
-      'https://example.com/agents/7/jwks.json',
-    )
-  })
-
-  it('percent-encoded port is decoded per segment', () => {
-    assert.equal(
-      parseDIDCycles('did:cycles:example.com%3A8443').jwksUrl,
-      'https://example.com:8443/.well-known/jwks.json',
-    )
+  it('parses the server_id-hash subject', () => {
+    assert.equal(parseDIDCycles(`did:cycles:${H}`).serverIdHash, H)
   })
 
   it('fragment becomes the kid', () => {
-    const p = parseDIDCycles('did:cycles:example.com#agent-7-2026')
-    assert.equal(p.kid, 'agent-7-2026')
-    assert.equal(p.jwksUrl, 'https://example.com/.well-known/jwks.json')
+    const p = parseDIDCycles(`did:cycles:${H}#2026-06`)
+    assert.equal(p.kid, '2026-06')
+    assert.equal(p.serverIdHash, H)
   })
 
   it('rejects an empty fragment', () => {
-    assert.throws(() => parseDIDCycles('did:cycles:example.com#'))
+    assert.throws(() => parseDIDCycles(`did:cycles:${H}#`))
+  })
+
+  it('rejects a host-style subject (the dropped did:web M3 form)', () => {
+    assert.throws(() => parseDIDCycles('did:cycles:example.com'))
+    assert.throws(() => parseDIDCycles('did:cycles:example.com:agents:7'))
   })
 
   it('rejects a non-cycles method', () => {
@@ -109,8 +104,23 @@ describe('did:cycles URL mapping (mirrors didWebToUrl)', () => {
   })
 
   it('isDIDCycles recognizes the method', () => {
-    assert.equal(isDIDCycles('did:cycles:example.com'), true)
+    assert.equal(isDIDCycles(`did:cycles:${H}`), true)
     assert.equal(isDIDCycles('did:web:example.com'), false)
+  })
+})
+
+describe('cyclesJwksUrl (API-base-relative, not origin-rooted)', () => {
+  it('appends /.well-known/cycles-jwks.json to server_id, keeping its path', () => {
+    assert.equal(
+      cyclesJwksUrl('https://cycles.example.com/v1'),
+      'https://cycles.example.com/v1/.well-known/cycles-jwks.json',
+    )
+  })
+  it('collapses a single trailing slash at the join', () => {
+    assert.equal(
+      cyclesJwksUrl('https://cycles.example.com/v1/'),
+      'https://cycles.example.com/v1/.well-known/cycles-jwks.json',
+    )
   })
 })
 
@@ -197,6 +207,94 @@ describe('selectKey (JWK selection by kid)', () => {
     assert.equal(sel.ok, false)
   })
 
+  // ── Cycles window gate + raw-hex match (the v0.2 selection rules) ──
+  const winJWK = (kid: string, nbf: number, exp: number | null) => ({
+    kty: 'OKP', crv: 'Ed25519', x: X_B64URL, kid, use: 'sig', alg: 'EdDSA',
+    cycles_nbf_ms: nbf, cycles_exp_ms: exp,
+  })
+
+  it('window gate: selects the key whose [nbf,exp) covers issued_at_ms (not the newest)', () => {
+    const jwks = fixtureJWKS(
+      winJWK('old', 0, 1000),       // valid [0,1000)
+      winJWK('new', 1000, null),    // valid [1000, ∞)
+    )
+    // An envelope issued at t=500 must resolve to the OLD key, never "current".
+    const sel = selectKey(jwks, { issuedAtMs: 500 })
+    assert.equal(sel.ok, true)
+    if (sel.ok) assert.equal(sel.kid, 'old')
+  })
+
+  it('window gate fails closed when no key covers issued_at_ms', () => {
+    const sel = selectKey(fixtureJWKS(winJWK('k', 1000, 2000)), { issuedAtMs: 500 })
+    assert.equal(sel.ok, false)
+    if (!sel.ok) assert.equal(sel.status, 'not_found')
+  })
+
+  it('window gate: exp is EXCLUSIVE (issued_at == exp does not cover)', () => {
+    const sel = selectKey(fixtureJWKS(winJWK('k', 0, 1000)), { issuedAtMs: 1000 })
+    assert.equal(sel.ok, false)
+  })
+
+  it('window gate: a non-integer cycles_nbf_ms does not cover (no coercion)', () => {
+    const bad = { kty: 'OKP', crv: 'Ed25519', x: X_B64URL, kid: 'k', cycles_nbf_ms: 'soon' }
+    const sel = selectKey(fixtureJWKS(bad), { issuedAtMs: 500 })
+    assert.equal(sel.ok, false)
+  })
+
+  it('window gate: a non-integer issuedAtMs fails closed (no coercion)', () => {
+    const jwks = fixtureJWKS(winJWK('k', 0, null))
+    assert.equal(selectKey(jwks, { issuedAtMs: 500.5 }).ok, false)
+    assert.equal(selectKey(jwks, { issuedAtMs: '500' as unknown as number }).ok, false)
+  })
+
+  it('raw-hex match: selects the unique windowed JWK carrying the signer key', () => {
+    // winJWK(kid, nbf, exp) carries X_B64URL (=PUB_HEX); the 'b' key's x is
+    // overridden so it does not carry the signer's bytes.
+    const sel = selectKey(fixtureJWKS(winJWK('a', 0, null), { ...winJWK('b', 0, null), x: 'AA' }), {
+      publicKeyHex: PUB_HEX, issuedAtMs: 500,
+    })
+    assert.equal(sel.ok, true)
+    if (sel.ok) assert.equal(sel.kid, 'a')
+  })
+
+  it('raw-hex match REQUIRES an integer issuedAtMs (window applies to raw signers too)', () => {
+    const jwks = fixtureJWKS(winJWK('a', 0, null))
+    assert.equal(selectKey(jwks, { publicKeyHex: PUB_HEX }).ok, false) // no window → fail closed
+    assert.equal(selectKey(jwks, { publicKeyHex: PUB_HEX, issuedAtMs: 1.5 }).ok, false)
+  })
+
+  it('raw-hex match: out-of-window key fails closed', () => {
+    const covering = selectKey(fixtureJWKS(winJWK('a', 0, null)), { publicKeyHex: PUB_HEX, issuedAtMs: 500 })
+    assert.equal(covering.ok, true)
+    const expired = winJWK('a', 0, 100) // [0,100), 500 not covered
+    assert.equal(selectKey(fixtureJWKS(expired), { publicKeyHex: PUB_HEX, issuedAtMs: 500 }).ok, false)
+  })
+
+  it('raw-hex match: no JWK carries the signer key → not_found', () => {
+    const other = Buffer.from(PUB_HEX, 'hex'); other[0] ^= 0xff
+    const sel = selectKey(fixtureJWKS(winJWK('a', 0, null)), { publicKeyHex: other.toString('hex'), issuedAtMs: 500 })
+    assert.equal(sel.ok, false)
+    if (!sel.ok) assert.equal(sel.status, 'not_found')
+  })
+
+  it('duplicate kid is an authority failure BEFORE the window gate (disjoint windows do not rescue it)', () => {
+    // Two kid="dup" keys with NON-overlapping windows: only one covers
+    // issued_at=500, but the duplicate kid must fail ambiguous up front.
+    const jwks = fixtureJWKS(winJWK('dup', 0, 1000), winJWK('dup', 1000, null))
+    const sel = selectKey(jwks, { kid: 'dup', issuedAtMs: 500 })
+    assert.equal(sel.ok, false)
+    if (!sel.ok) assert.equal(sel.status, 'ambiguous')
+  })
+
+  it('the raw-hex path also rejects a set with duplicate kids (set-wide uniqueness)', () => {
+    // No requested kid here — selection is by raw key + window. kid uniqueness
+    // must still be enforced across the whole set, before the raw-hex match.
+    const jwks = fixtureJWKS(winJWK('dup', 0, 1000), winJWK('dup', 1000, null))
+    const sel = selectKey(jwks, { publicKeyHex: PUB_HEX, issuedAtMs: 500 })
+    assert.equal(sel.ok, false)
+    if (!sel.ok) assert.equal(sel.status, 'ambiguous')
+  })
+
   it('rejects x that does not decode to 32 bytes', () => {
     const jwks = fixtureJWKS({ kty: 'OKP', crv: 'Ed25519', x: 'AAAA', kid: 'short' })
     const sel = selectKey(jwks, 'short')
@@ -204,17 +302,15 @@ describe('selectKey (JWK selection by kid)', () => {
     if (!sel.ok) assert.equal(sel.status, 'malformed')
   })
 
-  it('strips a private d member (never used)', () => {
-    // d present is a misconfiguration; selection still returns the public x.
+  it('rejects a JWK carrying a private d member (public-only key set)', () => {
+    // A published verification set must be public-only; a leaked private `d`
+    // makes the JWK a non-candidate (fail-closed), never selected.
     const jwks = fixtureJWKS({
       kty: 'OKP', crv: 'Ed25519', x: X_B64URL, kid: 'p', d: SEED_HEX,
     } as object)
     const sel = selectKey(jwks, 'p')
-    assert.equal(sel.ok, true)
-    if (sel.ok) {
-      assert.equal(sel.publicKeyHex, PUB_HEX)
-      assert.equal('d' in (sel.jwk as Record<string, unknown>) , true) // input untouched
-    }
+    assert.equal(sel.ok, false)
+    if (!sel.ok) assert.equal(sel.status, 'not_found')
   })
 })
 
@@ -228,36 +324,79 @@ describe('asJWKS structural validation', () => {
 })
 
 // ════════════════════════════════════════════════════════════════
-describe('CyclesKeyResolver: did:cycles / JWKS', () => {
-  it('resolves a did:cycles key to the RFC 8032 public key', async () => {
-    const { impl } = jsonFetch(fixtureJWKS(fixtureJWK('test-1')))
+describe('CyclesKeyResolver: did:cycles (hash-bound) + direct JWKS', () => {
+  // did:cycles is HASH-BOUND: the resolver checks sha256(serverId) against the
+  // DID subject and derives the JWKS URL from serverId itself. The window gate
+  // (issuedAtMs) is mandatory for did:cycles. A windowed JWK is required.
+  const SERVER_ID = 'https://h.test/v1'
+  const HASH = sha256Hex(SERVER_ID)
+  const CYCLES_URL = 'https://h.test/v1/.well-known/cycles-jwks.json'
+  const winJWK = (kid: string, x: string = X_B64URL) => ({
+    kty: 'OKP', crv: 'Ed25519', x, kid, use: 'sig', alg: 'EdDSA',
+    cycles_nbf_ms: 0, cycles_exp_ms: null,
+  })
+
+  it('resolves a bound did:cycles key (fragment kid) to the RFC 8032 public key', async () => {
+    const { impl } = jsonFetch(fixtureJWKS(winJWK('test-1')))
     const r = new CyclesKeyResolver({ fetchImpl: impl })
-    const res = await r.resolve({ did: 'did:cycles:fixture.test#test-1' })
+    const res = await r.resolve({ did: `did:cycles:${HASH}#test-1`, serverId: SERVER_ID, issuedAtMs: 500 })
     assert.equal(res.ok, true)
     assert.equal(res.publicKeyHex, PUB_HEX)
     assert.equal(res.kid, 'test-1')
     assert.ok(res.scope_of_claim, 'resolved key carries scope_of_claim')
   })
 
-  it('resolves a direct jwksUrl + explicit kid', async () => {
+  it('resolves a direct jwksUrl + explicit kid (non-cycles, window optional)', async () => {
     const { impl } = jsonFetch(fixtureJWKS(fixtureJWK('k1')))
     const r = new CyclesKeyResolver({ fetchImpl: impl })
-    const res = await r.resolve({ jwksUrl: 'https://h.test/.well-known/jwks.json', kid: 'k1' })
+    const res = await r.resolve({ jwksUrl: CYCLES_URL, kid: 'k1' })
     assert.equal(res.ok, true)
     assert.equal(res.publicKeyHex, PUB_HEX)
   })
 
   it('rejects a non-https jwksUrl as unsupported', async () => {
     const r = new CyclesKeyResolver()
-    const res = await r.resolve({ jwksUrl: 'http://insecure.test/jwks.json' })
+    const res = await r.resolve({ jwksUrl: 'http://insecure.test/cycles-jwks.json' })
     assert.equal(res.ok, false)
     assert.equal(res.status, 'unsupported')
   })
 
-  it('fails closed when DID fragment and explicit kid disagree', async () => {
-    const { impl } = jsonFetch(fixtureJWKS(fixtureJWK('a')))
+  it('did:cycles without serverId is unsupported (binding cannot be established)', async () => {
+    const r = new CyclesKeyResolver()
+    const res = await r.resolve({ did: `did:cycles:${HASH}#k`, issuedAtMs: 500 })
+    assert.equal(res.ok, false)
+    assert.equal(res.status, 'unsupported')
+  })
+
+  it('did:cycles without a #kid fragment is unsupported (canonical form is <h>#<kid>)', async () => {
+    const { impl } = jsonFetch(fixtureJWKS(winJWK('test-1')))
     const r = new CyclesKeyResolver({ fetchImpl: impl })
-    const res = await r.resolve({ did: 'did:cycles:h.test#a', kid: 'b' })
+    const res = await r.resolve({ did: `did:cycles:${HASH}`, serverId: SERVER_ID, issuedAtMs: 500 })
+    assert.equal(res.ok, false)
+    assert.equal(res.status, 'unsupported')
+  })
+
+  it('did:cycles fails closed when sha256(serverId) != subject hash', async () => {
+    const { impl } = jsonFetch(fixtureJWKS(winJWK('test-1')))
+    const r = new CyclesKeyResolver({ fetchImpl: impl })
+    // a different server_id than the one the DID hash commits to
+    const res = await r.resolve({ did: `did:cycles:${HASH}#test-1`, serverId: 'https://evil.test/v1', issuedAtMs: 500 })
+    assert.equal(res.ok, false)
+    assert.equal(res.status, 'not_found') // signer not bound to this server
+  })
+
+  it('did:cycles requires an integer issuedAtMs (mandatory window)', async () => {
+    const { impl } = jsonFetch(fixtureJWKS(winJWK('test-1')))
+    const r = new CyclesKeyResolver({ fetchImpl: impl })
+    const res = await r.resolve({ did: `did:cycles:${HASH}#test-1`, serverId: SERVER_ID })
+    assert.equal(res.ok, false)
+    assert.equal(res.status, 'not_found')
+  })
+
+  it('fails closed when DID fragment and explicit kid disagree', async () => {
+    const { impl } = jsonFetch(fixtureJWKS(winJWK('a')))
+    const r = new CyclesKeyResolver({ fetchImpl: impl })
+    const res = await r.resolve({ did: `did:cycles:${HASH}#a`, serverId: SERVER_ID, issuedAtMs: 500, kid: 'b' })
     assert.equal(res.ok, false)
     assert.equal(res.status, 'ambiguous')
   })
@@ -265,10 +404,26 @@ describe('CyclesKeyResolver: did:cycles / JWKS', () => {
   it('malformed JWKS fails closed even under fail-open', async () => {
     const { impl } = jsonFetch({ not: 'a jwks' })
     const r = new CyclesKeyResolver({ fetchImpl: impl, failurePolicy: 'open' })
-    const res = await r.resolve({ did: 'did:cycles:h.test#k' })
+    const res = await r.resolve({ jwksUrl: CYCLES_URL, kid: 'k' })
     assert.equal(res.ok, false)
     assert.equal(res.status, 'malformed')
     assert.notEqual(res.degraded, true) // not a transient-network relaxation
+  })
+
+  it('cache key includes the window: an out-of-window issuance is not a stale hit', async () => {
+    // Same jwksUrl + kid, one key valid [0,1000). An in-window resolution must
+    // NOT be served from cache for an out-of-window issuance — the window is
+    // part of the cache key (regression guard for cross-window contamination).
+    const jwks = fixtureJWKS({
+      kty: 'OKP', crv: 'Ed25519', x: X_B64URL, kid: 'k', use: 'sig', alg: 'EdDSA',
+      cycles_nbf_ms: 0, cycles_exp_ms: 1000,
+    })
+    const { impl } = jsonFetch(jwks)
+    const r = new CyclesKeyResolver({ fetchImpl: impl })
+    const inWin = await r.resolve({ jwksUrl: CYCLES_URL, kid: 'k', issuedAtMs: 500 })
+    const outWin = await r.resolve({ jwksUrl: CYCLES_URL, kid: 'k', issuedAtMs: 5000 })
+    assert.equal(inWin.ok, true)
+    assert.equal(outWin.ok, false, 'out-of-window issuance must not reuse the in-window cache entry')
   })
 })
 
@@ -277,8 +432,8 @@ describe('cache hit and cache miss', () => {
   it('serves a second identical resolution from cache (one fetch)', async () => {
     const f = jsonFetch(fixtureJWKS(fixtureJWK('k')))
     const r = new CyclesKeyResolver({ fetchImpl: f.impl })
-    const a = await r.resolve({ did: 'did:cycles:h.test#k' })
-    const b = await r.resolve({ did: 'did:cycles:h.test#k' })
+    const a = await r.resolve({ jwksUrl: 'https://h.test/v1/.well-known/cycles-jwks.json', kid: 'k' })
+    const b = await r.resolve({ jwksUrl: 'https://h.test/v1/.well-known/cycles-jwks.json', kid: 'k' })
     assert.equal(a.cacheHit, false, 'first call is a miss')
     assert.equal(b.cacheHit, true, 'second call is a hit')
     assert.equal(f.calls(), 1, 'cache hit avoids the second fetch')
@@ -293,9 +448,9 @@ describe('cache hit and cache miss', () => {
       now: () => clock,
       cache: { ttlMs: 100 },
     })
-    await r.resolve({ did: 'did:cycles:h.test#k' })
+    await r.resolve({ jwksUrl: 'https://h.test/v1/.well-known/cycles-jwks.json', kid: 'k' })
     clock += 200 // advance past TTL
-    const b = await r.resolve({ did: 'did:cycles:h.test#k' })
+    const b = await r.resolve({ jwksUrl: 'https://h.test/v1/.well-known/cycles-jwks.json', kid: 'k' })
     assert.equal(b.cacheHit, false, 'expired entry is a miss')
     assert.equal(f.calls(), 2, 'expired entry triggers a re-fetch')
   })
@@ -303,9 +458,9 @@ describe('cache hit and cache miss', () => {
   it('a cached miss is never promoted to a key', async () => {
     const f = jsonFetch(fixtureJWKS(fixtureJWK('present')))
     const r = new CyclesKeyResolver({ fetchImpl: f.impl })
-    const miss = await r.resolve({ did: 'did:cycles:h.test#absent' })
+    const miss = await r.resolve({ jwksUrl: 'https://h.test/v1/.well-known/cycles-jwks.json', kid: 'absent' })
     assert.equal(miss.ok, false)
-    const again = await r.resolve({ did: 'did:cycles:h.test#absent' })
+    const again = await r.resolve({ jwksUrl: 'https://h.test/v1/.well-known/cycles-jwks.json', kid: 'absent' })
     assert.equal(again.ok, false)
     assert.equal(again.publicKeyHex, undefined)
     assert.equal(again.cacheHit, true, 'negative result is cached')
@@ -317,7 +472,7 @@ describe('unreachable endpoint: fail-closed vs fail-open', () => {
   it('fail-closed (default): unreachable rejects, no key', async () => {
     const f = throwingFetch()
     const r = new CyclesKeyResolver({ fetchImpl: f.impl }) // default closed
-    const res = await r.resolve({ did: 'did:cycles:down.test#k' })
+    const res = await r.resolve({ jwksUrl: 'https://down.test/v1/.well-known/cycles-jwks.json', kid: 'k' })
     assert.equal(res.ok, false)
     assert.equal(res.status, 'unreachable')
     assert.equal(res.degraded, false)
@@ -327,7 +482,7 @@ describe('unreachable endpoint: fail-closed vs fail-open', () => {
   it('non-200 is unreachable and rejects under fail-closed', async () => {
     const { impl } = jsonFetch({}, 503)
     const r = new CyclesKeyResolver({ fetchImpl: impl })
-    const res = await r.resolve({ did: 'did:cycles:down.test#k' })
+    const res = await r.resolve({ jwksUrl: 'https://down.test/v1/.well-known/cycles-jwks.json', kid: 'k' })
     assert.equal(res.ok, false)
     assert.equal(res.status, 'unreachable')
   })
@@ -335,7 +490,7 @@ describe('unreachable endpoint: fail-closed vs fail-open', () => {
   it('fail-open: unreachable yields a degraded result with NO key', async () => {
     const f = throwingFetch()
     const r = new CyclesKeyResolver({ fetchImpl: f.impl, failurePolicy: 'open' })
-    const res = await r.resolve({ did: 'did:cycles:down.test#k' })
+    const res = await r.resolve({ jwksUrl: 'https://down.test/v1/.well-known/cycles-jwks.json', kid: 'k' })
     assert.equal(res.ok, false, 'degraded is still not a positive verification')
     assert.equal(res.status, 'unreachable')
     assert.equal(res.degraded, true)
@@ -361,8 +516,8 @@ describe('key rotation picks the new key', () => {
     const { impl } = jsonFetch(jwks)
     const r = new CyclesKeyResolver({ fetchImpl: impl })
 
-    const oldRes = await r.resolve({ did: 'did:cycles:h.test#old-2025' })
-    const newRes = await r.resolve({ did: 'did:cycles:h.test#new-2026' })
+    const oldRes = await r.resolve({ jwksUrl: 'https://h.test/v1/.well-known/cycles-jwks.json', kid: 'old-2025' })
+    const newRes = await r.resolve({ jwksUrl: 'https://h.test/v1/.well-known/cycles-jwks.json', kid: 'new-2026' })
     assert.equal(oldRes.publicKeyHex, PUB_HEX)
     assert.equal(newRes.publicKeyHex, KP_NEW.pub)
     assert.notEqual(oldRes.publicKeyHex, newRes.publicKeyHex)
@@ -416,7 +571,8 @@ describe('did:key and did:web registered behind the interface', () => {
     const r = new CyclesKeyResolver()
     assert.equal(r.canResolve({ did: 'did:key:z6Mk...' }), true)
     assert.equal(r.canResolve({ did: 'did:web:e.test' }), true)
-    assert.equal(r.canResolve({ did: 'did:cycles:e.test' }), true)
+    assert.equal(r.canResolve({ did: 'did:cycles:e.test' }), true) // handled (binding checked at resolve time)
+    assert.equal(r.canResolve({ jwksUrl: 'https://e.test/v1/.well-known/cycles-jwks.json' }), true)
     assert.equal(r.canResolve({ jwksUrl: 'https://e.test/jwks.json' }), true)
     assert.equal(r.canResolve({ did: 'did:example:nope' }), false)
   })
@@ -433,15 +589,21 @@ describe('end-to-end: a did:cycles envelope verifies against a JWKS', () => {
   // Ed25519 signature whose verification key is named by a did:cycles
   // URL. The resolver fetches the JWKS, selects the key by kid, and the
   // existing verify() completes the check.
-  function signEnvelope(message: string, seedHex: string, did: string) {
-    return { message, did, signature: sign(message, seedHex) }
+  // did:cycles is hash-bound, so the JWKS URL comes from the envelope's
+  // server_id (here a constant; the verify layer derives + binds it). The
+  // resolver is handed {jwksUrl, kid}.
+  const E2E_JWKS_URL = 'https://fixture.test/v1/.well-known/cycles-jwks.json'
+
+  function signEnvelope(message: string, seedHex: string, kid: string) {
+    return { message, kid, signature: sign(message, seedHex) }
   }
 
   async function verifyEnvelope(
-    env: { message: string; did: string; signature: string },
+    env: { message: string; kid: string; signature: string },
     resolver: CyclesKeyResolver,
+    jwksUrl: string = E2E_JWKS_URL,
   ): Promise<{ verified: boolean; resolution: KeyResolution }> {
-    const resolution = await resolver.resolve({ did: env.did })
+    const resolution = await resolver.resolve({ jwksUrl, kid: env.kid })
     if (!resolution.ok || !resolution.publicKeyHex) {
       return { verified: false, resolution } // fail-closed
     }
@@ -452,7 +614,7 @@ describe('end-to-end: a did:cycles envelope verifies against a JWKS', () => {
   it('verifies the empty-message RFC 8032 envelope end to end', async () => {
     const { impl } = jsonFetch(fixtureJWKS(fixtureJWK('test-1')))
     const resolver = new CyclesKeyResolver({ fetchImpl: impl })
-    const env = signEnvelope('', SEED_HEX, 'did:cycles:fixture.test#test-1')
+    const env = signEnvelope('', SEED_HEX, 'test-1')
     const { verified, resolution } = await verifyEnvelope(env, resolver)
     assert.equal(verified, true, 'envelope must verify end to end')
     assert.equal(resolution.publicKeyHex, PUB_HEX)
@@ -461,7 +623,7 @@ describe('end-to-end: a did:cycles envelope verifies against a JWKS', () => {
   it('verifies a non-empty-message envelope end to end', async () => {
     const { impl } = jsonFetch(fixtureJWKS(fixtureJWK('test-1')))
     const resolver = new CyclesKeyResolver({ fetchImpl: impl })
-    const env = signEnvelope('cycles:permit:reservation-42', SEED_HEX, 'did:cycles:fixture.test#test-1')
+    const env = signEnvelope('cycles:permit:reservation-42', SEED_HEX, 'test-1')
     const { verified } = await verifyEnvelope(env, resolver)
     assert.equal(verified, true)
   })
@@ -476,15 +638,17 @@ describe('end-to-end: a did:cycles envelope verifies against a JWKS', () => {
     })()
     const { impl } = jsonFetch(fixtureJWKS(fixtureJWK('test-1', tamperedX)))
     const resolver = new CyclesKeyResolver({ fetchImpl: impl })
-    const env = signEnvelope('', SEED_HEX, 'did:cycles:fixture.test#test-1')
+    const env = signEnvelope('', SEED_HEX, 'test-1')
     const { verified } = await verifyEnvelope(env, resolver)
     assert.equal(verified, false, 'a tampered JWKS key must not verify the signature')
   })
 
   it('an unreachable JWKS makes the envelope check fail closed', async () => {
     const resolver = new CyclesKeyResolver({ fetchImpl: throwingFetch().impl })
-    const env = signEnvelope('', SEED_HEX, 'did:cycles:down.test#test-1')
-    const { verified, resolution } = await verifyEnvelope(env, resolver)
+    const env = signEnvelope('', SEED_HEX, 'test-1')
+    const { verified, resolution } = await verifyEnvelope(
+      env, resolver, 'https://down.test/v1/.well-known/cycles-jwks.json',
+    )
     assert.equal(verified, false)
     assert.equal(resolution.status, 'unreachable')
   })
