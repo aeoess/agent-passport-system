@@ -430,6 +430,15 @@ export interface VerifyCyclesOptions {
    *  degraded, still non-matching outcome; it never makes an unmatched
    *  envelope read as resolved. */
   evidenceFailurePolicy?: import('./evidence-resolution.js').EvidenceFailurePolicy
+  /** Optional (#43, signer authority): a caller-supplied KeyResolver for the
+   *  Cycles signer's JWK Set. When supplied to the *WithEvidence paths, the
+   *  verifier resolves the fetched envelope's `signer_did` to a public key
+   *  (did:cycles sha256-binding + window-gated selection, or raw-hex match)
+   *  and verifies the envelope's OWN Ed25519 signature, yielding the
+   *  `authentic` authority disposition. Omitted ⇒ `binding_only` (no authority
+   *  resolved). The SDK performs no network egress itself: the resolver owns
+   *  the transport (mirrors `resolveEvidence`). */
+  cyclesKeyResolver?: import('../../key-resolution/index.js').KeyResolver
   /** The fetched CyclesEvidence envelope this receipt's `cycles_evidence`
    *  references (retrieved from `cycles_evidence_url`). When supplied,
    *  verify performs the join-integrity check: recompute the envelope's

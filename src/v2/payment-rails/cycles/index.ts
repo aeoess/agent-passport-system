@@ -113,7 +113,10 @@ import {
 import type {
   EvidenceDescriptorInput,
   EvidenceResolutionResult,
+  FetchedCyclesEvidenceEnvelope,
 } from './evidence-resolution.js'
+import { cyclesJwksUrl, isDIDCycles } from '../../key-resolution/index.js'
+import type { KeyResolver, KeyLocator } from '../../key-resolution/index.js'
 
 // ── Internal helpers ──────────────────────────────────────────────
 
@@ -708,6 +711,87 @@ export interface CyclesVerifyWithEvidenceResult {
   verify: CyclesVerifyResult
   evidence: EvidenceResolutionResult
   descriptor: EvidenceDescriptorInput
+  /** Signer-authority disposition for the FETCHED envelope's own Ed25519
+   *  signature (#43). `authentic` only when a key resolved from the server's
+   *  JWK Set under the issuance-time window verifies the envelope signature;
+   *  otherwise `binding_only` with a `reason`. */
+  authority: CyclesEvidenceAuthorityResult
+}
+
+/**
+ * Signer-authority verdict for a CyclesEvidence envelope. Per cycles-protocol#43,
+ * only a signature verified under the WINDOW-SELECTED key resolved from the
+ * server's published JWK Set reaches `authentic`; resolution failure, no
+ * covering/authorized key, or a signature mismatch all degrade to
+ * `binding_only` (the signature may still be valid against the named signer,
+ * but authority is not established). `reason` records why it is not authentic.
+ */
+export interface CyclesEvidenceAuthorityResult {
+  disposition: 'authentic' | 'binding_only'
+  reason?: string
+  /** kid of the resolved key, when authentic. */
+  resolvedKid?: string
+}
+
+const _bindingOnly = (reason: string): CyclesEvidenceAuthorityResult => ({
+  disposition: 'binding_only',
+  reason,
+})
+
+const RAW_HEX_KEY = /^[0-9a-fA-F]{64}$/
+
+/**
+ * Resolve and verify the FETCHED envelope's own Ed25519 signature against the
+ * Cycles signer's published key. Reads `signer_did` / `server_id` /
+ * `issued_at_ms` / `signature` off the envelope, builds the key locator
+ * (did:cycles → sha256-bound, window-gated; raw-hex → JWK `x` match + window),
+ * resolves via the caller-supplied resolver (which owns the JWKS transport),
+ * and verifies the cycles signing input (JCS with `signature` emptied,
+ * `evidence_id` left populated). Strict: anything short of a verified signature
+ * under a resolved key is `binding_only`.
+ */
+async function _resolveEnvelopeAuthority(
+  env: FetchedCyclesEvidenceEnvelope | undefined,
+  options: VerifyCyclesOptions,
+): Promise<CyclesEvidenceAuthorityResult> {
+  if (!env) return _bindingOnly('no envelope fetched (evidence not resolved)')
+  const signerDid = typeof env.signer_did === 'string' ? env.signer_did : ''
+  const serverId = typeof env.server_id === 'string' ? env.server_id : ''
+  const issuedAtMs = env.issued_at_ms
+  const signature = typeof env.signature === 'string' ? env.signature : ''
+  if (!signerDid || !serverId || typeof issuedAtMs !== 'number' || !Number.isInteger(issuedAtMs) || !signature) {
+    return _bindingOnly('envelope missing/invalid authority fields (signer_did/server_id/issued_at_ms/signature)')
+  }
+  const resolver: KeyResolver | undefined = options.cyclesKeyResolver
+  if (!resolver) return _bindingOnly('no cyclesKeyResolver supplied; authority not resolved')
+
+  let locator: KeyLocator
+  if (isDIDCycles(signerDid)) {
+    locator = { did: signerDid, serverId, issuedAtMs }
+  } else if (RAW_HEX_KEY.test(signerDid)) {
+    locator = { jwksUrl: cyclesJwksUrl(serverId), publicKeyHex: signerDid, issuedAtMs }
+  } else {
+    return _bindingOnly('signer_did is neither a did:cycles nor a raw 64-hex key')
+  }
+
+  // Defensive: a conformant KeyResolver reports failure via status/ok and
+  // never rejects, but a caller-supplied one might. The verify path must never
+  // throw — any failure degrades to binding_only, never authentic.
+  try {
+    const resolution = await resolver.resolve(locator)
+    if (!resolution.ok || !resolution.publicKeyHex) {
+      return _bindingOnly(`signer-key resolution did not yield a key (status=${resolution.status})`)
+    }
+    // Cycles signing input: JCS over the envelope with `signature` emptied and
+    // `evidence_id` left populated (the fetched envelope already carries it).
+    const signingInput = canonicalizeJCS({ ...env, signature: '' })
+    if (!edVerify(signingInput, signature, resolution.publicKeyHex)) {
+      return _bindingOnly('envelope signature did not verify under the resolved key')
+    }
+    return { disposition: 'authentic', resolvedKid: resolution.kid }
+  } catch (err) {
+    return _bindingOnly(`authority resolution threw: ${err instanceof Error ? err.message : String(err)}`)
+  }
 }
 
 async function _verifyWithEvidence(
@@ -728,10 +812,15 @@ async function _verifyWithEvidence(
     options.resolveEvidence,
     { failurePolicy: options.evidenceFailurePolicy },
   )
+  // Signer authority (#43): resolve the fetched envelope's signer key and
+  // verify the envelope's own signature. Independent of the receipt verdict
+  // and the hash join; degrades to binding_only, never throws.
+  const authority = await _resolveEnvelopeAuthority(evidence.envelope, options)
   return {
     verify,
     evidence,
     descriptor: toEvidenceDescriptorInput(evidence),
+    authority,
   }
 }
 
@@ -747,6 +836,21 @@ export async function verifyCyclesReleaseReceiptWithEvidence(
   options: VerifyCyclesOptions = {},
 ): Promise<CyclesVerifyWithEvidenceResult> {
   return _verifyWithEvidence(receipt, RAIL_BUDGET_RESERVATION_RELEASE_CLAIM_TYPE, options)
+}
+
+/**
+ * Verify a FETCHED CyclesEvidence envelope's own signer authority directly
+ * (#43), independent of any APS receipt. Resolves `signer_did` to a public key
+ * via the caller-supplied `cyclesKeyResolver` (did:cycles sha256-binding +
+ * window-gated selection, or raw-hex match) and verifies the envelope's
+ * Ed25519 signature, returning `authentic` or `binding_only`. The conformance
+ * surface a consumer (e.g. against the Cycles golden vectors) runs.
+ */
+export async function verifyCyclesEvidenceSignerAuthority(
+  envelope: FetchedCyclesEvidenceEnvelope,
+  options: VerifyCyclesOptions = {},
+): Promise<CyclesEvidenceAuthorityResult> {
+  return _resolveEnvelopeAuthority(envelope, options)
 }
 
 export async function verifyCyclesDenialWithEvidence(
