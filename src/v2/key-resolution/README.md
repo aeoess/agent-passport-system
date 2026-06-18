@@ -36,7 +36,7 @@ with the Cycles maintainers on `runcycles/cycles-protocol` (#43, spec
 lowercase hex `sha256(server_id)`, a BINDING value, not a locator:
 
 ```
-did:cycles:<sha256(server_id)>            (optionally with #<kid>)
+did:cycles:<sha256(server_id)>#<kid>      (the #<kid> fragment is REQUIRED)
 ```
 
 A hash cannot be reversed to a URL, so `did:cycles` is **not self-locating**.
@@ -53,11 +53,13 @@ Keeping the JWKS under the same base anchors key authority to the exact
 `server_id` the DID hash commits to, closing the cross-tenant key-confusion path
 an origin-rooted JWKS would open under a path-multi-tenant host.
 
-A DID-URL fragment is the `kid`: `did:cycles:<hash>#2026-06` selects the JWK
-whose `kid === "2026-06"`. Selection adds a validity-WINDOW gate over the kid
-match: the key whose `[cycles_nbf_ms, cycles_exp_ms)` covers the envelope's
-`issued_at_ms` — never "the current key", so a receipt verified after a rotation
-checks against the key valid when it was signed. Zero/ambiguous matches fail
+The REQUIRED DID-URL fragment is the `kid`: `did:cycles:<hash>#2026-06` selects
+the JWK whose `kid === "2026-06"` (resolution fails closed for a did:cycles with
+no fragment). Selection adds a validity-WINDOW gate over the kid match: the key
+whose `[cycles_nbf_ms, cycles_exp_ms)` covers the envelope's `issued_at_ms` —
+never "the current key", so a receipt verified after a rotation checks against
+the key valid when it was signed. `kid` MUST be unique across the set (a
+duplicate kid is an authority failure set-wide); zero/ambiguous matches fail
 closed.
 
 ## Key selection

@@ -180,6 +180,23 @@ export function selectKey(jwks: JWKS, sel?: string | SelectKeyOptions): JWKSelec
     return { ok: false, status: 'not_found', reason: 'no Ed25519 signing key in JWKS' }
   }
 
+  // Cycles authority paths carry a window (issuedAtMs) and/or a raw-hex signer
+  // match (publicKeyHex). On those, `kid` MUST be unique across the whole set —
+  // a duplicate kid is an authority failure SET-WIDE, before any selection, so
+  // it can't be rescued by the window leaving one survivor or by selecting via
+  // the raw-hex path. (Generic non-cycles kid-only lookups keep RFC 7517's
+  // looser handling, enforced per-requested-kid below.)
+  if (opts.issuedAtMs !== undefined || opts.publicKeyHex !== undefined) {
+    const seen = new Set<string>()
+    for (const c of candidates) {
+      if (typeof c.kid !== 'string') continue
+      if (seen.has(c.kid)) {
+        return { ok: false, status: 'ambiguous', reason: `duplicate kid='${c.kid}' in JWK Set` }
+      }
+      seen.add(c.kid)
+    }
+  }
+
   // Raw-hex signer match (cycles): the published key must carry the signer's
   // bytes — and the spec applies the SAME validity-window gate to raw-hex
   // signers as to did:cycles, so a raw-hex selection REQUIRES an integer

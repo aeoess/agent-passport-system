@@ -251,6 +251,11 @@ export class CyclesKeyResolver implements KeyResolver {
       } catch (err) {
         return this.fail('unsupported', `did:cycles parse failed: ${safeMsg(err)}`)
       }
+      // The canonical signer_did form is did:cycles:<hash>#<kid>; the fragment
+      // names the key in the set and is REQUIRED for resolution.
+      if (!fragmentKid) {
+        return this.fail('unsupported', 'did:cycles requires a #<kid> fragment')
+      }
       if (!locator.serverId) {
         return this.fail('unsupported', 'did:cycles requires serverId to establish the sha256 binding')
       }

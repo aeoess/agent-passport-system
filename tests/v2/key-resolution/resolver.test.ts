@@ -286,6 +286,15 @@ describe('selectKey (JWK selection by kid)', () => {
     if (!sel.ok) assert.equal(sel.status, 'ambiguous')
   })
 
+  it('the raw-hex path also rejects a set with duplicate kids (set-wide uniqueness)', () => {
+    // No requested kid here — selection is by raw key + window. kid uniqueness
+    // must still be enforced across the whole set, before the raw-hex match.
+    const jwks = fixtureJWKS(winJWK('dup', 0, 1000), winJWK('dup', 1000, null))
+    const sel = selectKey(jwks, { publicKeyHex: PUB_HEX, issuedAtMs: 500 })
+    assert.equal(sel.ok, false)
+    if (!sel.ok) assert.equal(sel.status, 'ambiguous')
+  })
+
   it('rejects x that does not decode to 32 bytes', () => {
     const jwks = fixtureJWKS({ kty: 'OKP', crv: 'Ed25519', x: 'AAAA', kid: 'short' })
     const sel = selectKey(jwks, 'short')
@@ -355,6 +364,14 @@ describe('CyclesKeyResolver: did:cycles (hash-bound) + direct JWKS', () => {
   it('did:cycles without serverId is unsupported (binding cannot be established)', async () => {
     const r = new CyclesKeyResolver()
     const res = await r.resolve({ did: `did:cycles:${HASH}#k`, issuedAtMs: 500 })
+    assert.equal(res.ok, false)
+    assert.equal(res.status, 'unsupported')
+  })
+
+  it('did:cycles without a #kid fragment is unsupported (canonical form is <h>#<kid>)', async () => {
+    const { impl } = jsonFetch(fixtureJWKS(winJWK('test-1')))
+    const r = new CyclesKeyResolver({ fetchImpl: impl })
+    const res = await r.resolve({ did: `did:cycles:${HASH}`, serverId: SERVER_ID, issuedAtMs: 500 })
     assert.equal(res.ok, false)
     assert.equal(res.status, 'unsupported')
   })
