@@ -57,9 +57,17 @@ for (const vec of suite.vectors) {
 }
 
 const total = suite.vectors.length
+// Surface the conformance verification_mode tally (enforced vs asserted).
+// Default to enforced when a vector omits the field (backward compatible).
+const modeCounts = suite.vectors.reduce((acc, v) => {
+  const m = v.verification_mode ?? 'enforced'
+  acc[m] = (acc[m] ?? 0) + 1
+  return acc
+}, {})
+const modeSummary = Object.entries(modeCounts).map(([m, c]) => `${m}=${c}`).join(', ')
 if (failures.length > 0) {
   console.log(`FAIL: ${failures.length} failure(s) across ${total} vectors\n`)
   for (const f of failures) console.log(`- ${f}`)
   process.exit(1)
 }
-console.log(`PASS: ${total} vectors (${accepted} accept match the SDK implementation, ${rejected} reject correctly refused)`)
+console.log(`PASS: ${total} vectors (${accepted} accept match the SDK implementation, ${rejected} reject correctly refused) | verification_mode: ${modeSummary}`)
