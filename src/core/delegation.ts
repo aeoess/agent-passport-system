@@ -161,11 +161,28 @@ export function subDelegate(opts: SubDelegateOptions): Delegation {
     throw new Error('Derivation rights violation: parent delegation has no derivation_rights — child cannot introduce them')
   }
 
-  const parentUnit = parent.spendLimitUnit ?? 'currency'
+  // Resolve the parent's spend dimension. A spend limit (even with the unit tag
+  // omitted, which defaults to currency) or an explicit unit each establish one;
+  // a parent with neither is unconstrained on spend.
+  const parentHasSpendDimension = parent.spendLimit !== undefined || parent.spendLimitUnit !== undefined
+  const parentUnit = parent.spendLimitUnit ?? (parent.spendLimit !== undefined ? 'currency' : undefined)
   const childUnit = opts.spendLimitUnit ?? parentUnit
-  const unitsMatch = childUnit === parentUnit
+  // Spend unit narrowing (locked Option A): once the parent
+  // carries a spend dimension, a child may not change its unit at the narrowing
+  // layer. A declared currency conversion belongs at the payment-rails layer (v2
+  // preAuthorize), not in core subDelegate. A child may still introduce a unit on
+  // an otherwise unconstrained parent, which is narrowing rather than conversion.
+  if (parentHasSpendDimension && childUnit !== parentUnit) {
+    throw new Error(
+      `Spend unit change rejected at the narrowing layer: child spendLimitUnit "${childUnit}" differs from parent "${parentUnit}". subDelegate does not convert spend units; a declared currency conversion belongs at the payment-rails layer (v2 preAuthorize).`,
+    )
+  }
   const parentRemaining = (parent.spendLimit ?? Infinity) - (parent.spentAmount ?? 0)
-  if (unitsMatch && opts.spendLimit !== undefined && opts.spendLimit !== null && opts.spendLimit > parentRemaining) {
+  // Cap and inheritance apply only when child and parent share a finite spend
+  // budget in the same unit. Gated explicitly so unit-compatibility and budget
+  // narrowing stay separate concerns rather than riding one overloaded flag.
+  const sharesFiniteParentBudget = parentUnit !== undefined && childUnit === parentUnit && parent.spendLimit !== undefined
+  if (sharesFiniteParentBudget && opts.spendLimit !== undefined && opts.spendLimit !== null && opts.spendLimit > parentRemaining) {
     throw new Error(
       `Spend limit ${opts.spendLimit} exceeds parent remaining ${parentRemaining}`,
     )
@@ -182,7 +199,7 @@ export function subDelegate(opts: SubDelegateOptions): Delegation {
     delegatedBy: parent.delegatedTo,
     scope: opts.scope,
     scopeInterpretation: parent.scopeInterpretation,
-    spendLimit: opts.spendLimit ?? (unitsMatch ? parentRemaining : undefined),
+    spendLimit: opts.spendLimit ?? (sharesFiniteParentBudget ? parentRemaining : undefined),
     spendLimitUnit: opts.spendLimitUnit,
     maxDepth: parent.maxDepth,
     currentDepth: parent.currentDepth + 1,
