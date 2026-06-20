@@ -53,6 +53,11 @@ export interface CreateDelegationOptions {
   maxDepth?: number
   currentDepth?: number
   expiresInHours?: number
+  /** Absolute expiry (ISO 8601). When present it WINS over expiresInHours (strict
+   *  precedence) and is used directly as the signed expiresAt field. Input only;
+   *  never stored as a relative field. subDelegate uses this to pass an
+   *  already-capped, absolute child expiry rather than a re-basable duration. */
+  expiresAt?: string
   notBefore?: string
   derivation_rights?: import('../types/passport.js').DerivationRights
   observation_policy?: import('../types/passport.js').ObservationPolicy
@@ -76,8 +81,12 @@ export function createDelegation(opts: CreateDelegationOptions): Delegation {
   }
 
   const now = new Date()
-  const expiry = new Date(now)
-  expiry.setHours(expiry.getHours() + (opts.expiresInHours || 24))
+  // Absolute expiresAt option wins (strict precedence); otherwise compute from the
+  // duration with millisecond math. Never `|| 24` (which coerces a legitimate 0 into
+  // 24h) and never setHours (which truncates fractional hours). expiresInHours of 0
+  // yields immediate expiry; a negative duration yields a past expiry, consistent
+  // with feasibility.ts. This matches the cross-chain.ts expiry pattern.
+  const expiresAtIso = opts.expiresAt ?? new Date(now.getTime() + (opts.expiresInHours ?? 24) * 3600000).toISOString()
 
   const delegation: Omit<Delegation, 'signature'> = {
     delegationId: 'del_' + uuidv4().slice(0, 12),
@@ -85,7 +94,7 @@ export function createDelegation(opts: CreateDelegationOptions): Delegation {
     delegatedBy: opts.delegatedBy,
     scope: opts.scope,
     ...(opts.scopeInterpretation && { scopeInterpretation: opts.scopeInterpretation }),
-    expiresAt: expiry.toISOString(),
+    expiresAt: expiresAtIso,
     spendLimit: opts.spendLimit,
     spentAmount: 0,
     ...(opts.spendLimitUnit && { spendLimitUnit: opts.spendLimitUnit }),
@@ -188,11 +197,22 @@ export function subDelegate(opts: SubDelegateOptions): Delegation {
     )
   }
 
-  const parentExpiry = new Date(parent.expiresAt)
-  const now = new Date()
-  const parentRemainingMs = parentExpiry.getTime() - now.getTime()
-  const parentRemainingHours = Math.max(0, parentRemainingMs / 3600000)
-  const childExpiryHours = Math.min(24, parentRemainingHours)
+  // Temporal narrowing (creation-time). Capture now ONCE and reuse it for both the
+  // expiry guard and the cap so the result is deterministic. The finite guard comes
+  // first: a NaN expiry would slip past the `<= 0` reject (NaN <= 0 is false).
+  const now = Date.now()
+  const parentExpiryMs = Date.parse(parent.expiresAt)
+  if (!Number.isFinite(parentExpiryMs)) {
+    throw new Error('cannot sub-delegate: parent delegation has an invalid expiresAt')
+  }
+  if (parentExpiryMs - now <= 0) {
+    throw new Error('cannot sub-delegate from an expired parent delegation')
+  }
+  // Child's ABSOLUTE expiry: the tighter of the 24h ceiling and the parent's expiry.
+  // Passed to createDelegation as an absolute expiresAt (not a duration), so it is
+  // never re-based on a later now(), which is what let the child outlive the parent
+  // by the compute gap.
+  const childExpiresAt = new Date(Math.min(now + 24 * 3600000, parentExpiryMs)).toISOString()
 
   return createDelegation({
     delegatedTo: opts.delegatedTo,
@@ -203,7 +223,7 @@ export function subDelegate(opts: SubDelegateOptions): Delegation {
     spendLimitUnit: opts.spendLimitUnit,
     maxDepth: parent.maxDepth,
     currentDepth: parent.currentDepth + 1,
-    expiresInHours: childExpiryHours,
+    expiresAt: childExpiresAt,
     notBefore: parent.notBefore,
     derivation_rights: opts.derivation_rights ?? parent.derivation_rights,
     observation_policy: parent.observation_policy,
