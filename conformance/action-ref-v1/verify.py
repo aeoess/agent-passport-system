@@ -127,12 +127,19 @@ def main() -> int:
             accepted += 1
 
     total = len(suite["vectors"])
+    # Surface the conformance verification_mode tally (enforced vs asserted).
+    # Default to enforced when a vector omits the field (backward compatible).
+    mode_counts: dict = {}
+    for vec in suite["vectors"]:
+        m = vec.get("verification_mode", "enforced")
+        mode_counts[m] = mode_counts.get(m, 0) + 1
+    mode_summary = ", ".join(f"{m}={c}" for m, c in sorted(mode_counts.items()))
     if failures:
         print(f"FAIL: {len(failures)} failure(s) across {total} vectors\n")
         for f in failures:
             print(f"- {f}")
         return 1
-    print(f"PASS: {total} vectors ({accepted} accept recomputed byte-identical, {rejected} reject correctly refused)")
+    print(f"PASS: {total} vectors ({accepted} accept recomputed byte-identical, {rejected} reject correctly refused) | verification_mode: {mode_summary}")
     return 0
 
 

@@ -6,6 +6,7 @@
   "vectors": [
     {
       "id": "av-001",
+      "verification_mode": "asserted",
       "description": "Basic happy path. Minimal tuple with a DID agent_id and a zero-millisecond timestamp written in full.",
       "input": {
         "agent_id": "did:aps:zExampleAgent001",
@@ -18,6 +19,7 @@
     },
     {
       "id": "av-002",
+      "verification_mode": "asserted",
       "description": "Second basic vector: did:web agent_id and a non-zero millisecond timestamp.",
       "input": {
         "agent_id": "did:web:example.org:agents:42",
@@ -30,6 +32,7 @@
     },
     {
       "id": "av-003",
+      "verification_mode": "asserted",
       "description": "Unicode in action_type and scope (Cyrillic plus an emoji). JCS does not normalize Unicode; the UTF-8 bytes of the literal strings are hashed.",
       "input": {
         "agent_id": "did:aps:z6MkUnicodeAgent",
@@ -42,6 +45,7 @@
     },
     {
       "id": "av-004",
+      "verification_mode": "asserted",
       "description": "Key-order independence. The same tuple presented in three different JSON key orders canonicalizes to one byte sequence and one hash (identical to av-001). Verifiers parse each variant and recompute.",
       "input": {
         "agent_id": "did:aps:zExampleAgent001",
@@ -59,6 +63,7 @@
     },
     {
       "id": "av-005",
+      "verification_mode": "asserted",
       "description": "Timestamp edge: last millisecond before midnight rollover, maximum fractional value .999.",
       "input": {
         "agent_id": "did:aps:z6MkRollover",
@@ -71,6 +76,7 @@
     },
     {
       "id": "av-006",
+      "verification_mode": "asserted",
       "description": "Timestamp edge: first instant after midnight rollover, .000 milliseconds written in full (zero fractional digits are not omitted).",
       "input": {
         "agent_id": "did:aps:z6MkRollover",
@@ -83,6 +89,7 @@
     },
     {
       "id": "av-007",
+      "verification_mode": "asserted",
       "description": "Empty-string scope. The empty string is a valid scope value and is load-bearing in the preimage.",
       "input": {
         "agent_id": "did:aps:z6MkEmptyScope",
@@ -95,6 +102,7 @@
     },
     {
       "id": "av-008",
+      "verification_mode": "asserted",
       "description": "Long scope string (588 characters). No length-dependent behavior in canonicalization or hashing.",
       "input": {
         "agent_id": "did:aps:z6MkLongScope",
@@ -107,6 +115,7 @@
     },
     {
       "id": "rj-001",
+      "verification_mode": "asserted",
       "description": "Lowercase t separator is invalid.",
       "input": {
         "agent_id": "did:aps:z6MkReject",
@@ -119,6 +128,7 @@
     },
     {
       "id": "rj-002",
+      "verification_mode": "asserted",
       "description": "Lowercase z suffix is invalid.",
       "input": {
         "agent_id": "did:aps:z6MkReject",
@@ -131,6 +141,7 @@
     },
     {
       "id": "rj-003",
+      "verification_mode": "asserted",
       "description": "Explicit +00:00 offset is invalid even though it denotes UTC.",
       "input": {
         "agent_id": "did:aps:z6MkReject",
@@ -143,6 +154,7 @@
     },
     {
       "id": "rj-004",
+      "verification_mode": "asserted",
       "description": "Missing fractional seconds (second precision) is invalid.",
       "input": {
         "agent_id": "did:aps:z6MkReject",
@@ -155,6 +167,7 @@
     },
     {
       "id": "rj-005",
+      "verification_mode": "asserted",
       "description": "Six fractional digits (microsecond precision) is invalid.",
       "input": {
         "agent_id": "did:aps:z6MkReject",

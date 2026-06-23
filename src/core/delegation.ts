@@ -53,6 +53,11 @@ export interface CreateDelegationOptions {
   maxDepth?: number
   currentDepth?: number
   expiresInHours?: number
+  /** Absolute expiry (ISO 8601). When present it WINS over expiresInHours (strict
+   *  precedence) and is used directly as the signed expiresAt field. Input only;
+   *  never stored as a relative field. subDelegate uses this to pass an
+   *  already-capped, absolute child expiry rather than a re-basable duration. */
+  expiresAt?: string
   notBefore?: string
   derivation_rights?: import('../types/passport.js').DerivationRights
   observation_policy?: import('../types/passport.js').ObservationPolicy
@@ -76,8 +81,12 @@ export function createDelegation(opts: CreateDelegationOptions): Delegation {
   }
 
   const now = new Date()
-  const expiry = new Date(now)
-  expiry.setHours(expiry.getHours() + (opts.expiresInHours || 24))
+  // Absolute expiresAt option wins (strict precedence); otherwise compute from the
+  // duration with millisecond math. Never `|| 24` (which coerces a legitimate 0 into
+  // 24h) and never setHours (which truncates fractional hours). expiresInHours of 0
+  // yields immediate expiry; a negative duration yields a past expiry, consistent
+  // with feasibility.ts. This matches the cross-chain.ts expiry pattern.
+  const expiresAtIso = opts.expiresAt ?? new Date(now.getTime() + (opts.expiresInHours ?? 24) * 3600000).toISOString()
 
   const delegation: Omit<Delegation, 'signature'> = {
     delegationId: 'del_' + uuidv4().slice(0, 12),
@@ -85,7 +94,7 @@ export function createDelegation(opts: CreateDelegationOptions): Delegation {
     delegatedBy: opts.delegatedBy,
     scope: opts.scope,
     ...(opts.scopeInterpretation && { scopeInterpretation: opts.scopeInterpretation }),
-    expiresAt: expiry.toISOString(),
+    expiresAt: expiresAtIso,
     spendLimit: opts.spendLimit,
     spentAmount: 0,
     ...(opts.spendLimitUnit && { spendLimitUnit: opts.spendLimitUnit }),
@@ -161,32 +170,60 @@ export function subDelegate(opts: SubDelegateOptions): Delegation {
     throw new Error('Derivation rights violation: parent delegation has no derivation_rights — child cannot introduce them')
   }
 
-  const parentUnit = parent.spendLimitUnit ?? 'currency'
+  // Resolve the parent's spend dimension. A spend limit (even with the unit tag
+  // omitted, which defaults to currency) or an explicit unit each establish one;
+  // a parent with neither is unconstrained on spend.
+  const parentHasSpendDimension = parent.spendLimit !== undefined || parent.spendLimitUnit !== undefined
+  const parentUnit = parent.spendLimitUnit ?? (parent.spendLimit !== undefined ? 'currency' : undefined)
   const childUnit = opts.spendLimitUnit ?? parentUnit
-  const unitsMatch = childUnit === parentUnit
+  // Spend unit narrowing (locked Option A): once the parent
+  // carries a spend dimension, a child may not change its unit at the narrowing
+  // layer. A declared currency conversion belongs at the payment-rails layer (v2
+  // preAuthorize), not in core subDelegate. A child may still introduce a unit on
+  // an otherwise unconstrained parent, which is narrowing rather than conversion.
+  if (parentHasSpendDimension && childUnit !== parentUnit) {
+    throw new Error(
+      `Spend unit change rejected at the narrowing layer: child spendLimitUnit "${childUnit}" differs from parent "${parentUnit}". subDelegate does not convert spend units; a declared currency conversion belongs at the payment-rails layer (v2 preAuthorize).`,
+    )
+  }
   const parentRemaining = (parent.spendLimit ?? Infinity) - (parent.spentAmount ?? 0)
-  if (unitsMatch && opts.spendLimit !== undefined && opts.spendLimit !== null && opts.spendLimit > parentRemaining) {
+  // Cap and inheritance apply only when child and parent share a finite spend
+  // budget in the same unit. Gated explicitly so unit-compatibility and budget
+  // narrowing stay separate concerns rather than riding one overloaded flag.
+  const sharesFiniteParentBudget = parentUnit !== undefined && childUnit === parentUnit && parent.spendLimit !== undefined
+  if (sharesFiniteParentBudget && opts.spendLimit !== undefined && opts.spendLimit !== null && opts.spendLimit > parentRemaining) {
     throw new Error(
       `Spend limit ${opts.spendLimit} exceeds parent remaining ${parentRemaining}`,
     )
   }
 
-  const parentExpiry = new Date(parent.expiresAt)
-  const now = new Date()
-  const parentRemainingMs = parentExpiry.getTime() - now.getTime()
-  const parentRemainingHours = Math.max(0, parentRemainingMs / 3600000)
-  const childExpiryHours = Math.min(24, parentRemainingHours)
+  // Temporal narrowing (creation-time). Capture now ONCE and reuse it for both the
+  // expiry guard and the cap so the result is deterministic. The finite guard comes
+  // first: a NaN expiry would slip past the `<= 0` reject (NaN <= 0 is false).
+  const now = Date.now()
+  const parentExpiryMs = Date.parse(parent.expiresAt)
+  if (!Number.isFinite(parentExpiryMs)) {
+    throw new Error('cannot sub-delegate: parent delegation has an invalid expiresAt')
+  }
+  if (parentExpiryMs - now <= 0) {
+    throw new Error('cannot sub-delegate from an expired parent delegation')
+  }
+  // Child's ABSOLUTE expiry: the tighter of the 24h ceiling and the parent's expiry.
+  // Passed to createDelegation as an absolute expiresAt (not a duration), so it is
+  // never re-based on a later now(), which is what let the child outlive the parent
+  // by the compute gap.
+  const childExpiresAt = new Date(Math.min(now + 24 * 3600000, parentExpiryMs)).toISOString()
 
   return createDelegation({
     delegatedTo: opts.delegatedTo,
     delegatedBy: parent.delegatedTo,
     scope: opts.scope,
     scopeInterpretation: parent.scopeInterpretation,
-    spendLimit: opts.spendLimit ?? (unitsMatch ? parentRemaining : undefined),
+    spendLimit: opts.spendLimit ?? (sharesFiniteParentBudget ? parentRemaining : undefined),
     spendLimitUnit: opts.spendLimitUnit,
     maxDepth: parent.maxDepth,
     currentDepth: parent.currentDepth + 1,
-    expiresInHours: childExpiryHours,
+    expiresAt: childExpiresAt,
     notBefore: parent.notBefore,
     derivation_rights: opts.derivation_rights ?? parent.derivation_rights,
     observation_policy: parent.observation_policy,
