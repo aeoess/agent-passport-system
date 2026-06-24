@@ -369,6 +369,22 @@ export type {
   JwtSvidView, SpiffeIdentityInput,
 } from './adapters/oauth-rfc8693/index.js'
 
+// ── OAuth ID-JAG binding (draft-ietf-oauth-identity-assertion-authz-grant-04) ──
+// Imports a caller-verified ID-JAG grant as external authority and adds the
+// actor-delegation layer the draft leaves to profiles in section 9.7. Binding
+// only: no signature check, no JWKS, no revocation, no decision. Stable APS
+// semantics; draft-pinned external protocol semantics. See adapters/oauth-id-jag.
+export {
+  bindIdJagGrant, verifiedIdJagGrant, IDJAG_DRAFT, SOURCE_GRANT_REF_TAG, IdJagBindingError,
+} from './adapters/oauth-id-jag/index.js'
+export { verifyIdJagDescriptor } from './adapters/oauth-id-jag/verify.js'
+export type {
+  IdJagClaims, IdJagVerification, VerifiedIdJagGrant, IdJagAuthorizationDetail,
+  IdJagDescriptor, IdJagCarriedAudience, IdJagActReconciliation, IdJagCallerVerification,
+  IdJagDiagnostic, IdJagOpaqueContext, IdJagBindOptions, SourceGrantRefPreimage,
+  IdJagExternalRoot, IdJagVerifyResult,
+} from './adapters/oauth-id-jag/index.js'
+
 // ── VC Wrapper: Interop Bridge (did:key + SPIFFE evidence) ──
 export {
   passportToVerifiableCredential,
