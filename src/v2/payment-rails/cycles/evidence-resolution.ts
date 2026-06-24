@@ -156,6 +156,11 @@ export interface EvidenceResolutionResult {
   reason?: string
   /** Scope-of-claim for the resolution, dogfooding the descriptor. */
   scope_of_claim?: ScopeOfClaim
+  /** The fetched envelope, present whenever one was retrieved (on 'matched'
+   *  AND 'hash_mismatch'). Surfaced so a downstream signer-AUTHORITY check
+   *  (#43) can verify the envelope's own signature — independent of this
+   *  receipt↔envelope hash join. */
+  envelope?: FetchedCyclesEvidenceEnvelope
 }
 
 // ── Config ────────────────────────────────────────────────────────
@@ -302,6 +307,7 @@ export async function resolveEvidenceRef(
       status: 'matched',
       resolved_sha256: recomputed,
       scope_of_claim: matchedScope(),
+      envelope: fetched.envelope,
     }
   }
 
@@ -312,6 +318,7 @@ export async function resolveEvidenceRef(
     resolved_sha256: recomputed,
     reason: 'fetched envelope hash does not equal claimed cycles_evidence_id_sha256',
     scope_of_claim: claimedOnlyScope(),
+    envelope: fetched.envelope,
   }
 }
 

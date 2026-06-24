@@ -47,13 +47,18 @@
 //   signer_did) or 'pinned_issuer' (that PLUS expected_signer pinning the
 //   APS receipt issuer — envelope authenticity then holds TRANSITIVELY, to
 //   the extent the pinned issuer is trusted to bind only legitimate
-//   envelopes; not a proof of signer_did's own authority). Resolving
-//   signer-AUTHORITY directly — (b) — is the v0.2 work tracked at
-//   runcycles/cycles-protocol#103, not done here.
+//   envelopes; not a proof of signer_did's own authority).
+//
+//   Signer-AUTHORITY resolution — (b) — IS now implemented (#43): the
+//   *WithEvidence paths resolve the fetched envelope's signer_did to a key via
+//   a caller-supplied cyclesKeyResolver (did:cycles sha256-binding +
+//   window-gated selection, or raw-hex match), re-derive evidence_id, and
+//   verify the envelope's own signature, reporting `authority` as one of the
+//   five dispositions (authentic / binding_only / signer_resolution_failed /
+//   signer_authority_failed / signature_invalid). See `_resolveEnvelopeAuthority`
+//   and `verifyCyclesEvidenceSignerAuthority`.
 //
 // Out of scope for this commit (TODO follow-up):
-//   - (b) envelope signer-authority resolution (did:cycles / JWKS /
-//     rotation), gated on runcycles/cycles-protocol#103.
 //   - preAuthorizeCyclesReserve gateway hook into PaymentRail interface
 //     (gateway-flow placement — held for the AEOESS gateway-flow ADR,
 //     aeoess/agent-passport-system#25).
@@ -113,7 +118,10 @@ import {
 import type {
   EvidenceDescriptorInput,
   EvidenceResolutionResult,
+  FetchedCyclesEvidenceEnvelope,
 } from './evidence-resolution.js'
+import { cyclesJwksUrl, isDIDCycles } from '../../key-resolution/index.js'
+import type { KeyResolver, KeyLocator } from '../../key-resolution/index.js'
 
 // ── Internal helpers ──────────────────────────────────────────────
 
@@ -708,6 +716,243 @@ export interface CyclesVerifyWithEvidenceResult {
   verify: CyclesVerifyResult
   evidence: EvidenceResolutionResult
   descriptor: EvidenceDescriptorInput
+  /** Signer-authority disposition for the FETCHED envelope's own Ed25519
+   *  signature (#43): one of authentic / binding_only / signer_resolution_failed
+   *  / signer_authority_failed / signature_invalid. `authentic` only when a key
+   *  resolved from the server's JWK Set under the issuance-time window verifies
+   *  the envelope (after its evidence_id re-derives). */
+  authority: CyclesEvidenceAuthorityResult
+}
+
+/**
+ * Signer-authority verdict for a CyclesEvidence envelope. The five DISTINCT
+ * dispositions of the cycles-evidence-v0.1 verification model (kept separate on
+ * purpose — a forgery, an unreachable key directory, and a valid-but-unresolved
+ * signature are different events):
+ *
+ *  - `authentic`              — signature verifies under the window-selected key
+ *                               resolved from the server's JWK Set (validity AND
+ *                               authority).
+ *  - `binding_only`           — signature cryptographically VALID against the
+ *                               named raw-hex signer, but JWKS authority was not
+ *                               resolved (no resolver / v0.1 posture). Only ever
+ *                               returned after a successful signature check.
+ *  - `signer_resolution_failed` — the DID method / JWK Set could not be reached
+ *                               or parsed (network/availability). Establishes
+ *                               NOTHING about the bytes; NOT a forgery.
+ *  - `signer_authority_failed`  — the set resolved, but no single authorized
+ *                               key covers the envelope (hash-bind mismatch, no
+ *                               window-covering key, absent, or ambiguous).
+ *  - `signature_invalid`      — the envelope's `evidence_id` does not re-derive,
+ *                               or the bytes do not verify under the resolved
+ *                               key (tamper).
+ *
+ * CONTRACT — what `authentic` is NOT. `authentic` means only: signed by the
+ * named signer's window-valid key. It is NOT an authorization decision (it does
+ * not say the signer was permitted to issue this) and NOT a freshness guarantee
+ * (a valid envelope replays as `authentic` for any `issued_at_ms` inside the
+ * key window — see scope limits below). `binding_only` is weaker still: the
+ * signature is self-consistent with a NAMED key that carries no resolved
+ * identity or authority. The failure mode worth naming is a consumer treating
+ * EITHER disposition as "trusted counterparty" — authority lives in the
+ * caller's own allowed-signer set (assert the surfaced `signerDid`, or pin it
+ * via `options.expectedEvidenceSigner`), never in the disposition alone.
+ *
+ * SCOPE LIMITS (verify-at-issuance design, stated so callers handle them):
+ *   1. Replay. A valid envelope verifies as `authentic` every time within the
+ *      key window — disposition carries no once-only guarantee. Callers MUST
+ *      deduplicate on `evidence_id` to detect replay.
+ *   2. Window, not wall clock. Key selection gates the key's
+ *      `[cycles_nbf_ms, cycles_exp_ms)` against the envelope's own
+ *      `issued_at_ms`, not the current time. Revocation safety therefore leans
+ *      on the SERVER dropping a revoked key from its published JWK Set: a
+ *      still-published key verifies for ANY backdated `issued_at_ms` inside its
+ *      window. `options.maxEvidenceClockSkewMs` adds an opt-in drift bound as
+ *      cheap defense-in-depth.
+ */
+export interface CyclesEvidenceAuthorityResult {
+  disposition:
+    | 'authentic'
+    | 'binding_only'
+    | 'signer_resolution_failed'
+    | 'signer_authority_failed'
+    | 'signature_invalid'
+  reason?: string
+  /** kid of the resolved key, when authentic. */
+  resolvedKid?: string
+  /** The CRYPTOGRAPHICALLY VERIFIED `signer_did` of the envelope, surfaced on
+   *  `authentic` and `binding_only` (the two dispositions reached only after a
+   *  passing signature check) so the caller can assert it against its own
+   *  allowed-signer set. Absent on every non-verified disposition. NOTE this is
+   *  the signer the bytes verified UNDER; on `binding_only` that authority is
+   *  unresolved, so presence here is identity, not endorsement. */
+  signerDid?: string
+}
+
+const _authority = (
+  disposition: CyclesEvidenceAuthorityResult['disposition'],
+  reason: string,
+): CyclesEvidenceAuthorityResult => ({ disposition, reason })
+
+/** Finalize a disposition reached AFTER a passing signature check (`authentic`
+ *  or `binding_only`): surface the verified `signerDid`, then apply the
+ *  caller's `expectedEvidenceSigner` pin, failing CLOSED to
+ *  `signer_authority_failed` when the verified signer is not the pinned one. */
+const _verified = (
+  disposition: 'authentic' | 'binding_only',
+  signerDid: string,
+  options: VerifyCyclesOptions,
+  extra: { reason?: string; resolvedKid?: string } = {},
+): CyclesEvidenceAuthorityResult => {
+  // Presence test, NOT truthiness: a supplied pin is honored even if it is the
+  // empty string (which can never equal a verified, non-empty signer_did, so it
+  // fails CLOSED). Only an omitted pin (undefined) skips the check.
+  if (typeof options.expectedEvidenceSigner === 'string' && signerDid !== options.expectedEvidenceSigner) {
+    return _authority(
+      'signer_authority_failed',
+      `verified signer_did does not match pinned expectedEvidenceSigner (got ${signerDid}) — fail closed`,
+    )
+  }
+  return { disposition, signerDid, ...extra }
+}
+
+const RAW_HEX_KEY = /^[0-9a-fA-F]{64}$/
+
+/** Map a non-ok KeyResolution status to the spec disposition. Failure to
+ *  OBTAIN/parse the SET (network, or an unparseable set body) is
+ *  resolution_failed; a parsed set with no single authorized key — incl. the
+ *  did:cycles hash-bind mismatch (reported as not_found) and a malformed
+ *  selected KEY's `x` — is authority_failed. The resolver reports both an
+ *  unparseable set body AND a malformed selected key as `malformed`, so they
+ *  are split by the reason text (the set-body case is the only one that
+ *  mentions the missing `keys[]` array).
+ *
+ *  NOTE (deferred hardening, #43 review): this couples to the resolver's reason
+ *  WORDING. Both outcomes map to non-authentic so it is safe, but a typed
+ *  status off `KeyResolution` (e.g. `set_unparseable` vs `key_malformed`) would
+ *  be sturdier than a regex on the message. Tracked as a follow-up; not changed
+ *  here to keep this PR's resolver contract stable. */
+function _authorityFromResolution(
+  status: string,
+  reason?: string,
+): 'signer_resolution_failed' | 'signer_authority_failed' {
+  if (status === 'unreachable') return 'signer_resolution_failed'
+  if (status === 'malformed') {
+    return reason && /keys\[\]|missing non-empty|not valid JSON/i.test(reason)
+      ? 'signer_resolution_failed' // unparseable JWK Set body
+      : 'signer_authority_failed' // malformed selected key material
+  }
+  return 'signer_authority_failed' // not_found / ambiguous / unsupported
+}
+
+/**
+ * Resolve and verify the FETCHED envelope's own Ed25519 signature against the
+ * Cycles signer's published key. RE-DERIVES `evidence_id` and byte-compares it
+ * (normative recipe) BEFORE verifying the cycles signing input (JCS with
+ * `signature` emptied, `evidence_id` left populated). Reports one of the five
+ * distinct dispositions; `binding_only` is returned ONLY when the signature is
+ * cryptographically VALID against the named raw-hex signer but JWKS authority
+ * was not resolved — it never labels an unchecked or invalid signature.
+ */
+async function _resolveEnvelopeAuthority(
+  env: FetchedCyclesEvidenceEnvelope | undefined,
+  options: VerifyCyclesOptions,
+): Promise<CyclesEvidenceAuthorityResult> {
+  if (!env) return _authority('signer_resolution_failed', 'no envelope fetched (evidence not resolved)')
+  const signerDid = typeof env.signer_did === 'string' ? env.signer_did : ''
+  const serverId = typeof env.server_id === 'string' ? env.server_id : ''
+  const issuedAtMs = env.issued_at_ms
+  const signature = typeof env.signature === 'string' ? env.signature : ''
+  if (!signerDid || !signature) {
+    return _authority('signature_invalid', 'envelope has no signer_did/signature — no verifiable signature')
+  }
+  if (!serverId || typeof issuedAtMs !== 'number' || !Number.isInteger(issuedAtMs)) {
+    return _authority('signer_authority_failed', 'envelope missing server_id / integer issued_at_ms — cannot resolve a windowed key')
+  }
+  // Optional freshness bound (#43 defense-in-depth): key selection gates the
+  // key window against issued_at_ms, not wall clock, so a backdated timestamp
+  // inside a still-published key's window verifies. When the caller sets a
+  // drift bound, reject an implausible issued_at_ms (either direction) before
+  // resolving the key.
+  if (typeof options.maxEvidenceClockSkewMs === 'number') {
+    const bound = options.maxEvidenceClockSkewMs
+    const now = options.now ? options.now.getTime() : Date.now()
+    // Fail CLOSED on a degenerate bound or clock — a NaN/Infinity bound or an
+    // invalid `now` Date makes the drift comparison false, which would silently
+    // SKIP the check (fail open). Reject instead.
+    if (!Number.isFinite(bound) || bound < 0 || !Number.isFinite(now)) {
+      return _authority(
+        'signer_authority_failed',
+        `unusable freshness bound (maxEvidenceClockSkewMs=${bound}) or clock — fail closed`,
+      )
+    }
+    if (Math.abs(now - issuedAtMs) > bound) {
+      return _authority(
+        'signer_authority_failed',
+        `envelope issued_at_ms drifts ${Math.abs(now - issuedAtMs)}ms from now, beyond maxEvidenceClockSkewMs=${bound} — fail closed`,
+      )
+    }
+  }
+  const isDid = isDIDCycles(signerDid)
+  const isRaw = RAW_HEX_KEY.test(signerDid)
+  if (!isDid && !isRaw) {
+    return _authority('signer_authority_failed', 'signer_did is neither a did:cycles nor a raw 64-hex key')
+  }
+
+  // Content integrity FIRST (envelope-intrinsic, independent of the resolver):
+  // re-derive evidence_id and byte-compare; a mismatch is tamper.
+  let recomputedId: string
+  let signingInput: string
+  try {
+    recomputedId = sha256Hex(canonicalizeJCS({ ...env, evidence_id: '', signature: '' }))
+    // SINGLE verification form (#43 review note): the signing input is the JCS
+    // with `signature` emptied and `evidence_id` LEFT POPULATED. Do not add a
+    // fallback that also verifies over an `evidence_id`-blanked form — that
+    // would stop `evidence_id` from being signature-covered.
+    signingInput = canonicalizeJCS({ ...env, signature: '' })
+  } catch (err) {
+    return _authority('signature_invalid', `envelope canonicalization failed: ${err instanceof Error ? err.message : String(err)}`)
+  }
+  if (recomputedId !== env.evidence_id) {
+    return _authority('signature_invalid', `evidence_id does not re-derive (${recomputedId} != ${String(env.evidence_id)}) — envelope tampered`)
+  }
+
+  const resolver: KeyResolver | undefined = options.cyclesKeyResolver
+  if (!resolver) {
+    // No JWKS authority resolution. Raw-hex: the signer_did IS the key, so the
+    // signature can be checked against it — a VALID signature is binding_only
+    // (the v0.1 posture), an invalid one is signature_invalid. did:cycles: the
+    // subject is a hash, so the signature is not checkable without the JWK Set.
+    if (isRaw) {
+      return edVerify(signingInput, signature, signerDid)
+        ? _verified('binding_only', signerDid, options, { reason: 'signature valid against the named raw-hex signer; JWKS authority not resolved (no resolver)' })
+        : _authority('signature_invalid', 'signature did not verify against the named raw-hex signer')
+    }
+    return _authority('signer_authority_failed', 'did:cycles authority requires a key resolver; signature not checkable without the JWK Set')
+  }
+
+  const locator: KeyLocator = isDid
+    ? { did: signerDid, serverId, issuedAtMs }
+    : { jwksUrl: cyclesJwksUrl(serverId), publicKeyHex: signerDid, issuedAtMs }
+
+  // The verify path must never throw — a non-conformant resolver that rejects
+  // is treated as a resolution failure, never authentic.
+  let resolution
+  try {
+    resolution = await resolver.resolve(locator)
+  } catch (err) {
+    return _authority('signer_resolution_failed', `authority resolution threw: ${err instanceof Error ? err.message : String(err)}`)
+  }
+  if (!resolution.ok || !resolution.publicKeyHex) {
+    return _authority(
+      _authorityFromResolution(resolution.status, resolution.reason),
+      `signer-key resolution failed (status=${resolution.status}${resolution.reason ? `: ${resolution.reason}` : ''})`,
+    )
+  }
+  if (!edVerify(signingInput, signature, resolution.publicKeyHex)) {
+    return _authority('signature_invalid', 'envelope signature did not verify under the resolved key')
+  }
+  return _verified('authentic', signerDid, options, { resolvedKid: resolution.kid })
 }
 
 async function _verifyWithEvidence(
@@ -728,10 +973,15 @@ async function _verifyWithEvidence(
     options.resolveEvidence,
     { failurePolicy: options.evidenceFailurePolicy },
   )
+  // Signer authority (#43): resolve the fetched envelope's signer key and
+  // verify the envelope's own signature. Independent of the receipt verdict
+  // and the hash join; reports one of the five distinct dispositions, never throws.
+  const authority = await _resolveEnvelopeAuthority(evidence.envelope, options)
   return {
     verify,
     evidence,
     descriptor: toEvidenceDescriptorInput(evidence),
+    authority,
   }
 }
 
@@ -747,6 +997,23 @@ export async function verifyCyclesReleaseReceiptWithEvidence(
   options: VerifyCyclesOptions = {},
 ): Promise<CyclesVerifyWithEvidenceResult> {
   return _verifyWithEvidence(receipt, RAIL_BUDGET_RESERVATION_RELEASE_CLAIM_TYPE, options)
+}
+
+/**
+ * Verify a FETCHED CyclesEvidence envelope's own signer authority directly
+ * (#43), independent of any APS receipt. Resolves `signer_did` to a public key
+ * via the caller-supplied `cyclesKeyResolver` (did:cycles sha256-binding +
+ * window-gated selection, or raw-hex match), re-derives `evidence_id`, and
+ * verifies the envelope's Ed25519 signature, returning one of the five
+ * dispositions (authentic / binding_only / signer_resolution_failed /
+ * signer_authority_failed / signature_invalid). The conformance surface a
+ * consumer (e.g. against the Cycles golden vectors) runs.
+ */
+export async function verifyCyclesEvidenceSignerAuthority(
+  envelope: FetchedCyclesEvidenceEnvelope,
+  options: VerifyCyclesOptions = {},
+): Promise<CyclesEvidenceAuthorityResult> {
+  return _resolveEnvelopeAuthority(envelope, options)
 }
 
 export async function verifyCyclesDenialWithEvidence(
