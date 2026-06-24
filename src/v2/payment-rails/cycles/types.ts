@@ -442,6 +442,34 @@ export interface VerifyCyclesOptions {
    *  (not checkable without the set). The SDK performs no network egress
    *  itself: the resolver owns the transport (mirrors `resolveEvidence`). */
   cyclesKeyResolver?: import('../../key-resolution/index.js').KeyResolver
+  /** Optional (#43, authority pin): assert the envelope's CRYPTOGRAPHICALLY
+   *  VERIFIED `signer_did` against a caller-pinned allowed value, failing
+   *  CLOSED on mismatch. Distinct from `expected_signer`, which pins the APS
+   *  *receipt* issuer (`obj.signer`); this pins the CyclesEvidence ENVELOPE's
+   *  own signer. Applies on the authority path only, and only AFTER the
+   *  signature verifies — a verified `authentic` or `binding_only` whose
+   *  `signer_did` does not equal this value is downgraded to
+   *  `signer_authority_failed`. Compare the full `signer_did` string in the
+   *  form you expect (a `did:cycles:<hash>#<kid>` URI, or a raw 64-hex key).
+   *  Honored by PRESENCE, not truthiness: a supplied empty string is a pin that
+   *  fails closed (it can never equal a verified, non-empty signer). Only an
+   *  omitted (undefined) value ⇒ no pin; then the caller reads the surfaced
+   *  `signerDid` and asserts it against its own allowed set instead. */
+  expectedEvidenceSigner?: string
+  /** Optional (#43, freshness defense-in-depth): a clock-skew bound, in
+   *  milliseconds, on the envelope's `issued_at_ms` versus now (`options.now`
+   *  when supplied, else wall clock). When set, an envelope whose
+   *  `issued_at_ms` is more than this far from now — in EITHER direction — is
+   *  rejected as `signer_authority_failed` before the key is resolved. This
+   *  bounds the replay/backdating window noted on `CyclesEvidenceAuthorityResult`:
+   *  `windowCovers` gates the key's `[cycles_nbf_ms, cycles_exp_ms)` against the
+   *  envelope's own `issued_at_ms`, NOT a wall clock, so a still-published key
+   *  verifies for any backdated `issued_at_ms` inside its window. Omitted ⇒ no
+   *  drift bound (prior behavior). A degenerate value (NaN/Infinity/negative) or
+   *  a non-finite `now` fails CLOSED rather than silently skipping the check.
+   *  Does not replace `evidence_id`-keyed idempotency, which the caller still
+   *  owns. */
+  maxEvidenceClockSkewMs?: number
   /** The fetched CyclesEvidence envelope this receipt's `cycles_evidence`
    *  references (retrieved from `cycles_evidence_url`). When supplied,
    *  verify performs the join-integrity check: recompute the envelope's

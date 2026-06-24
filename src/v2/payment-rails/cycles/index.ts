@@ -746,6 +746,29 @@ export interface CyclesVerifyWithEvidenceResult {
  *  - `signature_invalid`      — the envelope's `evidence_id` does not re-derive,
  *                               or the bytes do not verify under the resolved
  *                               key (tamper).
+ *
+ * CONTRACT — what `authentic` is NOT. `authentic` means only: signed by the
+ * named signer's window-valid key. It is NOT an authorization decision (it does
+ * not say the signer was permitted to issue this) and NOT a freshness guarantee
+ * (a valid envelope replays as `authentic` for any `issued_at_ms` inside the
+ * key window — see scope limits below). `binding_only` is weaker still: the
+ * signature is self-consistent with a NAMED key that carries no resolved
+ * identity or authority. The failure mode worth naming is a consumer treating
+ * EITHER disposition as "trusted counterparty" — authority lives in the
+ * caller's own allowed-signer set (assert the surfaced `signerDid`, or pin it
+ * via `options.expectedEvidenceSigner`), never in the disposition alone.
+ *
+ * SCOPE LIMITS (verify-at-issuance design, stated so callers handle them):
+ *   1. Replay. A valid envelope verifies as `authentic` every time within the
+ *      key window — disposition carries no once-only guarantee. Callers MUST
+ *      deduplicate on `evidence_id` to detect replay.
+ *   2. Window, not wall clock. Key selection gates the key's
+ *      `[cycles_nbf_ms, cycles_exp_ms)` against the envelope's own
+ *      `issued_at_ms`, not the current time. Revocation safety therefore leans
+ *      on the SERVER dropping a revoked key from its published JWK Set: a
+ *      still-published key verifies for ANY backdated `issued_at_ms` inside its
+ *      window. `options.maxEvidenceClockSkewMs` adds an opt-in drift bound as
+ *      cheap defense-in-depth.
  */
 export interface CyclesEvidenceAuthorityResult {
   disposition:
@@ -757,12 +780,41 @@ export interface CyclesEvidenceAuthorityResult {
   reason?: string
   /** kid of the resolved key, when authentic. */
   resolvedKid?: string
+  /** The CRYPTOGRAPHICALLY VERIFIED `signer_did` of the envelope, surfaced on
+   *  `authentic` and `binding_only` (the two dispositions reached only after a
+   *  passing signature check) so the caller can assert it against its own
+   *  allowed-signer set. Absent on every non-verified disposition. NOTE this is
+   *  the signer the bytes verified UNDER; on `binding_only` that authority is
+   *  unresolved, so presence here is identity, not endorsement. */
+  signerDid?: string
 }
 
 const _authority = (
   disposition: CyclesEvidenceAuthorityResult['disposition'],
   reason: string,
 ): CyclesEvidenceAuthorityResult => ({ disposition, reason })
+
+/** Finalize a disposition reached AFTER a passing signature check (`authentic`
+ *  or `binding_only`): surface the verified `signerDid`, then apply the
+ *  caller's `expectedEvidenceSigner` pin, failing CLOSED to
+ *  `signer_authority_failed` when the verified signer is not the pinned one. */
+const _verified = (
+  disposition: 'authentic' | 'binding_only',
+  signerDid: string,
+  options: VerifyCyclesOptions,
+  extra: { reason?: string; resolvedKid?: string } = {},
+): CyclesEvidenceAuthorityResult => {
+  // Presence test, NOT truthiness: a supplied pin is honored even if it is the
+  // empty string (which can never equal a verified, non-empty signer_did, so it
+  // fails CLOSED). Only an omitted pin (undefined) skips the check.
+  if (typeof options.expectedEvidenceSigner === 'string' && signerDid !== options.expectedEvidenceSigner) {
+    return _authority(
+      'signer_authority_failed',
+      `verified signer_did does not match pinned expectedEvidenceSigner (got ${signerDid}) — fail closed`,
+    )
+  }
+  return { disposition, signerDid, ...extra }
+}
 
 const RAW_HEX_KEY = /^[0-9a-fA-F]{64}$/
 
@@ -773,7 +825,13 @@ const RAW_HEX_KEY = /^[0-9a-fA-F]{64}$/
  *  selected KEY's `x` — is authority_failed. The resolver reports both an
  *  unparseable set body AND a malformed selected key as `malformed`, so they
  *  are split by the reason text (the set-body case is the only one that
- *  mentions the missing `keys[]` array). */
+ *  mentions the missing `keys[]` array).
+ *
+ *  NOTE (deferred hardening, #43 review): this couples to the resolver's reason
+ *  WORDING. Both outcomes map to non-authentic so it is safe, but a typed
+ *  status off `KeyResolution` (e.g. `set_unparseable` vs `key_malformed`) would
+ *  be sturdier than a regex on the message. Tracked as a follow-up; not changed
+ *  here to keep this PR's resolver contract stable. */
 function _authorityFromResolution(
   status: string,
   reason?: string,
@@ -811,6 +869,30 @@ async function _resolveEnvelopeAuthority(
   if (!serverId || typeof issuedAtMs !== 'number' || !Number.isInteger(issuedAtMs)) {
     return _authority('signer_authority_failed', 'envelope missing server_id / integer issued_at_ms — cannot resolve a windowed key')
   }
+  // Optional freshness bound (#43 defense-in-depth): key selection gates the
+  // key window against issued_at_ms, not wall clock, so a backdated timestamp
+  // inside a still-published key's window verifies. When the caller sets a
+  // drift bound, reject an implausible issued_at_ms (either direction) before
+  // resolving the key.
+  if (typeof options.maxEvidenceClockSkewMs === 'number') {
+    const bound = options.maxEvidenceClockSkewMs
+    const now = options.now ? options.now.getTime() : Date.now()
+    // Fail CLOSED on a degenerate bound or clock — a NaN/Infinity bound or an
+    // invalid `now` Date makes the drift comparison false, which would silently
+    // SKIP the check (fail open). Reject instead.
+    if (!Number.isFinite(bound) || bound < 0 || !Number.isFinite(now)) {
+      return _authority(
+        'signer_authority_failed',
+        `unusable freshness bound (maxEvidenceClockSkewMs=${bound}) or clock — fail closed`,
+      )
+    }
+    if (Math.abs(now - issuedAtMs) > bound) {
+      return _authority(
+        'signer_authority_failed',
+        `envelope issued_at_ms drifts ${Math.abs(now - issuedAtMs)}ms from now, beyond maxEvidenceClockSkewMs=${bound} — fail closed`,
+      )
+    }
+  }
   const isDid = isDIDCycles(signerDid)
   const isRaw = RAW_HEX_KEY.test(signerDid)
   if (!isDid && !isRaw) {
@@ -823,6 +905,10 @@ async function _resolveEnvelopeAuthority(
   let signingInput: string
   try {
     recomputedId = sha256Hex(canonicalizeJCS({ ...env, evidence_id: '', signature: '' }))
+    // SINGLE verification form (#43 review note): the signing input is the JCS
+    // with `signature` emptied and `evidence_id` LEFT POPULATED. Do not add a
+    // fallback that also verifies over an `evidence_id`-blanked form — that
+    // would stop `evidence_id` from being signature-covered.
     signingInput = canonicalizeJCS({ ...env, signature: '' })
   } catch (err) {
     return _authority('signature_invalid', `envelope canonicalization failed: ${err instanceof Error ? err.message : String(err)}`)
@@ -839,7 +925,7 @@ async function _resolveEnvelopeAuthority(
     // subject is a hash, so the signature is not checkable without the JWK Set.
     if (isRaw) {
       return edVerify(signingInput, signature, signerDid)
-        ? _authority('binding_only', 'signature valid against the named raw-hex signer; JWKS authority not resolved (no resolver)')
+        ? _verified('binding_only', signerDid, options, { reason: 'signature valid against the named raw-hex signer; JWKS authority not resolved (no resolver)' })
         : _authority('signature_invalid', 'signature did not verify against the named raw-hex signer')
     }
     return _authority('signer_authority_failed', 'did:cycles authority requires a key resolver; signature not checkable without the JWK Set')
@@ -866,7 +952,7 @@ async function _resolveEnvelopeAuthority(
   if (!edVerify(signingInput, signature, resolution.publicKeyHex)) {
     return _authority('signature_invalid', 'envelope signature did not verify under the resolved key')
   }
-  return { disposition: 'authentic', resolvedKid: resolution.kid }
+  return _verified('authentic', signerDid, options, { resolvedKid: resolution.kid })
 }
 
 async function _verifyWithEvidence(

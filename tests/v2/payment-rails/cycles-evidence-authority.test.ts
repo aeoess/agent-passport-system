@@ -225,3 +225,120 @@ describe('CyclesEvidence authority: did:cycles signer (hash-binding, path server
     assert.equal(res.disposition, 'signer_authority_failed')
   })
 })
+
+// ── Verified signer identity surfaced on authentic / binding_only (#43) ──
+describe('CyclesEvidence authority: signerDid surfacing', () => {
+  const SIGNER = 'ec52b49b81eb29ef6f62947cade245c715bf943b7ef2a5f2789288574466fc43'
+
+  it('authentic surfaces the verified signerDid alongside resolvedKid', async () => {
+    const res = await verifyCyclesEvidenceSignerAuthority(load('02-reserve-allow.json'), {
+      cyclesKeyResolver: resolverServing(JWKS),
+    })
+    assert.equal(res.disposition, 'authentic', res.reason)
+    assert.equal(res.signerDid, SIGNER)
+    assert.equal(res.resolvedKid, (JWKS.keys as Array<{ kid: string }>)[0].kid)
+  })
+
+  it('binding_only surfaces the verified signerDid (identity, not endorsement)', async () => {
+    const res = await verifyCyclesEvidenceSignerAuthority(load('02-reserve-allow.json'), {})
+    assert.equal(res.disposition, 'binding_only')
+    assert.equal(res.signerDid, SIGNER)
+  })
+
+  it('non-verified dispositions carry no signerDid', async () => {
+    const e = load('02-reserve-allow.json')
+    e.evidence_id = '0'.repeat(64) // tamper → signature_invalid before any sig check passes
+    const res = await verifyCyclesEvidenceSignerAuthority(e, { cyclesKeyResolver: resolverServing(JWKS) })
+    assert.equal(res.disposition, 'signature_invalid')
+    assert.equal(res.signerDid, undefined)
+  })
+})
+
+// ── expectedEvidenceSigner pin: fail closed on mismatch (#43) ──
+describe('CyclesEvidence authority: expectedEvidenceSigner pin', () => {
+  const SIGNER = 'ec52b49b81eb29ef6f62947cade245c715bf943b7ef2a5f2789288574466fc43'
+  const OTHER = 'f'.repeat(64)
+
+  it('pin matches → authentic stands', async () => {
+    const res = await verifyCyclesEvidenceSignerAuthority(load('02-reserve-allow.json'), {
+      cyclesKeyResolver: resolverServing(JWKS),
+      expectedEvidenceSigner: SIGNER,
+    })
+    assert.equal(res.disposition, 'authentic', res.reason)
+  })
+
+  it('pin mismatches an otherwise authentic envelope → signer_authority_failed (fail closed)', async () => {
+    const res = await verifyCyclesEvidenceSignerAuthority(load('02-reserve-allow.json'), {
+      cyclesKeyResolver: resolverServing(JWKS),
+      expectedEvidenceSigner: OTHER,
+    })
+    assert.equal(res.disposition, 'signer_authority_failed')
+  })
+
+  it('pin mismatches a binding_only envelope → signer_authority_failed (fail closed)', async () => {
+    const res = await verifyCyclesEvidenceSignerAuthority(load('02-reserve-allow.json'), {
+      expectedEvidenceSigner: OTHER,
+    })
+    assert.equal(res.disposition, 'signer_authority_failed')
+  })
+
+  it('empty-string pin is honored (presence, not truthiness) → signer_authority_failed', async () => {
+    // A supplied-but-empty pin can never equal a non-empty signer_did; it must
+    // fail closed, not be treated as "no pin".
+    const res = await verifyCyclesEvidenceSignerAuthority(load('02-reserve-allow.json'), {
+      cyclesKeyResolver: resolverServing(JWKS),
+      expectedEvidenceSigner: '',
+    })
+    assert.equal(res.disposition, 'signer_authority_failed')
+  })
+})
+
+// ── maxEvidenceClockSkewMs: opt-in freshness bound (#43 defense-in-depth) ──
+describe('CyclesEvidence authority: maxEvidenceClockSkewMs drift bound', () => {
+  const ISSUED = 1810000000100 // 02-reserve-allow.json issued_at_ms
+
+  it('issued_at_ms within the bound → authentic (bound does not interfere)', async () => {
+    const res = await verifyCyclesEvidenceSignerAuthority(load('02-reserve-allow.json'), {
+      cyclesKeyResolver: resolverServing(JWKS),
+      now: new Date(ISSUED + 30_000),
+      maxEvidenceClockSkewMs: 60_000,
+    })
+    assert.equal(res.disposition, 'authentic', res.reason)
+  })
+
+  it('issued_at_ms beyond the bound → signer_authority_failed, before key resolution', async () => {
+    const res = await verifyCyclesEvidenceSignerAuthority(load('02-reserve-allow.json'), {
+      cyclesKeyResolver: resolverServing(JWKS),
+      now: new Date(ISSUED + 600_000), // 10 min drift
+      maxEvidenceClockSkewMs: 60_000,
+    })
+    assert.equal(res.disposition, 'signer_authority_failed')
+  })
+
+  it('backdated issued_at_ms beyond the bound → signer_authority_failed (both directions)', async () => {
+    const res = await verifyCyclesEvidenceSignerAuthority(load('02-reserve-allow.json'), {
+      cyclesKeyResolver: resolverServing(JWKS),
+      now: new Date(ISSUED - 600_000),
+      maxEvidenceClockSkewMs: 60_000,
+    })
+    assert.equal(res.disposition, 'signer_authority_failed')
+  })
+
+  it('NaN bound → signer_authority_failed (degenerate config fails closed, never skips)', async () => {
+    const res = await verifyCyclesEvidenceSignerAuthority(load('02-reserve-allow.json'), {
+      cyclesKeyResolver: resolverServing(JWKS),
+      now: new Date(ISSUED),
+      maxEvidenceClockSkewMs: NaN,
+    })
+    assert.equal(res.disposition, 'signer_authority_failed')
+  })
+
+  it('invalid now Date → signer_authority_failed (non-finite clock fails closed)', async () => {
+    const res = await verifyCyclesEvidenceSignerAuthority(load('02-reserve-allow.json'), {
+      cyclesKeyResolver: resolverServing(JWKS),
+      now: new Date('not-a-date'),
+      maxEvidenceClockSkewMs: 60_000,
+    })
+    assert.equal(res.disposition, 'signer_authority_failed')
+  })
+})
