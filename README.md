@@ -227,7 +227,7 @@ The composition contract specifies how a verifier MUST cross-check per-request s
 
 ## Numbers
 
-3,842 tests. 8 protocol layers. Framework adapters for CrewAI, LangChain, ADK, A2A, MCP, OpenShell, IBAC, Gonka. Gateway evaluation under 2ms. Zero heavy dependencies. Apache-2.0.
+3,881 tests. 8 protocol layers. Framework adapters for CrewAI, LangChain, ADK, A2A, MCP, OpenShell, IBAC, Gonka. Gateway evaluation under 2ms. Zero heavy dependencies. Apache-2.0.
 
 The test count is one number derived from the suite, not three guesses. The badge above, this section, and the `package.json` description all carry the same `3,791`, which is the `tests` total reported by `npm test`. When the suite grows, re-run `npm test`, read the `tests` line, and update all three to match.
 
