@@ -99,7 +99,7 @@ const delegation = createDelegation({ delegatedBy: principal.publicKey, delegate
 const valid = verifyDelegation(delegation, principal.publicKey)
 ```
 
-103 modules. 2,764 tests. 132 MCP tools. Apache-2.0.
+107 modules. 3,881 tests. 150 MCP tools. Apache-2.0.
 
 Build your thing on top. Don't rebuild what's underneath.
 

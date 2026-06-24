@@ -49,10 +49,10 @@ This skill tracks the protocol. It is version-bumped in `_meta.json` on the same
 ## Key facts
 
 - Policy evaluation under 2ms, 14 constraint dimensions per action
-- 2,884 conformance tests
+- 3,881 conformance tests
 - 150 MCP tools expose the full protocol surface; the `essential` profile is the default
 - 8 papers, all with Zenodo DOIs
-- SDK 2.6.0-alpha.3 on npm (alpha tag), MCP 3.2.0, Python 2.4.0a2 on PyPI
+- SDK 2.7.0 on npm (alpha tag), MCP 3.2.2, Python 2.4.0a3 on PyPI
 - Apache-2.0
 
 ## Links

@@ -2,7 +2,7 @@
 
 [![npm version](https://img.shields.io/npm/v/agent-passport-system)](https://www.npmjs.com/package/agent-passport-system)
 [![license](https://img.shields.io/npm/l/agent-passport-system)](https://github.com/aeoess/agent-passport-system/blob/main/LICENSE)
-[![tests](https://img.shields.io/badge/tests-3791%20passing-brightgreen)](https://github.com/aeoess/agent-passport-system)
+[![tests](https://img.shields.io/badge/tests-3881%20passing-brightgreen)](https://github.com/aeoess/agent-passport-system)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18749779.svg)](https://doi.org/10.5281/zenodo.18749779)
 
 > **For AI agents:** visit [aeoess.com/llms.txt](https://aeoess.com/llms.txt) for machine-readable docs.
@@ -30,7 +30,7 @@ Also implemented in [Python](https://pypi.org/project/agent-passport-system/) an
 
 ## Quick Start
 
-Lead with the curated essentials. `agent-passport-system/core` exposes the ~25 functions that 90% of integrations need: identity, delegation, enforcement, commerce, reputation, key management. The full `agent-passport-system` root import is unchanged and backward compatible: pull from it when Core does not cover your case.
+Lead with the curated essentials. `agent-passport-system/core` exposes the 24 functions that 90% of integrations need: identity, delegation, enforcement, commerce, reputation, key management. The full `agent-passport-system` root import is unchanged and backward compatible: pull from it when Core does not cover your case.
 
 ```typescript
 import {
@@ -38,7 +38,7 @@ import {
   evaluateIntent, commercePreflight, generateKeyPair
 } from 'agent-passport-system/core'
 
-// Full 936-export API still available. Use when Core does not cover your case.
+// Full 925-export API still available. Use when Core does not cover your case.
 // import { ... } from 'agent-passport-system'
 ```
 
@@ -229,7 +229,7 @@ The composition contract specifies how a verifier MUST cross-check per-request s
 
 3,881 tests. 8 protocol layers. Framework adapters for CrewAI, LangChain, ADK, A2A, MCP, OpenShell, IBAC, Gonka. Gateway evaluation under 2ms. Zero heavy dependencies. Apache-2.0.
 
-The test count is one number derived from the suite, not three guesses. The badge above, this section, and the `package.json` description all carry the same `3,791`, which is the `tests` total reported by `npm test`. When the suite grows, re-run `npm test`, read the `tests` line, and update all three to match.
+The test count is one number derived from the suite, not three guesses. The badge above, this section, and the `package.json` description all carry the same `3,881`, which is the `tests` total reported by `npm test`. When the suite grows, re-run `npm test`, read the `tests` line, and update all three to match.
 
 ## Papers
 

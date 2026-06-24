@@ -11,7 +11,7 @@ Thanks for your interest in contributing to the Agent Passport System! This proj
 
 ## Development
 
-The SDK is organized into 8 protocol layers plus 35 v2 constitutional modules. See `ARCHITECTURE.md` for the full layer-to-file-to-test mapping.
+The SDK is organized into 8 protocol layers plus 23 v2 constitutional modules. See `ARCHITECTURE.md` for the full layer-to-file-to-test mapping.
 
 ### Running Tests
 
@@ -19,7 +19,7 @@ The SDK is organized into 8 protocol layers plus 35 v2 constitutional modules. S
 npm test
 ```
 
-All 2,763 tests across 714 suites (1 skipped) must pass before submitting a PR. TypeScript strict mode must compile clean.
+All 3,881 tests across 714 suites (3 skipped) must pass before submitting a PR. TypeScript strict mode must compile clean.
 
 ### Code Style
 
