@@ -146,7 +146,7 @@ import {
 | IBAC/Cedar | `governIBACIntent()` | Cedar/OPA policy tuples |
 | A2A | `passportToA2ACard()` | Agent Card ↔ passport bridge |
 | Stripe | `governMPPPayment()` | Stripe agent payments |
-| Composio | `governComposioAction()` | 250+ tool integrations |
+| Composio | `governComposioAction()` | catalog of 250+ tool targets (subject to the upstream Composio registry and local configuration) |
 | Gonka | `governGonkaInference()` | Decentralized GPU compute |
 
 ## Programmatic API
@@ -179,7 +179,7 @@ Grade travels with the passport. Any consumer reads it without understanding sco
 - **SDK `/core` subpath**: 24 curated functions for 90% of integrations
 - **MCP `essential` profile**: 20 tools by default (identity, delegation, enforcement, commerce, reputation)
 - **Policy eval <2ms**, 403 ops/sec, 14 constraint dimensions
-- **3,881 tests** including 50 adversarial attack scenarios
+- **3,881 tests** including 38 adversarial scenarios. These are a developer-authored internal evaluation, not an independent red-team or neutral third-party adversarial harness.
 - **Zero heavy dependencies**: Node.js crypto + uuid only
 - **Apache-2.0** license
 - *Full surface area: 107 modules, 150 MCP tools, available under `APS_PROFILE=full` and the root `agent-passport-system` import.*

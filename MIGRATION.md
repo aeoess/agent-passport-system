@@ -200,7 +200,7 @@ import { createIntentNetwork, searchMatches } from 'agent-passport-system'
 import { createIntentNetwork, searchMatches } from '@aeoess/gateway'
 ```
 
-#### EU AI Act compliance — `classifyRisk`, `mapArticles`, `generateTransparencyDisclosure`, `generateComplianceProfile`, `identifyGaps`, `generateComplianceReport`
+#### EU AI Act mapping: `classifyRisk`, `mapArticles`, `generateTransparencyDisclosure`, `generateComplianceProfile`, `identifyGaps`, `generateComplianceReport`
 
 Reason: compliance automation is gateway product, not protocol.
 

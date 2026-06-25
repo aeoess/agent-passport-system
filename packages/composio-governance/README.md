@@ -1,6 +1,6 @@
 # @aeoess/composio-governance
 
-**Delegation-scoped authorization for 250+ tool integrations.**
+**Delegation-scoped authorization over the Composio adapter's catalog of 250+ tool targets (subject to the upstream Composio registry and local configuration).**
 
 Composio handles authentication and connectivity. APS handles who authorized which tool, within what scope, and produces the audit trail. Neither replaces the other.
 
@@ -70,7 +70,7 @@ const governed = governComposioAction({
 | Tool authorization | APS (delegation scope) |
 | Destructive action gating | APS (verb analysis) |
 | Audit trail | APS (signed receipts) |
-| Tool connectivity | Composio (250+ integrations) |
+| Tool connectivity | Composio (catalog of 250+ tool targets, subject to the upstream registry) |
 | OAuth management | Composio (managed auth) |
 
 See also: [@aeoess/stripe-governance](../stripe-governance/) for payment governance.

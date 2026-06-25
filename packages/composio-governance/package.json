@@ -1,7 +1,7 @@
 {
   "name": "@aeoess/composio-governance",
   "version": "0.1.0",
-  "description": "APS governance layer for Composio tool execution — delegation-scoped authorization for 250+ integrations",
+  "description": "APS governance layer for Composio tool execution: delegation-scoped authorization over the Composio adapter's catalog of 250+ tool targets (subject to the upstream Composio registry and local configuration)",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

@@ -195,7 +195,7 @@ Proposed by [@piiiico](https://github.com/piiiico) on the a2aproject/A2A governa
 
 Pick what you need. `import from 'agent-passport-system'` for the full API.
 
-Coordination (task lifecycle with 9-state machine), EU AI Act compliance (signed evidence packets), framework adapters (CrewAI, LangChain, Google ADK, A2A, MCP), bilateral receipts, execution attestation, DID resolution, data lifecycle (access receipts, derivation tracking, consent revocation).
+Coordination (task lifecycle with 9-state machine), EU AI Act mapping support through signed evidence packets for accountability and audit workflows, framework adapters (CrewAI, LangChain, Google ADK, A2A, MCP), bilateral receipts, execution attestation, DID resolution, data lifecycle (access receipts, derivation tracking, consent revocation).
 
 ## Research Primitives
 
