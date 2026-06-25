@@ -287,7 +287,7 @@ out.splice(19, 0,
       reconciled_correlation_ids: [],
     },
     expected: { orphans: [] },
-    notes: 'scope filter proves no orphan; validated by the gateway completeness layer',
+    notes: 'scope filter shows no in-scope orphan; validated by the gateway completeness layer',
   },
 )
 

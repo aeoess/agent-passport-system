@@ -55,8 +55,8 @@ external effect, and procedural regularity. We do not certify the correctness of
 judgment. `judgment_correctness` is always `not_claimed`.
 
 A transparency anchor provides non-equivocation, not truth (it is SCITT-shaped, per
-draft-ietf-scitt-architecture). It proves the log did not show different histories to different
-parties; it does not prove the logged statement is true.
+draft-ietf-scitt-architecture). It demonstrates non-equivocation: the log did not show different
+histories to different parties; it does not establish that the logged statement is true.
 
 ## Honest scope of v0
 
