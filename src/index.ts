@@ -1128,6 +1128,12 @@ export * from './v2/index.js'
 // ── v2 primitives (explicit re-exports for public API discoverability) ──
 // These are protocol primitives — verification and gating logic that
 // downstream integrators (including the gateway) compose on top of.
+
+// APS Regulated Action Profile v0 (Reconciled Action Attestation). Exposed as a single namespace
+// to avoid generic-name collisions across this barrel (ActionReceipt, AuthorityRef, Disposition,
+// VerificationContext). Use RegulatedActionV0.verifyRegulatedAction etc. (AP-3 explicit block.)
+export { RegulatedActionV0 } from './v2/index.js'
+
 export {
   verifyOnAccept, evaluateCredentialCheck, resolveCheckMode,
 } from './v2/credential-check-policy/index.js'

@@ -12,7 +12,7 @@
 # Run: python3 conformance/regulated-action/v0/verify.py
 
 import json, hashlib, os, sys
-from datetime import datetime
+from datetime import datetime, timezone
 
 # ── vendored Ed25519 verify (RFC 8032 reference, public domain) ──
 _p = 2 ** 255 - 19
@@ -113,8 +113,14 @@ RES_VALID_TYPES = {"native_resource_signed", "boundary_attested"}
 RES_VALID_STATUS = {"accepted", "settled"}
 
 def iso_ms(s):
+    # Parse an ISO-8601 timestamp to epoch milliseconds. A naive (tz-less) value, e.g. a bare
+    # date, is treated as UTC to match the TS verifier (Date.parse interprets it as UTC) and to
+    # stay deterministic across machine time zones.
     try:
-        return datetime.fromisoformat(s.replace("Z", "+00:00")).timestamp() * 1000.0
+        dt = datetime.fromisoformat(s.replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.timestamp() * 1000.0
     except Exception:
         return None
 
