@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.8.0
+
+### Added
+- **APS Regulated Action Profile v0** (`src/v2/regulated-action/`): a profile for regulated agent actions (action class rank >= 3) with a deterministic, stateless verifier and a typed receipt (`RegulatedActionReceiptV0`). The verifier counts independent trust domains rather than signatures: it returns `reconciled` or `regulator_grade_for_class` only when a pre-committed intent reconciles against two anchors outside the operator trust domain (the IdP authority and the resource system of record), with `domains >= 2`, the resource confirmation validated against an independently registered key, and temporal ordering anchored before execution. `judgment_correctness` is always emitted as `not_claimed`. Exposed as `RegulatedActionV0` via the barrel and as the `agent-passport verify-regulated` CLI subcommand.
+- **Conformance vectors** (`conformance/regulated-action/v0/`): 33 vectors pinning every disposition guard, with a TypeScript runner and an independent pure-stdlib Python runner (vendored RFC 8032 Ed25519 and RFC 8785 JCS) that agree byte for byte.
+- The receipt type makes raw chain-of-thought unrepresentable by construction; `authority_ref` is a single scalar anchor.
+
+### Notes
+- The profile is a verifier and receipt format. The reference build runs its boundary attestation node at the weak level, so an end-to-end honest run reports `intent_precommitted`; `reconciled` requires a deployment whose boundary attestation node is a separate principal. Receiver-attested receipts, intent pre-commitment, and bilateral co-signing are prior art; the contribution here is the composition of an external IdP authority anchor with a verifier-computed trust-domain finality gate.
+
 ## 2.6.0-alpha.8
 - feat(payment-rails/cycles): optional authority_state_at_admission snapshot on the permit receipt (#41)
 
