@@ -186,7 +186,11 @@ export interface VerificationContext {
   gateway_key_id?: string
   // Transparency log roots (log_id -> root hash) for inclusion-proof verification.
   registered_log_roots: Record<string, string>
-  allowed_clock_skew_ms: number
+  // RESERVED, NOT applied by the v0 verifier. Temporal ordering is a caller-supplied boolean
+  // (anchor_orders_intent_before_resource) and authority freshness uses exact compares
+  // (issued_at <= reserved_ts, expires_at >= submitted_ts), so v0 applies no skew tolerance.
+  // Kept for forward compatibility; a future profile version may apply it. Optional.
+  allowed_clock_skew_ms?: number
   // Anchor and submission timestamps supplied by the caller (no clock read here).
   reserved_ts: number
   submitted_ts: number
