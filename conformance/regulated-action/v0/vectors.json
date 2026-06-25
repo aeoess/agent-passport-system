@@ -1,0 +1,3684 @@
+{
+  "profile": "aps-regulated-action-v0",
+  "description": "APS Regulated Action Profile v0 conformance vectors. 31 verifier-surface vectors exercise the deterministic disposition function (A2); 2 completeness-surface vectors (V20/V21) are validated by the private gateway completeness layer. The set only grows.",
+  "canonical_truth_table": "RAPV0-FROZEN-CONTRACT.md section B (amended guard order). The verifier returns judgment_correctness: not_claimed for every vector.",
+  "count": 33,
+  "verifier_vector_count": 31,
+  "vectors": [
+    {
+      "id": "V01",
+      "scenario": "operator-only (agent sig only), no authority, no resource",
+      "surface": "verifier",
+      "input_receipt": {
+        "profile": "aps-regulated-action-v0",
+        "receipt_id": "r-V01",
+        "action_class": "financial_movement",
+        "actor_signature": {
+          "alg": "ed25519",
+          "key_id": "agent-key-1",
+          "sig": "3ba55b6b7e2b94334ca85ca83356f8431a395d016518cc44229f6929abc3319807ddddf669d9136d2758d960ede61df6163161e31af5c231d01d886973e41708"
+        }
+      },
+      "verification_context": {
+        "idp_keyset": {
+          "https://idp.example.com": "e035f9e28d89b43aa032ef33ec60fb7f11c74f06fb0827c5bf3710624eab3058"
+        },
+        "operator_anchored_idp_copy": {
+          "https://idp.example.com": "1c61049fad5238ee23d9dacbaccdd1c026e9e658fd7b7851553942c077ffc7c9"
+        },
+        "registered_resource_keys": {
+          "res-bank-1": {
+            "publicKey": "3ffa4aa275e27ece22135f0933c6e83e79ecfdab2a15546491726dbe7b42a142",
+            "registered_by_operator": false
+          },
+          "res-gw-1": {
+            "publicKey": "53f9cc8f2c8b0ed9a9d7a0afdb0aad59ccee370a8b0cfee0fc0915ebf9b6e25e",
+            "registered_by_operator": true
+          }
+        },
+        "operator_domain_registry": {
+          "agent-key-1": {
+            "publicKey": "92fd0ae28362180fc6f8c6d06d3da9a3045b9943b5064b4da8965670ff0c860d",
+            "identity": "op-1"
+          },
+          "gw-key-1": {
+            "publicKey": "c3b25641a27b0e31bbb388308f2c3e30c35292e37b1f52294317fbea5e6f1ad4",
+            "identity": "op-1"
+          },
+          "op2-key-1": {
+            "publicKey": "f7c4d0cf9ae62bdb90d0b0048aa2566b753a213ab42cebffbbd637cc3a2b66bf",
+            "identity": "op-2"
+          }
+        },
+        "operator_identity_id": "op-1",
+        "gateway_key_id": "gw-key-1",
+        "registered_log_roots": {},
+        "allowed_clock_skew_ms": 5000,
+        "reserved_ts": 1700000000000,
+        "submitted_ts": 1700000060000,
+        "max_authority_execution_window_ms": 900000
+      },
+      "expected": {
+        "disposition": "self_attested",
+        "violations": [
+          "self_attested"
+        ],
+        "trust_domain_separation": {
+          "computed_domains": 0,
+          "idp_counts": false,
+          "resource_counts": false,
+          "operator_identity": "op-1",
+          "separation_ok": true
+        }
+      }
+    },
+    {
+      "id": "V02",
+      "scenario": "authority_ref present, signature invalid, no resource",
+      "surface": "verifier",
+      "input_receipt": {
+        "profile": "aps-regulated-action-v0",
+        "receipt_id": "r-V02",
+        "action_class": "financial_movement",
+        "actor_signature": {
+          "alg": "ed25519",
+          "key_id": "agent-key-1",
+          "sig": "d2e78b66d3fa77c34977acec979b85c9d4db21c306469eac237a973df5f789269663ed125c5c3e46ae748e9532407a962dd3422f24356c4b6e50f5e7fa97de01"
+        },
+        "authority_ref": {
+          "type": "id_jag",
+          "issuer": "https://idp.example.com",
+          "subject": "agent:bot-1",
+          "audience": "bank-api",
+          "scope_hash": "3f398fa58fa5acb243365bc87016de500610cf9a5e4af29248fa7d2e41eef222",
+          "issued_at": "2023-11-14T22:13:15.000Z",
+          "expires_at": "2023-11-14T23:14:20.000Z",
+          "assertion_hash": "82710890562b239952d61cf762a6f0048b11b0535d2590dfaaf22a935c49b6af",
+          "jti": "jti-V02",
+          "assertion_sig": "cc830cb1500aff6d1690039c2be40a0b216b7f0479597f70c7e94786a334d5a075e2c5e3bf0b3d585cff1cde424a28584f825d3f3c05feb3f88c9502d9649d09"
+        }
+      },
+      "verification_context": {
+        "idp_keyset": {
+          "https://idp.example.com": "e035f9e28d89b43aa032ef33ec60fb7f11c74f06fb0827c5bf3710624eab3058"
+        },
+        "operator_anchored_idp_copy": {
+          "https://idp.example.com": "1c61049fad5238ee23d9dacbaccdd1c026e9e658fd7b7851553942c077ffc7c9"
+        },
+        "registered_resource_keys": {
+          "res-bank-1": {
+            "publicKey": "3ffa4aa275e27ece22135f0933c6e83e79ecfdab2a15546491726dbe7b42a142",
+            "registered_by_operator": false
+          },
+          "res-gw-1": {
+            "publicKey": "53f9cc8f2c8b0ed9a9d7a0afdb0aad59ccee370a8b0cfee0fc0915ebf9b6e25e",
+            "registered_by_operator": true
+          }
+        },
+        "operator_domain_registry": {
+          "agent-key-1": {
+            "publicKey": "92fd0ae28362180fc6f8c6d06d3da9a3045b9943b5064b4da8965670ff0c860d",
+            "identity": "op-1"
+          },
+          "gw-key-1": {
+            "publicKey": "c3b25641a27b0e31bbb388308f2c3e30c35292e37b1f52294317fbea5e6f1ad4",
+            "identity": "op-1"
+          },
+          "op2-key-1": {
+            "publicKey": "f7c4d0cf9ae62bdb90d0b0048aa2566b753a213ab42cebffbbd637cc3a2b66bf",
+            "identity": "op-2"
+          }
+        },
+        "operator_identity_id": "op-1",
+        "gateway_key_id": "gw-key-1",
+        "registered_log_roots": {},
+        "allowed_clock_skew_ms": 5000,
+        "reserved_ts": 1700000000000,
+        "submitted_ts": 1700000060000,
+        "max_authority_execution_window_ms": 900000
+      },
+      "expected": {
+        "disposition": "authority_invalid",
+        "violations": [
+          "authority_invalid"
+        ],
+        "trust_domain_separation": {
+          "computed_domains": 0,
+          "idp_counts": false,
+          "resource_counts": false,
+          "operator_identity": "op-1",
+          "separation_ok": true
+        }
+      }
+    },
+    {
+      "id": "V03",
+      "scenario": "authority expired before reserved, no resource",
+      "surface": "verifier",
+      "input_receipt": {
+        "profile": "aps-regulated-action-v0",
+        "receipt_id": "r-V03",
+        "action_class": "financial_movement",
+        "actor_signature": {
+          "alg": "ed25519",
+          "key_id": "agent-key-1",
+          "sig": "5f9a4fffb890d13f7e2eae02fc39d3ec656c88ec1c70233039a9a3a515889cc0dc91fd6d579819cc9a33aac977a301a554e95b99cfbd2c5386ac089d1bb0fc03"
+        },
+        "authority_ref": {
+          "type": "id_jag",
+          "issuer": "https://idp.example.com",
+          "subject": "agent:bot-1",
+          "audience": "bank-api",
+          "scope_hash": "8bd9463f42755d5f075ffb4cbbaac597b9568083267b91de5e713d7c5475711b",
+          "issued_at": "2023-11-14T22:13:15.000Z",
+          "expires_at": "2023-11-14T22:13:19.000Z",
+          "assertion_hash": "d4146d82fa8b0c5399bc7b58c0ea6f9b6645084d16282e74ad5b688cf4f375f9",
+          "jti": "jti-V03",
+          "assertion_sig": "ddd0b1ef76fd963f60f1ba6f6a5b14ef82034bb79edb8fab71af52832cc88e01f38944a743d817649a58fd175304cac2f07ab36c912f945024c351775b21a602"
+        }
+      },
+      "verification_context": {
+        "idp_keyset": {
+          "https://idp.example.com": "e035f9e28d89b43aa032ef33ec60fb7f11c74f06fb0827c5bf3710624eab3058"
+        },
+        "operator_anchored_idp_copy": {
+          "https://idp.example.com": "1c61049fad5238ee23d9dacbaccdd1c026e9e658fd7b7851553942c077ffc7c9"
+        },
+        "registered_resource_keys": {
+          "res-bank-1": {
+            "publicKey": "3ffa4aa275e27ece22135f0933c6e83e79ecfdab2a15546491726dbe7b42a142",
+            "registered_by_operator": false
+          },
+          "res-gw-1": {
+            "publicKey": "53f9cc8f2c8b0ed9a9d7a0afdb0aad59ccee370a8b0cfee0fc0915ebf9b6e25e",
+            "registered_by_operator": true
+          }
+        },
+        "operator_domain_registry": {
+          "agent-key-1": {
+            "publicKey": "92fd0ae28362180fc6f8c6d06d3da9a3045b9943b5064b4da8965670ff0c860d",
+            "identity": "op-1"
+          },
+          "gw-key-1": {
+            "publicKey": "c3b25641a27b0e31bbb388308f2c3e30c35292e37b1f52294317fbea5e6f1ad4",
+            "identity": "op-1"
+          },
+          "op2-key-1": {
+            "publicKey": "f7c4d0cf9ae62bdb90d0b0048aa2566b753a213ab42cebffbbd637cc3a2b66bf",
+            "identity": "op-2"
+          }
+        },
+        "operator_identity_id": "op-1",
+        "gateway_key_id": "gw-key-1",
+        "registered_log_roots": {},
+        "allowed_clock_skew_ms": 5000,
+        "reserved_ts": 1700000000000,
+        "submitted_ts": 1700000060000,
+        "max_authority_execution_window_ms": 900000
+      },
+      "expected": {
+        "disposition": "authority_invalid",
+        "violations": [
+          "authority_invalid"
+        ],
+        "trust_domain_separation": {
+          "computed_domains": 0,
+          "idp_counts": false,
+          "resource_counts": false,
+          "operator_identity": "op-1",
+          "separation_ok": true
+        }
+      }
+    },
+    {
+      "id": "V04",
+      "scenario": "authority valid, no intent",
+      "surface": "verifier",
+      "input_receipt": {
+        "profile": "aps-regulated-action-v0",
+        "receipt_id": "r-V04",
+        "action_class": "financial_movement",
+        "actor_signature": {
+          "alg": "ed25519",
+          "key_id": "agent-key-1",
+          "sig": "a70964f6ffdf1c842efa675bf72d8aad6cc9a5be9f192d56e8774bbd0411c795edb8219aefb795d6968f6a3a3f75aa7203f779c3e0a2cce59f9169cb29f0540a"
+        },
+        "authority_ref": {
+          "type": "id_jag",
+          "issuer": "https://idp.example.com",
+          "subject": "agent:bot-1",
+          "audience": "bank-api",
+          "scope_hash": "7b8d93cd0b8555220609b009aa29b993f8cb8324940255fa3b82a43dd336cbc1",
+          "issued_at": "2023-11-14T22:13:15.000Z",
+          "expires_at": "2023-11-14T23:14:20.000Z",
+          "assertion_hash": "3b40bb56c0600dcd46b9b3c272f733efdfad8b1e18564096403daf37ff9b1709",
+          "jti": "jti-V04",
+          "assertion_sig": "0059028943608d220668927702b2f21f0b38dc0b4417f5f9f4eee9766db3f9e0e7e5319d1ed132b4c20e13184a05244f4ea90b4e0e7f1b13b326e562cdd46401"
+        }
+      },
+      "verification_context": {
+        "idp_keyset": {
+          "https://idp.example.com": "e035f9e28d89b43aa032ef33ec60fb7f11c74f06fb0827c5bf3710624eab3058"
+        },
+        "operator_anchored_idp_copy": {
+          "https://idp.example.com": "1c61049fad5238ee23d9dacbaccdd1c026e9e658fd7b7851553942c077ffc7c9"
+        },
+        "registered_resource_keys": {
+          "res-bank-1": {
+            "publicKey": "3ffa4aa275e27ece22135f0933c6e83e79ecfdab2a15546491726dbe7b42a142",
+            "registered_by_operator": false
+          },
+          "res-gw-1": {
+            "publicKey": "53f9cc8f2c8b0ed9a9d7a0afdb0aad59ccee370a8b0cfee0fc0915ebf9b6e25e",
+            "registered_by_operator": true
+          }
+        },
+        "operator_domain_registry": {
+          "agent-key-1": {
+            "publicKey": "92fd0ae28362180fc6f8c6d06d3da9a3045b9943b5064b4da8965670ff0c860d",
+            "identity": "op-1"
+          },
+          "gw-key-1": {
+            "publicKey": "c3b25641a27b0e31bbb388308f2c3e30c35292e37b1f52294317fbea5e6f1ad4",
+            "identity": "op-1"
+          },
+          "op2-key-1": {
+            "publicKey": "f7c4d0cf9ae62bdb90d0b0048aa2566b753a213ab42cebffbbd637cc3a2b66bf",
+            "identity": "op-2"
+          }
+        },
+        "operator_identity_id": "op-1",
+        "gateway_key_id": "gw-key-1",
+        "registered_log_roots": {},
+        "allowed_clock_skew_ms": 5000,
+        "reserved_ts": 1700000000000,
+        "submitted_ts": 1700000060000,
+        "max_authority_execution_window_ms": 900000
+      },
+      "expected": {
+        "disposition": "authority_bound",
+        "violations": [],
+        "trust_domain_separation": {
+          "computed_domains": 1,
+          "idp_counts": true,
+          "resource_counts": false,
+          "operator_identity": "op-1",
+          "separation_ok": true
+        }
+      }
+    },
+    {
+      "id": "V05",
+      "scenario": "authority+intent+policy_allow, no resource confirmation",
+      "surface": "verifier",
+      "input_receipt": {
+        "profile": "aps-regulated-action-v0",
+        "receipt_id": "r-V05",
+        "action_class": "financial_movement",
+        "actor_signature": {
+          "alg": "ed25519",
+          "key_id": "agent-key-1",
+          "sig": "cf189665f651ce50b3b05be0ba0250ef5b488ff1fbefa0cdb6702014e062bfb3e96971c2beb298b77499728bf42518364e9c308579813fef243049f538503605"
+        },
+        "authority_ref": {
+          "type": "id_jag",
+          "issuer": "https://idp.example.com",
+          "subject": "agent:bot-1",
+          "audience": "bank-api",
+          "scope_hash": "7e1adeddf5dcdd345ff796c8345e9d9b4f9e8a1252ec46ce97a93ee351f2a1d4",
+          "issued_at": "2023-11-14T22:13:15.000Z",
+          "expires_at": "2023-11-14T23:14:20.000Z",
+          "assertion_hash": "aef9b6302ab5f01d6e94b0a7469e23e6621982cfac47d31af3b9361bb141fa96",
+          "jti": "jti-V05",
+          "assertion_sig": "59ddb6651bde2c7ee24219d564dd22e8df66567920efd5f625ac836f5a3f897f0db903c668d3a5625b1908b39d35255fd7fc23a2b2ae272323889439465cf105"
+        },
+        "intent_commitment": {
+          "created_before_execution": true,
+          "intent_hash": "06da4f34af4d14da60be4b81a2984e2730037aaa0f447c094590b68b18a4a183",
+          "expected_effect_hash": "6eeab7cd72b1fbae8462a37cef8f0ca2693ba3e5af3509550cdf3d34af00e52b",
+          "gateway_nonce": "nonce-V05",
+          "timestamp_ms": 1700000000000,
+          "scope": "transfer:V05",
+          "signature": "0da47dc622396d092b99f2bed1558a172776bf3be7dc17d62f048e7c2fc5eb116db19ff0e4df81a8a205ebee81ccccfbc74a706d3c212321ab952b25f1fbad02"
+        },
+        "decision_basis_commitment": {
+          "root_hash": "9ec7e7fabf438c24236f2e0e01f50d8567037271adddb76809468a3c3b4f1168",
+          "leaves_schema": [
+            "input_artifact_hashes",
+            "policy_version_hash"
+          ],
+          "raw_chain_of_thought_included": false
+        },
+        "gateway_policy_decision": {
+          "policy_version_hash": "2b4b735c13e9fb7a3204036975ab97748b96064a45b340ce8789d860cc133b8a",
+          "decision": "allow",
+          "action_class_assigned": "financial_movement",
+          "signer": "gw-key-1",
+          "signature": "5cc31e959a437f1c8e0d4846401f2736954ad505c962587b8b792627c7554f9934cda6bbe1c54564684fb58ff7afb76034a2c476bf676170a97fb6e2cdaafe06"
+        },
+        "transparency_ref": {
+          "type": "enterprise_merkle_log",
+          "log_id": "enterprise-log-1",
+          "inclusion_proof": [
+            {
+              "dir": "R",
+              "hash": "16b91fcf42cb4019a291f4f3fa106b4858c1aa98deee9bde287148f23c3f607d"
+            }
+          ],
+          "anchored_at_state": "reserved",
+          "tree_size": 2,
+          "leaf_hash": "bb72b137575a00b524c8351f3fc60d184980bdd4051e16ec4df957368dd38c39"
+        }
+      },
+      "verification_context": {
+        "idp_keyset": {
+          "https://idp.example.com": "e035f9e28d89b43aa032ef33ec60fb7f11c74f06fb0827c5bf3710624eab3058"
+        },
+        "operator_anchored_idp_copy": {
+          "https://idp.example.com": "1c61049fad5238ee23d9dacbaccdd1c026e9e658fd7b7851553942c077ffc7c9"
+        },
+        "registered_resource_keys": {
+          "res-bank-1": {
+            "publicKey": "3ffa4aa275e27ece22135f0933c6e83e79ecfdab2a15546491726dbe7b42a142",
+            "registered_by_operator": false
+          },
+          "res-gw-1": {
+            "publicKey": "53f9cc8f2c8b0ed9a9d7a0afdb0aad59ccee370a8b0cfee0fc0915ebf9b6e25e",
+            "registered_by_operator": true
+          }
+        },
+        "operator_domain_registry": {
+          "agent-key-1": {
+            "publicKey": "92fd0ae28362180fc6f8c6d06d3da9a3045b9943b5064b4da8965670ff0c860d",
+            "identity": "op-1"
+          },
+          "gw-key-1": {
+            "publicKey": "c3b25641a27b0e31bbb388308f2c3e30c35292e37b1f52294317fbea5e6f1ad4",
+            "identity": "op-1"
+          },
+          "op2-key-1": {
+            "publicKey": "f7c4d0cf9ae62bdb90d0b0048aa2566b753a213ab42cebffbbd637cc3a2b66bf",
+            "identity": "op-2"
+          }
+        },
+        "operator_identity_id": "op-1",
+        "gateway_key_id": "gw-key-1",
+        "registered_log_roots": {
+          "enterprise-log-1": "957abd23fcd58ff7b6aa5e64a651e4a4f3503c6026671f3add60ba8a87bf74cd"
+        },
+        "allowed_clock_skew_ms": 5000,
+        "reserved_ts": 1700000000000,
+        "submitted_ts": 1700000060000,
+        "max_authority_execution_window_ms": 900000,
+        "anchor_orders_intent_before_resource": true
+      },
+      "expected": {
+        "disposition": "intent_precommitted",
+        "violations": [],
+        "trust_domain_separation": {
+          "computed_domains": 1,
+          "idp_counts": true,
+          "resource_counts": false,
+          "operator_identity": "op-1",
+          "separation_ok": true
+        }
+      }
+    },
+    {
+      "id": "V06",
+      "scenario": "honest path: two domains, anchor consistent",
+      "surface": "verifier",
+      "input_receipt": {
+        "profile": "aps-regulated-action-v0",
+        "receipt_id": "r-V06",
+        "action_class": "financial_movement",
+        "actor_signature": {
+          "alg": "ed25519",
+          "key_id": "agent-key-1",
+          "sig": "bf65cbba99c3e1487df1466243e770f5d3e7cf3ff879b8732f4f77f689823f395cd33bc892bd20db6218b8023d3d7e109b7d6c1fc8db4a7afeb8f64bd8b7bc0b"
+        },
+        "authority_ref": {
+          "type": "id_jag",
+          "issuer": "https://idp.example.com",
+          "subject": "agent:bot-1",
+          "audience": "bank-api",
+          "scope_hash": "9fec16f6010502ad0407b791d603f7f5011cef29af40a58363b498d62e679c9f",
+          "issued_at": "2023-11-14T22:13:15.000Z",
+          "expires_at": "2023-11-14T23:14:20.000Z",
+          "assertion_hash": "c7dd1a60fa604e517f8a566dfc62e9917385b0d363f74f256a98d60493a03777",
+          "jti": "jti-V06",
+          "assertion_sig": "a8db0c6059e514d0f5de5be6492ace890644d3d398772f0b30b91c5f87403f384122e5131ce0926fd319ae43abcffa923b31e7b32a4509c6db268323acb52404"
+        },
+        "intent_commitment": {
+          "created_before_execution": true,
+          "intent_hash": "8a53ee89a25450f910c98fe45105b537276328d3196453e432216b349970da60",
+          "expected_effect_hash": "09d7765c05751f26fde7c0a7f8e931fcf2fcabc82ea43e18a82bf6cc5924c515",
+          "gateway_nonce": "nonce-V06",
+          "timestamp_ms": 1700000000000,
+          "scope": "transfer:V06",
+          "signature": "0af24fbd45fa727015052d55892149ab5f5f7c0ac0f755f3d81d1fb29f58cb1c87d6a923ff213ce908e527a89579ac95ef5cb2cbeb748b5549c6c2fba203d40f"
+        },
+        "decision_basis_commitment": {
+          "root_hash": "809ab21b05beb7eb864152707003429fd9b3149deae0ac3e9e9aab90552fd9da",
+          "leaves_schema": [
+            "input_artifact_hashes",
+            "policy_version_hash"
+          ],
+          "raw_chain_of_thought_included": false
+        },
+        "gateway_policy_decision": {
+          "policy_version_hash": "3a34097c436268699a276b629cda76fb471a06b7c314b1a41ec492aca7af4b73",
+          "decision": "allow",
+          "action_class_assigned": "financial_movement",
+          "signer": "gw-key-1",
+          "signature": "e2fd636f49987d12f298e401e2a8a0b453cf3fd6b8f3209ad6fbeae08a81f3b1519a2366869cafede904399433c0a322f384fe3b64b0ba965c7da67b35058307"
+        },
+        "resource_confirmation_ref": {
+          "type": "boundary_attested",
+          "resource_transaction_id": "tx-V06",
+          "correlation_id": "corr-V06",
+          "gateway_nonce_echo": "nonce-V06",
+          "realized_effect_hash": "09d7765c05751f26fde7c0a7f8e931fcf2fcabc82ea43e18a82bf6cc5924c515",
+          "realized_effect_provenance": "ban_derived",
+          "status": "settled",
+          "timestamp_ms": 1700000060000,
+          "signer_key_id": "res-bank-1",
+          "signature": "ad559bbf98f21527c3bc2c85d328974eeb9bcb4ce77c75617ff53ca14414c8d37727d2316249df2ceab5db0492831b924b50147eb523a2c004a94e3af271f502"
+        },
+        "transparency_ref": {
+          "type": "enterprise_merkle_log",
+          "log_id": "enterprise-log-1",
+          "inclusion_proof": [
+            {
+              "dir": "R",
+              "hash": "764fa81376c0f851577aedc3828ee7eb60584c3786ed3b2d12981401652bf468"
+            }
+          ],
+          "anchored_at_state": "reserved",
+          "tree_size": 2,
+          "leaf_hash": "7ebed67138ed69c76695efe24884549737b57d96e591a666c84fa9563b657c69"
+        }
+      },
+      "verification_context": {
+        "idp_keyset": {
+          "https://idp.example.com": "e035f9e28d89b43aa032ef33ec60fb7f11c74f06fb0827c5bf3710624eab3058"
+        },
+        "operator_anchored_idp_copy": {
+          "https://idp.example.com": "1c61049fad5238ee23d9dacbaccdd1c026e9e658fd7b7851553942c077ffc7c9"
+        },
+        "registered_resource_keys": {
+          "res-bank-1": {
+            "publicKey": "3ffa4aa275e27ece22135f0933c6e83e79ecfdab2a15546491726dbe7b42a142",
+            "registered_by_operator": false
+          },
+          "res-gw-1": {
+            "publicKey": "53f9cc8f2c8b0ed9a9d7a0afdb0aad59ccee370a8b0cfee0fc0915ebf9b6e25e",
+            "registered_by_operator": true
+          }
+        },
+        "operator_domain_registry": {
+          "agent-key-1": {
+            "publicKey": "92fd0ae28362180fc6f8c6d06d3da9a3045b9943b5064b4da8965670ff0c860d",
+            "identity": "op-1"
+          },
+          "gw-key-1": {
+            "publicKey": "c3b25641a27b0e31bbb388308f2c3e30c35292e37b1f52294317fbea5e6f1ad4",
+            "identity": "op-1"
+          },
+          "op2-key-1": {
+            "publicKey": "f7c4d0cf9ae62bdb90d0b0048aa2566b753a213ab42cebffbbd637cc3a2b66bf",
+            "identity": "op-2"
+          }
+        },
+        "operator_identity_id": "op-1",
+        "gateway_key_id": "gw-key-1",
+        "registered_log_roots": {
+          "enterprise-log-1": "a89221196d18f40b9c5aadea7aead6f07aea3b7c2393f4c0a7ac55acebdfa981"
+        },
+        "allowed_clock_skew_ms": 5000,
+        "reserved_ts": 1700000000000,
+        "submitted_ts": 1700000060000,
+        "max_authority_execution_window_ms": 900000,
+        "anchor_orders_intent_before_resource": true
+      },
+      "expected": {
+        "disposition": "reconciled",
+        "violations": [],
+        "trust_domain_separation": {
+          "computed_domains": 2,
+          "idp_counts": true,
+          "resource_counts": true,
+          "operator_identity": "op-1",
+          "separation_ok": true
+        }
+      }
+    },
+    {
+      "id": "V07",
+      "scenario": "honest path + all per-class fields + noneq",
+      "surface": "verifier",
+      "input_receipt": {
+        "profile": "aps-regulated-action-v0",
+        "receipt_id": "r-V07",
+        "action_class": "financial_movement",
+        "actor_signature": {
+          "alg": "ed25519",
+          "key_id": "agent-key-1",
+          "sig": "3a7e4a1c69e07c2a6538641a7050927d25e014aeb014964805081a85317bce6aa5e05fe1c5a5061330982140a24978a74ddb49e270bf7262a24b65d0cdea360f"
+        },
+        "authority_ref": {
+          "type": "id_jag",
+          "issuer": "https://idp.example.com",
+          "subject": "agent:bot-1",
+          "audience": "bank-api",
+          "scope_hash": "ec7e617bbb57502fa574bdeef81860169264e0b4aed105d5ea3575e49927e931",
+          "issued_at": "2023-11-14T22:13:15.000Z",
+          "expires_at": "2023-11-14T23:14:20.000Z",
+          "assertion_hash": "7ed2fdacdfb7405c383335de1c3e7a4c5bcf6a3989e9720657ea30959ea5d71c",
+          "jti": "jti-V07",
+          "assertion_sig": "2efa5e400738f578afbf5c5d15d163f860ded0e922517f0fc3f49f445bf6fefb0c1e45dce217164bbee00bcf60aa07f0cc26a3c65d37d293e9af5cef1ad79802"
+        },
+        "intent_commitment": {
+          "created_before_execution": true,
+          "intent_hash": "0464604c0a6c72dca3bdb8f036db708bfa22941b43ca1eb9381ef1403af1c2a5",
+          "expected_effect_hash": "9ed1f2cf175a54d7be28247dd200763eac0af6c0232324d7d954d444898f1220",
+          "gateway_nonce": "nonce-V07",
+          "timestamp_ms": 1700000000000,
+          "scope": "transfer:V07",
+          "signature": "1e366afb5b3392cfadbf15e04cb145592709813488a6532f3ea43987ab63fedbc084474a8e1afa8d17b6cb23486f9fa0708b97c751141e538b03f24e7d0d330d"
+        },
+        "decision_basis_commitment": {
+          "root_hash": "ee59203e593240b27c1be1b451a96b146b88e49e15056271bd8227fac5dc073e",
+          "leaves_schema": [
+            "input_artifact_hashes",
+            "policy_version_hash"
+          ],
+          "raw_chain_of_thought_included": false
+        },
+        "gateway_policy_decision": {
+          "policy_version_hash": "767ca368f06c4099e9e070e7e996c00e7804d18ff00f559b2338764978059c98",
+          "decision": "allow",
+          "action_class_assigned": "financial_movement",
+          "signer": "gw-key-1",
+          "signature": "080ffc9d68fc00e627d4b008b9775a1320a684cc58339036ea6806650612643ba6cbab231d90cbe6f939e63670fefcdefcde6b6bee2a9347907ba8f66cc42702"
+        },
+        "resource_confirmation_ref": {
+          "type": "boundary_attested",
+          "resource_transaction_id": "tx-V07",
+          "correlation_id": "corr-V07",
+          "gateway_nonce_echo": "nonce-V07",
+          "realized_effect_hash": "9ed1f2cf175a54d7be28247dd200763eac0af6c0232324d7d954d444898f1220",
+          "realized_effect_provenance": "ban_derived",
+          "status": "settled",
+          "timestamp_ms": 1700000060000,
+          "signer_key_id": "res-bank-1",
+          "signature": "8be3e1e9430db444c878b3641df0800d7b098f783b734ae8ecf82e16f830f15b9977b61493375fa29bf77fea45cedf216dfa68d6cd53eb43c82109c9edb6c30a"
+        },
+        "transparency_ref": {
+          "type": "enterprise_merkle_log",
+          "log_id": "enterprise-log-1",
+          "inclusion_proof": [
+            {
+              "dir": "R",
+              "hash": "9e4e981b6f61e2b05db563ac1a4b42ff1294f013a982242d5e1d49f5f223bab1"
+            }
+          ],
+          "anchored_at_state": "reserved",
+          "tree_size": 2,
+          "leaf_hash": "ce8b6597324e23a6891e235017824b62aa00274f6a18a40316eeec589d249a95"
+        }
+      },
+      "verification_context": {
+        "idp_keyset": {
+          "https://idp.example.com": "e035f9e28d89b43aa032ef33ec60fb7f11c74f06fb0827c5bf3710624eab3058"
+        },
+        "operator_anchored_idp_copy": {
+          "https://idp.example.com": "1c61049fad5238ee23d9dacbaccdd1c026e9e658fd7b7851553942c077ffc7c9"
+        },
+        "registered_resource_keys": {
+          "res-bank-1": {
+            "publicKey": "3ffa4aa275e27ece22135f0933c6e83e79ecfdab2a15546491726dbe7b42a142",
+            "registered_by_operator": false
+          },
+          "res-gw-1": {
+            "publicKey": "53f9cc8f2c8b0ed9a9d7a0afdb0aad59ccee370a8b0cfee0fc0915ebf9b6e25e",
+            "registered_by_operator": true
+          }
+        },
+        "operator_domain_registry": {
+          "agent-key-1": {
+            "publicKey": "92fd0ae28362180fc6f8c6d06d3da9a3045b9943b5064b4da8965670ff0c860d",
+            "identity": "op-1"
+          },
+          "gw-key-1": {
+            "publicKey": "c3b25641a27b0e31bbb388308f2c3e30c35292e37b1f52294317fbea5e6f1ad4",
+            "identity": "op-1"
+          },
+          "op2-key-1": {
+            "publicKey": "f7c4d0cf9ae62bdb90d0b0048aa2566b753a213ab42cebffbbd637cc3a2b66bf",
+            "identity": "op-2"
+          }
+        },
+        "operator_identity_id": "op-1",
+        "gateway_key_id": "gw-key-1",
+        "registered_log_roots": {
+          "enterprise-log-1": "441017cf75ed210a796f8b8a29e792558f49c86dd405789476564d2094793868"
+        },
+        "allowed_clock_skew_ms": 5000,
+        "reserved_ts": 1700000000000,
+        "submitted_ts": 1700000060000,
+        "max_authority_execution_window_ms": 900000,
+        "anchor_orders_intent_before_resource": true,
+        "per_class_required_fields": {
+          "financial_movement": [
+            "authority_ref",
+            "intent_commitment",
+            "gateway_policy_decision",
+            "resource_confirmation_ref",
+            "transparency_ref",
+            "decision_basis_commitment"
+          ]
+        }
+      },
+      "expected": {
+        "disposition": "regulator_grade_for_class",
+        "violations": [],
+        "trust_domain_separation": {
+          "computed_domains": 2,
+          "idp_counts": true,
+          "resource_counts": true,
+          "operator_identity": "op-1",
+          "separation_ok": true
+        }
+      }
+    },
+    {
+      "id": "V08",
+      "scenario": "resource present+valid+matches, anchor MISSING",
+      "surface": "verifier",
+      "input_receipt": {
+        "profile": "aps-regulated-action-v0",
+        "receipt_id": "r-V08",
+        "action_class": "financial_movement",
+        "actor_signature": {
+          "alg": "ed25519",
+          "key_id": "agent-key-1",
+          "sig": "5efaf2c41748a10169e425107b84579fca2a6bb09faf5397f436c894c61b7ce4c2597f123c542fa1b9576cf78d36c3e78fd29ffeedb1eac48c4cc2efc64a660a"
+        },
+        "authority_ref": {
+          "type": "id_jag",
+          "issuer": "https://idp.example.com",
+          "subject": "agent:bot-1",
+          "audience": "bank-api",
+          "scope_hash": "4a29b3bfee650bc81f64ccf5ff5659800a6434ba335bd3e2d9ef6d8ea0e87ce4",
+          "issued_at": "2023-11-14T22:13:15.000Z",
+          "expires_at": "2023-11-14T23:14:20.000Z",
+          "assertion_hash": "4f237e3bf972de37bf53a115e4a5e2b72ea336c0de2012bad60baec10ce614cc",
+          "jti": "jti-V08",
+          "assertion_sig": "50bfcd14a4b4a1c3f6d23a492490a181c500396aa4a3fc08333440d0420ecca2f5f6e15a4b514cfb5da5fe228d5675d37faea7a17db6264cbd727b9478890f09"
+        },
+        "intent_commitment": {
+          "created_before_execution": true,
+          "intent_hash": "2172c19d0e9665da2e926ccbf4771bc60d82f4a56cd49796d13051b14e2217f5",
+          "expected_effect_hash": "c0a2f53bcae7789a35154c47857a7f4d18cb21e06b2944465932541bdca62b0b",
+          "gateway_nonce": "nonce-V08",
+          "timestamp_ms": 1700000000000,
+          "scope": "transfer:V08",
+          "signature": "ad5bf0c76ad44a9609a12956756f0f34456d6f3b0342734f3d9f34a14187046c9e2e0ed6ba3bbe06be0346b335f815eb29a843a66965062494f3ea83dceebb0d"
+        },
+        "decision_basis_commitment": {
+          "root_hash": "a6784239a089dd611891f69880ea94a4c0350d2a7bf176263fff762b88de15c1",
+          "leaves_schema": [
+            "input_artifact_hashes",
+            "policy_version_hash"
+          ],
+          "raw_chain_of_thought_included": false
+        },
+        "gateway_policy_decision": {
+          "policy_version_hash": "031fe38b0c662faf37fbef70179d0bccbd41dcc9808d92b827b20eb0088baa11",
+          "decision": "allow",
+          "action_class_assigned": "financial_movement",
+          "signer": "gw-key-1",
+          "signature": "c583922d02212bee24cc63b868a3af103e394c985abe4a98d43883cd3ca7f008d736227c8d00cef055407e9b10f07275df59c47d8af4869add157c3a26fe2809"
+        },
+        "resource_confirmation_ref": {
+          "type": "boundary_attested",
+          "resource_transaction_id": "tx-V08",
+          "correlation_id": "corr-V08",
+          "gateway_nonce_echo": "nonce-V08",
+          "realized_effect_hash": "c0a2f53bcae7789a35154c47857a7f4d18cb21e06b2944465932541bdca62b0b",
+          "realized_effect_provenance": "ban_derived",
+          "status": "settled",
+          "timestamp_ms": 1700000060000,
+          "signer_key_id": "res-bank-1",
+          "signature": "442e22b7e906ae5a5909e8a207f3ffca16ef676611fb2f352f1e3da35c53d5776c16019abcd8a7b8c2ba1cd2d7e8934b6fac321696a01bfd9b7757a56d19be07"
+        }
+      },
+      "verification_context": {
+        "idp_keyset": {
+          "https://idp.example.com": "e035f9e28d89b43aa032ef33ec60fb7f11c74f06fb0827c5bf3710624eab3058"
+        },
+        "operator_anchored_idp_copy": {
+          "https://idp.example.com": "1c61049fad5238ee23d9dacbaccdd1c026e9e658fd7b7851553942c077ffc7c9"
+        },
+        "registered_resource_keys": {
+          "res-bank-1": {
+            "publicKey": "3ffa4aa275e27ece22135f0933c6e83e79ecfdab2a15546491726dbe7b42a142",
+            "registered_by_operator": false
+          },
+          "res-gw-1": {
+            "publicKey": "53f9cc8f2c8b0ed9a9d7a0afdb0aad59ccee370a8b0cfee0fc0915ebf9b6e25e",
+            "registered_by_operator": true
+          }
+        },
+        "operator_domain_registry": {
+          "agent-key-1": {
+            "publicKey": "92fd0ae28362180fc6f8c6d06d3da9a3045b9943b5064b4da8965670ff0c860d",
+            "identity": "op-1"
+          },
+          "gw-key-1": {
+            "publicKey": "c3b25641a27b0e31bbb388308f2c3e30c35292e37b1f52294317fbea5e6f1ad4",
+            "identity": "op-1"
+          },
+          "op2-key-1": {
+            "publicKey": "f7c4d0cf9ae62bdb90d0b0048aa2566b753a213ab42cebffbbd637cc3a2b66bf",
+            "identity": "op-2"
+          }
+        },
+        "operator_identity_id": "op-1",
+        "gateway_key_id": "gw-key-1",
+        "registered_log_roots": {},
+        "allowed_clock_skew_ms": 5000,
+        "reserved_ts": 1700000000000,
+        "submitted_ts": 1700000060000,
+        "max_authority_execution_window_ms": 900000
+      },
+      "expected": {
+        "disposition": "incomplete_for_class",
+        "incomplete_reason": "missing_transparency_anchor",
+        "violations": [],
+        "trust_domain_separation": {
+          "computed_domains": 2,
+          "idp_counts": true,
+          "resource_counts": true,
+          "operator_identity": "op-1",
+          "separation_ok": true
+        }
+      }
+    },
+    {
+      "id": "V09",
+      "scenario": "forged execution: resource signed by gateway-held / non-registered key",
+      "surface": "verifier",
+      "input_receipt": {
+        "profile": "aps-regulated-action-v0",
+        "receipt_id": "r-V09",
+        "action_class": "financial_movement",
+        "actor_signature": {
+          "alg": "ed25519",
+          "key_id": "agent-key-1",
+          "sig": "91266805276b000dcaf40ffd111fff49691b4fa4137c06e866ea27fdd81ac28492686c66c18aa4ce956fced8c101524a7f92eae073e10c84100778c310fc1d01"
+        },
+        "authority_ref": {
+          "type": "id_jag",
+          "issuer": "https://idp.example.com",
+          "subject": "agent:bot-1",
+          "audience": "bank-api",
+          "scope_hash": "2625278d508a286ca41fbcb4b5703cc4c306e19625e7c28b4a0bd9c0f23c7195",
+          "issued_at": "2023-11-14T22:13:15.000Z",
+          "expires_at": "2023-11-14T23:14:20.000Z",
+          "assertion_hash": "79068d79947285cd470d14495d9abdbcaabd3bf095122c41f127e79f6179585b",
+          "jti": "jti-V09",
+          "assertion_sig": "3ac96f2e7069466ba425b1a79b9a23f6db1fb3a3f8d47e4fccd0eb90bb9d2ba83103e99248568ba57db5ec36af1e4339cb054f6c78cb811f7d8f2d7e9be4e70d"
+        },
+        "intent_commitment": {
+          "created_before_execution": true,
+          "intent_hash": "a7882eefe085f31fc1bea760a067a785fe67b396e76fe850a60633b0a4b3f20f",
+          "expected_effect_hash": "2162468adb9770c817abd142f13e1e58fa7a1f7fab8da3fa896c09a598a9c6af",
+          "gateway_nonce": "nonce-V09",
+          "timestamp_ms": 1700000000000,
+          "scope": "transfer:V09",
+          "signature": "132d8fe0d7baa34093cde84d82e89e87296f1d99d6c3d1fe291f2644a60d820210784eb0589a068e16bc5469b9468fe22ec1224faba2f11d01ce367bcd6cfd0d"
+        },
+        "decision_basis_commitment": {
+          "root_hash": "76aa3e22d99e396bbc55c19d8ccefcfac4bc8049f1873510e903cc5137026bbc",
+          "leaves_schema": [
+            "input_artifact_hashes",
+            "policy_version_hash"
+          ],
+          "raw_chain_of_thought_included": false
+        },
+        "gateway_policy_decision": {
+          "policy_version_hash": "79ceb49ddeddf701cab7b7c7161c7e876bbf6cc0d17e3ccbb7ba9c35f3e3fad8",
+          "decision": "allow",
+          "action_class_assigned": "financial_movement",
+          "signer": "gw-key-1",
+          "signature": "4f85604809ac8c77c96d06bb680919f785eaeb6bdbe7d3c62f08d233ed191995c9edbb9557a44a26e29025814c3049959503ccde1b114cbcd48b918ca90c220c"
+        },
+        "resource_confirmation_ref": {
+          "type": "boundary_attested",
+          "resource_transaction_id": "tx-V09",
+          "correlation_id": "corr-V09",
+          "gateway_nonce_echo": "nonce-V09",
+          "realized_effect_hash": "2162468adb9770c817abd142f13e1e58fa7a1f7fab8da3fa896c09a598a9c6af",
+          "realized_effect_provenance": "ban_derived",
+          "status": "settled",
+          "timestamp_ms": 1700000060000,
+          "signer_key_id": "res-unknown",
+          "signature": "5fb05b2889b1117599ffb50fef2cb5381cf81bfedf36c9f69d2fe6d5bf08a03bc1c6059d698204c47a928ff568261feba7a25b2cf6205073e141b4a5daefcf07"
+        },
+        "transparency_ref": {
+          "type": "enterprise_merkle_log",
+          "log_id": "enterprise-log-1",
+          "inclusion_proof": [
+            {
+              "dir": "R",
+              "hash": "2ccf17577b8fd9f8ef804679cb11dd0e0630fd6e95c797075d1edbdabd895f9a"
+            }
+          ],
+          "anchored_at_state": "reserved",
+          "tree_size": 2,
+          "leaf_hash": "f20ec7ca8fc33c6619aca62c283d22150cbc0b9615fac2488b51d046924fae10"
+        }
+      },
+      "verification_context": {
+        "idp_keyset": {
+          "https://idp.example.com": "e035f9e28d89b43aa032ef33ec60fb7f11c74f06fb0827c5bf3710624eab3058"
+        },
+        "operator_anchored_idp_copy": {
+          "https://idp.example.com": "1c61049fad5238ee23d9dacbaccdd1c026e9e658fd7b7851553942c077ffc7c9"
+        },
+        "registered_resource_keys": {
+          "res-bank-1": {
+            "publicKey": "3ffa4aa275e27ece22135f0933c6e83e79ecfdab2a15546491726dbe7b42a142",
+            "registered_by_operator": false
+          },
+          "res-gw-1": {
+            "publicKey": "53f9cc8f2c8b0ed9a9d7a0afdb0aad59ccee370a8b0cfee0fc0915ebf9b6e25e",
+            "registered_by_operator": true
+          }
+        },
+        "operator_domain_registry": {
+          "agent-key-1": {
+            "publicKey": "92fd0ae28362180fc6f8c6d06d3da9a3045b9943b5064b4da8965670ff0c860d",
+            "identity": "op-1"
+          },
+          "gw-key-1": {
+            "publicKey": "c3b25641a27b0e31bbb388308f2c3e30c35292e37b1f52294317fbea5e6f1ad4",
+            "identity": "op-1"
+          },
+          "op2-key-1": {
+            "publicKey": "f7c4d0cf9ae62bdb90d0b0048aa2566b753a213ab42cebffbbd637cc3a2b66bf",
+            "identity": "op-2"
+          }
+        },
+        "operator_identity_id": "op-1",
+        "gateway_key_id": "gw-key-1",
+        "registered_log_roots": {
+          "enterprise-log-1": "cc8da3940ec4433860faaa9b4a6fff2e3f738de3ece87e097dcdd5a064b89245"
+        },
+        "allowed_clock_skew_ms": 5000,
+        "reserved_ts": 1700000000000,
+        "submitted_ts": 1700000060000,
+        "max_authority_execution_window_ms": 900000,
+        "anchor_orders_intent_before_resource": true
+      },
+      "expected": {
+        "disposition": "intent_precommitted",
+        "violations": [],
+        "trust_domain_separation": {
+          "computed_domains": 1,
+          "idp_counts": true,
+          "resource_counts": false,
+          "operator_identity": "op-1",
+          "separation_ok": true
+        }
+      }
+    },
+    {
+      "id": "V10",
+      "scenario": "boundary_attested_weak (same-process BAN)",
+      "surface": "verifier",
+      "input_receipt": {
+        "profile": "aps-regulated-action-v0",
+        "receipt_id": "r-V10",
+        "action_class": "financial_movement",
+        "actor_signature": {
+          "alg": "ed25519",
+          "key_id": "agent-key-1",
+          "sig": "249ec17e74a25dc29ccd6e298a30f1ca109670b4929cacbb965ec7ffca5adfea4e1a0ed9dece928e183f53745c21e3f4a0f8a61ee65f3f6c068c62ce8589860f"
+        },
+        "authority_ref": {
+          "type": "id_jag",
+          "issuer": "https://idp.example.com",
+          "subject": "agent:bot-1",
+          "audience": "bank-api",
+          "scope_hash": "fe9b8082edd2957575fbd1897a16d58aecdead362e065982d63bf07a587d0e66",
+          "issued_at": "2023-11-14T22:13:15.000Z",
+          "expires_at": "2023-11-14T23:14:20.000Z",
+          "assertion_hash": "f583db9de796ce5569ff909c404713f4090975a9c921d2347511ba5e70a32fe4",
+          "jti": "jti-V10",
+          "assertion_sig": "fa8c69c469ce2f04526ba0b48e200e273d6444a2d230231920d88d37670307e1e5d46cafb1de35551d7ee01f7634c33e030478c55a16aa080b945bd9e2c46b03"
+        },
+        "intent_commitment": {
+          "created_before_execution": true,
+          "intent_hash": "daab7372a3ca100dbe734954391d5b2972d934b6a6a29c1899b23937db68a57a",
+          "expected_effect_hash": "f9d6229ad794e23a0ba669fc56c0d110b041d24faf9f4ae2576d137fe8df8dfd",
+          "gateway_nonce": "nonce-V10",
+          "timestamp_ms": 1700000000000,
+          "scope": "transfer:V10",
+          "signature": "af33b435d8fa8a380d59a39c9bf8d8e8a1c6a5a4a6e91644f15ce5a85feb894818803aeb2c6a10cb11ec0490dd471211c1e1825a95b56340b9c1b29438322504"
+        },
+        "decision_basis_commitment": {
+          "root_hash": "3e471c6633cb7bf9b6a8d4efe180f4e11eb46fc38dff5fbe5e9de75baae064c9",
+          "leaves_schema": [
+            "input_artifact_hashes",
+            "policy_version_hash"
+          ],
+          "raw_chain_of_thought_included": false
+        },
+        "gateway_policy_decision": {
+          "policy_version_hash": "5c8f871f9d5d8266a4c576c07355200f6457454a7eca792fe8e78573ab10d30c",
+          "decision": "allow",
+          "action_class_assigned": "financial_movement",
+          "signer": "gw-key-1",
+          "signature": "87619eba5a71b416cd6b13ee060f4c67dad12f504ecd5d88e22e101a7029db9a940686dac401da3bcdc2acf26c810c660214afc99cbe463bce8aa74043ea580d"
+        },
+        "resource_confirmation_ref": {
+          "type": "boundary_attested_weak",
+          "resource_transaction_id": "tx-V10",
+          "correlation_id": "corr-V10",
+          "gateway_nonce_echo": "nonce-V10",
+          "realized_effect_hash": "f9d6229ad794e23a0ba669fc56c0d110b041d24faf9f4ae2576d137fe8df8dfd",
+          "realized_effect_provenance": "ban_derived",
+          "status": "settled",
+          "timestamp_ms": 1700000060000,
+          "signer_key_id": "res-bank-1",
+          "signature": "cfe492ca4bfd5a339864fec4b07d2f076796207dd7e98096e0cbb7794df39e040cd67165e7565de4a70721811935e72b8d17e62efaad517c72b26a94f5fde308"
+        },
+        "transparency_ref": {
+          "type": "enterprise_merkle_log",
+          "log_id": "enterprise-log-1",
+          "inclusion_proof": [
+            {
+              "dir": "R",
+              "hash": "c78c8ee7dc5ce94ab98d8c3f3c8bad2644137fad74e3d327acfdc126a035f206"
+            }
+          ],
+          "anchored_at_state": "reserved",
+          "tree_size": 2,
+          "leaf_hash": "9a6a32f0a1f15dabafc255681adfe338f6b92200d8350f7e5bab47487b6adeea"
+        }
+      },
+      "verification_context": {
+        "idp_keyset": {
+          "https://idp.example.com": "e035f9e28d89b43aa032ef33ec60fb7f11c74f06fb0827c5bf3710624eab3058"
+        },
+        "operator_anchored_idp_copy": {
+          "https://idp.example.com": "1c61049fad5238ee23d9dacbaccdd1c026e9e658fd7b7851553942c077ffc7c9"
+        },
+        "registered_resource_keys": {
+          "res-bank-1": {
+            "publicKey": "3ffa4aa275e27ece22135f0933c6e83e79ecfdab2a15546491726dbe7b42a142",
+            "registered_by_operator": false
+          },
+          "res-gw-1": {
+            "publicKey": "53f9cc8f2c8b0ed9a9d7a0afdb0aad59ccee370a8b0cfee0fc0915ebf9b6e25e",
+            "registered_by_operator": true
+          }
+        },
+        "operator_domain_registry": {
+          "agent-key-1": {
+            "publicKey": "92fd0ae28362180fc6f8c6d06d3da9a3045b9943b5064b4da8965670ff0c860d",
+            "identity": "op-1"
+          },
+          "gw-key-1": {
+            "publicKey": "c3b25641a27b0e31bbb388308f2c3e30c35292e37b1f52294317fbea5e6f1ad4",
+            "identity": "op-1"
+          },
+          "op2-key-1": {
+            "publicKey": "f7c4d0cf9ae62bdb90d0b0048aa2566b753a213ab42cebffbbd637cc3a2b66bf",
+            "identity": "op-2"
+          }
+        },
+        "operator_identity_id": "op-1",
+        "gateway_key_id": "gw-key-1",
+        "registered_log_roots": {
+          "enterprise-log-1": "fc219a89b4dda13fba01a1ab394ce5f4077ff8d2d871453c4564ad6dfe68cd85"
+        },
+        "allowed_clock_skew_ms": 5000,
+        "reserved_ts": 1700000000000,
+        "submitted_ts": 1700000060000,
+        "max_authority_execution_window_ms": 900000,
+        "anchor_orders_intent_before_resource": true
+      },
+      "expected": {
+        "disposition": "intent_precommitted",
+        "violations": [],
+        "trust_domain_separation": {
+          "computed_domains": 1,
+          "idp_counts": true,
+          "resource_counts": false,
+          "operator_identity": "op-1",
+          "separation_ok": true
+        }
+      }
+    },
+    {
+      "id": "V11",
+      "scenario": "replay: valid sig + registered key, gateway_nonce_echo mismatch (intent ok)",
+      "surface": "verifier",
+      "input_receipt": {
+        "profile": "aps-regulated-action-v0",
+        "receipt_id": "r-V11",
+        "action_class": "financial_movement",
+        "actor_signature": {
+          "alg": "ed25519",
+          "key_id": "agent-key-1",
+          "sig": "27d6115f039d424a9bef621d37b4d0fda197abc6bf291710b47af7255bfa001234d932e5045d62de4d236890c281f76a6cdd8ae5609668b415e18143d4354f0f"
+        },
+        "authority_ref": {
+          "type": "id_jag",
+          "issuer": "https://idp.example.com",
+          "subject": "agent:bot-1",
+          "audience": "bank-api",
+          "scope_hash": "8f3bac1f5ed1687cb19ff5fa63752ddb7ad423a23b939977587f9dcd33f62aa4",
+          "issued_at": "2023-11-14T22:13:15.000Z",
+          "expires_at": "2023-11-14T23:14:20.000Z",
+          "assertion_hash": "111e3a373a6842bc6586b7b450da6cd7398898194234e51635e7032f4b5a7e7b",
+          "jti": "jti-V11",
+          "assertion_sig": "6d59bac5ab1a25b6bfd2afc5704102d904a25f8f07583a3bf5663218e12b4a24d2c5869633ebf903a644f2d7507a2fbf02a44ac2a41778982f77172d7951a10d"
+        },
+        "intent_commitment": {
+          "created_before_execution": true,
+          "intent_hash": "424baf58ece4715bf3cec09b1f7c8fafc0de4682145705b0f9cd51dfab1bde4b",
+          "expected_effect_hash": "7c271d44eec6f318e4f2e65993c1d1222bc817e6420d1905898295b64431f72f",
+          "gateway_nonce": "nonce-V11",
+          "timestamp_ms": 1700000000000,
+          "scope": "transfer:V11",
+          "signature": "07e3edb9eb8475e1312702d06fcfd11ac6522bd7f336eae48332d57e88aabfbd9dfdb6279c8609137e11dcf55e6d0206dc6c3985c38d9b64bb5d9e72bd60b30e"
+        },
+        "decision_basis_commitment": {
+          "root_hash": "34088017ecd95f837bb17fcc87762fe96e7d80c5e6396396284cec74e53a69a4",
+          "leaves_schema": [
+            "input_artifact_hashes",
+            "policy_version_hash"
+          ],
+          "raw_chain_of_thought_included": false
+        },
+        "gateway_policy_decision": {
+          "policy_version_hash": "e9c3f671be46fc6c1e29027f56cf7e238af0979e747576a439da40094c7bfbbf",
+          "decision": "allow",
+          "action_class_assigned": "financial_movement",
+          "signer": "gw-key-1",
+          "signature": "5fe5cce793fa32c3869111b75ad5485b1cf1c761a0e7465d2c2a572cd933746ac4667734cbb617287108de26d9c2e559d2ae8b103a7c8695dcd7279288de6d00"
+        },
+        "resource_confirmation_ref": {
+          "type": "boundary_attested",
+          "resource_transaction_id": "tx-V11",
+          "correlation_id": "corr-V11",
+          "gateway_nonce_echo": "wrong-nonce",
+          "realized_effect_hash": "7c271d44eec6f318e4f2e65993c1d1222bc817e6420d1905898295b64431f72f",
+          "realized_effect_provenance": "ban_derived",
+          "status": "settled",
+          "timestamp_ms": 1700000060000,
+          "signer_key_id": "res-bank-1",
+          "signature": "8084f038fed8d7bc9b1e8b848d38bd6b302c363cb0c47c17f291d80619257a6af4a7d488148e07e1eb390a331cccbbe3c01e6bc0f131a2f5ab4564fbf838ac0b"
+        },
+        "transparency_ref": {
+          "type": "enterprise_merkle_log",
+          "log_id": "enterprise-log-1",
+          "inclusion_proof": [
+            {
+              "dir": "R",
+              "hash": "dfd4911128e3e64c1062ff1ae4a0000a82f703990976f752304f77453de26547"
+            }
+          ],
+          "anchored_at_state": "reserved",
+          "tree_size": 2,
+          "leaf_hash": "5f98c064ea0383106bb024f6299c02ad31b04fe4ed12651545dde8b48a6b8bd4"
+        }
+      },
+      "verification_context": {
+        "idp_keyset": {
+          "https://idp.example.com": "e035f9e28d89b43aa032ef33ec60fb7f11c74f06fb0827c5bf3710624eab3058"
+        },
+        "operator_anchored_idp_copy": {
+          "https://idp.example.com": "1c61049fad5238ee23d9dacbaccdd1c026e9e658fd7b7851553942c077ffc7c9"
+        },
+        "registered_resource_keys": {
+          "res-bank-1": {
+            "publicKey": "3ffa4aa275e27ece22135f0933c6e83e79ecfdab2a15546491726dbe7b42a142",
+            "registered_by_operator": false
+          },
+          "res-gw-1": {
+            "publicKey": "53f9cc8f2c8b0ed9a9d7a0afdb0aad59ccee370a8b0cfee0fc0915ebf9b6e25e",
+            "registered_by_operator": true
+          }
+        },
+        "operator_domain_registry": {
+          "agent-key-1": {
+            "publicKey": "92fd0ae28362180fc6f8c6d06d3da9a3045b9943b5064b4da8965670ff0c860d",
+            "identity": "op-1"
+          },
+          "gw-key-1": {
+            "publicKey": "c3b25641a27b0e31bbb388308f2c3e30c35292e37b1f52294317fbea5e6f1ad4",
+            "identity": "op-1"
+          },
+          "op2-key-1": {
+            "publicKey": "f7c4d0cf9ae62bdb90d0b0048aa2566b753a213ab42cebffbbd637cc3a2b66bf",
+            "identity": "op-2"
+          }
+        },
+        "operator_identity_id": "op-1",
+        "gateway_key_id": "gw-key-1",
+        "registered_log_roots": {
+          "enterprise-log-1": "2a60dcd05ff91eb5c45c994ac461b455788424d609f20a38e8c57c47425a2fb7"
+        },
+        "allowed_clock_skew_ms": 5000,
+        "reserved_ts": 1700000000000,
+        "submitted_ts": 1700000060000,
+        "max_authority_execution_window_ms": 900000,
+        "anchor_orders_intent_before_resource": true
+      },
+      "expected": {
+        "disposition": "void_reconciliation_mismatch",
+        "violations": [
+          "void_reconciliation_mismatch"
+        ],
+        "trust_domain_separation": {
+          "computed_domains": 1,
+          "idp_counts": true,
+          "resource_counts": false,
+          "operator_identity": "op-1",
+          "separation_ok": true
+        }
+      }
+    },
+    {
+      "id": "V12",
+      "scenario": "bait-and-switch: realized_effect_hash != intent.expected_effect (intent ok)",
+      "surface": "verifier",
+      "input_receipt": {
+        "profile": "aps-regulated-action-v0",
+        "receipt_id": "r-V12",
+        "action_class": "financial_movement",
+        "actor_signature": {
+          "alg": "ed25519",
+          "key_id": "agent-key-1",
+          "sig": "ccca6a56689d29ff0833f393dd622e500ad06b8e318ee2c95bd47b12424c584673adb8d252da87bbc8c1150978890110bc838a5f64242ac72f9ec31069470903"
+        },
+        "authority_ref": {
+          "type": "id_jag",
+          "issuer": "https://idp.example.com",
+          "subject": "agent:bot-1",
+          "audience": "bank-api",
+          "scope_hash": "069172ec189298442c2d6296c4c74dd98e8f9c91ad919a65eb0d691d29c0295e",
+          "issued_at": "2023-11-14T22:13:15.000Z",
+          "expires_at": "2023-11-14T23:14:20.000Z",
+          "assertion_hash": "36e3b80ecf15677a72c05596ad77f70d433017b37a3c57b33412065df89ac839",
+          "jti": "jti-V12",
+          "assertion_sig": "ab9ed074395d62f24c8e927b99d3bde13e22f0e9afaa4294b2c85588f48ffd1935cef9f4760c03183248a51e14992220e8a73873ef706297b93f9f17e9f8dd08"
+        },
+        "intent_commitment": {
+          "created_before_execution": true,
+          "intent_hash": "9719e95a189f3ec54754c0a185d91eb7d0f36a21e0134652bd19be794bb638b3",
+          "expected_effect_hash": "481288bdbcc8d440b5a05e6f19adfeb49672d54e2a0263811be947e40373b082",
+          "gateway_nonce": "nonce-V12",
+          "timestamp_ms": 1700000000000,
+          "scope": "transfer:V12",
+          "signature": "1a87a24b93668cd264d1de2b4da6e48fc9ccb6b545faa6541cb312e0fe6bc73df6db5112604aadb65d115acf1ced9abd3a63c286c43046c0fb77e5623cf43203"
+        },
+        "decision_basis_commitment": {
+          "root_hash": "1818329b0e4cd1e29ba050282cc2acad2f03d69d34f95e1fec078c0a166fefeb",
+          "leaves_schema": [
+            "input_artifact_hashes",
+            "policy_version_hash"
+          ],
+          "raw_chain_of_thought_included": false
+        },
+        "gateway_policy_decision": {
+          "policy_version_hash": "6e1ef86c576a2069fa0a55b53950ee5df15e581becd040ac2f0b0a5d03a37a45",
+          "decision": "allow",
+          "action_class_assigned": "financial_movement",
+          "signer": "gw-key-1",
+          "signature": "2e99f8629787a46afac42aa9022547cb90abbc81e4cb0b16f7928689d73f748a78c40c5f713065fe9b20af8d4647af341589521d6a65a07ff5057af05180290e"
+        },
+        "resource_confirmation_ref": {
+          "type": "boundary_attested",
+          "resource_transaction_id": "tx-V12",
+          "correlation_id": "corr-V12",
+          "gateway_nonce_echo": "nonce-V12",
+          "realized_effect_hash": "71c0e23be72b7483d6a70e1ea94ee2cf48d3c4e50c1b5d12f85e2cdf955ca9b6",
+          "realized_effect_provenance": "ban_derived",
+          "status": "settled",
+          "timestamp_ms": 1700000060000,
+          "signer_key_id": "res-bank-1",
+          "signature": "7e7b81765859888fea7918cea2a8218d78e5fcffc537d482da4edecd4cdb2b71abed6c0f9e221c9fd0153959a699620197d91a5f4c778d23dbf0cbe15685d305"
+        },
+        "transparency_ref": {
+          "type": "enterprise_merkle_log",
+          "log_id": "enterprise-log-1",
+          "inclusion_proof": [
+            {
+              "dir": "R",
+              "hash": "cc008fa482c0f73bac280758ed60c8b10329427c27d92253539a7b7db4b2ad56"
+            }
+          ],
+          "anchored_at_state": "reserved",
+          "tree_size": 2,
+          "leaf_hash": "28e28d49120c2d8800d11b084b87cd36d2c4b4b2f851763ed3fe70f58f3c1046"
+        }
+      },
+      "verification_context": {
+        "idp_keyset": {
+          "https://idp.example.com": "e035f9e28d89b43aa032ef33ec60fb7f11c74f06fb0827c5bf3710624eab3058"
+        },
+        "operator_anchored_idp_copy": {
+          "https://idp.example.com": "1c61049fad5238ee23d9dacbaccdd1c026e9e658fd7b7851553942c077ffc7c9"
+        },
+        "registered_resource_keys": {
+          "res-bank-1": {
+            "publicKey": "3ffa4aa275e27ece22135f0933c6e83e79ecfdab2a15546491726dbe7b42a142",
+            "registered_by_operator": false
+          },
+          "res-gw-1": {
+            "publicKey": "53f9cc8f2c8b0ed9a9d7a0afdb0aad59ccee370a8b0cfee0fc0915ebf9b6e25e",
+            "registered_by_operator": true
+          }
+        },
+        "operator_domain_registry": {
+          "agent-key-1": {
+            "publicKey": "92fd0ae28362180fc6f8c6d06d3da9a3045b9943b5064b4da8965670ff0c860d",
+            "identity": "op-1"
+          },
+          "gw-key-1": {
+            "publicKey": "c3b25641a27b0e31bbb388308f2c3e30c35292e37b1f52294317fbea5e6f1ad4",
+            "identity": "op-1"
+          },
+          "op2-key-1": {
+            "publicKey": "f7c4d0cf9ae62bdb90d0b0048aa2566b753a213ab42cebffbbd637cc3a2b66bf",
+            "identity": "op-2"
+          }
+        },
+        "operator_identity_id": "op-1",
+        "gateway_key_id": "gw-key-1",
+        "registered_log_roots": {
+          "enterprise-log-1": "156c692de3ce07797f9eba3058038b9aabe6997971143f3369f6cbcae78ad381"
+        },
+        "allowed_clock_skew_ms": 5000,
+        "reserved_ts": 1700000000000,
+        "submitted_ts": 1700000060000,
+        "max_authority_execution_window_ms": 900000,
+        "anchor_orders_intent_before_resource": true
+      },
+      "expected": {
+        "disposition": "void_reconciliation_mismatch",
+        "violations": [
+          "void_reconciliation_mismatch"
+        ],
+        "trust_domain_separation": {
+          "computed_domains": 1,
+          "idp_counts": true,
+          "resource_counts": false,
+          "operator_identity": "op-1",
+          "separation_ok": true
+        }
+      }
+    },
+    {
+      "id": "V13",
+      "scenario": "effect-echo trap: hashes equal but realized_effect_provenance==echoed",
+      "surface": "verifier",
+      "input_receipt": {
+        "profile": "aps-regulated-action-v0",
+        "receipt_id": "r-V13",
+        "action_class": "financial_movement",
+        "actor_signature": {
+          "alg": "ed25519",
+          "key_id": "agent-key-1",
+          "sig": "a2238ba89d87e24aba90be247340c65849107756d5e75c270402846cdda0ae61834f29050c78c33c366002dc99f28d51febcd983018fbccaea6a0159f1867704"
+        },
+        "authority_ref": {
+          "type": "id_jag",
+          "issuer": "https://idp.example.com",
+          "subject": "agent:bot-1",
+          "audience": "bank-api",
+          "scope_hash": "f70f9ae1dc207103ec6bbf25700d3238da5564a10a3e3629e5f12e95768217a9",
+          "issued_at": "2023-11-14T22:13:15.000Z",
+          "expires_at": "2023-11-14T23:14:20.000Z",
+          "assertion_hash": "15bed0b8884c8556afe6f3a1c04ffa1ecc75a89d89626d4ce333279623bcec8e",
+          "jti": "jti-V13",
+          "assertion_sig": "0671f7e0c0dfbee3c06a122f62b49c71e7d6b6b8c89d2283fbd2d26296861edd8430666e82edb7be39f325d0abe383ab0273bd5f5ce11d1de6f1d9aa15358300"
+        },
+        "intent_commitment": {
+          "created_before_execution": true,
+          "intent_hash": "b08ceee022c5ccd89e961514a37f9309b8e4a68bc79ae035c200108450f47500",
+          "expected_effect_hash": "8edf017c8a10f1f32fc6a629d40ba4490260bc427189cabd9353f69dbc09a17e",
+          "gateway_nonce": "nonce-V13",
+          "timestamp_ms": 1700000000000,
+          "scope": "transfer:V13",
+          "signature": "6e43e8b9c3de9930b03741bf51589578030878a6fd7e597b306fbf45de6b373e257a857830fc5dd71476c0829e3c040bef5dfde89d8fd834f4ee942717e90501"
+        },
+        "decision_basis_commitment": {
+          "root_hash": "fdc8acc6f2d317e13a909d60965a89239be8344cbaeb3252442a4517af03e65f",
+          "leaves_schema": [
+            "input_artifact_hashes",
+            "policy_version_hash"
+          ],
+          "raw_chain_of_thought_included": false
+        },
+        "gateway_policy_decision": {
+          "policy_version_hash": "4fb1543eb3e1f89decdd6a8a2c646da69997dad057482ff76928b11daf687647",
+          "decision": "allow",
+          "action_class_assigned": "financial_movement",
+          "signer": "gw-key-1",
+          "signature": "6c3ee2c1dc47765b0fd1e12ce1c399529c324efd5109557279d27ae3ed0329e68d74b3506b92b515922433e3c68597d7cbc30645e5a89fc7b923e663af11b000"
+        },
+        "resource_confirmation_ref": {
+          "type": "boundary_attested",
+          "resource_transaction_id": "tx-V13",
+          "correlation_id": "corr-V13",
+          "gateway_nonce_echo": "nonce-V13",
+          "realized_effect_hash": "8edf017c8a10f1f32fc6a629d40ba4490260bc427189cabd9353f69dbc09a17e",
+          "realized_effect_provenance": "echoed",
+          "status": "settled",
+          "timestamp_ms": 1700000060000,
+          "signer_key_id": "res-bank-1",
+          "signature": "4738f7bc823c4585b00631b2b4a81e5e9a2b609f612cb0e61e4a37249720ee07d51c2c736de71fc7396e902aaf06a7acd4649d5d4e49714141ad4ed602a56b0e"
+        },
+        "transparency_ref": {
+          "type": "enterprise_merkle_log",
+          "log_id": "enterprise-log-1",
+          "inclusion_proof": [
+            {
+              "dir": "R",
+              "hash": "06aabf5db285efa40597b21590f2facb7fc1fa2ebc19313fe2bc4ae215814c74"
+            }
+          ],
+          "anchored_at_state": "reserved",
+          "tree_size": 2,
+          "leaf_hash": "8ea1420844dc44a20c8c8af92e365e6b89cad51346a04ca801b8796ee437e822"
+        }
+      },
+      "verification_context": {
+        "idp_keyset": {
+          "https://idp.example.com": "e035f9e28d89b43aa032ef33ec60fb7f11c74f06fb0827c5bf3710624eab3058"
+        },
+        "operator_anchored_idp_copy": {
+          "https://idp.example.com": "1c61049fad5238ee23d9dacbaccdd1c026e9e658fd7b7851553942c077ffc7c9"
+        },
+        "registered_resource_keys": {
+          "res-bank-1": {
+            "publicKey": "3ffa4aa275e27ece22135f0933c6e83e79ecfdab2a15546491726dbe7b42a142",
+            "registered_by_operator": false
+          },
+          "res-gw-1": {
+            "publicKey": "53f9cc8f2c8b0ed9a9d7a0afdb0aad59ccee370a8b0cfee0fc0915ebf9b6e25e",
+            "registered_by_operator": true
+          }
+        },
+        "operator_domain_registry": {
+          "agent-key-1": {
+            "publicKey": "92fd0ae28362180fc6f8c6d06d3da9a3045b9943b5064b4da8965670ff0c860d",
+            "identity": "op-1"
+          },
+          "gw-key-1": {
+            "publicKey": "c3b25641a27b0e31bbb388308f2c3e30c35292e37b1f52294317fbea5e6f1ad4",
+            "identity": "op-1"
+          },
+          "op2-key-1": {
+            "publicKey": "f7c4d0cf9ae62bdb90d0b0048aa2566b753a213ab42cebffbbd637cc3a2b66bf",
+            "identity": "op-2"
+          }
+        },
+        "operator_identity_id": "op-1",
+        "gateway_key_id": "gw-key-1",
+        "registered_log_roots": {
+          "enterprise-log-1": "2bc252a73ee4063aff265aa7caaf2092dddc7104be6bcd51e556aa85f3a7247d"
+        },
+        "allowed_clock_skew_ms": 5000,
+        "reserved_ts": 1700000000000,
+        "submitted_ts": 1700000060000,
+        "max_authority_execution_window_ms": 900000,
+        "anchor_orders_intent_before_resource": true
+      },
+      "expected": {
+        "disposition": "intent_precommitted",
+        "violations": [],
+        "trust_domain_separation": {
+          "computed_domains": 1,
+          "idp_counts": true,
+          "resource_counts": false,
+          "operator_identity": "op-1",
+          "separation_ok": true
+        }
+      }
+    },
+    {
+      "id": "V14",
+      "scenario": "anchor present but orders intent AFTER the resource event",
+      "surface": "verifier",
+      "input_receipt": {
+        "profile": "aps-regulated-action-v0",
+        "receipt_id": "r-V14",
+        "action_class": "financial_movement",
+        "actor_signature": {
+          "alg": "ed25519",
+          "key_id": "agent-key-1",
+          "sig": "0a7a77d029b7c2aaf72443bb846d945475f100fa33f2f33a05768d9aa36441d37671b85982e3d0a75a84daedee4318a35492baccc8334221a1bf7a44879ecd05"
+        },
+        "authority_ref": {
+          "type": "id_jag",
+          "issuer": "https://idp.example.com",
+          "subject": "agent:bot-1",
+          "audience": "bank-api",
+          "scope_hash": "f31ef94fbb7602dd3b4948ee8e1027965246cab9d17699edd5d5e5729884528f",
+          "issued_at": "2023-11-14T22:13:15.000Z",
+          "expires_at": "2023-11-14T23:14:20.000Z",
+          "assertion_hash": "10a2e1bb1aebdbeaf8b92138d2c726ad587cd69de570ba1297a0ed99fcbfea31",
+          "jti": "jti-V14",
+          "assertion_sig": "5b75237eef81b3ab480437a7f3a951aebd06d76acdf94c204a2d41b27a7b587473cc254f7ebed050b4421465758e49dbcdd89dd7a4c0126a8744b2462f499a0a"
+        },
+        "intent_commitment": {
+          "created_before_execution": true,
+          "intent_hash": "a8aafbaa21ebcb0e15cd6e1ff24ff84ddd229a63f3f5c892a6dec4ceac8c9616",
+          "expected_effect_hash": "b9208ac8c3c26689b64a09ec55f8f406821da1ce97be4521d4c98a4d8d049f86",
+          "gateway_nonce": "nonce-V14",
+          "timestamp_ms": 1700000000000,
+          "scope": "transfer:V14",
+          "signature": "c81fc8939bfbc254d0c432f458616c684f093df4fee5ea073431ac92a78d3de245cbb64e4a42bbb9f5726d26aa82d0685827b20d25254c09deeeea87d6fa1002"
+        },
+        "decision_basis_commitment": {
+          "root_hash": "b943d046288f33f55f73a52d20f8719a213333c24097c82ba2de7eb8aea06792",
+          "leaves_schema": [
+            "input_artifact_hashes",
+            "policy_version_hash"
+          ],
+          "raw_chain_of_thought_included": false
+        },
+        "gateway_policy_decision": {
+          "policy_version_hash": "39245a68af8101f20b4f47c53065b75f43b2006890f2375997084cf0b6115047",
+          "decision": "allow",
+          "action_class_assigned": "financial_movement",
+          "signer": "gw-key-1",
+          "signature": "aff392af503c2ffbfc1cf4bb645452c255662732568d6506b6d1d300979c02ba5f56a240008b8c81ad668136e6f238c159b8c12684ba2cc6e25bcfdf549c4206"
+        },
+        "resource_confirmation_ref": {
+          "type": "boundary_attested",
+          "resource_transaction_id": "tx-V14",
+          "correlation_id": "corr-V14",
+          "gateway_nonce_echo": "nonce-V14",
+          "realized_effect_hash": "b9208ac8c3c26689b64a09ec55f8f406821da1ce97be4521d4c98a4d8d049f86",
+          "realized_effect_provenance": "ban_derived",
+          "status": "settled",
+          "timestamp_ms": 1700000060000,
+          "signer_key_id": "res-bank-1",
+          "signature": "17bf7a0f87c43a4238f90031eb2a6dbf8b7aef6e608b87a83eadb033fdcf3adc608174e614c72cbfef460c78f03c955ff6c1703552627b117ae5d6ae6088cb01"
+        },
+        "transparency_ref": {
+          "type": "enterprise_merkle_log",
+          "log_id": "enterprise-log-1",
+          "inclusion_proof": [
+            {
+              "dir": "R",
+              "hash": "7df03672387a9a4b2abf9c1570d5d18ce23e3a2164267b821b2b4bea25fa2244"
+            }
+          ],
+          "anchored_at_state": "reserved",
+          "tree_size": 2,
+          "leaf_hash": "1a50facbb0263141deba69eac1e8b437ee51be9ba42c52515c6f6f114617206b"
+        }
+      },
+      "verification_context": {
+        "idp_keyset": {
+          "https://idp.example.com": "e035f9e28d89b43aa032ef33ec60fb7f11c74f06fb0827c5bf3710624eab3058"
+        },
+        "operator_anchored_idp_copy": {
+          "https://idp.example.com": "1c61049fad5238ee23d9dacbaccdd1c026e9e658fd7b7851553942c077ffc7c9"
+        },
+        "registered_resource_keys": {
+          "res-bank-1": {
+            "publicKey": "3ffa4aa275e27ece22135f0933c6e83e79ecfdab2a15546491726dbe7b42a142",
+            "registered_by_operator": false
+          },
+          "res-gw-1": {
+            "publicKey": "53f9cc8f2c8b0ed9a9d7a0afdb0aad59ccee370a8b0cfee0fc0915ebf9b6e25e",
+            "registered_by_operator": true
+          }
+        },
+        "operator_domain_registry": {
+          "agent-key-1": {
+            "publicKey": "92fd0ae28362180fc6f8c6d06d3da9a3045b9943b5064b4da8965670ff0c860d",
+            "identity": "op-1"
+          },
+          "gw-key-1": {
+            "publicKey": "c3b25641a27b0e31bbb388308f2c3e30c35292e37b1f52294317fbea5e6f1ad4",
+            "identity": "op-1"
+          },
+          "op2-key-1": {
+            "publicKey": "f7c4d0cf9ae62bdb90d0b0048aa2566b753a213ab42cebffbbd637cc3a2b66bf",
+            "identity": "op-2"
+          }
+        },
+        "operator_identity_id": "op-1",
+        "gateway_key_id": "gw-key-1",
+        "registered_log_roots": {
+          "enterprise-log-1": "acaee37cdcfb31d45448de96fec4949b150776164d1f5a0cf40d252d1841e57e"
+        },
+        "allowed_clock_skew_ms": 5000,
+        "reserved_ts": 1700000000000,
+        "submitted_ts": 1700000060000,
+        "max_authority_execution_window_ms": 900000,
+        "anchor_orders_intent_before_resource": false
+      },
+      "expected": {
+        "disposition": "void_temporal_violation",
+        "violations": [
+          "void_temporal_violation"
+        ],
+        "trust_domain_separation": {
+          "computed_domains": 2,
+          "idp_counts": true,
+          "resource_counts": true,
+          "operator_identity": "op-1",
+          "separation_ok": true
+        }
+      }
+    },
+    {
+      "id": "V15",
+      "scenario": "validly BAN-signed resource event with no intent at all",
+      "surface": "verifier",
+      "input_receipt": {
+        "profile": "aps-regulated-action-v0",
+        "receipt_id": "r-V15",
+        "action_class": "financial_movement",
+        "actor_signature": {
+          "alg": "ed25519",
+          "key_id": "agent-key-1",
+          "sig": "10c5a0813ad5ebea65146ad7a369386bcd54ef6fc8fa9b14508a02485c8920b4d8af778f1e9ea4d770aa1355f79d7e5be8baa9f8c72cdd8e2e89135da3a9320b"
+        },
+        "resource_confirmation_ref": {
+          "type": "boundary_attested",
+          "resource_transaction_id": "tx-V15",
+          "correlation_id": "corr-V15",
+          "gateway_nonce_echo": "nonce-V15",
+          "realized_effect_hash": "a190e61ac24142a94514649102427b669975b758c61b034075c8443cd53929e8",
+          "realized_effect_provenance": "ban_derived",
+          "status": "settled",
+          "timestamp_ms": 1700000060000,
+          "signer_key_id": "res-bank-1",
+          "signature": "baf06fd3a8848bdfe3e7b76caba3107d0a418eb46f91f5f0c3b6883fce4491d3218e0a251f69d8e117b9aeaefa6bb5e54c4993073784c3e6cf7a07833df54d0c"
+        }
+      },
+      "verification_context": {
+        "idp_keyset": {
+          "https://idp.example.com": "e035f9e28d89b43aa032ef33ec60fb7f11c74f06fb0827c5bf3710624eab3058"
+        },
+        "operator_anchored_idp_copy": {
+          "https://idp.example.com": "1c61049fad5238ee23d9dacbaccdd1c026e9e658fd7b7851553942c077ffc7c9"
+        },
+        "registered_resource_keys": {
+          "res-bank-1": {
+            "publicKey": "3ffa4aa275e27ece22135f0933c6e83e79ecfdab2a15546491726dbe7b42a142",
+            "registered_by_operator": false
+          },
+          "res-gw-1": {
+            "publicKey": "53f9cc8f2c8b0ed9a9d7a0afdb0aad59ccee370a8b0cfee0fc0915ebf9b6e25e",
+            "registered_by_operator": true
+          }
+        },
+        "operator_domain_registry": {
+          "agent-key-1": {
+            "publicKey": "92fd0ae28362180fc6f8c6d06d3da9a3045b9943b5064b4da8965670ff0c860d",
+            "identity": "op-1"
+          },
+          "gw-key-1": {
+            "publicKey": "c3b25641a27b0e31bbb388308f2c3e30c35292e37b1f52294317fbea5e6f1ad4",
+            "identity": "op-1"
+          },
+          "op2-key-1": {
+            "publicKey": "f7c4d0cf9ae62bdb90d0b0048aa2566b753a213ab42cebffbbd637cc3a2b66bf",
+            "identity": "op-2"
+          }
+        },
+        "operator_identity_id": "op-1",
+        "gateway_key_id": "gw-key-1",
+        "registered_log_roots": {},
+        "allowed_clock_skew_ms": 5000,
+        "reserved_ts": 1700000000000,
+        "submitted_ts": 1700000060000,
+        "max_authority_execution_window_ms": 900000
+      },
+      "expected": {
+        "disposition": "resource_unbound",
+        "violations": [
+          "resource_unbound"
+        ],
+        "trust_domain_separation": {
+          "computed_domains": 0,
+          "idp_counts": false,
+          "resource_counts": false,
+          "operator_identity": "op-1",
+          "separation_ok": true
+        }
+      }
+    },
+    {
+      "id": "V16",
+      "scenario": "policy denied but a resource event exists (executed)",
+      "surface": "verifier",
+      "input_receipt": {
+        "profile": "aps-regulated-action-v0",
+        "receipt_id": "r-V16",
+        "action_class": "financial_movement",
+        "actor_signature": {
+          "alg": "ed25519",
+          "key_id": "agent-key-1",
+          "sig": "b8889b334aefe395bc17c5bf41aacb8c4bb7f84b59b4e2cfaa3d48e75ef0db85eb4c47a4bb80053e54d099cddf4b82162ef249011c7d0afe7b22e7146d9be60e"
+        },
+        "authority_ref": {
+          "type": "id_jag",
+          "issuer": "https://idp.example.com",
+          "subject": "agent:bot-1",
+          "audience": "bank-api",
+          "scope_hash": "6dde21db45b049735366edc45ad5c88aecd8e4bf13af5738b29f46a09e2ceaad",
+          "issued_at": "2023-11-14T22:13:15.000Z",
+          "expires_at": "2023-11-14T23:14:20.000Z",
+          "assertion_hash": "9cd18bf776ff47fc48edb380f80a5f31fd9cf2ab3b68d11ab1a65e3b37361227",
+          "jti": "jti-V16",
+          "assertion_sig": "0d6024fdbf38c56bfd18f01c88e53ed3d87dd2e50ceb67e286eaaab54b53df9cd85f14c2ed2fc73a635f3bc7efe57ff88312a06fd2de42131f8867017dcd8407"
+        },
+        "intent_commitment": {
+          "created_before_execution": true,
+          "intent_hash": "f49e00aea5513127230f9e676528c74184130d1fbc5ba4989075811c283b87f6",
+          "expected_effect_hash": "c4d83c5312e844650ae98696e006ca29c2df46f102276aaa020b38a5fddb28f7",
+          "gateway_nonce": "nonce-V16",
+          "timestamp_ms": 1700000000000,
+          "scope": "transfer:V16",
+          "signature": "6ab7e769f438330363219e724b60f073d9db6ad1be01527fd9f347ead88674cd6933929108f69a413f6b8dc61ae112c9b75ff600ab725b42bd41738d60f3190e"
+        },
+        "decision_basis_commitment": {
+          "root_hash": "bcb34b0863a044fa7938560614a64101578590a5b3510ed5cf43c7eb6312de25",
+          "leaves_schema": [
+            "input_artifact_hashes",
+            "policy_version_hash"
+          ],
+          "raw_chain_of_thought_included": false
+        },
+        "gateway_policy_decision": {
+          "policy_version_hash": "aa12f2ae08a0f5c9f26a159803bdba9df62237aa5467d004c508ae4211ec328b",
+          "decision": "deny",
+          "action_class_assigned": "financial_movement",
+          "signer": "gw-key-1",
+          "signature": "fe0bee44edb7a27a1afb62e8e650756c575d7c7d5265970afe0941cb353a165924bc94ba7fab8a2f6b10a510c291ff7006bef4a4f95892425e20cd948a5b020f"
+        },
+        "resource_confirmation_ref": {
+          "type": "boundary_attested",
+          "resource_transaction_id": "tx-V16",
+          "correlation_id": "corr-V16",
+          "gateway_nonce_echo": "nonce-V16",
+          "realized_effect_hash": "c4d83c5312e844650ae98696e006ca29c2df46f102276aaa020b38a5fddb28f7",
+          "realized_effect_provenance": "ban_derived",
+          "status": "settled",
+          "timestamp_ms": 1700000060000,
+          "signer_key_id": "res-bank-1",
+          "signature": "1985523b225ec1b53967c95ec590585824efa6d932a70901370b13ff1e8eec04ee7160d90cc23c7407c7e746a3f0850a14deb6e3cf19633a0c4e448d9b45d00b"
+        },
+        "transparency_ref": {
+          "type": "enterprise_merkle_log",
+          "log_id": "enterprise-log-1",
+          "inclusion_proof": [
+            {
+              "dir": "R",
+              "hash": "46fd650cbc18da103bd35473e6c61d9f5e5b28075f43d577f643420594734421"
+            }
+          ],
+          "anchored_at_state": "reserved",
+          "tree_size": 2,
+          "leaf_hash": "43cf9c85d4b5f13d550330cfbc4f9a084b1baeebd39b3e7e2fcf18fc20ed3cdb"
+        }
+      },
+      "verification_context": {
+        "idp_keyset": {
+          "https://idp.example.com": "e035f9e28d89b43aa032ef33ec60fb7f11c74f06fb0827c5bf3710624eab3058"
+        },
+        "operator_anchored_idp_copy": {
+          "https://idp.example.com": "1c61049fad5238ee23d9dacbaccdd1c026e9e658fd7b7851553942c077ffc7c9"
+        },
+        "registered_resource_keys": {
+          "res-bank-1": {
+            "publicKey": "3ffa4aa275e27ece22135f0933c6e83e79ecfdab2a15546491726dbe7b42a142",
+            "registered_by_operator": false
+          },
+          "res-gw-1": {
+            "publicKey": "53f9cc8f2c8b0ed9a9d7a0afdb0aad59ccee370a8b0cfee0fc0915ebf9b6e25e",
+            "registered_by_operator": true
+          }
+        },
+        "operator_domain_registry": {
+          "agent-key-1": {
+            "publicKey": "92fd0ae28362180fc6f8c6d06d3da9a3045b9943b5064b4da8965670ff0c860d",
+            "identity": "op-1"
+          },
+          "gw-key-1": {
+            "publicKey": "c3b25641a27b0e31bbb388308f2c3e30c35292e37b1f52294317fbea5e6f1ad4",
+            "identity": "op-1"
+          },
+          "op2-key-1": {
+            "publicKey": "f7c4d0cf9ae62bdb90d0b0048aa2566b753a213ab42cebffbbd637cc3a2b66bf",
+            "identity": "op-2"
+          }
+        },
+        "operator_identity_id": "op-1",
+        "gateway_key_id": "gw-key-1",
+        "registered_log_roots": {
+          "enterprise-log-1": "753fd345d9978e2d6e5104853c4fa280b7c9c4f126edb1cbb11d88da0e970024"
+        },
+        "allowed_clock_skew_ms": 5000,
+        "reserved_ts": 1700000000000,
+        "submitted_ts": 1700000060000,
+        "max_authority_execution_window_ms": 900000,
+        "anchor_orders_intent_before_resource": true
+      },
+      "expected": {
+        "disposition": "void_policy_violation",
+        "violations": [
+          "void_policy_violation"
+        ],
+        "trust_domain_separation": {
+          "computed_domains": 2,
+          "idp_counts": true,
+          "resource_counts": true,
+          "operator_identity": "op-1",
+          "separation_ok": true
+        }
+      }
+    },
+    {
+      "id": "V17",
+      "scenario": "BAN public key registered by the gateway itself",
+      "surface": "verifier",
+      "input_receipt": {
+        "profile": "aps-regulated-action-v0",
+        "receipt_id": "r-V17",
+        "action_class": "financial_movement",
+        "actor_signature": {
+          "alg": "ed25519",
+          "key_id": "agent-key-1",
+          "sig": "5144aea918ddf24df0fddf0f0370e0f0c706806af4a2177264f902c6e40489342a33f6c7ec27036f865a6d286196015a85e51157b394f7e24d6c49778857fb0b"
+        },
+        "authority_ref": {
+          "type": "id_jag",
+          "issuer": "https://idp.example.com",
+          "subject": "agent:bot-1",
+          "audience": "bank-api",
+          "scope_hash": "ad7c15270cf9465235ef74bb6ff20177047384a79a3d4d4779d6e2e9a91d3b3f",
+          "issued_at": "2023-11-14T22:13:15.000Z",
+          "expires_at": "2023-11-14T23:14:20.000Z",
+          "assertion_hash": "3512c3e36b3c1416e9dcd5383c207f5b3c2100ad5b35efb52da732b279a851d2",
+          "jti": "jti-V17",
+          "assertion_sig": "b26b4e7a3e967d57946fcffe5ed732caca09cc6403a9111b6f45a32a9054a3350e03baecf9707a30ac0f5f7e6fae65aaa9eb92851be210f84287e5d3139db807"
+        },
+        "intent_commitment": {
+          "created_before_execution": true,
+          "intent_hash": "91fd7e3422634c10b251b4c71527898ffff419e3c1672d16555d4f735097e9f1",
+          "expected_effect_hash": "3696ae43f7c0e99f6e22c6fd36b9ad4d700ccef4a04b51a8b8cef0e02889645d",
+          "gateway_nonce": "nonce-V17",
+          "timestamp_ms": 1700000000000,
+          "scope": "transfer:V17",
+          "signature": "19ddf505ebdab6a7d5ebb1ac5e9fcdf49b414a1957d84f75472b18ada5bca014289f6e01e22fd792344ff6023b0e7c3298191ab7c2fda5c8eba7829b33768703"
+        },
+        "decision_basis_commitment": {
+          "root_hash": "51e29a4d67bed159f78ce04ef95d3990b3f5b02c01a1c0e66aaf86a25120dfbb",
+          "leaves_schema": [
+            "input_artifact_hashes",
+            "policy_version_hash"
+          ],
+          "raw_chain_of_thought_included": false
+        },
+        "gateway_policy_decision": {
+          "policy_version_hash": "b10bfcd938242ca970841e5fb4a1def29361e96c7d92b547c7c2c86869abd744",
+          "decision": "allow",
+          "action_class_assigned": "financial_movement",
+          "signer": "gw-key-1",
+          "signature": "78b2689ab2e81c7f5fa423a7150a3cd667e8d34115963252caa6389d9c9be8ea353f10e7c8d56f017aefb5c566f8ded6785a09c1039bdfd31f7ec36fe17a6903"
+        },
+        "resource_confirmation_ref": {
+          "type": "boundary_attested",
+          "resource_transaction_id": "tx-V17",
+          "correlation_id": "corr-V17",
+          "gateway_nonce_echo": "nonce-V17",
+          "realized_effect_hash": "3696ae43f7c0e99f6e22c6fd36b9ad4d700ccef4a04b51a8b8cef0e02889645d",
+          "realized_effect_provenance": "ban_derived",
+          "status": "settled",
+          "timestamp_ms": 1700000060000,
+          "signer_key_id": "res-gw-1",
+          "signature": "5e9b6ccaa27698b32951d419ceee10a961b64382740226726b795cbbaff5236d4a55dd7953df3fdde3761b1e3aa76083c56e8121f73ed0f06712eae73cc78400"
+        },
+        "transparency_ref": {
+          "type": "enterprise_merkle_log",
+          "log_id": "enterprise-log-1",
+          "inclusion_proof": [
+            {
+              "dir": "R",
+              "hash": "8112b837ed588f5ea39a2f8c752469ee5f1c472754ae9588c491a8f80bdc6bb5"
+            }
+          ],
+          "anchored_at_state": "reserved",
+          "tree_size": 2,
+          "leaf_hash": "127ce16122820d4c592090b2d5258e6aec4e3b0a0ac74995a30b3f9c605dbb35"
+        }
+      },
+      "verification_context": {
+        "idp_keyset": {
+          "https://idp.example.com": "e035f9e28d89b43aa032ef33ec60fb7f11c74f06fb0827c5bf3710624eab3058"
+        },
+        "operator_anchored_idp_copy": {
+          "https://idp.example.com": "1c61049fad5238ee23d9dacbaccdd1c026e9e658fd7b7851553942c077ffc7c9"
+        },
+        "registered_resource_keys": {
+          "res-bank-1": {
+            "publicKey": "3ffa4aa275e27ece22135f0933c6e83e79ecfdab2a15546491726dbe7b42a142",
+            "registered_by_operator": false
+          },
+          "res-gw-1": {
+            "publicKey": "53f9cc8f2c8b0ed9a9d7a0afdb0aad59ccee370a8b0cfee0fc0915ebf9b6e25e",
+            "registered_by_operator": true
+          }
+        },
+        "operator_domain_registry": {
+          "agent-key-1": {
+            "publicKey": "92fd0ae28362180fc6f8c6d06d3da9a3045b9943b5064b4da8965670ff0c860d",
+            "identity": "op-1"
+          },
+          "gw-key-1": {
+            "publicKey": "c3b25641a27b0e31bbb388308f2c3e30c35292e37b1f52294317fbea5e6f1ad4",
+            "identity": "op-1"
+          },
+          "op2-key-1": {
+            "publicKey": "f7c4d0cf9ae62bdb90d0b0048aa2566b753a213ab42cebffbbd637cc3a2b66bf",
+            "identity": "op-2"
+          }
+        },
+        "operator_identity_id": "op-1",
+        "gateway_key_id": "gw-key-1",
+        "registered_log_roots": {
+          "enterprise-log-1": "c7befdca0ac6edf8a015c2b218a124269d47f40fce1e049b43538e289221c09c"
+        },
+        "allowed_clock_skew_ms": 5000,
+        "reserved_ts": 1700000000000,
+        "submitted_ts": 1700000060000,
+        "max_authority_execution_window_ms": 900000,
+        "anchor_orders_intent_before_resource": true
+      },
+      "expected": {
+        "disposition": "intent_precommitted",
+        "violations": [],
+        "trust_domain_separation": {
+          "computed_domains": 1,
+          "idp_counts": true,
+          "resource_counts": false,
+          "operator_identity": "op-1",
+          "separation_ok": true
+        }
+      }
+    },
+    {
+      "id": "V18",
+      "scenario": "IdP key rotated; only an operator-anchored key copy available",
+      "surface": "verifier",
+      "input_receipt": {
+        "profile": "aps-regulated-action-v0",
+        "receipt_id": "r-V18",
+        "action_class": "financial_movement",
+        "actor_signature": {
+          "alg": "ed25519",
+          "key_id": "agent-key-1",
+          "sig": "40a8f5ee1aecfe0729c4f16292af5e12c7de51aa11615a80913662ee3002e3a165e2a11e695369782aef133eee32f5a4d2f95bcda68add943e4f70d39bb9cc0c"
+        },
+        "authority_ref": {
+          "type": "id_jag",
+          "issuer": "https://idp.example.com",
+          "subject": "agent:bot-1",
+          "audience": "bank-api",
+          "scope_hash": "fc0d398e80f0f3516415c423ab0b45d68c49f402b73a6d6aceff58c730db763a",
+          "issued_at": "2023-11-14T22:13:15.000Z",
+          "expires_at": "2023-11-14T23:14:20.000Z",
+          "assertion_hash": "df6c13e651b5f7c3f2ce701c8c23bc55593fd3fa01cc92c404b1f45e6f17dde8",
+          "jti": "jti-V18",
+          "assertion_sig": "e5b57b1cd3911f2f6b697eaed99b4952fc02a69df2f22c755fd5e5db3b4fa8b8903e9c0cba6f3f81e090af85c269e0ffd8d6c9907142f301152931d38d3bc109"
+        },
+        "intent_commitment": {
+          "created_before_execution": true,
+          "intent_hash": "bfc74ed570df6de15a9ce1c645048e52f0e9ee4dcb1d4e46c1f503ef99647631",
+          "expected_effect_hash": "e5ffab3f005f199dee79ec8bb6df21feeb4a5ca048e6adfaa340e32a00b01127",
+          "gateway_nonce": "nonce-V18",
+          "timestamp_ms": 1700000000000,
+          "scope": "transfer:V18",
+          "signature": "3d1456344c820de93ce4e651179475ffecba52fbc5b6d40135502ecf0ca3b783721573a98c45d2102df1562657a0fff36a9daeb4295eaebece8dce890621180b"
+        },
+        "decision_basis_commitment": {
+          "root_hash": "f2b94484c4a0ae592e30f81530db481995837f9d1cd21f1995431c587d6e0b90",
+          "leaves_schema": [
+            "input_artifact_hashes",
+            "policy_version_hash"
+          ],
+          "raw_chain_of_thought_included": false
+        },
+        "gateway_policy_decision": {
+          "policy_version_hash": "ec80d5c637903eb4bba9405c3692e4beceff73fa1b1b9132ffc88074cbe6adb6",
+          "decision": "allow",
+          "action_class_assigned": "financial_movement",
+          "signer": "gw-key-1",
+          "signature": "7814176a9b409d28700f5d5190cc0b2fa10f5600a68e49d63cb444d011ca6f7317090ce320c7829e3ea48b1430b41c7aa375ac79b1a7f5125305c91262425a08"
+        },
+        "transparency_ref": {
+          "type": "enterprise_merkle_log",
+          "log_id": "enterprise-log-1",
+          "inclusion_proof": [
+            {
+              "dir": "R",
+              "hash": "08434c9c2a003ba302d5febec86ee795a49259f261dfeb518722c7086fdd880e"
+            }
+          ],
+          "anchored_at_state": "reserved",
+          "tree_size": 2,
+          "leaf_hash": "323a6eb4c2ca58ed6315954ea0dad8f1f1285966c1593d6347f72ceac579177f"
+        }
+      },
+      "verification_context": {
+        "idp_keyset": {
+          "https://idp.example.com": "e035f9e28d89b43aa032ef33ec60fb7f11c74f06fb0827c5bf3710624eab3058"
+        },
+        "operator_anchored_idp_copy": {
+          "https://idp.example.com": "1c61049fad5238ee23d9dacbaccdd1c026e9e658fd7b7851553942c077ffc7c9"
+        },
+        "registered_resource_keys": {
+          "res-bank-1": {
+            "publicKey": "3ffa4aa275e27ece22135f0933c6e83e79ecfdab2a15546491726dbe7b42a142",
+            "registered_by_operator": false
+          },
+          "res-gw-1": {
+            "publicKey": "53f9cc8f2c8b0ed9a9d7a0afdb0aad59ccee370a8b0cfee0fc0915ebf9b6e25e",
+            "registered_by_operator": true
+          }
+        },
+        "operator_domain_registry": {
+          "agent-key-1": {
+            "publicKey": "92fd0ae28362180fc6f8c6d06d3da9a3045b9943b5064b4da8965670ff0c860d",
+            "identity": "op-1"
+          },
+          "gw-key-1": {
+            "publicKey": "c3b25641a27b0e31bbb388308f2c3e30c35292e37b1f52294317fbea5e6f1ad4",
+            "identity": "op-1"
+          },
+          "op2-key-1": {
+            "publicKey": "f7c4d0cf9ae62bdb90d0b0048aa2566b753a213ab42cebffbbd637cc3a2b66bf",
+            "identity": "op-2"
+          }
+        },
+        "operator_identity_id": "op-1",
+        "gateway_key_id": "gw-key-1",
+        "registered_log_roots": {
+          "enterprise-log-1": "a2d6b3d0695f47e788df51ed097480c0a5873443fe94a87185ed3635c5184981"
+        },
+        "allowed_clock_skew_ms": 5000,
+        "reserved_ts": 1700000000000,
+        "submitted_ts": 1700000060000,
+        "max_authority_execution_window_ms": 900000,
+        "anchor_orders_intent_before_resource": true
+      },
+      "expected": {
+        "disposition": "incomplete_for_class",
+        "incomplete_reason": "missing_authority",
+        "authority_basis": "operator_anchored_copy_weak",
+        "violations": [],
+        "trust_domain_separation": {
+          "computed_domains": 0,
+          "idp_counts": false,
+          "resource_counts": false,
+          "operator_identity": "op-1",
+          "separation_ok": true
+        }
+      }
+    },
+    {
+      "id": "V19",
+      "scenario": "small clock skew within tolerance, anchor order correct",
+      "surface": "verifier",
+      "input_receipt": {
+        "profile": "aps-regulated-action-v0",
+        "receipt_id": "r-V19",
+        "action_class": "financial_movement",
+        "actor_signature": {
+          "alg": "ed25519",
+          "key_id": "agent-key-1",
+          "sig": "4cfe88d27fa7709cc4cd2ed7bde9049d759127bad1647827b417a46252a04332884488440d6753565209b393932ae97a35f1f4199512e4a7ecb520ac59188c0b"
+        },
+        "authority_ref": {
+          "type": "id_jag",
+          "issuer": "https://idp.example.com",
+          "subject": "agent:bot-1",
+          "audience": "bank-api",
+          "scope_hash": "38d4b3b38bbd24fa6666f6b3269c120f6519eb303dda31d8769bd8b39d0d8d95",
+          "issued_at": "2023-11-14T22:13:15.000Z",
+          "expires_at": "2023-11-14T23:14:20.000Z",
+          "assertion_hash": "244846919054231e4fae38d60ccb42a5b51f4c33a6311aed01e47d600e6d09a3",
+          "jti": "jti-V19",
+          "assertion_sig": "01e016457112e44fee3d9e8d6910317fdebce3b2aa03670dcaec0ab18fc83fb20544a4f64066bd45646265daadf80b56ac6a826765e076e3271c1e31c61e0506"
+        },
+        "intent_commitment": {
+          "created_before_execution": true,
+          "intent_hash": "341e3946b82ebbd8c54d6f9172493c970471d1532e9959801de48ff34b2d20ad",
+          "expected_effect_hash": "a68ca60d35dd5365412b2323ad8ffee8eaca706a81e5be2ecfc7ed70497d79ba",
+          "gateway_nonce": "nonce-V19",
+          "timestamp_ms": 1700000000000,
+          "scope": "transfer:V19",
+          "signature": "e5957f7fe2e14d4e95b92701522181209f4ae0c41d7498fb3c9c84a58a58dfa401f47d28b0a284cc75dfc06e5e4a392d63f9956f7b78c4205aeac84f89a2800f"
+        },
+        "decision_basis_commitment": {
+          "root_hash": "2c0da4e6a19fbfbca3d8a7cdad12c25a69d1a47403458157c3a06a849ccf1d52",
+          "leaves_schema": [
+            "input_artifact_hashes",
+            "policy_version_hash"
+          ],
+          "raw_chain_of_thought_included": false
+        },
+        "gateway_policy_decision": {
+          "policy_version_hash": "6fe844e70b5e5f9eca99c45315723167ff9cb0e6849b2854e524e0d97ab8070a",
+          "decision": "allow",
+          "action_class_assigned": "financial_movement",
+          "signer": "gw-key-1",
+          "signature": "5b2bb095194076610e305e739af471c236b9b998985c8f1923b5d70c007971872c04a0152819fffb5ce607443053e8b3e64feee63eaa17b29e3a106ea3ab5201"
+        },
+        "resource_confirmation_ref": {
+          "type": "boundary_attested",
+          "resource_transaction_id": "tx-V19",
+          "correlation_id": "corr-V19",
+          "gateway_nonce_echo": "nonce-V19",
+          "realized_effect_hash": "a68ca60d35dd5365412b2323ad8ffee8eaca706a81e5be2ecfc7ed70497d79ba",
+          "realized_effect_provenance": "ban_derived",
+          "status": "settled",
+          "timestamp_ms": 1700000060000,
+          "signer_key_id": "res-bank-1",
+          "signature": "a3cc8e1bfd22d3e5f177534a9393011dd8b1b707f5d835a293b36bb054cb724a23287e404ffd2d0d1cd831fc57cb555fffc688ba16e61cae0fcb07ec409aa60d"
+        },
+        "transparency_ref": {
+          "type": "enterprise_merkle_log",
+          "log_id": "enterprise-log-1",
+          "inclusion_proof": [
+            {
+              "dir": "R",
+              "hash": "58c07a43bdd23177fd1ed091d377dfd62b01137d2841fdee3a86f1c0a761a16b"
+            }
+          ],
+          "anchored_at_state": "reserved",
+          "tree_size": 2,
+          "leaf_hash": "9fd12803e27a3759f20557d629b6b702494519664e6ba402b3b7f9a9590fbec9"
+        }
+      },
+      "verification_context": {
+        "idp_keyset": {
+          "https://idp.example.com": "e035f9e28d89b43aa032ef33ec60fb7f11c74f06fb0827c5bf3710624eab3058"
+        },
+        "operator_anchored_idp_copy": {
+          "https://idp.example.com": "1c61049fad5238ee23d9dacbaccdd1c026e9e658fd7b7851553942c077ffc7c9"
+        },
+        "registered_resource_keys": {
+          "res-bank-1": {
+            "publicKey": "3ffa4aa275e27ece22135f0933c6e83e79ecfdab2a15546491726dbe7b42a142",
+            "registered_by_operator": false
+          },
+          "res-gw-1": {
+            "publicKey": "53f9cc8f2c8b0ed9a9d7a0afdb0aad59ccee370a8b0cfee0fc0915ebf9b6e25e",
+            "registered_by_operator": true
+          }
+        },
+        "operator_domain_registry": {
+          "agent-key-1": {
+            "publicKey": "92fd0ae28362180fc6f8c6d06d3da9a3045b9943b5064b4da8965670ff0c860d",
+            "identity": "op-1"
+          },
+          "gw-key-1": {
+            "publicKey": "c3b25641a27b0e31bbb388308f2c3e30c35292e37b1f52294317fbea5e6f1ad4",
+            "identity": "op-1"
+          },
+          "op2-key-1": {
+            "publicKey": "f7c4d0cf9ae62bdb90d0b0048aa2566b753a213ab42cebffbbd637cc3a2b66bf",
+            "identity": "op-2"
+          }
+        },
+        "operator_identity_id": "op-1",
+        "gateway_key_id": "gw-key-1",
+        "registered_log_roots": {
+          "enterprise-log-1": "96f7f363fe54e2ed65e0ed35146a9f33f5eaa82a050bb924b10ed7576d7a1e08"
+        },
+        "allowed_clock_skew_ms": 5000,
+        "reserved_ts": 1700000000000,
+        "submitted_ts": 1700000060000,
+        "max_authority_execution_window_ms": 900000,
+        "anchor_orders_intent_before_resource": true
+      },
+      "expected": {
+        "disposition": "reconciled",
+        "violations": [],
+        "trust_domain_separation": {
+          "computed_domains": 2,
+          "idp_counts": true,
+          "resource_counts": true,
+          "operator_identity": "op-1",
+          "separation_ok": true
+        }
+      }
+    },
+    {
+      "id": "V20",
+      "scenario": "resource event in coverage_scope with no receipt",
+      "surface": "completeness",
+      "completeness_input": {
+        "coverage_scope": {
+          "resource": "bank-api",
+          "tenant": "tenant-1"
+        },
+        "resource_events": [
+          {
+            "resource": "bank-api",
+            "tenant": "tenant-1",
+            "resource_transaction_id": "tx-orphan-1",
+            "timestamp_ms": 1700000060000
+          }
+        ],
+        "reconciled_correlation_ids": []
+      },
+      "expected": {
+        "orphans": [
+          {
+            "resource_transaction_id": "tx-orphan-1",
+            "timestamp_ms": 1700000060000
+          }
+        ]
+      },
+      "notes": "assertion is on expected.orphans; validated by the gateway completeness layer"
+    },
+    {
+      "id": "V21",
+      "scenario": "resource event OUTSIDE coverage_scope with no receipt",
+      "surface": "completeness",
+      "completeness_input": {
+        "coverage_scope": {
+          "resource": "bank-api",
+          "tenant": "tenant-1"
+        },
+        "resource_events": [
+          {
+            "resource": "other-system",
+            "tenant": "tenant-1",
+            "resource_transaction_id": "tx-oob-1",
+            "timestamp_ms": 1700000060000
+          }
+        ],
+        "reconciled_correlation_ids": []
+      },
+      "expected": {
+        "orphans": []
+      },
+      "notes": "scope filter proves no orphan; validated by the gateway completeness layer"
+    },
+    {
+      "id": "V22",
+      "scenario": "envelope crypto failure: tampered actor sig",
+      "surface": "verifier",
+      "input_receipt": {
+        "profile": "aps-regulated-action-v0",
+        "receipt_id": "r-V22",
+        "action_class": "financial_movement",
+        "actor_signature": {
+          "alg": "ed25519",
+          "key_id": "agent-key-1",
+          "sig": "4918c61d2e9d267f45e10a90ad5443497503b3fee3adf9de0a9a8149c9561d89d07dcd3aa29b1c92c2f706f0ab4711c2a4b9f777c5d7815fdc8ecb6144691300"
+        },
+        "authority_ref": {
+          "type": "id_jag",
+          "issuer": "https://idp.example.com",
+          "subject": "agent:bot-1",
+          "audience": "bank-api",
+          "scope_hash": "2471f12ee727d50d9b1c34114ae33be0aa1618c663f974f95c57bf53df551ad3",
+          "issued_at": "2023-11-14T22:13:15.000Z",
+          "expires_at": "2023-11-14T23:14:20.000Z",
+          "assertion_hash": "d77567f7e44587a27c1ef7113784eee07f46e571f3ff0e38892f9e79b937e158",
+          "jti": "jti-V22",
+          "assertion_sig": "fa490bc41dab58c189914130d7d3314a396e2cae755a20f7158a3cbe03fb5d5852d934e93f90d7994b5fbbc4890b7db7d651682d65da9f7e0fa22c699ddccf01"
+        },
+        "intent_commitment": {
+          "created_before_execution": true,
+          "intent_hash": "d6eeafd392fdc82da0a5e836b30a077a0d8349938d71a2a2b37da2538319db26",
+          "expected_effect_hash": "56965dfdfc3764a891c51e2a7b16e76f9c146b0de65ffeb4cd4bc040b38a3b27",
+          "gateway_nonce": "nonce-V22",
+          "timestamp_ms": 1700000000000,
+          "scope": "transfer:V22",
+          "signature": "0ed232e5bb019e40a8232fc3f2a62bf8cfa08309be0c53796e4347648e0f01b67e033cafa91649bc3ccfafb003724cba5d702bcae6f0025148b1359ea116120c"
+        },
+        "decision_basis_commitment": {
+          "root_hash": "20226591dcb8b137619d5e134a14fcc3dbeae4544181668c0867b1e516e34dc1",
+          "leaves_schema": [
+            "input_artifact_hashes",
+            "policy_version_hash"
+          ],
+          "raw_chain_of_thought_included": false
+        },
+        "gateway_policy_decision": {
+          "policy_version_hash": "8c879127bd281b632894d700034cc498ef5d16ed6061366a45a69eeabb04b0f7",
+          "decision": "allow",
+          "action_class_assigned": "financial_movement",
+          "signer": "gw-key-1",
+          "signature": "81a142ba98429ffb7c10a8fd3d29cd1b9a393cdf9ca206cb9872c46ad2fb980fa324f4a207f12e805bc1c5b814aac6ba9720764fa89e05199ad13742727a6805"
+        },
+        "resource_confirmation_ref": {
+          "type": "boundary_attested",
+          "resource_transaction_id": "tx-V22",
+          "correlation_id": "corr-V22",
+          "gateway_nonce_echo": "nonce-V22",
+          "realized_effect_hash": "56965dfdfc3764a891c51e2a7b16e76f9c146b0de65ffeb4cd4bc040b38a3b27",
+          "realized_effect_provenance": "ban_derived",
+          "status": "settled",
+          "timestamp_ms": 1700000060000,
+          "signer_key_id": "res-bank-1",
+          "signature": "cd011ae5925d155a27e03fef7fd4e1f72df40457222c2851b2628f152f9d93b4dc4fb56c139fd04c11b4e4d92809aaa7eb619d89f74e0a02060d240def0fec09"
+        },
+        "transparency_ref": {
+          "type": "enterprise_merkle_log",
+          "log_id": "enterprise-log-1",
+          "inclusion_proof": [
+            {
+              "dir": "R",
+              "hash": "936dbc6d653173e9903320818937fa42aafa6743aad98c8bd168b5aebae86ecd"
+            }
+          ],
+          "anchored_at_state": "reserved",
+          "tree_size": 2,
+          "leaf_hash": "9622abec0f21712c95e7125868db82ac2c8eb424c897967dba1dbd73d56bb8d6"
+        }
+      },
+      "verification_context": {
+        "idp_keyset": {
+          "https://idp.example.com": "e035f9e28d89b43aa032ef33ec60fb7f11c74f06fb0827c5bf3710624eab3058"
+        },
+        "operator_anchored_idp_copy": {
+          "https://idp.example.com": "1c61049fad5238ee23d9dacbaccdd1c026e9e658fd7b7851553942c077ffc7c9"
+        },
+        "registered_resource_keys": {
+          "res-bank-1": {
+            "publicKey": "3ffa4aa275e27ece22135f0933c6e83e79ecfdab2a15546491726dbe7b42a142",
+            "registered_by_operator": false
+          },
+          "res-gw-1": {
+            "publicKey": "53f9cc8f2c8b0ed9a9d7a0afdb0aad59ccee370a8b0cfee0fc0915ebf9b6e25e",
+            "registered_by_operator": true
+          }
+        },
+        "operator_domain_registry": {
+          "agent-key-1": {
+            "publicKey": "92fd0ae28362180fc6f8c6d06d3da9a3045b9943b5064b4da8965670ff0c860d",
+            "identity": "op-1"
+          },
+          "gw-key-1": {
+            "publicKey": "c3b25641a27b0e31bbb388308f2c3e30c35292e37b1f52294317fbea5e6f1ad4",
+            "identity": "op-1"
+          },
+          "op2-key-1": {
+            "publicKey": "f7c4d0cf9ae62bdb90d0b0048aa2566b753a213ab42cebffbbd637cc3a2b66bf",
+            "identity": "op-2"
+          }
+        },
+        "operator_identity_id": "op-1",
+        "gateway_key_id": "gw-key-1",
+        "registered_log_roots": {
+          "enterprise-log-1": "0f1730c4b422ab971b8934b14acdef42459b6e5e6134da75eb6197104a610a07"
+        },
+        "allowed_clock_skew_ms": 5000,
+        "reserved_ts": 1700000000000,
+        "submitted_ts": 1700000060000,
+        "max_authority_execution_window_ms": 900000,
+        "anchor_orders_intent_before_resource": true
+      },
+      "expected": {
+        "disposition": "void",
+        "violations": [
+          "void"
+        ],
+        "trust_domain_separation": {
+          "computed_domains": 2,
+          "idp_counts": true,
+          "resource_counts": true,
+          "operator_identity": "op-1",
+          "separation_ok": true
+        }
+      }
+    },
+    {
+      "id": "V23",
+      "scenario": "policy_deny AND NOT executed",
+      "surface": "verifier",
+      "input_receipt": {
+        "profile": "aps-regulated-action-v0",
+        "receipt_id": "r-V23",
+        "action_class": "financial_movement",
+        "actor_signature": {
+          "alg": "ed25519",
+          "key_id": "agent-key-1",
+          "sig": "d777b459c2c95afdd2f7d12333ff315408535c055ca7012cf22ffe86fadae9553a8fbca152201749abe52106369427573b3e404dc68510b4af6192ff4fb31809"
+        },
+        "authority_ref": {
+          "type": "id_jag",
+          "issuer": "https://idp.example.com",
+          "subject": "agent:bot-1",
+          "audience": "bank-api",
+          "scope_hash": "b358a42a23c8751227663d9c1f080afbf9b1000ef8a140aa6d6e7ca7da488107",
+          "issued_at": "2023-11-14T22:13:15.000Z",
+          "expires_at": "2023-11-14T23:14:20.000Z",
+          "assertion_hash": "5fdfe2e824150e22667a73aa4adfd86661bf069fa5221cc57ba0f4c5c50360b5",
+          "jti": "jti-V23",
+          "assertion_sig": "b3aa84f8803598d6cd48ff13ba3f195ea5c7fd9d932d6545802c796abf471ba656c3c26a6eb704ea37dde73b6f5b921b4bbb32e3dc695d54514ef37810942608"
+        },
+        "intent_commitment": {
+          "created_before_execution": true,
+          "intent_hash": "66420c5e7104ab9704b2e3abce8cb6bcfa6b6ca8d745ea922a7b2d93d3c2388d",
+          "expected_effect_hash": "6eca1324459a1d18f27514c7b71ccd770adcbacf842a15b63d1a59ee9ec2b306",
+          "gateway_nonce": "nonce-V23",
+          "timestamp_ms": 1700000000000,
+          "scope": "transfer:V23",
+          "signature": "b0832ba093dcdbd4098cefd294975b2a707d68216e9fd7fb488695fdde660a781dee6d2610eaba469ef2cb3ba83cdf816ebb1c92e063e3920a9dd33ab36ba400"
+        },
+        "decision_basis_commitment": {
+          "root_hash": "4b7c2f2653cb80a534f2e96c78eb0a33506c174178798ad095dc44a6bb7a7951",
+          "leaves_schema": [
+            "input_artifact_hashes",
+            "policy_version_hash"
+          ],
+          "raw_chain_of_thought_included": false
+        },
+        "gateway_policy_decision": {
+          "policy_version_hash": "a758b306038b47fd7d28edb2383c44c5f975252ae69d69e7d72ec0e69f45b462",
+          "decision": "deny",
+          "action_class_assigned": "financial_movement",
+          "signer": "gw-key-1",
+          "signature": "bb261703efe20227e08f3347bc220ddf62f737729ef23b642e35bbe0d14bbfec040c6a2432e8b10ad91827ecc14810452e8aa8b258fb8b962f69fc0289bbbe02"
+        },
+        "transparency_ref": {
+          "type": "enterprise_merkle_log",
+          "log_id": "enterprise-log-1",
+          "inclusion_proof": [
+            {
+              "dir": "R",
+              "hash": "1bf17174832a94e87fbe8bfb6155218e6fabf6e7cdf872e48a8e581b8886af5c"
+            }
+          ],
+          "anchored_at_state": "reserved",
+          "tree_size": 2,
+          "leaf_hash": "4b5440ca09b47506bf575169bb1c89ff9b02feab750c536c412d4e6f6a2f0fa5"
+        }
+      },
+      "verification_context": {
+        "idp_keyset": {
+          "https://idp.example.com": "e035f9e28d89b43aa032ef33ec60fb7f11c74f06fb0827c5bf3710624eab3058"
+        },
+        "operator_anchored_idp_copy": {
+          "https://idp.example.com": "1c61049fad5238ee23d9dacbaccdd1c026e9e658fd7b7851553942c077ffc7c9"
+        },
+        "registered_resource_keys": {
+          "res-bank-1": {
+            "publicKey": "3ffa4aa275e27ece22135f0933c6e83e79ecfdab2a15546491726dbe7b42a142",
+            "registered_by_operator": false
+          },
+          "res-gw-1": {
+            "publicKey": "53f9cc8f2c8b0ed9a9d7a0afdb0aad59ccee370a8b0cfee0fc0915ebf9b6e25e",
+            "registered_by_operator": true
+          }
+        },
+        "operator_domain_registry": {
+          "agent-key-1": {
+            "publicKey": "92fd0ae28362180fc6f8c6d06d3da9a3045b9943b5064b4da8965670ff0c860d",
+            "identity": "op-1"
+          },
+          "gw-key-1": {
+            "publicKey": "c3b25641a27b0e31bbb388308f2c3e30c35292e37b1f52294317fbea5e6f1ad4",
+            "identity": "op-1"
+          },
+          "op2-key-1": {
+            "publicKey": "f7c4d0cf9ae62bdb90d0b0048aa2566b753a213ab42cebffbbd637cc3a2b66bf",
+            "identity": "op-2"
+          }
+        },
+        "operator_identity_id": "op-1",
+        "gateway_key_id": "gw-key-1",
+        "registered_log_roots": {
+          "enterprise-log-1": "008643f1aa043b00754d91391fe8801612e538b4a1ea4b79ff356a4e7df8ce80"
+        },
+        "allowed_clock_skew_ms": 5000,
+        "reserved_ts": 1700000000000,
+        "submitted_ts": 1700000060000,
+        "max_authority_execution_window_ms": 900000,
+        "anchor_orders_intent_before_resource": true
+      },
+      "expected": {
+        "disposition": "incomplete_for_class",
+        "incomplete_reason": "policy_denied_no_execution",
+        "violations": [],
+        "trust_domain_separation": {
+          "computed_domains": 1,
+          "idp_counts": true,
+          "resource_counts": false,
+          "operator_identity": "op-1",
+          "separation_ok": true
+        }
+      }
+    },
+    {
+      "id": "V24",
+      "scenario": "authority_ok+intent_ok+anchor present, policy absent, no resource",
+      "surface": "verifier",
+      "input_receipt": {
+        "profile": "aps-regulated-action-v0",
+        "receipt_id": "r-V24",
+        "action_class": "financial_movement",
+        "actor_signature": {
+          "alg": "ed25519",
+          "key_id": "agent-key-1",
+          "sig": "e4454280cc58d510bc8265081831a6ca7d46d0e8fb63bcb3c170574769aa62edf79919bdcbe8cd37f66fde8936afff7c5d090e3104930f5129ce151a8de6df0c"
+        },
+        "authority_ref": {
+          "type": "id_jag",
+          "issuer": "https://idp.example.com",
+          "subject": "agent:bot-1",
+          "audience": "bank-api",
+          "scope_hash": "15c7293649b6f7c9244d90a39a0b43f6fa4956e199665a9b7e5374fb7243ba6d",
+          "issued_at": "2023-11-14T22:13:15.000Z",
+          "expires_at": "2023-11-14T23:14:20.000Z",
+          "assertion_hash": "ec67d6afb0f8b1da9212e6a912a920041b4d1fe1f712ccb033ef400ca1c09bf5",
+          "jti": "jti-V24",
+          "assertion_sig": "2e0464dc3f601d285a21653cc1b7aaa629c3279ff2b1e801622c06232f6def8c65bad438537f41ddf7b987bf3c9e571fbd997f2d22d3d8315669e86eb6a61801"
+        },
+        "intent_commitment": {
+          "created_before_execution": true,
+          "intent_hash": "f07721faa4cde01ad5ccb79dc79781dfcc0a057cb8d65ec8adde64f719179e68",
+          "expected_effect_hash": "64c7e0e000a1c4db50db52465fc9e57829c072350d5a06ca722f003f225c5574",
+          "gateway_nonce": "nonce-V24",
+          "timestamp_ms": 1700000000000,
+          "scope": "transfer:V24",
+          "signature": "27c114ebfba67275d96da60c9090d14ff8687b431116c5e0a2ed51435719e246ff02447ec3aba439fac52860f7fe0df35eb48ddf5d8379b41232e11ba091830d"
+        },
+        "decision_basis_commitment": {
+          "root_hash": "e9cee92eb1c91aede724fab7ae0052d824e47c51dfa7d713f038e2e48db0412b",
+          "leaves_schema": [
+            "input_artifact_hashes",
+            "policy_version_hash"
+          ],
+          "raw_chain_of_thought_included": false
+        },
+        "transparency_ref": {
+          "type": "enterprise_merkle_log",
+          "log_id": "enterprise-log-1",
+          "inclusion_proof": [
+            {
+              "dir": "R",
+              "hash": "1d71d0d61d74e415556b1025e240cddd152002e281671eab72330308c887879e"
+            }
+          ],
+          "anchored_at_state": "reserved",
+          "tree_size": 2,
+          "leaf_hash": "e221a520e746b45aebcd8944b025d34f3b9cecbbdffb3cadb8b06b5ae93192d7"
+        }
+      },
+      "verification_context": {
+        "idp_keyset": {
+          "https://idp.example.com": "e035f9e28d89b43aa032ef33ec60fb7f11c74f06fb0827c5bf3710624eab3058"
+        },
+        "operator_anchored_idp_copy": {
+          "https://idp.example.com": "1c61049fad5238ee23d9dacbaccdd1c026e9e658fd7b7851553942c077ffc7c9"
+        },
+        "registered_resource_keys": {
+          "res-bank-1": {
+            "publicKey": "3ffa4aa275e27ece22135f0933c6e83e79ecfdab2a15546491726dbe7b42a142",
+            "registered_by_operator": false
+          },
+          "res-gw-1": {
+            "publicKey": "53f9cc8f2c8b0ed9a9d7a0afdb0aad59ccee370a8b0cfee0fc0915ebf9b6e25e",
+            "registered_by_operator": true
+          }
+        },
+        "operator_domain_registry": {
+          "agent-key-1": {
+            "publicKey": "92fd0ae28362180fc6f8c6d06d3da9a3045b9943b5064b4da8965670ff0c860d",
+            "identity": "op-1"
+          },
+          "gw-key-1": {
+            "publicKey": "c3b25641a27b0e31bbb388308f2c3e30c35292e37b1f52294317fbea5e6f1ad4",
+            "identity": "op-1"
+          },
+          "op2-key-1": {
+            "publicKey": "f7c4d0cf9ae62bdb90d0b0048aa2566b753a213ab42cebffbbd637cc3a2b66bf",
+            "identity": "op-2"
+          }
+        },
+        "operator_identity_id": "op-1",
+        "gateway_key_id": "gw-key-1",
+        "registered_log_roots": {
+          "enterprise-log-1": "29ba7dbac2e5fb1c99d311e5b4b9e5a81515c216a97d815ec8b54bd0c0fa8a38"
+        },
+        "allowed_clock_skew_ms": 5000,
+        "reserved_ts": 1700000000000,
+        "submitted_ts": 1700000060000,
+        "max_authority_execution_window_ms": 900000,
+        "anchor_orders_intent_before_resource": true
+      },
+      "expected": {
+        "disposition": "incomplete_for_class",
+        "incomplete_reason": "execution_unconfirmed",
+        "violations": [],
+        "trust_domain_separation": {
+          "computed_domains": 1,
+          "idp_counts": true,
+          "resource_counts": false,
+          "operator_identity": "op-1",
+          "separation_ok": true
+        }
+      }
+    },
+    {
+      "id": "V25",
+      "scenario": "resource present+valid+matches + intent ok + NO authority",
+      "surface": "verifier",
+      "input_receipt": {
+        "profile": "aps-regulated-action-v0",
+        "receipt_id": "r-V25",
+        "action_class": "financial_movement",
+        "actor_signature": {
+          "alg": "ed25519",
+          "key_id": "agent-key-1",
+          "sig": "227f6686d4ca90050d2897b785764b2263cb5538bc94713f75b19cab5ace35ddb2eb384696bc223b0d26d50beb09e895cff879e131583594493df9ff7be92d0b"
+        },
+        "intent_commitment": {
+          "created_before_execution": true,
+          "intent_hash": "6806c09fe04ce87897c519b51818529e4f2397e5253cca53ecd279a7ddcd2250",
+          "expected_effect_hash": "098bec93b437d81d0f55898603405dbb7536b45bd2d4cfc82cffb2619068490a",
+          "gateway_nonce": "nonce-V25",
+          "timestamp_ms": 1700000000000,
+          "scope": "transfer:V25",
+          "signature": "c1a605f7231bef2415518220695054d747b909d3d8e58382ec225951fba36539ca44702c5affc28f9f91a337fdfe66de1e60b9cc7c8a43c766d1f8f3872e5d03"
+        },
+        "decision_basis_commitment": {
+          "root_hash": "206cf8301f4354aaff23b49e002e174dfd3ffeed4c16dfafe6ce189788c4836f",
+          "leaves_schema": [
+            "input_artifact_hashes",
+            "policy_version_hash"
+          ],
+          "raw_chain_of_thought_included": false
+        },
+        "gateway_policy_decision": {
+          "policy_version_hash": "a2e451ad9171d6e73eec22750ef02a9c52ec0ab92898cd79793b7bf4e8673136",
+          "decision": "allow",
+          "action_class_assigned": "financial_movement",
+          "signer": "gw-key-1",
+          "signature": "3ee357d65f8b7eba91407059eba6da801bef665ae9b686bb830b6d4e5258e8e9b0311c5554c0d21c1230960f1af57fe32dd7acd7cba993eeda7c3cd4ea88620e"
+        },
+        "resource_confirmation_ref": {
+          "type": "boundary_attested",
+          "resource_transaction_id": "tx-V25",
+          "correlation_id": "corr-V25",
+          "gateway_nonce_echo": "nonce-V25",
+          "realized_effect_hash": "098bec93b437d81d0f55898603405dbb7536b45bd2d4cfc82cffb2619068490a",
+          "realized_effect_provenance": "ban_derived",
+          "status": "settled",
+          "timestamp_ms": 1700000060000,
+          "signer_key_id": "res-bank-1",
+          "signature": "890ec4ab4482ccd36e6048c430a25f85793ef36b2fe65d86ef073469f7e2254e461143176395d78a708469710ba8c1229f3b368d700a580a01c1d22d52e17b07"
+        },
+        "transparency_ref": {
+          "type": "enterprise_merkle_log",
+          "log_id": "enterprise-log-1",
+          "inclusion_proof": [
+            {
+              "dir": "R",
+              "hash": "d1474daeb857173190ef458333cbd5aaff53a95ccdd2a3a3ff90be054bc2ea9f"
+            }
+          ],
+          "anchored_at_state": "reserved",
+          "tree_size": 2,
+          "leaf_hash": "417034214aef0c5394c1ef1da81118f49f95ba21ae78801e4d1b6b1865034347"
+        }
+      },
+      "verification_context": {
+        "idp_keyset": {
+          "https://idp.example.com": "e035f9e28d89b43aa032ef33ec60fb7f11c74f06fb0827c5bf3710624eab3058"
+        },
+        "operator_anchored_idp_copy": {
+          "https://idp.example.com": "1c61049fad5238ee23d9dacbaccdd1c026e9e658fd7b7851553942c077ffc7c9"
+        },
+        "registered_resource_keys": {
+          "res-bank-1": {
+            "publicKey": "3ffa4aa275e27ece22135f0933c6e83e79ecfdab2a15546491726dbe7b42a142",
+            "registered_by_operator": false
+          },
+          "res-gw-1": {
+            "publicKey": "53f9cc8f2c8b0ed9a9d7a0afdb0aad59ccee370a8b0cfee0fc0915ebf9b6e25e",
+            "registered_by_operator": true
+          }
+        },
+        "operator_domain_registry": {
+          "agent-key-1": {
+            "publicKey": "92fd0ae28362180fc6f8c6d06d3da9a3045b9943b5064b4da8965670ff0c860d",
+            "identity": "op-1"
+          },
+          "gw-key-1": {
+            "publicKey": "c3b25641a27b0e31bbb388308f2c3e30c35292e37b1f52294317fbea5e6f1ad4",
+            "identity": "op-1"
+          },
+          "op2-key-1": {
+            "publicKey": "f7c4d0cf9ae62bdb90d0b0048aa2566b753a213ab42cebffbbd637cc3a2b66bf",
+            "identity": "op-2"
+          }
+        },
+        "operator_identity_id": "op-1",
+        "gateway_key_id": "gw-key-1",
+        "registered_log_roots": {
+          "enterprise-log-1": "99417c95e66185a5eac90a09091a32db78270893201f70cc2a4b6b3c6a9ab646"
+        },
+        "allowed_clock_skew_ms": 5000,
+        "reserved_ts": 1700000000000,
+        "submitted_ts": 1700000060000,
+        "max_authority_execution_window_ms": 900000,
+        "anchor_orders_intent_before_resource": true
+      },
+      "expected": {
+        "disposition": "incomplete_for_class",
+        "incomplete_reason": "missing_authority",
+        "violations": [],
+        "trust_domain_separation": {
+          "computed_domains": 1,
+          "idp_counts": false,
+          "resource_counts": true,
+          "operator_identity": "op-1",
+          "separation_ok": true
+        }
+      }
+    },
+    {
+      "id": "V26",
+      "scenario": "authority_invalid (forged) AND resource_present_valid, otherwise clean",
+      "surface": "verifier",
+      "input_receipt": {
+        "profile": "aps-regulated-action-v0",
+        "receipt_id": "r-V26",
+        "action_class": "financial_movement",
+        "actor_signature": {
+          "alg": "ed25519",
+          "key_id": "agent-key-1",
+          "sig": "a7623f8c49036702b609604092090289e5e08a07847984610f1c3197befb2b91bdaeda51e942ed2d9a8f5e7c5ed1dc08f22d0f3723724196199013341cc26108"
+        },
+        "authority_ref": {
+          "type": "id_jag",
+          "issuer": "https://idp.example.com",
+          "subject": "agent:bot-1",
+          "audience": "bank-api",
+          "scope_hash": "7eebf8134d0524bb01ab44d0b92898684a29add7ac76436bfe7ce1354ab47abf",
+          "issued_at": "2023-11-14T22:13:15.000Z",
+          "expires_at": "2023-11-14T23:14:20.000Z",
+          "assertion_hash": "11099126909418e501190df8cb0965a5e8a305d00eb65085b1d74e1756ce560c",
+          "jti": "jti-V26",
+          "assertion_sig": "7fcd94f1bba61c98f094d9bca08ada550f8f0ebee5f8a444ea864d1b13b8fcf88fed1ba755e80a8a904b3af92b30fc3596023d54c6cbf7b90940fc6915932e06"
+        },
+        "intent_commitment": {
+          "created_before_execution": true,
+          "intent_hash": "31fc29d8cfe061999c5cf6d3f27e189de514a4bfe52edad116bb55e0418ab8e0",
+          "expected_effect_hash": "d6f66778c646f3410885c0da3c9b979910ba96c42ed97c531630ab2ea03e3463",
+          "gateway_nonce": "nonce-V26",
+          "timestamp_ms": 1700000000000,
+          "scope": "transfer:V26",
+          "signature": "3bc917996da5a4b4fd7267fa7656642188872114fa199a221862eefae6804f42cf4b75741488a7852421a7dde7213a1811636bdbec67e0c0843b1a9245aa600a"
+        },
+        "decision_basis_commitment": {
+          "root_hash": "990489bb34af153d04450c0ecbd77f436f20009e67102d143205b7f96737464e",
+          "leaves_schema": [
+            "input_artifact_hashes",
+            "policy_version_hash"
+          ],
+          "raw_chain_of_thought_included": false
+        },
+        "gateway_policy_decision": {
+          "policy_version_hash": "1ced37a487d9a45b6232afe869fe21b547eedca1104ce5572eaa2d6cac29ba77",
+          "decision": "allow",
+          "action_class_assigned": "financial_movement",
+          "signer": "gw-key-1",
+          "signature": "73b283e5eac81c5d5f0ba3218e88b7d8dac38340065c16a85fff3a495ee955e2910295c8f83d992db0360efdbf4899d661b54374582775d795fefde9f24f810c"
+        },
+        "resource_confirmation_ref": {
+          "type": "boundary_attested",
+          "resource_transaction_id": "tx-V26",
+          "correlation_id": "corr-V26",
+          "gateway_nonce_echo": "nonce-V26",
+          "realized_effect_hash": "d6f66778c646f3410885c0da3c9b979910ba96c42ed97c531630ab2ea03e3463",
+          "realized_effect_provenance": "ban_derived",
+          "status": "settled",
+          "timestamp_ms": 1700000060000,
+          "signer_key_id": "res-bank-1",
+          "signature": "a4b2cbd0d5ff5174aed8e50c9e3939de7346d6aae492c61750a5d5533d426899c1067215eee5e59eeff20eec12c24969a65579aa05daed14a3477478fb71ca0f"
+        },
+        "transparency_ref": {
+          "type": "enterprise_merkle_log",
+          "log_id": "enterprise-log-1",
+          "inclusion_proof": [
+            {
+              "dir": "R",
+              "hash": "d0bc7b3b1ab5c0458a06a19cfd2b331024d87ada50836c27780e81d8563b5b82"
+            }
+          ],
+          "anchored_at_state": "reserved",
+          "tree_size": 2,
+          "leaf_hash": "05cd881c9e8d31efdec1518ecca6f7b55c32a1c48513e3f0bf67747583a0bc1e"
+        }
+      },
+      "verification_context": {
+        "idp_keyset": {
+          "https://idp.example.com": "e035f9e28d89b43aa032ef33ec60fb7f11c74f06fb0827c5bf3710624eab3058"
+        },
+        "operator_anchored_idp_copy": {
+          "https://idp.example.com": "1c61049fad5238ee23d9dacbaccdd1c026e9e658fd7b7851553942c077ffc7c9"
+        },
+        "registered_resource_keys": {
+          "res-bank-1": {
+            "publicKey": "3ffa4aa275e27ece22135f0933c6e83e79ecfdab2a15546491726dbe7b42a142",
+            "registered_by_operator": false
+          },
+          "res-gw-1": {
+            "publicKey": "53f9cc8f2c8b0ed9a9d7a0afdb0aad59ccee370a8b0cfee0fc0915ebf9b6e25e",
+            "registered_by_operator": true
+          }
+        },
+        "operator_domain_registry": {
+          "agent-key-1": {
+            "publicKey": "92fd0ae28362180fc6f8c6d06d3da9a3045b9943b5064b4da8965670ff0c860d",
+            "identity": "op-1"
+          },
+          "gw-key-1": {
+            "publicKey": "c3b25641a27b0e31bbb388308f2c3e30c35292e37b1f52294317fbea5e6f1ad4",
+            "identity": "op-1"
+          },
+          "op2-key-1": {
+            "publicKey": "f7c4d0cf9ae62bdb90d0b0048aa2566b753a213ab42cebffbbd637cc3a2b66bf",
+            "identity": "op-2"
+          }
+        },
+        "operator_identity_id": "op-1",
+        "gateway_key_id": "gw-key-1",
+        "registered_log_roots": {
+          "enterprise-log-1": "204b1a64b2e4aa6ed105b03714fb2de03977466d2bbeb24281c608cc365dde34"
+        },
+        "allowed_clock_skew_ms": 5000,
+        "reserved_ts": 1700000000000,
+        "submitted_ts": 1700000060000,
+        "max_authority_execution_window_ms": 900000,
+        "anchor_orders_intent_before_resource": true
+      },
+      "expected": {
+        "disposition": "authority_invalid",
+        "violations": [
+          "authority_invalid"
+        ],
+        "trust_domain_separation": {
+          "computed_domains": 1,
+          "idp_counts": false,
+          "resource_counts": true,
+          "operator_identity": "op-1",
+          "separation_ok": true
+        }
+      }
+    },
+    {
+      "id": "V27",
+      "scenario": "separation_ok false: two operator identities to fake domains>=2",
+      "surface": "verifier",
+      "input_receipt": {
+        "profile": "aps-regulated-action-v0",
+        "receipt_id": "r-V27",
+        "action_class": "financial_movement",
+        "actor_signature": {
+          "alg": "ed25519",
+          "key_id": "op2-key-1",
+          "sig": "b166b41562c38c7f7883b62d814d45e296d6cb6e70e2f340f72d497e44fc6e4a8621208e178db7be1d6c00e9911c88736265b98dd9abf53387650e168c826805"
+        },
+        "authority_ref": {
+          "type": "id_jag",
+          "issuer": "https://idp.example.com",
+          "subject": "agent:bot-1",
+          "audience": "bank-api",
+          "scope_hash": "e62aa11fff403f5f7f0bd63e3e231ee11bd329f2cf5d8a9b13dc723af710a267",
+          "issued_at": "2023-11-14T22:13:15.000Z",
+          "expires_at": "2023-11-14T23:14:20.000Z",
+          "assertion_hash": "b9b87b21abc5a4f57c884679de44d62d3093558aee7ae2c5f394d6d5fe8641f4",
+          "jti": "jti-V27",
+          "assertion_sig": "c4e56f00d5dc24d6f69371a5f7d49f1fc6f1619ce62b183ca5557a4b0a6a271126422233dfd6b574c8f31c06ee4d406916c4cbd07b31a9139737414ddbbdb704"
+        },
+        "intent_commitment": {
+          "created_before_execution": true,
+          "intent_hash": "4736fd19375eab428ee11f02ac6c359b6e51b22481faf72d06167f9b0b0852a6",
+          "expected_effect_hash": "b3ed31ca7b0da9bf0d47ec9153c388c68b3be5d9b5295f785f6d521aa485985c",
+          "gateway_nonce": "nonce-V27",
+          "timestamp_ms": 1700000000000,
+          "scope": "transfer:V27",
+          "signature": "ac981328ec9983c0ef048ef76cccb1867c3f24a661cc48a3c3283d4faed9738b23f63fab364133cf1c5559b496ac02907cdfb652e30515be0998913057d3550b"
+        },
+        "decision_basis_commitment": {
+          "root_hash": "8a6ace0ea277c899381542ba4efda675b0d8e194c97fb388a9c06dd939d0085f",
+          "leaves_schema": [
+            "input_artifact_hashes",
+            "policy_version_hash"
+          ],
+          "raw_chain_of_thought_included": false
+        },
+        "gateway_policy_decision": {
+          "policy_version_hash": "bfd36e0888e68eadc7237f5b9576bb5e4917e0c25e6d33c715f97dd69850d8cd",
+          "decision": "allow",
+          "action_class_assigned": "financial_movement",
+          "signer": "gw-key-1",
+          "signature": "394b0a8eda4d791b6b8d35a265fde7feb14e15f51c8a35e488544d07e19c54bb076e2f7d7b5343eba032694d11e71a1fbd7c63884b49b6a739e5eb7b4229260f"
+        },
+        "resource_confirmation_ref": {
+          "type": "boundary_attested",
+          "resource_transaction_id": "tx-V27",
+          "correlation_id": "corr-V27",
+          "gateway_nonce_echo": "nonce-V27",
+          "realized_effect_hash": "b3ed31ca7b0da9bf0d47ec9153c388c68b3be5d9b5295f785f6d521aa485985c",
+          "realized_effect_provenance": "ban_derived",
+          "status": "settled",
+          "timestamp_ms": 1700000060000,
+          "signer_key_id": "res-bank-1",
+          "signature": "2deb1767b39cfbb1cbc3c1bd7e99fe3c41c19383b2f519314d15ef96f1ee0467895d89117227e092c1f722bdea5074653469b0ba3dcbc8ddc33bca51188f6c0b"
+        },
+        "transparency_ref": {
+          "type": "enterprise_merkle_log",
+          "log_id": "enterprise-log-1",
+          "inclusion_proof": [
+            {
+              "dir": "R",
+              "hash": "a26e103928be21e5d2a571b4a27f176105a28a16581fe8c86d6611f990948b0c"
+            }
+          ],
+          "anchored_at_state": "reserved",
+          "tree_size": 2,
+          "leaf_hash": "abc989ed4994b5736befab365b6c0cb6f7c23e13dba342ee2355a274f226c39f"
+        }
+      },
+      "verification_context": {
+        "idp_keyset": {
+          "https://idp.example.com": "e035f9e28d89b43aa032ef33ec60fb7f11c74f06fb0827c5bf3710624eab3058"
+        },
+        "operator_anchored_idp_copy": {
+          "https://idp.example.com": "1c61049fad5238ee23d9dacbaccdd1c026e9e658fd7b7851553942c077ffc7c9"
+        },
+        "registered_resource_keys": {
+          "res-bank-1": {
+            "publicKey": "3ffa4aa275e27ece22135f0933c6e83e79ecfdab2a15546491726dbe7b42a142",
+            "registered_by_operator": false
+          },
+          "res-gw-1": {
+            "publicKey": "53f9cc8f2c8b0ed9a9d7a0afdb0aad59ccee370a8b0cfee0fc0915ebf9b6e25e",
+            "registered_by_operator": true
+          }
+        },
+        "operator_domain_registry": {
+          "agent-key-1": {
+            "publicKey": "92fd0ae28362180fc6f8c6d06d3da9a3045b9943b5064b4da8965670ff0c860d",
+            "identity": "op-1"
+          },
+          "gw-key-1": {
+            "publicKey": "c3b25641a27b0e31bbb388308f2c3e30c35292e37b1f52294317fbea5e6f1ad4",
+            "identity": "op-1"
+          },
+          "op2-key-1": {
+            "publicKey": "f7c4d0cf9ae62bdb90d0b0048aa2566b753a213ab42cebffbbd637cc3a2b66bf",
+            "identity": "op-2"
+          }
+        },
+        "operator_identity_id": "op-1",
+        "gateway_key_id": "gw-key-1",
+        "registered_log_roots": {
+          "enterprise-log-1": "35b923a8ea96136a834d17b9618d0e0edb0480993bbf01574d8c5ae98a0c6117"
+        },
+        "allowed_clock_skew_ms": 5000,
+        "reserved_ts": 1700000000000,
+        "submitted_ts": 1700000060000,
+        "max_authority_execution_window_ms": 900000,
+        "anchor_orders_intent_before_resource": true,
+        "per_class_required_fields": {
+          "financial_movement": [
+            "authority_ref",
+            "intent_commitment",
+            "gateway_policy_decision",
+            "resource_confirmation_ref",
+            "transparency_ref",
+            "decision_basis_commitment"
+          ]
+        }
+      },
+      "expected": {
+        "disposition": "reconciled",
+        "violations": [],
+        "trust_domain_separation": {
+          "computed_domains": 2,
+          "idp_counts": true,
+          "resource_counts": true,
+          "operator_identity": "op-1",
+          "separation_ok": false
+        }
+      }
+    },
+    {
+      "id": "V28",
+      "scenario": "per-class-required-fields missing, all else regulator-grade",
+      "surface": "verifier",
+      "input_receipt": {
+        "profile": "aps-regulated-action-v0",
+        "receipt_id": "r-V28",
+        "action_class": "financial_movement",
+        "actor_signature": {
+          "alg": "ed25519",
+          "key_id": "agent-key-1",
+          "sig": "14e5923f9a3611a0b122a6c354323d192418664f1c80aa5d29d840e7b7c1f5130856086b2f75672a79105fb59ab23fd02c231286bc571023862f311c1c8a840a"
+        },
+        "authority_ref": {
+          "type": "id_jag",
+          "issuer": "https://idp.example.com",
+          "subject": "agent:bot-1",
+          "audience": "bank-api",
+          "scope_hash": "3af0ec902ecad205f9a9436ae3aaee39ed3701fe80c3fb192f9d4eec7b4db661",
+          "issued_at": "2023-11-14T22:13:15.000Z",
+          "expires_at": "2023-11-14T23:14:20.000Z",
+          "assertion_hash": "0d7719936345a4c7c3d28c04ca394172b6a50547e0adc0d7b24956195a0db9ad",
+          "jti": "jti-V28",
+          "assertion_sig": "50856f0baca441af913c65c7c2ee5bea5e771fead6dac0033d394d4d4384b8b2d993e0c4912e22e15ec50636db083516ab9e7d8fd95cef531b3a7b57996fdb00"
+        },
+        "intent_commitment": {
+          "created_before_execution": true,
+          "intent_hash": "83a5df213aae4d137ca75d549b191f4ce5c8e81bd2b85f9a9d8eb94ecb65c830",
+          "expected_effect_hash": "1c5d69504089329ebc464751732faf3fad64ae2059f7df79dd236cd63cff2459",
+          "gateway_nonce": "nonce-V28",
+          "timestamp_ms": 1700000000000,
+          "scope": "transfer:V28",
+          "signature": "b0a8c6e605ee475a0f03f242e5d1cc53850214a113484ba4c1d1ccf174991a012aa915ed33fa089204654c189ffc8bc146321d34adae956ce81a4bdad1d9d50a"
+        },
+        "decision_basis_commitment": {
+          "root_hash": "46e6fc6a1bd23189f282cfebeea8ce28a9d52db437b95ad035f36ca86ded1747",
+          "leaves_schema": [
+            "input_artifact_hashes",
+            "policy_version_hash"
+          ],
+          "raw_chain_of_thought_included": false
+        },
+        "gateway_policy_decision": {
+          "policy_version_hash": "4b770f9a08cf665dfd13060036d8f7aba1e52ba23f2c3681fd2416e56e3886df",
+          "decision": "allow",
+          "action_class_assigned": "financial_movement",
+          "signer": "gw-key-1",
+          "signature": "c8a6484d810ac2bb26c79ff928ed08e1f49bebab3afd00ae0c17cb0fcb27742fefde9968221fe6b0d86e2d4e6e4865813ef5d7a6278603727759ebdadb51940a"
+        },
+        "resource_confirmation_ref": {
+          "type": "boundary_attested",
+          "resource_transaction_id": "tx-V28",
+          "correlation_id": "corr-V28",
+          "gateway_nonce_echo": "nonce-V28",
+          "realized_effect_hash": "1c5d69504089329ebc464751732faf3fad64ae2059f7df79dd236cd63cff2459",
+          "realized_effect_provenance": "ban_derived",
+          "status": "settled",
+          "timestamp_ms": 1700000060000,
+          "signer_key_id": "res-bank-1",
+          "signature": "6be349c9742dc29f85a9e8681cc4c235d3e3354eee27224f5ec88ec2740551f462b5e39681f93427ef6fa5b67cdfecb37728aa9644cd428ca41f70633e10f70e"
+        },
+        "transparency_ref": {
+          "type": "enterprise_merkle_log",
+          "log_id": "enterprise-log-1",
+          "inclusion_proof": [
+            {
+              "dir": "R",
+              "hash": "bf28e440f6d7f13132359f842669803a3ffdea839e76e4e8346c9152f97244e9"
+            }
+          ],
+          "anchored_at_state": "reserved",
+          "tree_size": 2,
+          "leaf_hash": "2c08c041f9227e7fa96f786912037c34172f46891ab8aed157e010131232b20e"
+        }
+      },
+      "verification_context": {
+        "idp_keyset": {
+          "https://idp.example.com": "e035f9e28d89b43aa032ef33ec60fb7f11c74f06fb0827c5bf3710624eab3058"
+        },
+        "operator_anchored_idp_copy": {
+          "https://idp.example.com": "1c61049fad5238ee23d9dacbaccdd1c026e9e658fd7b7851553942c077ffc7c9"
+        },
+        "registered_resource_keys": {
+          "res-bank-1": {
+            "publicKey": "3ffa4aa275e27ece22135f0933c6e83e79ecfdab2a15546491726dbe7b42a142",
+            "registered_by_operator": false
+          },
+          "res-gw-1": {
+            "publicKey": "53f9cc8f2c8b0ed9a9d7a0afdb0aad59ccee370a8b0cfee0fc0915ebf9b6e25e",
+            "registered_by_operator": true
+          }
+        },
+        "operator_domain_registry": {
+          "agent-key-1": {
+            "publicKey": "92fd0ae28362180fc6f8c6d06d3da9a3045b9943b5064b4da8965670ff0c860d",
+            "identity": "op-1"
+          },
+          "gw-key-1": {
+            "publicKey": "c3b25641a27b0e31bbb388308f2c3e30c35292e37b1f52294317fbea5e6f1ad4",
+            "identity": "op-1"
+          },
+          "op2-key-1": {
+            "publicKey": "f7c4d0cf9ae62bdb90d0b0048aa2566b753a213ab42cebffbbd637cc3a2b66bf",
+            "identity": "op-2"
+          }
+        },
+        "operator_identity_id": "op-1",
+        "gateway_key_id": "gw-key-1",
+        "registered_log_roots": {
+          "enterprise-log-1": "ff8d0a980ee5e96f8c73433a589fefe42774c614808e31484a87b70dcac04139"
+        },
+        "allowed_clock_skew_ms": 5000,
+        "reserved_ts": 1700000000000,
+        "submitted_ts": 1700000060000,
+        "max_authority_execution_window_ms": 900000,
+        "anchor_orders_intent_before_resource": true,
+        "per_class_required_fields": {
+          "financial_movement": [
+            "aps_delegation_ref"
+          ]
+        }
+      },
+      "expected": {
+        "disposition": "reconciled",
+        "violations": [],
+        "trust_domain_separation": {
+          "computed_domains": 2,
+          "idp_counts": true,
+          "resource_counts": true,
+          "operator_identity": "op-1",
+          "separation_ok": true
+        }
+      }
+    },
+    {
+      "id": "V29",
+      "scenario": "noneq_ok false, all else regulator-grade",
+      "surface": "verifier",
+      "input_receipt": {
+        "profile": "aps-regulated-action-v0",
+        "receipt_id": "r-V29",
+        "action_class": "financial_movement",
+        "actor_signature": {
+          "alg": "ed25519",
+          "key_id": "agent-key-1",
+          "sig": "9bcaebdc071c91767d50b6827a43ffc51b4e9f43cae87e1f4b1c97671ddaa1525e0773a20a84f0c5cd566730c5b359129e4ba431690f2cb2ca05ffdd328f1b0a"
+        },
+        "authority_ref": {
+          "type": "id_jag",
+          "issuer": "https://idp.example.com",
+          "subject": "agent:bot-1",
+          "audience": "bank-api",
+          "scope_hash": "66ea63d8aed2720f0da3d3b852180d0ed0127c903d372e9347f918f3f83f4be6",
+          "issued_at": "2023-11-14T22:13:15.000Z",
+          "expires_at": "2023-11-14T23:14:20.000Z",
+          "assertion_hash": "e94678a69a559baa81d3fce206def23442c74d3f84bf96b2a3abf7118cfd9e59",
+          "jti": "jti-V29",
+          "assertion_sig": "6dbbe14b2cdffc23b81ee323868d3d3c9e99fe046d24878557d54cc4d59a01e7f935ddcbe003996fcf9bef8af3da0b395b8cf028c422e09b462ad004798b910c"
+        },
+        "intent_commitment": {
+          "created_before_execution": true,
+          "intent_hash": "e96501c6b2725f7110b64eca55f074da288ed82589f4b6758a5363a96ecba1a0",
+          "expected_effect_hash": "e2d880c1df41b3c31626ee9288bbe559933f0215097edb79371facfc883838d9",
+          "gateway_nonce": "nonce-V29",
+          "timestamp_ms": 1700000000000,
+          "scope": "transfer:V29",
+          "signature": "8b292337885f1077c49dd301e532a95a8449375ae40c19d73c934e05052c4b6ca3a1a20bede6ed07a054006d77241d2d33b17755ce85d063987719bdca80b203"
+        },
+        "decision_basis_commitment": {
+          "root_hash": "f1977895663a9ea8fe13dd174419135a4524d6de6c0955dbb391a36539f2ac08",
+          "leaves_schema": [
+            "input_artifact_hashes",
+            "policy_version_hash"
+          ],
+          "raw_chain_of_thought_included": false
+        },
+        "gateway_policy_decision": {
+          "policy_version_hash": "b1aca602a7c528b81907c2820f24a88cde70bf14c510e8ec00b2d7e03835587a",
+          "decision": "allow",
+          "action_class_assigned": "financial_movement",
+          "signer": "gw-key-1",
+          "signature": "dbf345ee88a5a397da99ca528503b0fbdc8ff324a7b0d3b36adc82773bffda2a2b11a141269ae0e8837bae7d3491d9588c186172b25f50b0a0336e940dbf820b"
+        },
+        "resource_confirmation_ref": {
+          "type": "boundary_attested",
+          "resource_transaction_id": "tx-V29",
+          "correlation_id": "corr-V29",
+          "gateway_nonce_echo": "nonce-V29",
+          "realized_effect_hash": "e2d880c1df41b3c31626ee9288bbe559933f0215097edb79371facfc883838d9",
+          "realized_effect_provenance": "ban_derived",
+          "status": "settled",
+          "timestamp_ms": 1700000060000,
+          "signer_key_id": "res-bank-1",
+          "signature": "984b99437d2092ff4d3922484a17bd1a5ca9938c1b81df6d59370b45b02498e2865d3a82e55a919563186be5a4811ffca0469a42fa6846f293afcd53ccd52600"
+        },
+        "transparency_ref": {
+          "type": "enterprise_merkle_log",
+          "log_id": "enterprise-log-1",
+          "inclusion_proof": [
+            {
+              "dir": "R",
+              "hash": "6bf07350b653c036a6cb914c13487613b84a4ee2e6e2c6c1aa08011436d8a5d3"
+            }
+          ],
+          "anchored_at_state": "reserved",
+          "tree_size": 2,
+          "leaf_hash": "83892e89cbf3ce9464c9aa9aa8a94d957bcd98dea09e45db8aa00fe25bd9034d"
+        }
+      },
+      "verification_context": {
+        "idp_keyset": {
+          "https://idp.example.com": "e035f9e28d89b43aa032ef33ec60fb7f11c74f06fb0827c5bf3710624eab3058"
+        },
+        "operator_anchored_idp_copy": {
+          "https://idp.example.com": "1c61049fad5238ee23d9dacbaccdd1c026e9e658fd7b7851553942c077ffc7c9"
+        },
+        "registered_resource_keys": {
+          "res-bank-1": {
+            "publicKey": "3ffa4aa275e27ece22135f0933c6e83e79ecfdab2a15546491726dbe7b42a142",
+            "registered_by_operator": false
+          },
+          "res-gw-1": {
+            "publicKey": "53f9cc8f2c8b0ed9a9d7a0afdb0aad59ccee370a8b0cfee0fc0915ebf9b6e25e",
+            "registered_by_operator": true
+          }
+        },
+        "operator_domain_registry": {
+          "agent-key-1": {
+            "publicKey": "92fd0ae28362180fc6f8c6d06d3da9a3045b9943b5064b4da8965670ff0c860d",
+            "identity": "op-1"
+          },
+          "gw-key-1": {
+            "publicKey": "c3b25641a27b0e31bbb388308f2c3e30c35292e37b1f52294317fbea5e6f1ad4",
+            "identity": "op-1"
+          },
+          "op2-key-1": {
+            "publicKey": "f7c4d0cf9ae62bdb90d0b0048aa2566b753a213ab42cebffbbd637cc3a2b66bf",
+            "identity": "op-2"
+          }
+        },
+        "operator_identity_id": "op-1",
+        "gateway_key_id": "gw-key-1",
+        "registered_log_roots": {
+          "enterprise-log-1": "e27f9ec0c81f5fdbefcfb4b2bbdc0a669feb7774759718af5160d3147ad77335"
+        },
+        "allowed_clock_skew_ms": 5000,
+        "reserved_ts": 1700000000000,
+        "submitted_ts": 1700000060000,
+        "max_authority_execution_window_ms": 900000,
+        "anchor_orders_intent_before_resource": true,
+        "non_equivocation_ok": false,
+        "per_class_required_fields": {
+          "financial_movement": [
+            "authority_ref",
+            "intent_commitment",
+            "gateway_policy_decision",
+            "resource_confirmation_ref",
+            "transparency_ref",
+            "decision_basis_commitment"
+          ]
+        }
+      },
+      "expected": {
+        "disposition": "reconciled",
+        "violations": [],
+        "trust_domain_separation": {
+          "computed_domains": 2,
+          "idp_counts": true,
+          "resource_counts": true,
+          "operator_identity": "op-1",
+          "separation_ok": true
+        }
+      }
+    },
+    {
+      "id": "V30",
+      "scenario": "authority valid-sig but submitted beyond max_authority_execution_window_ms",
+      "surface": "verifier",
+      "input_receipt": {
+        "profile": "aps-regulated-action-v0",
+        "receipt_id": "r-V30",
+        "action_class": "financial_movement",
+        "actor_signature": {
+          "alg": "ed25519",
+          "key_id": "agent-key-1",
+          "sig": "127d05ed0be99ad27e4e1061a69619cdb1044f4972fe9fcdddfa36f5ba6f7a26373aca18e45620b0ea3832a22ad32961e1c8ea91640de4b1f45a49ed3a37a608"
+        },
+        "authority_ref": {
+          "type": "id_jag",
+          "issuer": "https://idp.example.com",
+          "subject": "agent:bot-1",
+          "audience": "bank-api",
+          "scope_hash": "b195ca6d543657aee8946625c35715ec0655bd43f43888011135d989024673ee",
+          "issued_at": "2023-11-14T22:13:15.000Z",
+          "expires_at": "2023-11-14T23:14:20.000Z",
+          "assertion_hash": "b95e5bd605ac1a4b217c61bdfc03c6b909dcf4b96cef5ce13a5141c5b6e82565",
+          "jti": "jti-V30",
+          "assertion_sig": "37ec7913497c9fd55dadef8a41105025bef69bf4dd0b293b0cf9fb58cfa784d89854672992fc64fca753a87e0911861086a61c8a897971d2fd6659bbf9f5560b"
+        }
+      },
+      "verification_context": {
+        "idp_keyset": {
+          "https://idp.example.com": "e035f9e28d89b43aa032ef33ec60fb7f11c74f06fb0827c5bf3710624eab3058"
+        },
+        "operator_anchored_idp_copy": {
+          "https://idp.example.com": "1c61049fad5238ee23d9dacbaccdd1c026e9e658fd7b7851553942c077ffc7c9"
+        },
+        "registered_resource_keys": {
+          "res-bank-1": {
+            "publicKey": "3ffa4aa275e27ece22135f0933c6e83e79ecfdab2a15546491726dbe7b42a142",
+            "registered_by_operator": false
+          },
+          "res-gw-1": {
+            "publicKey": "53f9cc8f2c8b0ed9a9d7a0afdb0aad59ccee370a8b0cfee0fc0915ebf9b6e25e",
+            "registered_by_operator": true
+          }
+        },
+        "operator_domain_registry": {
+          "agent-key-1": {
+            "publicKey": "92fd0ae28362180fc6f8c6d06d3da9a3045b9943b5064b4da8965670ff0c860d",
+            "identity": "op-1"
+          },
+          "gw-key-1": {
+            "publicKey": "c3b25641a27b0e31bbb388308f2c3e30c35292e37b1f52294317fbea5e6f1ad4",
+            "identity": "op-1"
+          },
+          "op2-key-1": {
+            "publicKey": "f7c4d0cf9ae62bdb90d0b0048aa2566b753a213ab42cebffbbd637cc3a2b66bf",
+            "identity": "op-2"
+          }
+        },
+        "operator_identity_id": "op-1",
+        "gateway_key_id": "gw-key-1",
+        "registered_log_roots": {},
+        "allowed_clock_skew_ms": 5000,
+        "reserved_ts": 1700000000000,
+        "submitted_ts": 1700000960000,
+        "max_authority_execution_window_ms": 900000
+      },
+      "expected": {
+        "disposition": "authority_invalid",
+        "violations": [
+          "authority_invalid"
+        ],
+        "trust_domain_separation": {
+          "computed_domains": 0,
+          "idp_counts": false,
+          "resource_counts": false,
+          "operator_identity": "op-1",
+          "separation_ok": true
+        }
+      }
+    },
+    {
+      "id": "V31",
+      "scenario": "simultaneous temporal_violation + reconciliation mismatch + policy_deny+executed",
+      "surface": "verifier",
+      "input_receipt": {
+        "profile": "aps-regulated-action-v0",
+        "receipt_id": "r-V31",
+        "action_class": "financial_movement",
+        "actor_signature": {
+          "alg": "ed25519",
+          "key_id": "agent-key-1",
+          "sig": "d7ee160a9c5dbe95c4a7ed9ef4c1668b0f1a9df907389feeba182a93aac6379a82be6550dbb6563034d91735442699df4946a23c5e8b6752157e05795437f500"
+        },
+        "authority_ref": {
+          "type": "id_jag",
+          "issuer": "https://idp.example.com",
+          "subject": "agent:bot-1",
+          "audience": "bank-api",
+          "scope_hash": "77a06e8b2f5962589ed4c7d3269ff7fc2cdac92fd8a1c63e3139b4b1475e1e27",
+          "issued_at": "2023-11-14T22:13:15.000Z",
+          "expires_at": "2023-11-14T23:14:20.000Z",
+          "assertion_hash": "b4afca6142e4f10f96ea77113ca6137b3f8ac0838ea972d378cec5d5cd000ce3",
+          "jti": "jti-V31",
+          "assertion_sig": "f4c7902e338615147702170b30bc7886c772bfc7498d97882fb9640e2a262fffd42f95536e4da8db6df47c71f2dba5c6d11d82171740b602393c31344d40d409"
+        },
+        "intent_commitment": {
+          "created_before_execution": true,
+          "intent_hash": "0f5918d8b692fb75f6b2acac3edf447fca3c5ac7b4a8787bacd1202d62aa1e84",
+          "expected_effect_hash": "8bf2ccacc0b80dd54bacbcc878932a0fe32e672547fc98167dbd26e45516a293",
+          "gateway_nonce": "nonce-V31",
+          "timestamp_ms": 1700000000000,
+          "scope": "transfer:V31",
+          "signature": "83ee01ea2e4b6d5228d6c0c1d60c1f200c91a2488bc6e1f2f0b73e270cb62a28306e761ceb586263fe817703e867a2c20b552a62f7e3fedb2c616e2ead6ab404"
+        },
+        "decision_basis_commitment": {
+          "root_hash": "42d9e3f00ef5faf0453f89ea71bd451f9955c5d68e23289791d6f6e1e02562c8",
+          "leaves_schema": [
+            "input_artifact_hashes",
+            "policy_version_hash"
+          ],
+          "raw_chain_of_thought_included": false
+        },
+        "gateway_policy_decision": {
+          "policy_version_hash": "0e158707e53933ecf6ef2b03987b73aa9883593c976f345134001913a9b40355",
+          "decision": "deny",
+          "action_class_assigned": "financial_movement",
+          "signer": "gw-key-1",
+          "signature": "1f1415c06880f1ed08bbaf67e1ff09e34b0c54e3621436dedd959ade5f3180a841785f56cd6e1145bcd3052deb5bbe5b85d771257f4a4cbabd2ce84f2a863607"
+        },
+        "resource_confirmation_ref": {
+          "type": "boundary_attested",
+          "resource_transaction_id": "tx-V31",
+          "correlation_id": "corr-V31",
+          "gateway_nonce_echo": "wrong-nonce",
+          "realized_effect_hash": "8bf2ccacc0b80dd54bacbcc878932a0fe32e672547fc98167dbd26e45516a293",
+          "realized_effect_provenance": "ban_derived",
+          "status": "settled",
+          "timestamp_ms": 1700000060000,
+          "signer_key_id": "res-bank-1",
+          "signature": "f98efd0838f30d7bf81111487493e15f8989536c3653c6f68b197f12e9cee7057a3abd47134d7b4c0249401436a0285c28a38c87430b4b818f294bf572841501"
+        },
+        "transparency_ref": {
+          "type": "enterprise_merkle_log",
+          "log_id": "enterprise-log-1",
+          "inclusion_proof": [
+            {
+              "dir": "R",
+              "hash": "b858782f50bb8154e974025742448cba366e27d9fb2c79442d59f5df3e28012b"
+            }
+          ],
+          "anchored_at_state": "reserved",
+          "tree_size": 2,
+          "leaf_hash": "58032bbb539c4ac8a15a4e21d6c0d183dbd5cf587ea1baa3432688c12dd550f0"
+        }
+      },
+      "verification_context": {
+        "idp_keyset": {
+          "https://idp.example.com": "e035f9e28d89b43aa032ef33ec60fb7f11c74f06fb0827c5bf3710624eab3058"
+        },
+        "operator_anchored_idp_copy": {
+          "https://idp.example.com": "1c61049fad5238ee23d9dacbaccdd1c026e9e658fd7b7851553942c077ffc7c9"
+        },
+        "registered_resource_keys": {
+          "res-bank-1": {
+            "publicKey": "3ffa4aa275e27ece22135f0933c6e83e79ecfdab2a15546491726dbe7b42a142",
+            "registered_by_operator": false
+          },
+          "res-gw-1": {
+            "publicKey": "53f9cc8f2c8b0ed9a9d7a0afdb0aad59ccee370a8b0cfee0fc0915ebf9b6e25e",
+            "registered_by_operator": true
+          }
+        },
+        "operator_domain_registry": {
+          "agent-key-1": {
+            "publicKey": "92fd0ae28362180fc6f8c6d06d3da9a3045b9943b5064b4da8965670ff0c860d",
+            "identity": "op-1"
+          },
+          "gw-key-1": {
+            "publicKey": "c3b25641a27b0e31bbb388308f2c3e30c35292e37b1f52294317fbea5e6f1ad4",
+            "identity": "op-1"
+          },
+          "op2-key-1": {
+            "publicKey": "f7c4d0cf9ae62bdb90d0b0048aa2566b753a213ab42cebffbbd637cc3a2b66bf",
+            "identity": "op-2"
+          }
+        },
+        "operator_identity_id": "op-1",
+        "gateway_key_id": "gw-key-1",
+        "registered_log_roots": {
+          "enterprise-log-1": "191e23f99cf8e2612f739859789b05c1885c494a0685770851415dff7dfc7742"
+        },
+        "allowed_clock_skew_ms": 5000,
+        "reserved_ts": 1700000000000,
+        "submitted_ts": 1700000060000,
+        "max_authority_execution_window_ms": 900000,
+        "anchor_orders_intent_before_resource": false
+      },
+      "expected": {
+        "disposition": "void_policy_violation",
+        "violations": [
+          "void_policy_violation",
+          "void_temporal_violation",
+          "void_reconciliation_mismatch"
+        ],
+        "trust_domain_separation": {
+          "computed_domains": 1,
+          "idp_counts": true,
+          "resource_counts": false,
+          "operator_identity": "op-1",
+          "separation_ok": true
+        }
+      }
+    },
+    {
+      "id": "V32",
+      "scenario": "self_attested basis carrying intent_ok+policy_allow (no authority, no resource)",
+      "surface": "verifier",
+      "input_receipt": {
+        "profile": "aps-regulated-action-v0",
+        "receipt_id": "r-V32",
+        "action_class": "financial_movement",
+        "actor_signature": {
+          "alg": "ed25519",
+          "key_id": "agent-key-1",
+          "sig": "175fea5772760400561b74836190bbf3a0e5168534f2fc953d72cb5c640eaca1605d71c5c45531b67b7cc494493fba97a6d0ece7477eba5f026a659b61319c00"
+        },
+        "intent_commitment": {
+          "created_before_execution": true,
+          "intent_hash": "d345a661e8951966fc978173e84d1e0975ac0553fbb5b5a66e29c1ef050afddf",
+          "expected_effect_hash": "f80d32cb26722bc2e6c375df37e98e53d1bbe851d44590af21b2a00d439efaca",
+          "gateway_nonce": "nonce-V32",
+          "timestamp_ms": 1700000000000,
+          "scope": "transfer:V32",
+          "signature": "ae464128128e19c5a37917209b6f5648710f2320daaf0055c382af509796a5106681652ec7c301001dd642f18fad54f21ddfc3fd6c7a70ab7d201fd9b9f6980c"
+        },
+        "decision_basis_commitment": {
+          "root_hash": "076826b96c16a897d0591bdce0712a482a2b66fcc1334efdd0f623f40f4c2e95",
+          "leaves_schema": [
+            "input_artifact_hashes",
+            "policy_version_hash"
+          ],
+          "raw_chain_of_thought_included": false
+        },
+        "gateway_policy_decision": {
+          "policy_version_hash": "37520e8b45b74a53e1e0f6313399b7879fdf8c000f909c8b4f93a91e8069a981",
+          "decision": "allow",
+          "action_class_assigned": "financial_movement",
+          "signer": "gw-key-1",
+          "signature": "c1fce27a9b943d4e7152d38b8f35d676d0eb80312540882d272277ccd229738116556ec8f574c35e5da36dd50b0a4b1b3415fa49bb32abee9366fb6dd262ac0d"
+        }
+      },
+      "verification_context": {
+        "idp_keyset": {
+          "https://idp.example.com": "e035f9e28d89b43aa032ef33ec60fb7f11c74f06fb0827c5bf3710624eab3058"
+        },
+        "operator_anchored_idp_copy": {
+          "https://idp.example.com": "1c61049fad5238ee23d9dacbaccdd1c026e9e658fd7b7851553942c077ffc7c9"
+        },
+        "registered_resource_keys": {
+          "res-bank-1": {
+            "publicKey": "3ffa4aa275e27ece22135f0933c6e83e79ecfdab2a15546491726dbe7b42a142",
+            "registered_by_operator": false
+          },
+          "res-gw-1": {
+            "publicKey": "53f9cc8f2c8b0ed9a9d7a0afdb0aad59ccee370a8b0cfee0fc0915ebf9b6e25e",
+            "registered_by_operator": true
+          }
+        },
+        "operator_domain_registry": {
+          "agent-key-1": {
+            "publicKey": "92fd0ae28362180fc6f8c6d06d3da9a3045b9943b5064b4da8965670ff0c860d",
+            "identity": "op-1"
+          },
+          "gw-key-1": {
+            "publicKey": "c3b25641a27b0e31bbb388308f2c3e30c35292e37b1f52294317fbea5e6f1ad4",
+            "identity": "op-1"
+          },
+          "op2-key-1": {
+            "publicKey": "f7c4d0cf9ae62bdb90d0b0048aa2566b753a213ab42cebffbbd637cc3a2b66bf",
+            "identity": "op-2"
+          }
+        },
+        "operator_identity_id": "op-1",
+        "gateway_key_id": "gw-key-1",
+        "registered_log_roots": {},
+        "allowed_clock_skew_ms": 5000,
+        "reserved_ts": 1700000000000,
+        "submitted_ts": 1700000060000,
+        "max_authority_execution_window_ms": 900000
+      },
+      "expected": {
+        "disposition": "self_attested",
+        "violations": [
+          "self_attested"
+        ],
+        "trust_domain_separation": {
+          "computed_domains": 0,
+          "idp_counts": false,
+          "resource_counts": false,
+          "operator_identity": "op-1",
+          "separation_ok": true
+        }
+      }
+    },
+    {
+      "id": "V33",
+      "scenario": "boundary_attested_weak presented WITH two anchor-consistent domains",
+      "surface": "verifier",
+      "input_receipt": {
+        "profile": "aps-regulated-action-v0",
+        "receipt_id": "r-V33",
+        "action_class": "financial_movement",
+        "actor_signature": {
+          "alg": "ed25519",
+          "key_id": "agent-key-1",
+          "sig": "2fb5073c4f2632b6a08f8c9059dbd3ef3c650d879e5aaafb64add49be78fc9622ecd9518e7adfa5831e22b5e5e7dbf2658f95cf8f97d11409d94e45f06544b0e"
+        },
+        "authority_ref": {
+          "type": "id_jag",
+          "issuer": "https://idp.example.com",
+          "subject": "agent:bot-1",
+          "audience": "bank-api",
+          "scope_hash": "a895de23c77192e8d430254441aed300d2754ea69b1398edd8aeaa13f924411c",
+          "issued_at": "2023-11-14T22:13:15.000Z",
+          "expires_at": "2023-11-14T23:14:20.000Z",
+          "assertion_hash": "3d1b5d1a4947e3452ce3b76956581ce9b23e2012eaff6de729ba46116b4ae8c7",
+          "jti": "jti-V33",
+          "assertion_sig": "514ae56cb3bcb652fe06cba6e3bafc4f309c2cee63ac751012aba89e57d8ac8cd5c03f2205e190c09de0dc78832edd35430db9e11bfb13e06196954e7e43150d"
+        },
+        "intent_commitment": {
+          "created_before_execution": true,
+          "intent_hash": "52eb3b667018bb8b99e79f615de24a5b7fb737ab8b65dae7bb851e213d449f8b",
+          "expected_effect_hash": "d2554b636f37d9fd6d8600df7e3754c5030e1c11fb0d17bd99acfd34ad512756",
+          "gateway_nonce": "nonce-V33",
+          "timestamp_ms": 1700000000000,
+          "scope": "transfer:V33",
+          "signature": "be7ecf8275ac03b9b835626203934b58e7255ab4133a5ed781baba0f7c6f6e2ea1950ec79afdb6e81bfad6b559c62b2529f562a84242c6e4f4fdf8f35a0c130c"
+        },
+        "decision_basis_commitment": {
+          "root_hash": "a78c8a5c107e7982a04e198c48468034c5017e2492b5527dd5c0c93cbff27ded",
+          "leaves_schema": [
+            "input_artifact_hashes",
+            "policy_version_hash"
+          ],
+          "raw_chain_of_thought_included": false
+        },
+        "gateway_policy_decision": {
+          "policy_version_hash": "09849d0c1ceb52a720ff38c0203211f08aba8472cf8653d5ec5818496591602e",
+          "decision": "allow",
+          "action_class_assigned": "financial_movement",
+          "signer": "gw-key-1",
+          "signature": "49f73cd6fd7e314203a4341ac15e316e5e5265227f55d09cc0c8ac626646c4aa058e7d420842d409c96b2d6dcc8361016d0d013ad2d6735a94dd84e4192f7b03"
+        },
+        "resource_confirmation_ref": {
+          "type": "boundary_attested_weak",
+          "resource_transaction_id": "tx-V33",
+          "correlation_id": "corr-V33",
+          "gateway_nonce_echo": "nonce-V33",
+          "realized_effect_hash": "d2554b636f37d9fd6d8600df7e3754c5030e1c11fb0d17bd99acfd34ad512756",
+          "realized_effect_provenance": "ban_derived",
+          "status": "settled",
+          "timestamp_ms": 1700000060000,
+          "signer_key_id": "res-bank-1",
+          "signature": "738a0d5107fbf4ee81c66585def1d2786bfc0caa92e858e01bffad5d1a9a2d2ba4deb520008a87c9c087d68b99ea3a424e111fa3837a051202d3bdbc59ffa10a"
+        },
+        "transparency_ref": {
+          "type": "enterprise_merkle_log",
+          "log_id": "enterprise-log-1",
+          "inclusion_proof": [
+            {
+              "dir": "R",
+              "hash": "0bc13ed17424be26bac350fe0566db2625c88c66b3537c34b915e9657cc81675"
+            }
+          ],
+          "anchored_at_state": "reserved",
+          "tree_size": 2,
+          "leaf_hash": "1e345f8cf16fab1fe9049896a1c0e442cdd91b4c34470b6aac0e5bbffec5c8b5"
+        }
+      },
+      "verification_context": {
+        "idp_keyset": {
+          "https://idp.example.com": "e035f9e28d89b43aa032ef33ec60fb7f11c74f06fb0827c5bf3710624eab3058"
+        },
+        "operator_anchored_idp_copy": {
+          "https://idp.example.com": "1c61049fad5238ee23d9dacbaccdd1c026e9e658fd7b7851553942c077ffc7c9"
+        },
+        "registered_resource_keys": {
+          "res-bank-1": {
+            "publicKey": "3ffa4aa275e27ece22135f0933c6e83e79ecfdab2a15546491726dbe7b42a142",
+            "registered_by_operator": false
+          },
+          "res-gw-1": {
+            "publicKey": "53f9cc8f2c8b0ed9a9d7a0afdb0aad59ccee370a8b0cfee0fc0915ebf9b6e25e",
+            "registered_by_operator": true
+          }
+        },
+        "operator_domain_registry": {
+          "agent-key-1": {
+            "publicKey": "92fd0ae28362180fc6f8c6d06d3da9a3045b9943b5064b4da8965670ff0c860d",
+            "identity": "op-1"
+          },
+          "gw-key-1": {
+            "publicKey": "c3b25641a27b0e31bbb388308f2c3e30c35292e37b1f52294317fbea5e6f1ad4",
+            "identity": "op-1"
+          },
+          "op2-key-1": {
+            "publicKey": "f7c4d0cf9ae62bdb90d0b0048aa2566b753a213ab42cebffbbd637cc3a2b66bf",
+            "identity": "op-2"
+          }
+        },
+        "operator_identity_id": "op-1",
+        "gateway_key_id": "gw-key-1",
+        "registered_log_roots": {
+          "enterprise-log-1": "b8c150f8982db3c01bdb52e946e04dddd00d0136a5a2e785b015fd74bc96b8d7"
+        },
+        "allowed_clock_skew_ms": 5000,
+        "reserved_ts": 1700000000000,
+        "submitted_ts": 1700000060000,
+        "max_authority_execution_window_ms": 900000,
+        "anchor_orders_intent_before_resource": true
+      },
+      "expected": {
+        "disposition": "intent_precommitted",
+        "violations": [],
+        "trust_domain_separation": {
+          "computed_domains": 1,
+          "idp_counts": true,
+          "resource_counts": false,
+          "operator_identity": "op-1",
+          "separation_ok": true
+        }
+      }
+    }
+  ]
+}

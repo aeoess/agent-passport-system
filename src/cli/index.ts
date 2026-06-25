@@ -32,7 +32,8 @@ import {
   scopeAuthorizes,
   createAgoraMessage, verifyAgoraMessage,
   createFeed, appendToFeed, getThread, getByTopic, getTopics,
-  createRegistry, registerAgent, verifyFeed
+  createRegistry, registerAgent, verifyFeed,
+  RegulatedActionV0
 } from '../index.js'
 
 import type {
@@ -132,7 +133,41 @@ switch (command) {
   case 'inspect': cmdInspect(); break
   case 'status': cmdStatus(); break
   case 'agora': cmdAgora(); break
+  case 'verify-regulated': cmdVerifyRegulated(); break
   default: cmdHelp(); break
+}
+
+// ══════════════════════════════════════
+// VERIFY-REGULATED: APS Regulated Action Profile v0 disposition
+// ══════════════════════════════════════
+//
+//   agent-passport verify-regulated --receipt <receipt.json> --context <context.json>
+//
+// Runs the deterministic, stateless disposition verifier over a RegulatedActionReceiptV0
+// and a caller-supplied VerificationContext. Prints the disposition, violations, computed
+// trust-domain separation, authority basis, and judgment_correctness (always not_claimed).
+// Exit code 0 if the disposition is reconciled or regulator_grade_for_class, else 2.
+
+function cmdVerifyRegulated(): void {
+  const receiptPath = getFlag('--receipt')
+  const contextPath = getFlag('--context')
+  if (!receiptPath || !contextPath) {
+    console.error('Usage: agent-passport verify-regulated --receipt <receipt.json> --context <context.json>')
+    process.exit(1)
+  }
+  let receipt: Parameters<typeof RegulatedActionV0.verifyRegulatedAction>[0]
+  let context: Parameters<typeof RegulatedActionV0.verifyRegulatedAction>[1]
+  try {
+    receipt = JSON.parse(readFileSync(receiptPath, 'utf8'))
+    context = JSON.parse(readFileSync(contextPath, 'utf8'))
+  } catch (e) {
+    console.error(`Failed to read inputs: ${e instanceof Error ? e.message : String(e)}`)
+    process.exit(1)
+  }
+  const result = RegulatedActionV0.verifyRegulatedAction(receipt, context)
+  console.log(JSON.stringify(result, null, 2))
+  const final = result.disposition === 'reconciled' || result.disposition === 'regulator_grade_for_class'
+  process.exit(final ? 0 : 2)
 }
 
 // ══════════════════════════════════════

@@ -435,3 +435,7 @@ export type {
   CpaReceipt,
   CpaVerifyOptions,
 } from './context-provenance/index.js'
+
+// APS Regulated Action Profile v0 (Reconciled Action Attestation). Namespaced to avoid
+// generic-name collisions across the root barrel; consumers use RegulatedActionV0.*.
+export * as RegulatedActionV0 from './regulated-action/index.js'
