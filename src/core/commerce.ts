@@ -76,6 +76,18 @@ export function checkSpendGate(
   delegation: CommerceDelegation,
   estimatedTotal: ACPMoney,
 ): CommercePreflightCheck {
+  // Currency must match before any amount comparison: the SDK does NO conversion, so a EUR purchase
+  // must not be charged against a USD budget. Compare case-insensitively (ISO 4217). A declared
+  // mismatch denies. When a currency is not declared on both sides there is no constraint to apply.
+  const purchaseCcy = String(estimatedTotal.currency ?? '').toLowerCase()
+  const budgetCcy = String(delegation.currency ?? '').toLowerCase()
+  if (purchaseCcy && budgetCcy && purchaseCcy !== budgetCcy) {
+    return {
+      check: 'spend_limit',
+      passed: false,
+      detail: `Currency mismatch: purchase in ${estimatedTotal.currency} cannot be charged against a ${delegation.currency} budget`,
+    }
+  }
   const remaining = delegation.spendLimit - delegation.spentAmount
   const ok = estimatedTotal.amount <= remaining
   return {
