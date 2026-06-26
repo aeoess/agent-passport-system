@@ -1,12 +1,22 @@
 # Changelog
 
-## 2.8.0
+## 2.9.0
 
 ### Added
 - **`recordSpend(commerceDelegation, amount)`** (`src/core/commerce.ts`): the stateless write primitive for commerce spend. It returns a new `CommerceDelegation` with `spentAmount` incremented, refusing a non-finite or negative amount and refusing a spend that would exceed `spendLimit`. It pairs with `checkSpendGate`: check before a purchase, record after, persist the returned object. The SDK does not persist spend between calls; cumulative enforcement across purchases is the caller's or the gateway's responsibility. This closes a read-but-never-written gap where `spentAmount` stayed 0 so one delegation passed unlimited purchases against its cap. The signed core `Delegation.spentAmount` is documented as an immutable spend-at-issue value (always 0), not a running total.
 - **APS Regulated Action Profile v0** (`src/v2/regulated-action/`): a profile for regulated agent actions (action class rank >= 3) with a deterministic, stateless verifier and a typed receipt (`RegulatedActionReceiptV0`). The verifier counts independent trust domains rather than signatures: it returns `reconciled` or `regulator_grade_for_class` only when a pre-committed intent reconciles against two anchors outside the operator trust domain (the IdP authority and the resource system of record), with `domains >= 2`, the resource confirmation validated against an independently registered key, and temporal ordering anchored before execution. `judgment_correctness` is always emitted as `not_claimed`. Exposed as `RegulatedActionV0` via the barrel and as the `agent-passport verify-regulated` CLI subcommand.
 - **Conformance vectors** (`conformance/regulated-action/v0/`): 33 vectors pinning every disposition guard, with a TypeScript runner and an independent pure-stdlib Python runner (vendored RFC 8032 Ed25519 and RFC 8785 JCS) that agree byte for byte.
 - The receipt type makes raw chain-of-thought unrepresentable by construction; `authority_ref` is a single scalar anchor.
+
+### Fixed / Security
+- **`subDelegate` now verifies the parent delegation signature before minting a child** (`src/core/delegation.ts`). It previously sub-delegated without checking that the parent's own signature verified, so a child could be derived from an unsigned or tampered parent. It now runs `verifyDelegation(parent)` and throws if the parent does not verify.
+- **`checkSpendGate` now denies a currency mismatch** (`src/core/commerce.ts`). The spend gate compared amounts without checking currency, so a purchase in one currency passed a budget denominated in another (the SDK does no conversion). A declared currency mismatch is now denied; an absent currency on either side stays unconstrained.
+- **RFC 9421 request-signature verification now enforces the signed `expires` parameter** (`src/v2/transport/rfc9421/`). `verifyRequest` checked `created` freshness but never `expires`, so a short-lived signature presented after its `expires` (yet within the broader skew window) still verified. It now returns reason `expired` once `expires` has passed.
+
+### Behavior changes (operations previously permitted now fail closed)
+- A cross-currency commerce spend (purchase currency differs from the budget currency) is now denied by `checkSpendGate` instead of passing.
+- Sub-delegation from a parent whose signature does not verify now throws instead of producing a child.
+- An RFC 9421 request signature presented after its signed `expires` is now rejected instead of accepted.
 
 ### Notes
 - The profile is a verifier and receipt format. The reference build runs its boundary attestation node at the weak level, so an end-to-end honest run reports `intent_precommitted`; `reconciled` requires a deployment whose boundary attestation node is a separate principal. Receiver-attested receipts, intent pre-commitment, and bilateral co-signing are prior art; the contribution here is the composition of an external IdP authority anchor with a verifier-computed trust-domain finality gate.
