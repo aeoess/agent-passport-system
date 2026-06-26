@@ -208,6 +208,13 @@ export function subDelegate(opts: SubDelegateOptions): Delegation {
   if (parentExpiryMs - now <= 0) {
     throw new Error('cannot sub-delegate from an expired parent delegation')
   }
+  // Verify the parent's signature (and not-before / expiry) before minting a child. Previously
+  // subDelegate checked only the parent's expiry timestamp, so a parent with a forged signature
+  // could still mint an authority-bearing child. Parity with the Python sub_delegate parent check.
+  const parentStatus = verifyDelegation(parent)
+  if (!parentStatus.valid) {
+    throw new Error(`cannot sub-delegate from an invalid parent: ${parentStatus.errors.join(', ')}`)
+  }
   // Child's ABSOLUTE expiry: the tighter of the 24h ceiling and the parent's expiry.
   // Passed to createDelegation as an absolute expiresAt (not a duration), so it is
   // never re-based on a later now(), which is what let the child outlive the parent
