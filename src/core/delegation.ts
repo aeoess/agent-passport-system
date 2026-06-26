@@ -220,7 +220,11 @@ export function subDelegate(opts: SubDelegateOptions): Delegation {
     scope: opts.scope,
     scopeInterpretation: parent.scopeInterpretation,
     spendLimit: opts.spendLimit ?? (sharesFiniteParentBudget ? parentRemaining : undefined),
-    spendLimitUnit: opts.spendLimitUnit,
+    // Sign the RESOLVED unit, not the raw option. When the caller omits spendLimitUnit, childUnit
+    // falls back to the parent's unit; passing opts.spendLimitUnit (undefined) here silently dropped
+    // the parent's unit from the signed child, letting an invocations budget read as currency two
+    // hops down. The narrowing guard above already enforces childUnit === parentUnit.
+    spendLimitUnit: childUnit,
     maxDepth: parent.maxDepth,
     currentDepth: parent.currentDepth + 1,
     expiresAt: childExpiresAt,

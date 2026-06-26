@@ -229,4 +229,8 @@ export interface VerifyResult {
   reason?: VerifyFailureReason
   /** The verification method whose key validated the signature, when valid. */
   verificationMethod?: string
+  /** Whether replay was checked. False when no nonceStore was supplied: the signature is valid but
+   *  the request was NOT checked for nonce reuse, so it can be replayed. Require replayChecked when
+   *  replay protection matters. */
+  replayChecked?: boolean
 }

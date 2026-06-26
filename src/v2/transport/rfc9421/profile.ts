@@ -290,6 +290,11 @@ export function verifyRequest(input: VerifyRequestInput): VerifyResult {
 
     // 9. Replay: reject a previously-seen nonce. Only consume the nonce after
     //    every other check passed, so failed attempts cannot poison the store.
+    //    When no nonceStore is supplied the request is NOT replay-checked: the
+    //    signature is valid but the same signed request can be presented again.
+    //    replayChecked surfaces this so a caller cannot mistake an unchecked pass
+    //    for a replay-enforced one. Supply a nonceStore for replay protection.
+    const replayChecked = input.nonceStore !== undefined
     if (input.nonceStore !== undefined) {
       if (input.nonceStore.seen(profile.nonce)) {
         return { valid: false, reason: 'replayed_nonce' }
@@ -297,7 +302,7 @@ export function verifyRequest(input: VerifyRequestInput): VerifyResult {
       input.nonceStore.record(profile.nonce)
     }
 
-    return { valid: true, verificationMethod: profile.verificationMethod }
+    return { valid: true, verificationMethod: profile.verificationMethod, replayChecked }
   } catch {
     return { valid: false, reason: 'malformed_input' }
   }

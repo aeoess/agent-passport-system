@@ -7,6 +7,13 @@
 //
 // Contrast with computeActionRef() which INCLUDES timestamp —
 // action_ref is for receipt identity, idempotency key is for dedup.
+//
+// NOTE: this computes a key only. It provides NO replay or double-spend
+// protection on its own. The key is a no-op unless the caller pairs it with a
+// store that records issued keys and rejects a repeat (the dedup store lives in
+// the gateway, not this stateless SDK). Treating an action as deduplicated on
+// the strength of key generation alone is the same trap as reading a spend
+// counter that nothing writes.
 // ══════════════════════════════════════════════════════════════════
 
 import { canonicalHash } from './canonical.js'
