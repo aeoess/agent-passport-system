@@ -35,6 +35,7 @@ export {
 export {
   commercePreflight,
   createCommerceDelegation,
+  recordSpend,
   getSpendSummary,
   requestHumanApproval,
 } from './core/commerce.js'

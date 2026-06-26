@@ -79,6 +79,10 @@ export interface Delegation {
   /** Optional: delegation is not valid before this timestamp (replay mitigation) */
   notBefore?: string
   spendLimit?: number
+  /** Spend-at-issue for this signed delegation. It is part of the signed payload and is therefore
+   *  IMMUTABLE (always 0 at creation); it is NOT a running total and cannot be incremented without
+   *  invalidating the signature. Cumulative spend is tracked off the signed credential, on the
+   *  unsigned CommerceDelegation via recordSpend(), or by the gateway per delegationId. */
   spentAmount?: number
   /** Unit discriminator for spendLimit. Default 'currency' (backward compat).
    *  'invocations' enables count-based bounds used by consultation primitives

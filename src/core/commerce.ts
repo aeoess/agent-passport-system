@@ -321,6 +321,36 @@ export function createCommerceDelegation(opts: {
   }
 }
 
+/**
+ * Record a spend against a commerce delegation and return a NEW delegation with spentAmount
+ * incremented. This is the stateless write primitive that pairs with checkSpendGate: call
+ * checkSpendGate (or commercePreflight) BEFORE a purchase, then recordSpend AFTER it settles, and
+ * PERSIST the returned delegation yourself. The SDK is by-value and stateless: it does not persist
+ * spend between calls, and cumulative enforcement across purchases is the caller's or the gateway's
+ * responsibility.
+ *
+ * recordSpend refuses an amount that is not a finite number >= 0, and refuses a spend that would
+ * push spentAmount past spendLimit (so it doubles as a safe check-and-record on the returned
+ * object). It does not mutate the input.
+ *
+ * NOTE: CommerceDelegation is an UNSIGNED accounting object, so incrementing spentAmount is safe.
+ * The signed core Delegation carries spentAmount only as its spend-at-issue value (0); that field
+ * is part of the signed payload and is therefore immutable. It is never a running total.
+ */
+export function recordSpend(delegation: CommerceDelegation, amount: number): CommerceDelegation {
+  if (typeof amount !== 'number' || !Number.isFinite(amount) || amount < 0) {
+    throw new Error(`recordSpend: amount must be a non-negative finite number, got ${amount}`)
+  }
+  const newSpent = (delegation.spentAmount ?? 0) + amount
+  if (typeof delegation.spendLimit === 'number' && newSpent > delegation.spendLimit) {
+    throw new Error(
+      `recordSpend: spend ${amount} would exceed the spend limit ` +
+      `(${newSpent} > ${delegation.spendLimit}, already spent ${delegation.spentAmount ?? 0})`,
+    )
+  }
+  return { ...delegation, spentAmount: newSpent }
+}
+
 // ── Spend Analytics ──
 
 export function getSpendSummary(delegation: CommerceDelegation): {

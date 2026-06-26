@@ -252,6 +252,7 @@ export {
   signCommerceReceipt, extractDelegationChain,
   requestHumanApproval,
   createCommerceDelegation,
+  recordSpend,
   getSpendSummary,
   verifyCommerceReceipt,
 } from './core/commerce.js'

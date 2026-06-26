@@ -109,7 +109,10 @@ export interface CommerceDelegation {
   delegationId: string
   scope: string[]            // must include 'commerce:checkout'
   spendLimit: number         // max spend in smallest currency unit
-  spentAmount: number        // running total
+  // Running total spent so far. The SDK is stateless and by-value: it does NOT persist this
+  // between calls. Increment it with recordSpend() after each purchase and persist the returned
+  // object yourself; cumulative enforcement across purchases is the caller's or the gateway's job.
+  spentAmount: number
   currency: string
   approvedMerchants?: string[]  // optional allowlist
   requireHumanApproval?: boolean
