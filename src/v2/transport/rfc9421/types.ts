@@ -215,6 +215,7 @@ export type VerifyFailureReason =
   | 'missing_required_component'
   | 'tag_mismatch'
   | 'stale_created'
+  | 'expired'
   | 'unknown_verification_method'
   | 'content_digest_missing'
   | 'content_digest_mismatch'

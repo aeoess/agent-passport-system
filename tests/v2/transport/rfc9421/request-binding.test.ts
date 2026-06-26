@@ -208,6 +208,26 @@ test('round-trip: a valid request-binding profile verifies', () => {
   assert.equal(result.verificationMethod, 'did:key:zB26#zB26')
 })
 
+// Regression (round-3): a declared `expires` must be enforced. `created` freshness alone does not
+// cover a short-lived signature presented late within the broader skew window.
+test('a signature past its declared expires is rejected even within the created skew window', () => {
+  const ctx: RequestContext = { method: 'POST', url: 'https://example.com/foo?param=Value' }
+  const profile = signRequest({
+    request: ctx,
+    signer: SIGNER,
+    params: { created: NOW, nonce: 'nonce-exp', expires: NOW + 30 },
+    covered: DEFAULT_COVERED,
+    receiptHash: 'a'.repeat(64),
+  })
+  // created (NOW) is within +/-300 of NOW+60, but expires (NOW+30) has already passed.
+  const expired = verifyRequest({ profile, request: ctx, keys: [VERIFIER_KEY], policy: basePolicy({ nowSeconds: NOW + 60 }) })
+  assert.equal(expired.valid, false)
+  assert.equal(expired.reason, 'expired')
+  // Before expiry the same signature still verifies.
+  const fresh = verifyRequest({ profile, request: ctx, keys: [VERIFIER_KEY], policy: basePolicy({ nowSeconds: NOW + 10 }) })
+  assert.equal(fresh.valid, true)
+})
+
 test('round-trip with a covered body verifies, and the receipt link is carried', () => {
   const body = new Uint8Array(Buffer.from('{"hello": "world"}\n', 'utf8'))
   const profile = signSample(body, ['@method', '@authority', '@path', 'content-digest'])

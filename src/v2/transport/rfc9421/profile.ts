@@ -245,6 +245,19 @@ export function verifyRequest(input: VerifyRequestInput): VerifyResult {
       return { valid: false, reason: 'stale_created' }
     }
 
+    // 4b. Expiry: a signer may declare an `expires` param (part of the signed params). The `created`
+    //     freshness check above does not cover it: a short-lived signature can sit inside the broader
+    //     skew window yet be past its own `expires`. Reject once it has passed. Read from the signed
+    //     Signature-Input so the check binds to the exact signed value.
+    const expiresRhs = stripLabel(profile.inner.signatureInput, profile.inner.label)
+    const expiresMatch = expiresRhs?.match(/;expires=(\d+)/)
+    if (expiresMatch) {
+      const expiresAt = Number(expiresMatch[1])
+      if (Number.isFinite(expiresAt) && now > expiresAt) {
+        return { valid: false, reason: 'expired' }
+      }
+    }
+
     // 5. Resolve the verifying key for this verification method.
     const key = keys.find(k => k.verificationMethod === profile.verificationMethod)
     if (key === undefined) {
