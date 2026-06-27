@@ -257,7 +257,7 @@ The test count is one number derived from the suite, not three guesses. The badg
 
 ## Links
 
-- [aeoess.com](https://aeoess.com) -- Protocol home
+- [aeoess.com](https://agent-passport.org) -- Protocol home
 - [llms-full.txt](https://aeoess.com/llms-full.txt) -- Complete reference for AI agents
 - [Dev log](https://aeoess.com/blog.html) -- Day-by-day build record
 - [npm](https://www.npmjs.com/package/agent-passport-system) · [PyPI](https://pypi.org/project/agent-passport-system/) · [MCP](https://www.npmjs.com/package/agent-passport-system-mcp)
