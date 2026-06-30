@@ -183,6 +183,104 @@ describe('Beneficiary Tracing', () => {
   })
 })
 
+describe('Beneficiary Tracing - deterministic lineage (re-used key pairs)', () => {
+  beforeEach(() => clearStores())
+
+  it('[determinism] tail hop reports receipt.delegationId when multiple delegations share the (from,to) pair', () => {
+    const dOld = makeDelegation()
+    const dNew = makeDelegation()
+    assert.notEqual(dOld.delegationId, dNew.delegationId)
+    // Receipt issued under dNew specifically.
+    const receipt = createReceipt({
+      agentId: 'agent-a', delegationId: dNew.delegationId, delegation: dNew,
+      action: { type: 'execute', target: 'task', scopeUsed: 'code_execution', spend: { amount: 5, currency: 'USD' } },
+      result: { status: 'success', summary: 'done' },
+      delegationChain: [human.publicKey, agentA.publicKey],
+      privateKey: agentA.privateKey
+    })
+    const beneficiaryMap = new Map<string, BeneficiaryInfo>([[human.publicKey, { principalId: 'tymofii' }]])
+    // Same inputs, both array orders -> identical reported chain, tail tied to receipt.delegationId.
+    const t1 = traceBeneficiary(receipt, [dOld, dNew], beneficiaryMap)
+    const t2 = traceBeneficiary(receipt, [dNew, dOld], beneficiaryMap)
+    assert.equal(t1.chain.at(-1)!.delegationId, dNew.delegationId, 'tail tied to receipt.delegationId')
+    assert.equal(t2.chain.at(-1)!.delegationId, dNew.delegationId, 'order-independent')
+    assert.deepEqual(t1.chain, t2.chain, 'same inputs -> same reported chain regardless of array order')
+    assert.ok(t1.verified && t2.verified, 'both valid duplicates -> verified true')
+  })
+
+  it('[no false-negative] a re-issued delegation verifies even when an EXPIRED duplicate is listed first', () => {
+    const expiredOld = createDelegation({
+      delegatedBy: human.publicKey, delegatedTo: agentA.publicKey,
+      scope: ['code_execution', 'web_search', 'git_operations'], spendLimit: 1000,
+      expiresAt: new Date(Date.now() - 86_400_000).toISOString(),
+      privateKey: human.privateKey
+    })
+    const freshNew = makeDelegation()  // valid human -> agentA
+    const receipt = createReceipt({
+      agentId: 'agent-a', delegationId: freshNew.delegationId, delegation: freshNew,
+      action: { type: 'execute', target: 'task', scopeUsed: 'code_execution', spend: { amount: 5, currency: 'USD' } },
+      result: { status: 'success', summary: 'done' },
+      delegationChain: [human.publicKey, agentA.publicKey],
+      privateKey: agentA.privateKey
+    })
+    const beneficiaryMap = new Map<string, BeneficiaryInfo>([[human.publicKey, { principalId: 'tymofii' }]])
+    // Expired listed FIRST: a first-match rule would have flipped verified=false.
+    const trace = traceBeneficiary(receipt, [expiredOld, freshNew], beneficiaryMap)
+    assert.ok(trace.verified, 'a valid delegation exists for the hop -> verified stays true')
+    assert.equal(trace.chain.at(-1)!.delegationId, freshNew.delegationId, 'tail reports the valid re-issued delegation')
+  })
+
+  it('[security unchanged] a hop whose every matching delegation is invalid is still not verified', () => {
+    const exp1 = createDelegation({
+      delegatedBy: human.publicKey, delegatedTo: agentA.publicKey, scope: ['code_execution'], spendLimit: 1000,
+      expiresAt: new Date(Date.now() - 2 * 86_400_000).toISOString(), privateKey: human.privateKey
+    })
+    const exp2 = createDelegation({
+      delegatedBy: human.publicKey, delegatedTo: agentA.publicKey, scope: ['code_execution'], spendLimit: 1000,
+      expiresAt: new Date(Date.now() - 86_400_000).toISOString(), privateKey: human.privateKey
+    })
+    // A current self-delegation only so createReceipt will sign a receipt for the agent.
+    const self = createDelegation({
+      delegatedBy: agentA.publicKey, delegatedTo: agentA.publicKey, scope: ['code_execution'], spendLimit: 1000, privateKey: agentA.privateKey
+    })
+    const receipt = createReceipt({
+      agentId: 'agent-a', delegationId: self.delegationId, delegation: self,
+      action: { type: 'execute', target: 'task', scopeUsed: 'code_execution', spend: { amount: 1, currency: 'USD' } },
+      result: { status: 'success', summary: 'x' },
+      delegationChain: [human.publicKey, agentA.publicKey],
+      privateKey: agentA.privateKey
+    })
+    const beneficiaryMap = new Map<string, BeneficiaryInfo>([[human.publicKey, { principalId: 'tymofii' }]])
+    const trace = traceBeneficiary(receipt, [exp1, exp2], beneficiaryMap)
+    assert.ok(!trace.verified, 'no valid delegation for the hop -> not verified')
+  })
+
+  it('[determinism] inner-hop selection is order-independent', () => {
+    const agentBk = generateKeyPair()
+    const dA1 = makeDelegation()  // human -> agentA (valid)
+    const dA2 = makeDelegation()  // human -> agentA (valid, duplicate pair)
+    const dAtoB = createDelegation({
+      delegatedBy: agentA.publicKey, delegatedTo: agentBk.publicKey,
+      scope: ['code_execution'], spendLimit: 500, privateKey: agentA.privateKey
+    })
+    const receipt = createReceipt({
+      agentId: 'agent-b', delegationId: dAtoB.delegationId, delegation: dAtoB,
+      action: { type: 'execute', target: 'task', scopeUsed: 'code_execution', spend: { amount: 5, currency: 'USD' } },
+      result: { status: 'success', summary: 'done' },
+      delegationChain: [human.publicKey, agentA.publicKey, agentBk.publicKey],
+      privateKey: agentBk.privateKey
+    })
+    const beneficiaryMap = new Map<string, BeneficiaryInfo>([[human.publicKey, { principalId: 'tymofii' }]])
+    const t1 = traceBeneficiary(receipt, [dA1, dA2, dAtoB], beneficiaryMap)
+    const t2 = traceBeneficiary(receipt, [dA2, dA1, dAtoB], beneficiaryMap)
+    assert.deepEqual(t1.chain, t2.chain, 'inner-hop pick is deterministic across input order')
+    const expectedInner = [dA1.delegationId, dA2.delegationId].sort()[0]
+    assert.equal(t1.chain[0].delegationId, expectedInner, 'inner hop picks the deterministic (id-ordered) delegation')
+    assert.equal(t1.chain.at(-1)!.delegationId, dAtoB.delegationId, 'tail tied to receipt.delegationId')
+    assert.ok(t1.verified, 'valid lineage verifies')
+  })
+})
+
 describe('Receipt hashing', () => {
   beforeEach(() => clearStores())
 

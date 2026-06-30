@@ -76,24 +76,49 @@ export function traceBeneficiary(
   const chain: DelegationHop[] = []
   const keyChain = receipt.delegationChain ?? []
 
-  // Walk each hop. Track cryptographic validity per hop via the canonical
-  // verifyDelegation (ed25519 signature + temporal validity; revocation is
-  // fail-open on this path). A hop with no matching delegation, or one whose
-  // signature does not verify, breaks `verified`.
+  // Walk each hop. A single (from,to) key pair may have MORE THAN ONE matching
+  // delegation (e.g. a re-issued one), so the two concerns are kept independent:
+  //
+  //   verified (security): a hop is authentic iff SOME matching delegation
+  //     passes the canonical verifyDelegation (ed25519 signature + temporal
+  //     validity; revocation is fail-open on this path). This does not depend on
+  //     WHICH delegation gets reported, so a re-used key pair cannot turn a valid
+  //     lineage into verified=false, and a hop with no valid delegation still
+  //     breaks `verified`.
+  //
+  //   reported chain (determinism): one delegation is chosen per hop so the same
+  //     inputs always produce the same chain. Order: valid first, then by
+  //     delegationId. The TAIL hop additionally prefers the delegation the
+  //     receipt was issued under (receipt.delegationId), so the reported lineage
+  //     is consistent with the executor's own delegationId rather than whichever
+  //     duplicate happened to be first in the array.
   let everyHopAuthentic = true
   for (let i = 0; i < keyChain.length - 1; i++) {
     const from = keyChain[i]
     const to = keyChain[i + 1]
-    const del = delegations.find(d => d.delegatedBy === from && d.delegatedTo === to)
+    const isTail = i === keyChain.length - 2
+
+    const matches = delegations
+      .filter(d => d.delegatedBy === from && d.delegatedTo === to)
+      .map(d => ({ del: d, valid: verifyDelegation(d).valid }))
+
+    if (!matches.some(m => m.valid)) everyHopAuthentic = false
+
+    const ordered = [...matches].sort((a, b) =>
+      a.valid !== b.valid
+        ? (a.valid ? -1 : 1)
+        : (a.del.delegationId < b.del.delegationId ? -1 : a.del.delegationId > b.del.delegationId ? 1 : 0)
+    )
+    const chosen =
+      (isTail ? ordered.find(m => m.del.delegationId === receipt.delegationId) : undefined)
+      ?? ordered[0]
 
     chain.push({
       from, to,
-      delegationId: del?.delegationId || 'unknown',
-      scope: del?.scope || [],
+      delegationId: chosen?.del.delegationId || 'unknown',
+      scope: chosen?.del.scope || [],
       depth: i
     })
-
-    if (!del || !verifyDelegation(del).valid) everyHopAuthentic = false
   }
 
   const principalKey = keyChain[0]
