@@ -52,11 +52,18 @@ export function hashReceipt(receipt: ActionReceipt): string {
  *             (checked with verifyReceipt against the executor at the chain
  *             tail) AND every delegation in the traced lineage passes
  *             verifyDelegation (its own ed25519 signature by its delegator is
- *             valid and it is currently valid). A tampered or forged chain
- *             CANNOT be `verified`: a hop whose delegator key the caller does
- *             not hold fails verifyDelegation. This reuses the canonical
- *             verifiers and does not reimplement crypto. It does NOT re-check
- *             scope narrowing between hops (use verifyDelegationChain for that).
+ *             valid and it is within its validity window). A tampered or forged
+ *             chain CANNOT be `verified`: a hop whose delegator key the caller
+ *             does not hold fails verifyDelegation. This reuses the canonical
+ *             verifiers and does not reimplement crypto.
+ *
+ *             Scope of the claim: `verified` attests that the lineage signatures
+ *             are authentic and temporally valid. It does NOT check that the
+ *             action was authorized (scopeUsed within the delegation scope) or
+ *             that scope narrows between hops (use verifyDelegationChain /
+ *             scopeAuthorizes), and it does NOT consult revocation
+ *             (verifyDelegation runs fail-open on this path unless the caller
+ *             threads a revocation cache).
  *
  * Every agent action resolves to a human. `verified` is the field to trust;
  * `resolved` is a convenience lookup that makes no cryptographic claim.
@@ -70,8 +77,9 @@ export function traceBeneficiary(
   const keyChain = receipt.delegationChain ?? []
 
   // Walk each hop. Track cryptographic validity per hop via the canonical
-  // verifyDelegation (signature + temporal + revocation policy). A hop with no
-  // matching delegation, or one whose signature does not verify, breaks `verified`.
+  // verifyDelegation (ed25519 signature + temporal validity; revocation is
+  // fail-open on this path). A hop with no matching delegation, or one whose
+  // signature does not verify, breaks `verified`.
   let everyHopAuthentic = true
   for (let i = 0; i < keyChain.length - 1; i++) {
     const from = keyChain[i]

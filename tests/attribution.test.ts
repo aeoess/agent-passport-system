@@ -119,6 +119,68 @@ describe('Beneficiary Tracing', () => {
     assert.ok(!trace.resolved, 'unknown delegation id -> not resolved')
     assert.ok(!trace.verified, 'no delegation to verify -> not verified')
   })
+
+  it('[edge] empty delegationChain does not throw and is neither resolved nor verified', () => {
+    const d = makeDelegation()
+    const receipt = createReceipt({
+      agentId: 'agent-a', delegationId: d.delegationId, delegation: d,
+      action: { type: 'execute', target: 'task', scopeUsed: 'code_execution', spend: { amount: 1, currency: 'USD' } },
+      result: { status: 'success', summary: 'done' },
+      delegationChain: [],
+      privateKey: agentA.privateKey
+    })
+    const beneficiaryMap = new Map<string, BeneficiaryInfo>([[human.publicKey, { principalId: 'tymofii' }]])
+    const trace = traceBeneficiary(receipt, [d], beneficiaryMap)
+    assert.equal(trace.totalDepth, 0)
+    assert.ok(!trace.resolved)
+    assert.ok(!trace.verified)
+  })
+
+  it('[edge] single-key chain (no delegation hop) is not verified', () => {
+    const d = makeDelegation()
+    const receipt = createReceipt({
+      agentId: 'agent-a', delegationId: d.delegationId, delegation: d,
+      action: { type: 'execute', target: 'task', scopeUsed: 'code_execution', spend: { amount: 1, currency: 'USD' } },
+      result: { status: 'success', summary: 'done' },
+      delegationChain: [human.publicKey],   // executor == principal, zero hops
+      privateKey: human.privateKey
+    })
+    const beneficiaryMap = new Map<string, BeneficiaryInfo>([[human.publicKey, { principalId: 'tymofii' }]])
+    const trace = traceBeneficiary(receipt, [d], beneficiaryMap)
+    assert.ok(!trace.verified, 'a chain with no delegation hop is not verified')
+  })
+
+  it('[ADVERSARIAL] an expired delegation in the lineage resolves but does NOT verify', () => {
+    const agentExp = generateKeyPair()
+    // Authentic signature, but already expired.
+    const expired = createDelegation({
+      delegatedBy: human.publicKey,
+      delegatedTo: agentExp.publicKey,
+      scope: ['code_execution'],
+      spendLimit: 1000,
+      expiresAt: new Date(Date.now() - 86_400_000).toISOString(),  // yesterday
+      privateKey: human.privateKey
+    })
+    // The agent holds a current self-delegation so createReceipt will sign a receipt,
+    // and asserts the (now expired) human -> agentExp lineage.
+    const self = createDelegation({
+      delegatedBy: agentExp.publicKey, delegatedTo: agentExp.publicKey,
+      scope: ['code_execution'], spendLimit: 1000, privateKey: agentExp.privateKey
+    })
+    const receipt = createReceipt({
+      agentId: 'agent-exp', delegationId: self.delegationId, delegation: self,
+      action: { type: 'execute', target: 'task', scopeUsed: 'code_execution', spend: { amount: 1, currency: 'USD' } },
+      result: { status: 'success', summary: 'late' },
+      delegationChain: [human.publicKey, agentExp.publicKey],
+      privateKey: agentExp.privateKey
+    })
+    const beneficiaryMap = new Map<string, BeneficiaryInfo>([
+      [human.publicKey, { principalId: 'tymofii', relationship: 'creator' }]
+    ])
+    const trace = traceBeneficiary(receipt, [expired], beneficiaryMap)
+    assert.ok(trace.resolved, 'the expired record still resolves structurally')
+    assert.ok(!trace.verified, 'an expired hop must NOT come back verified')
+  })
 })
 
 describe('Receipt hashing', () => {

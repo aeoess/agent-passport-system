@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.10.0 (unreleased)
+
+### Added
+- **`BeneficiaryTrace.resolved`** (`src/types/passport.ts`): a lookup-success field. It is true when the traced lineage maps to known delegation records and the principal resolves to a known beneficiary. It makes NO cryptographic claim. Use `resolved` for the pre-2.10 `verified` behavior.
+
+### Behavior changes (security)
+- **`traceBeneficiary` `verified` is now a real cryptographic check** (`src/core/attribution.ts`). It is true only when the receipt signature verifies (`verifyReceipt` against the executor at the chain tail) AND every delegation in the traced lineage verifies (`verifyDelegation`: signature plus temporal validity), reusing the canonical verifiers. Previously `verified` meant only that the chain resolved against the supplied records and a beneficiary was known, so a forged, tampered, or otherwise unauthenticated creator-supplied chain could report `verified: true`. Callers that relied on the old meaning must read `resolved` instead. `verified` attests lineage signature authenticity only; it does not check action authorization or inter-hop scope narrowing (use `verifyDelegationChain` / `scopeAuthorizes`) and does not consult revocation on this path.
+
 ## 2.9.0
 
 ### Added
