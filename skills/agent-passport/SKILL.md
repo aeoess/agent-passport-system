@@ -162,6 +162,23 @@ import {
 } from 'agent-passport-system'
 ```
 
+## Composition-check receipt (CompositionCheckV0)
+
+A chain of individually rule-legal delegations can compose to a globally-unsafe target that per-hop monotonic narrowing cannot detect (each delegation narrows scope correctly, but the composed chain routes to an unsafe aggregate). The SDK carries proof that an external attestor ran a composition-hazard check; detection of the hazards is private gateway intelligence and is not in the SDK.
+
+```typescript
+import { CompositionCheckV0 } from 'agent-passport-system'
+
+const result = CompositionCheckV0.verifyCompositionCheck(receipt, context)
+// verifies the anchor: signature, binding to (chain_hash, action_ref, context_hash),
+// freshness, attestor trust. Surfaces independence_is_second_anchor corroborated from the
+// caller's trust context, never the receipt's self-declaration.
+```
+
+The verifier checks the anchor, not the composition. It evaluates no policy and emits no aggregate `safe` verdict: a per-check `pass` means only that the named attestor reported pass for the named profile over the bound context, never global safety. `gateway_self` is always weak (one trust domain); only a context-corroborated `independent_registered` attestor is a second anchor, mirroring how RAP-v0 gates its strong claim on `domains >= 2`. Conformance vectors in `conformance/composition-check/v0/`.
+
+`traceBeneficiary().verified` is a real cryptographic check: true only when the receipt signature verifies at the chain tail and every delegation hop passes `verifyDelegation`. The separate `resolved` field carries lookup-success semantics (the lineage maps to known records) without making a cryptographic claim.
+
 ## Passport grades (attestation architecture)
 
 | Grade | Meaning | Trust signal |
