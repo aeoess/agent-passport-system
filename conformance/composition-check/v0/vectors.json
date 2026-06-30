@@ -1,0 +1,403 @@
+{
+  "profile": "aps-composition-check-v0",
+  "description": "APS Composition Check Receipt v0 conformance vectors. The verifier checks the ANCHOR (signature, binding, freshness, well-formedness, attestor trust) and surfaces independence; it never emits a \"safe\" verdict and runs no policy. independence_is_second_anchor is corroborated from the trust context, never the receipt self-declaration. The set only grows.",
+  "count": 8,
+  "vectors": [
+    {
+      "id": "V01",
+      "scenario": "valid receipt from an independently registered attestor (strong, second anchor)",
+      "input_receipt": {
+        "profile": "aps-composition-check-v0",
+        "receipt_id": "V01",
+        "chain_hash": "chain-abc",
+        "action_ref": "act-xyz",
+        "context_hash": "ctx-123",
+        "policy_profile_ids": [
+          "sanctions-routing-v3",
+          "data-exfil-v2"
+        ],
+        "checks_run": [
+          "sanctions-routing-v3:routing",
+          "data-exfil-v2:egress"
+        ],
+        "result_per_check": [
+          "pass",
+          "indeterminate"
+        ],
+        "attestor_key_id": "attestor-key-1",
+        "attestor_independence_class": "independent_registered",
+        "issued_at": "2026-06-29T00:00:00.000Z",
+        "expires_at": "2026-06-30T00:00:00.000Z",
+        "signature": "d4a85ac55486263f4a3ace63b6cb09a9a1dda109db7c49f40b0094282564fe37e3a0789a3de1e8cdda6a139d80cd981091a5de8848163388273c50a316610303"
+      },
+      "verification_context": {
+        "trusted_attestors": {
+          "attestor-key-1": {
+            "publicKey": "a3bf0d60506a64aa9dfa13c8ba2d53230211a993869dcd7d94834f9a5727d869",
+            "registered_by_operator": false,
+            "profiles": [
+              "sanctions-routing-v3",
+              "data-exfil-v2"
+            ]
+          }
+        },
+        "expected_chain_hash": "chain-abc",
+        "expected_action_ref": "act-xyz",
+        "expected_context_hash": "ctx-123",
+        "now_ms": 1782734400000
+      },
+      "expected": {
+        "anchor_verified": true,
+        "independence_is_second_anchor": true,
+        "violations_include": []
+      }
+    },
+    {
+      "id": "V02",
+      "scenario": "gateway_self attestor: valid anchor but one trust domain, surfaced as weak",
+      "input_receipt": {
+        "profile": "aps-composition-check-v0",
+        "receipt_id": "V02",
+        "chain_hash": "chain-abc",
+        "action_ref": "act-xyz",
+        "context_hash": "ctx-123",
+        "policy_profile_ids": [
+          "sanctions-routing-v3",
+          "data-exfil-v2"
+        ],
+        "checks_run": [
+          "sanctions-routing-v3:routing",
+          "data-exfil-v2:egress"
+        ],
+        "result_per_check": [
+          "pass",
+          "indeterminate"
+        ],
+        "attestor_key_id": "attestor-key-1",
+        "attestor_independence_class": "gateway_self",
+        "issued_at": "2026-06-29T00:00:00.000Z",
+        "expires_at": "2026-06-30T00:00:00.000Z",
+        "signature": "9bc0a0f76883fcea98e6d7f19ac497ee451d8f9d8718aadd64ae006522fb8ca207db2f3dfaff8801d1659748ab3dd0b8fc8404c2f62c1af7703c9cbde48d5705"
+      },
+      "verification_context": {
+        "trusted_attestors": {
+          "attestor-key-1": {
+            "publicKey": "a3bf0d60506a64aa9dfa13c8ba2d53230211a993869dcd7d94834f9a5727d869",
+            "registered_by_operator": true,
+            "profiles": [
+              "sanctions-routing-v3",
+              "data-exfil-v2"
+            ]
+          }
+        },
+        "expected_chain_hash": "chain-abc",
+        "expected_action_ref": "act-xyz",
+        "expected_context_hash": "ctx-123",
+        "now_ms": 1782734400000
+      },
+      "expected": {
+        "anchor_verified": true,
+        "independence_is_second_anchor": false,
+        "violations_include": []
+      }
+    },
+    {
+      "id": "V03",
+      "scenario": "receipt presented after expires_at",
+      "input_receipt": {
+        "profile": "aps-composition-check-v0",
+        "receipt_id": "V03",
+        "chain_hash": "chain-abc",
+        "action_ref": "act-xyz",
+        "context_hash": "ctx-123",
+        "policy_profile_ids": [
+          "sanctions-routing-v3",
+          "data-exfil-v2"
+        ],
+        "checks_run": [
+          "sanctions-routing-v3:routing",
+          "data-exfil-v2:egress"
+        ],
+        "result_per_check": [
+          "pass",
+          "indeterminate"
+        ],
+        "attestor_key_id": "attestor-key-1",
+        "attestor_independence_class": "independent_registered",
+        "issued_at": "2026-06-29T00:00:00.000Z",
+        "expires_at": "2026-06-30T00:00:00.000Z",
+        "signature": "fdb6bcbd7e322064630d480f8e32771452c2bcae62635cf3f93f3115c1aa4453053fffff75561a4cac7f09f07b842f37d4932d7985931bb9f01b5f3e21b2620b"
+      },
+      "verification_context": {
+        "trusted_attestors": {
+          "attestor-key-1": {
+            "publicKey": "a3bf0d60506a64aa9dfa13c8ba2d53230211a993869dcd7d94834f9a5727d869",
+            "registered_by_operator": false,
+            "profiles": [
+              "sanctions-routing-v3",
+              "data-exfil-v2"
+            ]
+          }
+        },
+        "expected_chain_hash": "chain-abc",
+        "expected_action_ref": "act-xyz",
+        "expected_context_hash": "ctx-123",
+        "now_ms": 1782864000000
+      },
+      "expected": {
+        "anchor_verified": false,
+        "violations_include": [
+          "expired"
+        ]
+      }
+    },
+    {
+      "id": "V04",
+      "scenario": "receipt bound to a different chain_hash than the caller asks about",
+      "input_receipt": {
+        "profile": "aps-composition-check-v0",
+        "receipt_id": "V04",
+        "chain_hash": "chain-OTHER",
+        "action_ref": "act-xyz",
+        "context_hash": "ctx-123",
+        "policy_profile_ids": [
+          "sanctions-routing-v3",
+          "data-exfil-v2"
+        ],
+        "checks_run": [
+          "sanctions-routing-v3:routing",
+          "data-exfil-v2:egress"
+        ],
+        "result_per_check": [
+          "pass",
+          "indeterminate"
+        ],
+        "attestor_key_id": "attestor-key-1",
+        "attestor_independence_class": "independent_registered",
+        "issued_at": "2026-06-29T00:00:00.000Z",
+        "expires_at": "2026-06-30T00:00:00.000Z",
+        "signature": "3072b4d390e43286608ec059a2cb1606b5b7f3b297b9851035c57bcfb8a6739f36ba1c693325890362a5087102a728f2f3fa2ac3d4c08e2f0b9d498191ce010f"
+      },
+      "verification_context": {
+        "trusted_attestors": {
+          "attestor-key-1": {
+            "publicKey": "a3bf0d60506a64aa9dfa13c8ba2d53230211a993869dcd7d94834f9a5727d869",
+            "registered_by_operator": false,
+            "profiles": [
+              "sanctions-routing-v3",
+              "data-exfil-v2"
+            ]
+          }
+        },
+        "expected_chain_hash": "chain-abc",
+        "expected_action_ref": "act-xyz",
+        "expected_context_hash": "ctx-123",
+        "now_ms": 1782734400000
+      },
+      "expected": {
+        "anchor_verified": false,
+        "violations_include": [
+          "chain_binding"
+        ]
+      }
+    },
+    {
+      "id": "V05",
+      "scenario": "signature byte flipped after signing",
+      "input_receipt": {
+        "profile": "aps-composition-check-v0",
+        "receipt_id": "V05",
+        "chain_hash": "chain-abc",
+        "action_ref": "act-xyz",
+        "context_hash": "ctx-123",
+        "policy_profile_ids": [
+          "sanctions-routing-v3",
+          "data-exfil-v2"
+        ],
+        "checks_run": [
+          "sanctions-routing-v3:routing",
+          "data-exfil-v2:egress"
+        ],
+        "result_per_check": [
+          "pass",
+          "indeterminate"
+        ],
+        "attestor_key_id": "attestor-key-1",
+        "attestor_independence_class": "independent_registered",
+        "issued_at": "2026-06-29T00:00:00.000Z",
+        "expires_at": "2026-06-30T00:00:00.000Z",
+        "signature": "c64bd28c9bf1700b8b6aa7514b539b6f1b1474bbaa8d40ede153908106774988e8ba40b60b76ac5cf9c0c9ee1611a17c8a1019506d93e5499d1422b237f5d200"
+      },
+      "verification_context": {
+        "trusted_attestors": {
+          "attestor-key-1": {
+            "publicKey": "a3bf0d60506a64aa9dfa13c8ba2d53230211a993869dcd7d94834f9a5727d869",
+            "registered_by_operator": false,
+            "profiles": [
+              "sanctions-routing-v3",
+              "data-exfil-v2"
+            ]
+          }
+        },
+        "expected_chain_hash": "chain-abc",
+        "expected_action_ref": "act-xyz",
+        "expected_context_hash": "ctx-123",
+        "now_ms": 1782734400000
+      },
+      "expected": {
+        "anchor_verified": false,
+        "violations_include": [
+          "signature"
+        ]
+      }
+    },
+    {
+      "id": "V06",
+      "scenario": "a result_per_check value outside the allowed enum",
+      "input_receipt": {
+        "profile": "aps-composition-check-v0",
+        "receipt_id": "V06",
+        "chain_hash": "chain-abc",
+        "action_ref": "act-xyz",
+        "context_hash": "ctx-123",
+        "policy_profile_ids": [
+          "sanctions-routing-v3",
+          "data-exfil-v2"
+        ],
+        "checks_run": [
+          "sanctions-routing-v3:routing",
+          "data-exfil-v2:egress"
+        ],
+        "result_per_check": [
+          "pass",
+          "maybe"
+        ],
+        "attestor_key_id": "attestor-key-1",
+        "attestor_independence_class": "independent_registered",
+        "issued_at": "2026-06-29T00:00:00.000Z",
+        "expires_at": "2026-06-30T00:00:00.000Z",
+        "signature": "32f3f2fa4624eb77c2a5ad842661c9841acb131a6559be378f08348e84d3f60887f6916e0e72b738a6e7e897dadbde59563ab384e0154defa1dea1d200071302"
+      },
+      "verification_context": {
+        "trusted_attestors": {
+          "attestor-key-1": {
+            "publicKey": "a3bf0d60506a64aa9dfa13c8ba2d53230211a993869dcd7d94834f9a5727d869",
+            "registered_by_operator": false,
+            "profiles": [
+              "sanctions-routing-v3",
+              "data-exfil-v2"
+            ]
+          }
+        },
+        "expected_chain_hash": "chain-abc",
+        "expected_action_ref": "act-xyz",
+        "expected_context_hash": "ctx-123",
+        "now_ms": 1782734400000
+      },
+      "expected": {
+        "anchor_verified": false,
+        "violations_include": [
+          "result_enum"
+        ]
+      }
+    },
+    {
+      "id": "V07",
+      "scenario": "claims independent_registered but the trust context registers the key as operator-registered (honest floor: downgraded, never upgraded)",
+      "input_receipt": {
+        "profile": "aps-composition-check-v0",
+        "receipt_id": "V07",
+        "chain_hash": "chain-abc",
+        "action_ref": "act-xyz",
+        "context_hash": "ctx-123",
+        "policy_profile_ids": [
+          "sanctions-routing-v3",
+          "data-exfil-v2"
+        ],
+        "checks_run": [
+          "sanctions-routing-v3:routing",
+          "data-exfil-v2:egress"
+        ],
+        "result_per_check": [
+          "pass",
+          "indeterminate"
+        ],
+        "attestor_key_id": "attestor-key-1",
+        "attestor_independence_class": "independent_registered",
+        "issued_at": "2026-06-29T00:00:00.000Z",
+        "expires_at": "2026-06-30T00:00:00.000Z",
+        "signature": "9f92e2e520111a4e5ca1917ee753f176ca9a24838c2330eea625823a812199fdb3bbe2a6c496e37308aae416f191df8662e9437fc75dea74a5559695dbc7850d"
+      },
+      "verification_context": {
+        "trusted_attestors": {
+          "attestor-key-1": {
+            "publicKey": "a3bf0d60506a64aa9dfa13c8ba2d53230211a993869dcd7d94834f9a5727d869",
+            "registered_by_operator": true,
+            "profiles": [
+              "sanctions-routing-v3",
+              "data-exfil-v2"
+            ]
+          }
+        },
+        "expected_chain_hash": "chain-abc",
+        "expected_action_ref": "act-xyz",
+        "expected_context_hash": "ctx-123",
+        "now_ms": 1782734400000
+      },
+      "expected": {
+        "anchor_verified": true,
+        "independence_is_second_anchor": false,
+        "violations_include": []
+      }
+    },
+    {
+      "id": "V08",
+      "scenario": "attestor trusted for only one of the two named policy profiles",
+      "input_receipt": {
+        "profile": "aps-composition-check-v0",
+        "receipt_id": "V08",
+        "chain_hash": "chain-abc",
+        "action_ref": "act-xyz",
+        "context_hash": "ctx-123",
+        "policy_profile_ids": [
+          "sanctions-routing-v3",
+          "data-exfil-v2"
+        ],
+        "checks_run": [
+          "sanctions-routing-v3:routing",
+          "data-exfil-v2:egress"
+        ],
+        "result_per_check": [
+          "pass",
+          "indeterminate"
+        ],
+        "attestor_key_id": "attestor-key-1",
+        "attestor_independence_class": "independent_registered",
+        "issued_at": "2026-06-29T00:00:00.000Z",
+        "expires_at": "2026-06-30T00:00:00.000Z",
+        "signature": "3a0f537cfae3a9c0ac3d3f7545c89e871fb9827957766e6ed01f8f48b0e32135c5f21ae3527c1e5c4b8891f93c46fa92b707a90d109bc8d762e5c43550055b0e"
+      },
+      "verification_context": {
+        "trusted_attestors": {
+          "attestor-key-1": {
+            "publicKey": "a3bf0d60506a64aa9dfa13c8ba2d53230211a993869dcd7d94834f9a5727d869",
+            "registered_by_operator": false,
+            "profiles": [
+              "sanctions-routing-v3"
+            ]
+          }
+        },
+        "expected_chain_hash": "chain-abc",
+        "expected_action_ref": "act-xyz",
+        "expected_context_hash": "ctx-123",
+        "now_ms": 1782734400000
+      },
+      "expected": {
+        "anchor_verified": false,
+        "violations_include": [
+          "attestor_not_trusted_for_profiles"
+        ]
+      }
+    }
+  ]
+}

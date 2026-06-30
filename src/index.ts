@@ -1135,6 +1135,14 @@ export * from './v2/index.js'
 // VerificationContext). Use RegulatedActionV0.verifyRegulatedAction etc. (AP-3 explicit block.)
 export { RegulatedActionV0 } from './v2/index.js'
 
+// APS Composition Check Receipt v0. The PUBLIC carrier for an external attestor's
+// composition-hazard check: a signed receipt plus a stateless ANCHOR verifier. Detection of
+// composition hazards is private gateway intelligence and is NOT in this SDK; the verifier
+// checks signature, binding, freshness, and attestor trust, surfaces independence, and never
+// emits a "safe" verdict. Namespaced to avoid name collisions (VerificationContext); use
+// CompositionCheckV0.verifyCompositionCheck etc.
+export { CompositionCheckV0 } from './v2/index.js'
+
 export {
   verifyOnAccept, evaluateCredentialCheck, resolveCheckMode,
 } from './v2/credential-check-policy/index.js'

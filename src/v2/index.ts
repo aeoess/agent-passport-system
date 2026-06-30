@@ -439,3 +439,10 @@ export type {
 // APS Regulated Action Profile v0 (Reconciled Action Attestation). Namespaced to avoid
 // generic-name collisions across the root barrel; consumers use RegulatedActionV0.*.
 export * as RegulatedActionV0 from './regulated-action/index.js'
+
+// APS Composition Check Receipt v0. A signed carrier that an external attestor produces
+// to say which named policy profiles it ran over an exact (chain, action, context) and the
+// per-check results; the SDK verifies only the ANCHOR (signature, binding, freshness,
+// trust) and surfaces independence. No detection logic, no policy grammar, no "safe"
+// boolean. Namespaced; consumers use CompositionCheckV0.*.
+export * as CompositionCheckV0 from './composition-check/index.js'
