@@ -83,14 +83,17 @@ export function verifyCompositionCheck(
   }
 
   // 4. freshness: issued_at <= now <= expires_at. now_ms is caller-supplied; no clock read.
+  //    Fail CLOSED on a non-finite now_ms (undefined/NaN from a loose caller): comparisons
+  //    against it would silently be false and let an expired receipt through.
   const issuedMs = Date.parse(receipt.issued_at)
   const expiresMs = Date.parse(receipt.expires_at)
-  if (!Number.isFinite(issuedMs) || !Number.isFinite(expiresMs)) {
-    violations.push('timestamp_malformed')
-  } else if (ctx.now_ms < issuedMs) {
-    violations.push('not_yet_valid')
-  } else if (ctx.now_ms > expiresMs) {
-    violations.push('expired')
+  const nowFinite = Number.isFinite(ctx.now_ms)
+  const tsFinite = Number.isFinite(issuedMs) && Number.isFinite(expiresMs)
+  if (!nowFinite) violations.push('now_malformed')
+  if (!tsFinite) violations.push('timestamp_malformed')
+  if (nowFinite && tsFinite) {
+    if (ctx.now_ms < issuedMs) violations.push('not_yet_valid')
+    else if (ctx.now_ms > expiresMs) violations.push('expired')
   }
 
   // 5. well-formedness: correct profile tag, every result from the fixed enum, one result
@@ -104,17 +107,20 @@ export function verifyCompositionCheck(
     violations.push('result_count_mismatch')
   }
 
-  // 6. independence: SURFACE it, corroborated from the trust context. A self-declared
-  //    'independent_registered' that the context does not back is downgraded here (it is
-  //    NOT a second anchor), never upgraded. This does not void the anchor: a weak
-  //    gateway_self receipt is still an authentic attestation, just not a second domain.
+  // 6. independence: SURFACE it, corroborated from the trust context AND gated on the
+  //    receipt itself anchor-verifying. A self-declared 'independent_registered' the context
+  //    does not back is downgraded; and an independent attestor on a receipt that FAILS the
+  //    anchor (expired, tampered, mis-bound) is not a usable second anchor either, so a
+  //    consumer reading this flag alone cannot be misled. Downgraded here, never upgraded.
+  //    (attestor_independence_class is still echoed below as the raw claimed class.)
+  const anchorOk = violations.length === 0
   const claimedIndependent = receipt.attestor_independence_class === 'independent_registered'
   const contextIndependent = !!attestor && attestor.registered_by_operator === false
-  const independence_is_second_anchor = claimedIndependent && contextIndependent
+  const independence_is_second_anchor = anchorOk && claimedIndependent && contextIndependent
 
   return {
     profile: COMPOSITION_CHECK_PROFILE,
-    anchor_verified: violations.length === 0,
+    anchor_verified: anchorOk,
     violations,
     policy_profile_ids: receipt.policy_profile_ids ?? [],
     checks_run: receipt.checks_run ?? [],

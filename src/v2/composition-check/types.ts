@@ -112,11 +112,14 @@ export interface CompositionCheckVerifyResult {
   attestor_key_id: string
   // The class AS CLAIMED in the receipt.
   attestor_independence_class: AttestorIndependenceClass
-  // CORROBORATED against the trust context: true ONLY when the receipt claims
-  // 'independent_registered' AND the context registers the key as registered_by_operator
-  // === false. gateway_self is always false (one trust domain, weak). A self-declared
-  // strong class the context does not back is downgraded here, never upgraded. This
-  // mirrors RAP gating its strong claim on domains>=2.
+  // CORROBORATED against the trust context AND gated on anchor_verified: true ONLY when the
+  // receipt anchor-verifies AND claims 'independent_registered' AND the context registers the
+  // key as registered_by_operator === false. gateway_self is always false (one trust domain,
+  // weak); a self-declared strong class the context does not back is false; and an
+  // independent attestor whose receipt fails the anchor (expired, tampered, mis-bound) is
+  // false too, so a consumer reading this flag alone is never misled. Downgraded, never
+  // upgraded. Mirrors RAP gating its strong claim on domains>=2. The raw claimed class is
+  // still available in attestor_independence_class.
   independence_is_second_anchor: boolean
   issued_at: string
   expires_at: string

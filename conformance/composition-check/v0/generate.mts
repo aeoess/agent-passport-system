@@ -141,6 +141,17 @@ vectors.push({
   expected: { anchor_verified: false, violations_include: ['attestor_not_trusted_for_profiles'] },
 })
 
+// V09 expired receipt from a genuinely independent attestor -> rejected AND not a second
+// anchor. independence_is_second_anchor is gated on anchor_verified: a dead receipt is not a
+// usable second anchor even though the attestor is independent (honest floor, never upgraded).
+vectors.push({
+  id: 'V09',
+  scenario: 'expired receipt from an independent attestor: rejected and NOT a second anchor (independence gated on anchor_verified)',
+  input_receipt: signed(baseReceipt({ receipt_id: 'V09' })),
+  verification_context: { ...ctxIndependent(), now_ms: NOW_AFTER },
+  expected: { anchor_verified: false, independence_is_second_anchor: false, violations_include: ['expired'] },
+})
+
 const doc = {
   profile: COMPOSITION_CHECK_PROFILE,
   description:

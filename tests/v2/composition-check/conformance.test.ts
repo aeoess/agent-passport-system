@@ -102,4 +102,24 @@ describe('CompositionCheck v0 locked invariants (no over-claim)', () => {
     // anchor_verified is independent of the result VALUES: it is about the anchor, not the findings.
     assert.equal('anchor_verified' in r, true)
   })
+
+  it('independence_is_second_anchor is gated on anchor_verified (a failed anchor is not a second anchor)', () => {
+    // V09: an independent attestor whose receipt is expired. anchor fails, so even though the
+    // attestor is independent it must NOT read as a usable second anchor.
+    const v09 = doc.vectors.find((v) => v.id === 'V09')!
+    const r = verifyCompositionCheck(v09.input_receipt, v09.verification_context)
+    assert.equal(r.anchor_verified, false)
+    assert.equal(r.attestor_independence_class, 'independent_registered', 'raw claimed class still echoed')
+    assert.equal(r.independence_is_second_anchor, false, 'a dead anchor is never a second anchor')
+  })
+
+  it('fails CLOSED on a non-finite now_ms (undefined / NaN) instead of bypassing freshness', () => {
+    // Use a genuinely expired receipt: with a broken clock it must not slip through.
+    const v09 = doc.vectors.find((v) => v.id === 'V09')!
+    for (const badNow of [undefined as unknown as number, NaN]) {
+      const r = verifyCompositionCheck(v09.input_receipt, { ...v09.verification_context, now_ms: badNow })
+      assert.equal(r.anchor_verified, false, 'broken clock must not anchor-verify')
+      assert.ok(r.violations.includes('now_malformed'), `expected now_malformed for now_ms=${String(badNow)}`)
+    }
+  })
 })

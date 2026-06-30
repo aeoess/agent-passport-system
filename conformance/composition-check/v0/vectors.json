@@ -1,7 +1,7 @@
 {
   "profile": "aps-composition-check-v0",
   "description": "APS Composition Check Receipt v0 conformance vectors. The verifier checks the ANCHOR (signature, binding, freshness, well-formedness, attestor trust) and surfaces independence; it never emits a \"safe\" verdict and runs no policy. independence_is_second_anchor is corroborated from the trust context, never the receipt self-declaration. The set only grows.",
-  "count": 8,
+  "count": 9,
   "vectors": [
     {
       "id": "V01",
@@ -28,12 +28,12 @@
         "attestor_independence_class": "independent_registered",
         "issued_at": "2026-06-29T00:00:00.000Z",
         "expires_at": "2026-06-30T00:00:00.000Z",
-        "signature": "d4a85ac55486263f4a3ace63b6cb09a9a1dda109db7c49f40b0094282564fe37e3a0789a3de1e8cdda6a139d80cd981091a5de8848163388273c50a316610303"
+        "signature": "23d145565d9c384c4c23bab97793b9cd6020a9cd03f76ecc93482bceac6b6c5c566c3dfdbdce52ceb35f280742951c197252f96fa18dcc7d9d3ef63cb50a830f"
       },
       "verification_context": {
         "trusted_attestors": {
           "attestor-key-1": {
-            "publicKey": "a3bf0d60506a64aa9dfa13c8ba2d53230211a993869dcd7d94834f9a5727d869",
+            "publicKey": "d2892b78d683052cc38fcba8135ee42cd9ab7d47ce609aaa65856566f71dd9d2",
             "registered_by_operator": false,
             "profiles": [
               "sanctions-routing-v3",
@@ -77,12 +77,12 @@
         "attestor_independence_class": "gateway_self",
         "issued_at": "2026-06-29T00:00:00.000Z",
         "expires_at": "2026-06-30T00:00:00.000Z",
-        "signature": "9bc0a0f76883fcea98e6d7f19ac497ee451d8f9d8718aadd64ae006522fb8ca207db2f3dfaff8801d1659748ab3dd0b8fc8404c2f62c1af7703c9cbde48d5705"
+        "signature": "0e33ab3f21e3faa38fc0a9a4efc38941c5921de3f0639aaeaaebd271048bf2d4210a9b0cf7c92160dae085e6c055226e1cec6d6524898e2c602abc43acfb550f"
       },
       "verification_context": {
         "trusted_attestors": {
           "attestor-key-1": {
-            "publicKey": "a3bf0d60506a64aa9dfa13c8ba2d53230211a993869dcd7d94834f9a5727d869",
+            "publicKey": "d2892b78d683052cc38fcba8135ee42cd9ab7d47ce609aaa65856566f71dd9d2",
             "registered_by_operator": true,
             "profiles": [
               "sanctions-routing-v3",
@@ -126,12 +126,12 @@
         "attestor_independence_class": "independent_registered",
         "issued_at": "2026-06-29T00:00:00.000Z",
         "expires_at": "2026-06-30T00:00:00.000Z",
-        "signature": "fdb6bcbd7e322064630d480f8e32771452c2bcae62635cf3f93f3115c1aa4453053fffff75561a4cac7f09f07b842f37d4932d7985931bb9f01b5f3e21b2620b"
+        "signature": "425132b44a31f2955d457ecfeafa549ff41f50cef8f865fa3f2e00cc096c64cbd256f2ed8de2b08ea917e33d96e40ff6c4291915bc4a6360cbdf3d2d681e5909"
       },
       "verification_context": {
         "trusted_attestors": {
           "attestor-key-1": {
-            "publicKey": "a3bf0d60506a64aa9dfa13c8ba2d53230211a993869dcd7d94834f9a5727d869",
+            "publicKey": "d2892b78d683052cc38fcba8135ee42cd9ab7d47ce609aaa65856566f71dd9d2",
             "registered_by_operator": false,
             "profiles": [
               "sanctions-routing-v3",
@@ -176,12 +176,12 @@
         "attestor_independence_class": "independent_registered",
         "issued_at": "2026-06-29T00:00:00.000Z",
         "expires_at": "2026-06-30T00:00:00.000Z",
-        "signature": "3072b4d390e43286608ec059a2cb1606b5b7f3b297b9851035c57bcfb8a6739f36ba1c693325890362a5087102a728f2f3fa2ac3d4c08e2f0b9d498191ce010f"
+        "signature": "33c81f988a1297d5050aa333dc8a65853e69dbed0f08138cb0232aa18b005b9a459c70f7e67bb7f70670207be860331dbd77c8587e4859fe1350b10cff77b90c"
       },
       "verification_context": {
         "trusted_attestors": {
           "attestor-key-1": {
-            "publicKey": "a3bf0d60506a64aa9dfa13c8ba2d53230211a993869dcd7d94834f9a5727d869",
+            "publicKey": "d2892b78d683052cc38fcba8135ee42cd9ab7d47ce609aaa65856566f71dd9d2",
             "registered_by_operator": false,
             "profiles": [
               "sanctions-routing-v3",
@@ -226,12 +226,12 @@
         "attestor_independence_class": "independent_registered",
         "issued_at": "2026-06-29T00:00:00.000Z",
         "expires_at": "2026-06-30T00:00:00.000Z",
-        "signature": "c64bd28c9bf1700b8b6aa7514b539b6f1b1474bbaa8d40ede153908106774988e8ba40b60b76ac5cf9c0c9ee1611a17c8a1019506d93e5499d1422b237f5d200"
+        "signature": "bdc7ce583fc1daa60efa4bd1b6ce7d3aa574012c2d5fe1278491bf870ff8473da234621fe8b75f3d08469a8161b16cda6776b3a0e069ad4c99f4c9bd80c16500"
       },
       "verification_context": {
         "trusted_attestors": {
           "attestor-key-1": {
-            "publicKey": "a3bf0d60506a64aa9dfa13c8ba2d53230211a993869dcd7d94834f9a5727d869",
+            "publicKey": "d2892b78d683052cc38fcba8135ee42cd9ab7d47ce609aaa65856566f71dd9d2",
             "registered_by_operator": false,
             "profiles": [
               "sanctions-routing-v3",
@@ -276,12 +276,12 @@
         "attestor_independence_class": "independent_registered",
         "issued_at": "2026-06-29T00:00:00.000Z",
         "expires_at": "2026-06-30T00:00:00.000Z",
-        "signature": "32f3f2fa4624eb77c2a5ad842661c9841acb131a6559be378f08348e84d3f60887f6916e0e72b738a6e7e897dadbde59563ab384e0154defa1dea1d200071302"
+        "signature": "35a83680e800f03f73e336eae5643dd493a596a7114615357c3a23754f9849ec228c41fc276dacd7c5272c15780eaffac5d3c1de780e34da458f88efb6ed240a"
       },
       "verification_context": {
         "trusted_attestors": {
           "attestor-key-1": {
-            "publicKey": "a3bf0d60506a64aa9dfa13c8ba2d53230211a993869dcd7d94834f9a5727d869",
+            "publicKey": "d2892b78d683052cc38fcba8135ee42cd9ab7d47ce609aaa65856566f71dd9d2",
             "registered_by_operator": false,
             "profiles": [
               "sanctions-routing-v3",
@@ -326,12 +326,12 @@
         "attestor_independence_class": "independent_registered",
         "issued_at": "2026-06-29T00:00:00.000Z",
         "expires_at": "2026-06-30T00:00:00.000Z",
-        "signature": "9f92e2e520111a4e5ca1917ee753f176ca9a24838c2330eea625823a812199fdb3bbe2a6c496e37308aae416f191df8662e9437fc75dea74a5559695dbc7850d"
+        "signature": "e6f189db8c6cd4c865dc4e3c305198fe8afe6b1f0b48c1bbd2a745b7c8269ca6d95a9ba9f4c1ac6084fa3aac326355fd8e40dd4f923b74e5d4e9464e8e81ce04"
       },
       "verification_context": {
         "trusted_attestors": {
           "attestor-key-1": {
-            "publicKey": "a3bf0d60506a64aa9dfa13c8ba2d53230211a993869dcd7d94834f9a5727d869",
+            "publicKey": "d2892b78d683052cc38fcba8135ee42cd9ab7d47ce609aaa65856566f71dd9d2",
             "registered_by_operator": true,
             "profiles": [
               "sanctions-routing-v3",
@@ -375,12 +375,12 @@
         "attestor_independence_class": "independent_registered",
         "issued_at": "2026-06-29T00:00:00.000Z",
         "expires_at": "2026-06-30T00:00:00.000Z",
-        "signature": "3a0f537cfae3a9c0ac3d3f7545c89e871fb9827957766e6ed01f8f48b0e32135c5f21ae3527c1e5c4b8891f93c46fa92b707a90d109bc8d762e5c43550055b0e"
+        "signature": "c883d90ad34f44745413a55520d1677ff86d6f8d1641387c865e4595290e9254c24c2b124fed3ded1832041d378e9197cb027a03db734021a2d1a494a465570f"
       },
       "verification_context": {
         "trusted_attestors": {
           "attestor-key-1": {
-            "publicKey": "a3bf0d60506a64aa9dfa13c8ba2d53230211a993869dcd7d94834f9a5727d869",
+            "publicKey": "d2892b78d683052cc38fcba8135ee42cd9ab7d47ce609aaa65856566f71dd9d2",
             "registered_by_operator": false,
             "profiles": [
               "sanctions-routing-v3"
@@ -396,6 +396,57 @@
         "anchor_verified": false,
         "violations_include": [
           "attestor_not_trusted_for_profiles"
+        ]
+      }
+    },
+    {
+      "id": "V09",
+      "scenario": "expired receipt from an independent attestor: rejected and NOT a second anchor (independence gated on anchor_verified)",
+      "input_receipt": {
+        "profile": "aps-composition-check-v0",
+        "receipt_id": "V09",
+        "chain_hash": "chain-abc",
+        "action_ref": "act-xyz",
+        "context_hash": "ctx-123",
+        "policy_profile_ids": [
+          "sanctions-routing-v3",
+          "data-exfil-v2"
+        ],
+        "checks_run": [
+          "sanctions-routing-v3:routing",
+          "data-exfil-v2:egress"
+        ],
+        "result_per_check": [
+          "pass",
+          "indeterminate"
+        ],
+        "attestor_key_id": "attestor-key-1",
+        "attestor_independence_class": "independent_registered",
+        "issued_at": "2026-06-29T00:00:00.000Z",
+        "expires_at": "2026-06-30T00:00:00.000Z",
+        "signature": "8f332837f28913b28390aa7bd2d55ad27ce4c7452b454d8a19a3555c5f8ce4e0b6be296bcf3455f3a8a55c640f157ed3a2bfba1207b70261ffb019503e182f0d"
+      },
+      "verification_context": {
+        "trusted_attestors": {
+          "attestor-key-1": {
+            "publicKey": "d2892b78d683052cc38fcba8135ee42cd9ab7d47ce609aaa65856566f71dd9d2",
+            "registered_by_operator": false,
+            "profiles": [
+              "sanctions-routing-v3",
+              "data-exfil-v2"
+            ]
+          }
+        },
+        "expected_chain_hash": "chain-abc",
+        "expected_action_ref": "act-xyz",
+        "expected_context_hash": "ctx-123",
+        "now_ms": 1782864000000
+      },
+      "expected": {
+        "anchor_verified": false,
+        "independence_is_second_anchor": false,
+        "violations_include": [
+          "expired"
         ]
       }
     }
