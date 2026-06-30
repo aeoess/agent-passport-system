@@ -11,6 +11,7 @@
 import { v4 as uuidv4 } from 'uuid'
 import { createHash } from 'node:crypto'
 import { verify } from '../crypto/keys.js'
+import { verifyDelegation, verifyReceipt } from './delegation.js'
 import { canonicalize } from './canonical.js'
 import type {
   ActionReceipt, Delegation,
@@ -37,10 +38,28 @@ export function hashReceipt(receipt: ActionReceipt): string {
 // ══════════════════════════════════════
 
 /**
- * Follow the cryptographic chain from an action receipt back
- * to the human who authorized it.
+ * Follow the delegation chain from an action receipt back to the human who
+ * authorized it. Reports two DISTINCT, honestly-named properties:
  *
- * Every agent action resolves to a human. Not through policy. Through math.
+ *   resolved  Lookup success only. Every hop's (from,to) key pair maps to a
+ *             known delegation record AND the principal resolves to a known
+ *             beneficiary. This proves the lineage RESOLVES against the supplied
+ *             records, NOT that it is authentic: a creator-supplied chain that
+ *             happens to match known records can be `resolved`. Do not trust it
+ *             as proof of authorization.
+ *
+ *   verified  Cryptographic verification. The receipt signature is authentic
+ *             (checked with verifyReceipt against the executor at the chain
+ *             tail) AND every delegation in the traced lineage passes
+ *             verifyDelegation (its own ed25519 signature by its delegator is
+ *             valid and it is currently valid). A tampered or forged chain
+ *             CANNOT be `verified`: a hop whose delegator key the caller does
+ *             not hold fails verifyDelegation. This reuses the canonical
+ *             verifiers and does not reimplement crypto. It does NOT re-check
+ *             scope narrowing between hops (use verifyDelegationChain for that).
+ *
+ * Every agent action resolves to a human. `verified` is the field to trust;
+ * `resolved` is a convenience lookup that makes no cryptographic claim.
  */
 export function traceBeneficiary(
   receipt: ActionReceipt,
@@ -48,8 +67,12 @@ export function traceBeneficiary(
   beneficiaryMap: Map<string, BeneficiaryInfo>
 ): BeneficiaryTrace {
   const chain: DelegationHop[] = []
-  const keyChain = receipt.delegationChain
+  const keyChain = receipt.delegationChain ?? []
 
+  // Walk each hop. Track cryptographic validity per hop via the canonical
+  // verifyDelegation (signature + temporal + revocation policy). A hop with no
+  // matching delegation, or one whose signature does not verify, breaks `verified`.
+  let everyHopAuthentic = true
   for (let i = 0; i < keyChain.length - 1; i++) {
     const from = keyChain[i]
     const to = keyChain[i + 1]
@@ -61,10 +84,24 @@ export function traceBeneficiary(
       scope: del?.scope || [],
       depth: i
     })
+
+    if (!del || !verifyDelegation(del).valid) everyHopAuthentic = false
   }
 
   const principalKey = keyChain[0]
   const beneficiary = beneficiaryMap.get(principalKey)
+
+  // resolved: the previous semantics, honestly renamed. Lookup success only,
+  // no cryptographic claim.
+  const resolved = !!beneficiary && keyChain.length > 1 && chain.every(h => h.delegationId !== 'unknown')
+
+  // verified: real cryptographic verification of the traced lineage. The
+  // receipt must be signed by the executor at the tail of the chain, every
+  // delegation along the way must verify, and there must be at least one hop.
+  // Absent or invalid signatures => not verified.
+  const executorKey = keyChain[keyChain.length - 1]
+  const receiptAuthentic = keyChain.length > 0 && verifyReceipt(receipt, executorKey).valid
+  const verified = keyChain.length > 1 && receiptAuthentic && everyHopAuthentic
 
   return {
     traceId: 'trace_' + uuidv4().slice(0, 12),
@@ -73,7 +110,8 @@ export function traceBeneficiary(
     beneficiary: beneficiary?.principalId || principalKey,
     chain,
     totalDepth: chain.length,
-    verified: !!beneficiary && chain.every(h => h.delegationId !== 'unknown')
+    resolved,
+    verified
   }
 }
 

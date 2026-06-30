@@ -464,7 +464,8 @@ export interface BeneficiaryTrace {
   beneficiary: string          // human principal
   chain: DelegationHop[]       // full path from executor to beneficiary
   totalDepth: number
-  verified: boolean
+  resolved: boolean            // lookup success: lineage maps to known records + a known beneficiary (NO cryptographic claim)
+  verified: boolean            // cryptographic: receipt signature + every delegation signature in the lineage verify (this is the field to trust)
 }
 
 export interface DelegationHop {

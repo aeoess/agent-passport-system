@@ -39,7 +39,7 @@ function makeReceipt(d: Delegation, scope: string, spend: number, result: string
 describe('Beneficiary Tracing', () => {
   beforeEach(() => clearStores())
 
-  it('traces receipt back to human beneficiary', () => {
+  it('traces receipt back to human beneficiary (resolved AND cryptographically verified)', () => {
     const d = makeDelegation()
     const receipt = makeReceipt(d, 'code_execution', 10)
     const beneficiaryMap = new Map<string, BeneficiaryInfo>([
@@ -47,16 +47,77 @@ describe('Beneficiary Tracing', () => {
     ])
     const trace = traceBeneficiary(receipt, [d], beneficiaryMap)
     assert.equal(trace.beneficiary, 'tymofii')
-    assert.ok(trace.verified)
+    assert.ok(trace.resolved, 'lineage resolves to a known beneficiary')
+    assert.ok(trace.verified, 'receipt + delegation signatures verify')
     assert.equal(trace.totalDepth, 1)
   })
 
-  it('[ADVERSARIAL] unverified trace when beneficiary unknown', () => {
+  it('[behavior] beneficiary lookup drives resolved, not verified (crypto is independent of the label map)', () => {
     const d = makeDelegation()
     const receipt = makeReceipt(d, 'code_execution', 10)
     const emptyMap = new Map<string, BeneficiaryInfo>()
     const trace = traceBeneficiary(receipt, [d], emptyMap)
-    assert.ok(!trace.verified)
+    // Old semantics conflated these. Now: no known beneficiary => not resolved,
+    // but the lineage still cryptographically verifies.
+    assert.ok(!trace.resolved, 'unknown beneficiary -> not resolved')
+    assert.ok(trace.verified, 'crypto holds regardless of the label map')
+  })
+
+  it('[ADVERSARIAL] a forged/creator-supplied chain resolves but does NOT verify', () => {
+    const attacker = generateKeyPair()
+    // The attacker forges a delegation CLAIMING the human delegated to them,
+    // but only the attacker ever signed it.
+    const forged = createDelegation({
+      delegatedBy: human.publicKey,       // claims the human as delegator
+      delegatedTo: attacker.publicKey,
+      scope: ['code_execution'],
+      spendLimit: 1000,
+      privateKey: attacker.privateKey      // signed by the attacker, not the human
+    })
+    // The attacker holds a legitimate self-delegation so createReceipt will sign a
+    // receipt for them, then asserts the spoofed lineage human -> attacker.
+    const self = createDelegation({
+      delegatedBy: attacker.publicKey, delegatedTo: attacker.publicKey,
+      scope: ['code_execution'], spendLimit: 1000, privateKey: attacker.privateKey
+    })
+    const receipt = createReceipt({
+      agentId: 'attacker',
+      delegationId: self.delegationId,
+      delegation: self,
+      action: { type: 'execute', target: 'task', scopeUsed: 'code_execution', spend: { amount: 1, currency: 'USD' } },
+      result: { status: 'success', summary: 'spoof' },
+      delegationChain: [human.publicKey, attacker.publicKey],   // the lie
+      privateKey: attacker.privateKey
+    })
+    const beneficiaryMap = new Map<string, BeneficiaryInfo>([
+      [human.publicKey, { principalId: 'tymofii', relationship: 'creator' }]
+    ])
+    const trace = traceBeneficiary(receipt, [forged], beneficiaryMap)
+    assert.ok(trace.resolved, 'structural lookup resolves against the forged record')
+    assert.ok(!trace.verified, 'a forged chain must NOT come back verified: the hop fails verifyDelegation')
+  })
+
+  it('[ADVERSARIAL] a tampered receipt does NOT verify', () => {
+    const d = makeDelegation()
+    const receipt = makeReceipt(d, 'code_execution', 10)
+    // Mutate the signed receipt after the fact.
+    const tampered = { ...receipt, action: { ...receipt.action, spend: { amount: 999999, currency: 'USD' } } } as ActionReceipt
+    const beneficiaryMap = new Map<string, BeneficiaryInfo>([
+      [human.publicKey, { principalId: 'tymofii', relationship: 'creator' }]
+    ])
+    const trace = traceBeneficiary(tampered, [d], beneficiaryMap)
+    assert.ok(!trace.verified, 'mutating a signed receipt breaks verified')
+  })
+
+  it('[ADVERSARIAL] cannot verify without the delegation records', () => {
+    const d = makeDelegation()
+    const receipt = makeReceipt(d, 'code_execution', 10)
+    const beneficiaryMap = new Map<string, BeneficiaryInfo>([
+      [human.publicKey, { principalId: 'tymofii', relationship: 'creator' }]
+    ])
+    const trace = traceBeneficiary(receipt, [], beneficiaryMap)  // no delegations supplied
+    assert.ok(!trace.resolved, 'unknown delegation id -> not resolved')
+    assert.ok(!trace.verified, 'no delegation to verify -> not verified')
   })
 })
 
