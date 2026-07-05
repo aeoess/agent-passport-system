@@ -1,0 +1,470 @@
+{
+  "lexicon_id": "sha256:2a9c4de3b5457154e6bde9d40af0da552c2556d8e80a2dec8b82dee4bca74510",
+  "lexicon_profile": "single-list-v1",
+  "jcs_kats": [
+    {
+      "name": "sorted_keys",
+      "value": {
+        "zebra": 1,
+        "alpha": 2,
+        "nested": {
+          "b": 2,
+          "a": 1
+        }
+      },
+      "canonical": "{\"alpha\":2,\"nested\":{\"a\":1,\"b\":2},\"zebra\":1}",
+      "sha256": "99f11f1b9021c6bbfb4bb6774c4c986d87138ec765f3e1bbca3912546eda8a1d"
+    },
+    {
+      "name": "null_preserved",
+      "value": {
+        "present": "x",
+        "absent": null,
+        "list": [
+          1,
+          null,
+          "z"
+        ]
+      },
+      "canonical": "{\"absent\":null,\"list\":[1,null,\"z\"],\"present\":\"x\"}",
+      "sha256": "22528e50359989369f43a9d8b0f4cd62e71bec026484226be79be35f28585f5b"
+    },
+    {
+      "name": "unicode_emoji_cyrillic",
+      "value": {
+        "emoji": "🔐🙂",
+        "mixed": "привіт 🌍",
+        "мова": "українська"
+      },
+      "canonical": "{\"emoji\":\"🔐🙂\",\"mixed\":\"привіт 🌍\",\"мова\":\"українська\"}",
+      "sha256": "a83a87225c8fd09fde504bb9ce3642f8b6dd9887991c5366ac36cd534d1edc70"
+    },
+    {
+      "name": "number_forms",
+      "value": {
+        "float": 3.14,
+        "int": 42,
+        "negative": -7,
+        "zero": 0
+      },
+      "canonical": "{\"float\":3.14,\"int\":42,\"negative\":-7,\"zero\":0}",
+      "sha256": "665eb2990428f2bc655ac3b9b9064660c298ce6af46b325e391eebd444600b8c"
+    },
+    {
+      "name": "empty_structures",
+      "value": {
+        "arr": [],
+        "obj": {}
+      },
+      "canonical": "{\"arr\":[],\"obj\":{}}",
+      "sha256": "7c557880ceed861401b04be6735c9708e326427e072562fd259da6f6a2612b96"
+    }
+  ],
+  "word_handle_cases": {
+    "round_trips": [
+      {
+        "digest": "b305dfac04ef63475847bf81848a78f3afcf8604510af5b8757d9e6e39d727ad",
+        "profile": "compact",
+        "words": [
+          "retinal",
+          "crimp",
+          "unquote",
+          "anteater",
+          "unjustly"
+        ],
+        "prefix_hex": "b305dfac04e0",
+        "prefix_bits": 44
+      },
+      {
+        "digest": "b305dfac04ef63475847bf81848a78f3afcf8604510af5b8757d9e6e39d727ad",
+        "profile": "default",
+        "words": [
+          "retinal",
+          "crimp",
+          "unquote",
+          "anteater",
+          "virtuous",
+          "precut",
+          "module"
+        ],
+        "prefix_hex": "b305dfac04ef634740",
+        "prefix_bits": 66
+      },
+      {
+        "digest": "b305dfac04ef63475847bf81848a78f3afcf8604510af5b8757d9e6e39d727ad",
+        "profile": "high_assurance",
+        "words": [
+          "retinal",
+          "crimp",
+          "unquote",
+          "anteater",
+          "virtuous",
+          "precut",
+          "glamour",
+          "voucher",
+          "recycled",
+          "huff"
+        ],
+        "prefix_hex": "b305dfac04ef63475847bf",
+        "prefix_bits": 88
+      },
+      {
+        "digest": "b784d100b4d3bdaa5dbf919d0a88862c093d8ece7e2942b3d2e28d70f30ed662",
+        "profile": "compact",
+        "words": [
+          "rotting",
+          "civic",
+          "docile",
+          "hardy",
+          "crunchy"
+        ],
+        "prefix_hex": "b784d100b4d0",
+        "prefix_bits": 44
+      },
+      {
+        "digest": "b784d100b4d3bdaa5dbf919d0a88862c093d8ece7e2942b3d2e28d70f30ed662",
+        "profile": "default",
+        "words": [
+          "rotting",
+          "civic",
+          "docile",
+          "hardy",
+          "detonate",
+          "suing",
+          "traverse"
+        ],
+        "prefix_hex": "b784d100b4d3bdaa40",
+        "prefix_bits": 66
+      },
+      {
+        "digest": "b784d100b4d3bdaa5dbf919d0a88862c093d8ece7e2942b3d2e28d70f30ed662",
+        "profile": "high_assurance",
+        "words": [
+          "rotting",
+          "civic",
+          "docile",
+          "hardy",
+          "detonate",
+          "suing",
+          "juicy",
+          "valium",
+          "tiara",
+          "epidemic"
+        ],
+        "prefix_hex": "b784d100b4d3bdaa5dbf91",
+        "prefix_bits": 88
+      },
+      {
+        "digest": "5a6507b5902e33e7d7a005eb652cc004a0b5532a054c95f8fe8d7df7701e5c92",
+        "profile": "compact",
+        "words": [
+          "font",
+          "closure",
+          "untie",
+          "capably",
+          "pandemic"
+        ],
+        "prefix_hex": "5a6507b59020",
+        "prefix_bits": 44
+      },
+      {
+        "digest": "5a6507b5902e33e7d7a005eb652cc004a0b5532a054c95f8fe8d7df7701e5c92",
+        "profile": "default",
+        "words": [
+          "font",
+          "closure",
+          "untie",
+          "capably",
+          "tulip",
+          "venomous",
+          "duvet"
+        ],
+        "prefix_hex": "5a6507b5902e33e7c0",
+        "prefix_bits": 66
+      },
+      {
+        "digest": "5a6507b5902e33e7d7a005eb652cc004a0b5532a054c95f8fe8d7df7701e5c92",
+        "profile": "high_assurance",
+        "words": [
+          "font",
+          "closure",
+          "untie",
+          "capably",
+          "tulip",
+          "venomous",
+          "geiger",
+          "abrasion",
+          "superior",
+          "wharf"
+        ],
+        "prefix_hex": "5a6507b5902e33e7d7a005",
+        "prefix_bits": 88
+      },
+      {
+        "digest": "714b731a35f512f856047467b2452d9b4ac170dc0ca1bd3dfe3b5039f3d620d6",
+        "profile": "compact",
+        "words": [
+          "imaging",
+          "freely",
+          "sitter",
+          "helium",
+          "aqua"
+        ],
+        "prefix_hex": "714b731a35f0",
+        "prefix_bits": 44
+      },
+      {
+        "digest": "714b731a35f512f856047467b2452d9b4ac170dc0ca1bd3dfe3b5039f3d620d6",
+        "profile": "default",
+        "words": [
+          "imaging",
+          "freely",
+          "sitter",
+          "helium",
+          "even",
+          "lance",
+          "apostle"
+        ],
+        "prefix_hex": "714b731a35f512f840",
+        "prefix_bits": 66
+      },
+      {
+        "digest": "714b731a35f512f856047467b2452d9b4ac170dc0ca1bd3dfe3b5039f3d620d6",
+        "profile": "high_assurance",
+        "words": [
+          "imaging",
+          "freely",
+          "sitter",
+          "helium",
+          "even",
+          "lance",
+          "five",
+          "neon",
+          "levers",
+          "unjustly"
+        ],
+        "prefix_hex": "714b731a35f512f8560474",
+        "prefix_bits": 88
+      }
+    ],
+    "substitution_negative": {
+      "digest": "b305dfac04ef63475847bf81848a78f3afcf8604510af5b8757d9e6e39d727ad",
+      "profile": "default",
+      "words": [
+        "retinal",
+        "crimp",
+        "unquote",
+        "anteater",
+        "virtuous",
+        "glancing",
+        "module"
+      ],
+      "substituted_index": 5,
+      "checksum_ok": false
+    },
+    "transposition_negative": {
+      "digest": "b784d100b4d3bdaa5dbf919d0a88862c093d8ece7e2942b3d2e28d70f30ed662",
+      "profile": "default",
+      "words": [
+        "civic",
+        "rotting",
+        "docile",
+        "hardy",
+        "detonate",
+        "suing",
+        "traverse"
+      ],
+      "swapped_indices": [
+        0,
+        1
+      ],
+      "checksum_ok": false
+    },
+    "out_of_lexicon_negative": {
+      "digest": "5a6507b5902e33e7d7a005eb652cc004a0b5532a054c95f8fe8d7df7701e5c92",
+      "profile": "default",
+      "words": [
+        "font",
+        "notaword",
+        "untie",
+        "xxqqzz",
+        "tulip",
+        "venomous",
+        "duvet"
+      ],
+      "out_of_lexicon": [
+        1,
+        3
+      ],
+      "checksum_ok": false
+    }
+  },
+  "seed_kats": [
+    {
+      "name": "presentation_digest_present",
+      "content_digest": "sha256:3dd9a4b813e972a9a6980c09f32166cebb2c570e74d4a6c3fedc582ac3f06ca5",
+      "presentation_digest": "sha256:2706e57c9f1288b5688a4bdc04fc297769d442c516718a685c683d190a48c59b",
+      "nonce": "seed-kat-nonce-0",
+      "version": "1",
+      "seed": "41f3ede7bfd951bbac67756947dcda9d8f71652d052d6877ef39e48e94aee5c1"
+    },
+    {
+      "name": "presentation_digest_null",
+      "content_digest": "sha256:bae2b0c5eb005f14fc014f92ce57711e9362302fea10ac48522e83dbade42b46",
+      "presentation_digest": null,
+      "nonce": "seed-kat-nonce-1",
+      "version": "1",
+      "seed": "c1d890885f373562a39d12ba73096c760568fcdb0814420fa54fac5f9cb8834e"
+    }
+  ],
+  "sampler_cases": [
+    {
+      "name": "case1_ascii",
+      "source": "The quick brown fox jumps over the lazy dog while the verifier samples spans for readback and checks every one of them.",
+      "seed": "467c8a47ddee69199338476dce603a28e4eadd76c31fbaf5dec0a3b94cbb98ad",
+      "n": 5,
+      "span_len": 12,
+      "spans": [
+        {
+          "pos": 34,
+          "len": 12,
+          "text": " lazy dog wh"
+        },
+        {
+          "pos": 67,
+          "len": 12,
+          "text": "les spans fo"
+        },
+        {
+          "pos": 95,
+          "len": 12,
+          "text": "hecks every "
+        },
+        {
+          "pos": 83,
+          "len": 12,
+          "text": "adback and c"
+        },
+        {
+          "pos": 61,
+          "len": 12,
+          "text": "r samples sp"
+        }
+      ]
+    },
+    {
+      "name": "case2_emoji_cyrillic",
+      "source": "Приймач 🔐 читає текст 🙂 без спотворень і повертає його точно 🌍 назад.",
+      "seed": "32cbe668d70c406842ae992212791676fa7d98282117b1ff411d862910da32f0",
+      "n": 4,
+      "span_len": 7,
+      "spans": [
+        {
+          "pos": 34,
+          "len": 7,
+          "text": "рень і "
+        },
+        {
+          "pos": 11,
+          "len": 7,
+          "text": "итає те"
+        },
+        {
+          "pos": 6,
+          "len": 7,
+          "text": "ч 🔐 чит"
+        },
+        {
+          "pos": 23,
+          "len": 7,
+          "text": " без сп"
+        }
+      ]
+    },
+    {
+      "name": "case3_longer",
+      "source": "Readback sampling draws n spans at seed-determined positions and compares exact strings. The record carries only commitments, never the raw span texts, so a verifier with the source can recompute everything while the record alone reveals little.",
+      "seed": "bc511c14939defde5b7c29587c269574a403e8d3c3e8ef386388c95206881ea5",
+      "n": 8,
+      "span_len": 15,
+      "spans": [
+        {
+          "pos": 6,
+          "len": 15,
+          "text": "ck sampling dra"
+        },
+        {
+          "pos": 127,
+          "len": 15,
+          "text": "ever the raw sp"
+        },
+        {
+          "pos": 64,
+          "len": 15,
+          "text": " compares exact"
+        },
+        {
+          "pos": 163,
+          "len": 15,
+          "text": "er with the sou"
+        },
+        {
+          "pos": 42,
+          "len": 15,
+          "text": "termined positi"
+        },
+        {
+          "pos": 181,
+          "len": 15,
+          "text": " can recompute "
+        },
+        {
+          "pos": 210,
+          "len": 15,
+          "text": "le the record a"
+        },
+        {
+          "pos": 214,
+          "len": 15,
+          "text": "he record alone"
+        }
+      ]
+    }
+  ],
+  "record_case": {
+    "private_key_hex": "3368228e5eb2ec2e5346241b0d6406e24390a8a0e97d03a7d747ae16aec4f657",
+    "record": {
+      "type": "read_fidelity_receipt",
+      "content_digest": "sha256:b43ce35348ac05231234aae2e53540c6cb464cee5ef2ea44e4dc2156e992c929",
+      "presentation_digest": null,
+      "challenge": {
+        "nonce": "fixture-nonce-1",
+        "seed": "467c8a47ddee69199338476dce603a28e4eadd76c31fbaf5dec0a3b94cbb98ad",
+        "algorithm": "span_sample_v1",
+        "version": "1",
+        "span_len": 12,
+        "span_commitments": [
+          "sha256:824ec006a38716e4c5a054ef63b8a41b34771a947fa268dadcd0d0b081de4e8d",
+          "sha256:56c1e1714929a59e5309616c432e3b2af192f1686ed3ac6299c5c54ac72343a1",
+          "sha256:af114874ba26653638dbfadfdb4be6e5191bd1a0d6db3f6aea690a0208de2eab",
+          "sha256:4bf9d1325926bff1ce851abdff56a125eafbbeeb1818f6303d62499fc1b6c594",
+          "sha256:6e79b420337f658c6608df29017e6c8a08c13dbad66a6f4e37b1a70e9ff01285"
+        ]
+      },
+      "response_digest": "sha256:d18c09d01b04d00442a75b3ecd97aeb93f552b3fff9437850114c102c5e07028",
+      "k": 5,
+      "n": 5,
+      "scoring_method": "exact_match_v1",
+      "attester": "bbce9caf49c6b1e6b9ea1dd259feb9b4d7d7b38a62a477fb9577b4fc4132bb0e",
+      "model_claim": "example-model-v1",
+      "runtime_claim": "example-runtime-v1",
+      "verification_method": "asserted",
+      "challenge_issued_at": "2026-07-04T00:00:00Z",
+      "response_observed_at": "2026-07-04T00:00:00Z",
+      "receipt_issued_at": "2026-07-04T00:00:00Z",
+      "sig": "5d57a4d49b7bce1e8c6cae8dd5eb2b9e74e612ac48509bcc85ff46a3cf6400634a5cf7978b4d19c2aeb12cbc71ca0c510d2440b90d5af5c0222b701b03d48b0c"
+    },
+    "canonical_no_sig_sha256": "45fdd6105926ffe6e4efded2b298ae12820f2f423f10b601e93b2217bbc2337e",
+    "signature_valid": true
+  }
+}
