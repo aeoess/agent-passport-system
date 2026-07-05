@@ -33,12 +33,12 @@ export type ReadFidelityVerificationMethod = 'asserted' | 'provider_attestation'
 /**
  * The challenge block. The nonce is verifier-supplied and never
  * derivable from the document alone. The seed MUST equal
- *   sha256hex(utf8(content_digest
- *     + (presentation_digest == null ? "" : presentation_digest)
- *     + nonce + version))
- * concatenated with no separators; verifiers recompute and reject on
- * mismatch, which is the replay binding: reusing commitments under a
- * different nonce, content, or presentation breaks the derivation.
+ *   sha256hex(utf8( canonicalizeJCS({
+ *     content_digest, presentation_digest, nonce, version }) ))
+ * the RFC 8785 JCS preimage of those four fields (presentation_digest
+ * null when absent); verifiers recompute and reject on mismatch, which
+ * is the replay binding: reusing commitments under a different nonce,
+ * content, or presentation breaks the derivation.
  */
 export interface ReadFidelityChallenge {
   /** Verifier-supplied; never derivable from the document alone. */

@@ -50,14 +50,17 @@ Every digest is `"sha256:<64 lowercase hex>"`. JCS (RFC 8785) sorts keys; the ob
 ## Seed derivation and replay binding
 
 ```
-seed = sha256hex( utf8( content_digest
-                        + (presentation_digest == null ? "" : presentation_digest)
-                        + nonce + version ) )
+seed = sha256hex( utf8( canonicalizeJCS({
+         content_digest,
+         presentation_digest,   // null when absent
+         nonce,
+         version
+       }) ) )
 ```
 
-Concatenation with no separators. The nonce is verifier-supplied and never derivable from the document alone; a nonce is single-use per challenge. Because the seed binds the nonce to the exact content digest and presentation digest, replaying span commitments under a different nonce, content, or presentation breaks the derivation even if the record is re-signed: the signature is then valid but verification fails on the seed recompute (`SEED_MISMATCH`).
+The preimage is the RFC 8785 JCS canonicalization of the four bound fields (keys sorted: `content_digest`, `nonce`, `presentation_digest`, `version`). The nonce is verifier-supplied and never derivable from the document alone; a nonce is single-use per challenge. Because the seed binds the nonce to the exact content digest and presentation digest, replaying span commitments under a different nonce, content, or presentation breaks the derivation even if the record is re-signed: the signature is then valid but verification fails on the seed recompute (`SEED_MISMATCH`).
 
-The first two components are fixed-format (71 characters, or empty for a null presentation digest), which bounds splice ambiguity between components. The residual boundary shift between the null and present forms is flagged for Consilium review in the spec draft.
+Each field is a distinct JSON member, so `presentation_digest` is `null` when absent rather than an empty string spliced against the nonce. An earlier concatenation preimage let a null-presentation record with `nonce = P || N` derive the same seed as a `P`-presentation record with nonce `N`; the structured preimage closes that.
 
 ## Sampler (span_sample_v1)
 

@@ -161,27 +161,64 @@ function resign(record: ReadFidelityReceipt, privateKey: string): ReadFidelityRe
 }
 
 describe('seed derivation', () => {
-  it('matches an independent recompute with presentation_digest present', () => {
+  it('matches an independent JCS recompute with presentation_digest present', () => {
     const content = `sha256:${sha256hex('rf-seed-check:content')}`
     const presentation = `sha256:${sha256hex('rf-seed-check:presentation')}`
     const nonce = 'rf-seed-check-nonce'
-    const expected = createHash('sha256')
-      .update(content + presentation + nonce + '1', 'utf8')
-      .digest('hex')
+    // Hand-built RFC 8785 preimage, keys sorted, presentation a distinct member.
+    const preimage =
+      `{"content_digest":${JSON.stringify(content)},` +
+      `"nonce":${JSON.stringify(nonce)},` +
+      `"presentation_digest":${JSON.stringify(presentation)},` +
+      `"version":"1"}`
+    const expected = createHash('sha256').update(preimage, 'utf8').digest('hex')
     assert.equal(deriveSeed(content, presentation, nonce, '1'), expected)
   })
 
-  it('substitutes the empty string for a null presentation_digest', () => {
+  it('renders a null presentation_digest as a JSON null member, not the empty string', () => {
     const content = `sha256:${sha256hex('rf-seed-check:content-null')}`
     const nonce = 'rf-seed-check-nonce-null'
-    const expected = createHash('sha256')
-      .update(content + '' + nonce + '1', 'utf8')
-      .digest('hex')
+    const preimage =
+      `{"content_digest":${JSON.stringify(content)},` +
+      `"nonce":${JSON.stringify(nonce)},` +
+      `"presentation_digest":null,` +
+      `"version":"1"}`
+    const expected = createHash('sha256').update(preimage, 'utf8').digest('hex')
     assert.equal(deriveSeed(content, null, nonce, '1'), expected)
     assert.notEqual(
       deriveSeed(content, null, nonce, '1'),
       deriveSeed(content, `sha256:${'0'.repeat(64)}`, nonce, '1'),
     )
+  })
+
+  it('closes the demonstrated null-vs-present splice collision', () => {
+    // Adversarial repro (scratchpad/adv/splice.ts): under the old
+    // concatenation preimage, a null-presentation record with
+    // nonce = P || N derived the SAME seed as a P-presentation record with
+    // nonce N, so a verifier that pinned only the seed could not tell them
+    // apart. The JCS preimage makes presentation_digest a distinct member,
+    // so the two now derive different seeds.
+    const content = `sha256:${'11'.repeat(32)}`
+    const P = `sha256:${'22'.repeat(32)}`
+    const N = 'verifier-nonce-xyz'
+    const seedSpliced = deriveSeed(content, null, P + N, '1')
+    const seedHonest = deriveSeed(content, P, N, '1')
+    assert.notEqual(seedSpliced, seedHonest)
+
+    // v6/v7-style: plant the other case's seed into a record and re-sign.
+    // Verification recomputes the seed from (content, presentation, nonce)
+    // and rejects the mismatch even though the signature is valid.
+    const { record, privateKey } = buildRecord()
+    assert.deepEqual(verifyReadFidelityReceipt(record), { valid: true })
+    const wrongSeed =
+      record.challenge.seed === seedSpliced ? seedHonest : seedSpliced
+    const planted = resign(
+      { ...record, challenge: { ...record.challenge, seed: wrongSeed } },
+      privateKey,
+    )
+    const res = verifyReadFidelityReceipt(planted)
+    assert.equal(res.valid, false)
+    assert.equal(res.reason, 'SEED_MISMATCH')
   })
 
   it('reproduces both seed KATs from the shared vectors', () => {

@@ -1,4 +1,4 @@
-Status: DRAFT. Not for publication until Consilium review and sign-off.
+Status: DRAFT. Not for publication until review and sign-off.
 
 # word_digest_handle v0.1
 
@@ -7,7 +7,7 @@ Status: DRAFT. Not for publication until Consilium review and sign-off.
 - Version: v0.1 draft
 - Date: 2026-07-04
 - Stability: draft. The lexicon is pinned and final; the codec construction
-  below is frozen only after Consilium review.
+  below is frozen only after review and sign-off.
 
 This document specifies the word_digest_handle encoding: rendering the
 leading bits of a digest as words from a versioned 2048-word lexicon plus

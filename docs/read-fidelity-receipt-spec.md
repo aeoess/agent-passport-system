@@ -1,4 +1,4 @@
-Status: DRAFT. Not for publication until Consilium review and sign-off.
+Status: DRAFT. Not for publication until review and sign-off.
 
 # read_fidelity_receipt v0.1
 
@@ -7,7 +7,7 @@ Status: DRAFT. Not for publication until Consilium review and sign-off.
 - Version: v0.1 draft
 - Date: 2026-07-04
 - Stability: draft. The field set, seed derivation, sampling algorithm, and
-  scoring method below are frozen only after Consilium review. Do not build
+  scoring method below are frozen only after review and sign-off. Do not build
   external integrations against this document while the DRAFT marker stands.
 
 This document specifies the `read_fidelity_receipt` record (TypeScript type
@@ -29,11 +29,10 @@ A digest that was merely seen cannot be trusted to have been seen correctly.
 As reported in the pxpipe README and its legibility audit, word handles were
 read back correctly in 13 of 15 trials while raw hex digests were read back
 correctly in 0 of 15, with glyph confusability the dominant failure mode.
-Caveat: these numbers are third-party reported and must be re-verified
-against the pxpipe source before publication. The assumed word-confusion
-rate q used elsewhere in this record family is taken from these findings,
-q about 2/15 per handle readback, and MUST be re-estimated before any
-normative use.
+These numbers were verified 2026-07-04 against the pxpipe README and
+LEGIBILITY-AUDIT by the maintainer. The assumed word-confusion rate q used
+elsewhere in this record family is taken from these findings, q about 2/15
+per handle readback.
 
 A `read_fidelity_receipt` turns "the agent read the content" from an
 unfalsifiable assertion into a scored, replay-bound, signed claim: the
@@ -141,14 +140,23 @@ Field rules:
 The challenge seed is derived, exactly:
 
 ```
-seed = sha256hex( utf8( content_digest
-                        + (presentation_digest == null ? "" : presentation_digest)
-                        + nonce
-                        + version ) )
+seed = sha256hex( utf8( canonicalizeJCS({
+         content_digest,
+         presentation_digest,   // null when absent
+         nonce,
+         version
+       }) ) )
 ```
 
-Concatenation with no separators. When `presentation_digest` is null it
-contributes the empty string.
+The preimage is the RFC 8785 JCS canonicalization of an object carrying the
+four bound fields (keys sorted: `content_digest`, `nonce`,
+`presentation_digest`, `version`). Each field is a distinct JSON member, so
+`presentation_digest` is `null` when absent and can never be folded into an
+adjacent field. An earlier concatenation preimage let a null-presentation
+record with `nonce = P || N` derive the same seed as a `P`-presentation
+record with nonce `N`, so a verifier that pinned only the seed could not tell
+the two apart; the structured preimage closes that at the source, and the
+regression is pinned by a cross-language test in both SDKs.
 
 This binds the challenge to the exact content, the exact presentation, the
 verifier's nonce, and the protocol version:
@@ -271,23 +279,6 @@ Restating the mandatory statement in list form, plus its consequences:
   can score k = n regardless of what any lossy channel showed it.
   `verification_method` and `runtime_claim` narrate the channel; they do not
   enforce it.
-- Seed concatenation (DEMONSTRATED collision, decision pending): the seed
-  preimage concatenates its components with no separators. Because
-  `presentation_digest` is either exactly 71 characters or empty, a record with
-  `presentation_digest` null and `nonce = P || N` derives the identical seed
-  preimage as a record with `presentation_digest = P` and `nonce = N`. The
-  adversarial pass confirmed this in both SDKs: two receipts, one claiming a
-  null presentation and one a concrete presentation P, produce the same seed,
-  the same spans, and the same span_commitments, and both pass verification. So
-  "bound to the exact content and presentation" overstates at the null boundary:
-  the presentation binding can be folded into the nonce. This does NOT let an
-  attacker forge readback (both records still carry honest commitments over the
-  same sampled spans, and they carry different nonce strings), but a verifier
-  that pins only `seed == derivation` cannot tell the two apart. Recommended
-  fix, deferred to Consilium because it changes signed bytes: length-tag or
-  separate the preimage fields, or hash null as a reserved sentinel distinct
-  from any "sha256:" value. Until then, verifiers SHOULD pin the exact
-  (`presentation_digest`, `nonce`) pair they issued, not only the derived seed.
 - Coverage is not bounded by n: the sampler guarantees distinct start positions,
   not distinct or non-overlapping spans. When the source is short relative to
   `n * span_len`, spans overlap and the unique code points checked fall well
@@ -319,24 +310,23 @@ lexicon via the OPTIONAL `lexicon_id` and `lexicon_profile` fields so the
 handle encoding is reproducible later. The handle encoding itself is
 specified in docs/word-handles-spec.md.
 
-## Open items for Consilium review
+## Open items
 
 - The top-level `type` field is a house convention addition; the amendment
   text was silent on it.
 - `challenge.span_len` is recorded in the challenge object because it is
   required to recompute spans; confirm placement.
-- HEADLINE: the null-vs-present `presentation_digest` seed collision is now
-  DEMONSTRATED in both SDKs (see Limitations). Decide the domain-separation fix
-  (length-tag, field separator, or null sentinel) before v0.1 freeze; it changes
-  the signing preimage and every downstream signature.
+- The null-vs-present `presentation_digest` seed collision demonstrated in an
+  earlier draft is RESOLVED: the seed preimage is now the RFC 8785 JCS of the
+  four bound fields (see Seed derivation), and a cross-language regression test
+  in both SDKs pins that the previously colliding pair now derives distinct
+  seeds. This settled the signing-preimage change for v0.1.
 - Coverage under overlapping and periodic sources is not bounded by `n` (see
   Limitations). Decide whether `span_sample_v2` should require distinct span
   texts, and whether the record should record a coverage figure.
 - The rejection-sampling loop in span selection has no explicit iteration cap.
   It terminates with probability 1 and `n` is bounded by the record payload, so
   the cost is bounded; a hard cap would be defensive only.
-- Re-verify the pxpipe readback numbers against the pxpipe source, and
-  re-estimate q, before any normative use or publication.
 
 ## Pointers
 

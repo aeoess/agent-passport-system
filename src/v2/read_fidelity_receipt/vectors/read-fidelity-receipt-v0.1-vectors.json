@@ -306,7 +306,7 @@
       "presentation_digest": "sha256:2706e57c9f1288b5688a4bdc04fc297769d442c516718a685c683d190a48c59b",
       "nonce": "seed-kat-nonce-0",
       "version": "1",
-      "seed": "f9ae8374a24b014f1541bcbacc7a87c7146393406b529933991030b643d21adc"
+      "seed": "41f3ede7bfd951bbac67756947dcda9d8f71652d052d6877ef39e48e94aee5c1"
     },
     {
       "name": "presentation_digest_null",
@@ -314,41 +314,41 @@
       "presentation_digest": null,
       "nonce": "seed-kat-nonce-1",
       "version": "1",
-      "seed": "ee1f63ac6684c8890e9b8145286864a6de4c7cd8796f3d48a86de834df628f47"
+      "seed": "c1d890885f373562a39d12ba73096c760568fcdb0814420fa54fac5f9cb8834e"
     }
   ],
   "sampler_cases": [
     {
       "name": "case1_ascii",
       "source": "The quick brown fox jumps over the lazy dog while the verifier samples spans for readback and checks every one of them.",
-      "seed": "7ca9f1bad53b076c32d15dee279fb06b3e7e239ffdcf8e92f2359e682089e642",
+      "seed": "467c8a47ddee69199338476dce603a28e4eadd76c31fbaf5dec0a3b94cbb98ad",
       "n": 5,
       "span_len": 12,
       "spans": [
+        {
+          "pos": 34,
+          "len": 12,
+          "text": " lazy dog wh"
+        },
+        {
+          "pos": 67,
+          "len": 12,
+          "text": "les spans fo"
+        },
+        {
+          "pos": 95,
+          "len": 12,
+          "text": "hecks every "
+        },
         {
           "pos": 83,
           "len": 12,
           "text": "adback and c"
         },
         {
-          "pos": 12,
+          "pos": 61,
           "len": 12,
-          "text": "own fox jump"
-        },
-        {
-          "pos": 16,
-          "len": 12,
-          "text": "fox jumps ov"
-        },
-        {
-          "pos": 91,
-          "len": 12,
-          "text": "nd checks ev"
-        },
-        {
-          "pos": 19,
-          "len": 12,
-          "text": " jumps over "
+          "text": "r samples sp"
         }
       ]
     },
@@ -439,19 +439,19 @@
       "presentation_digest": null,
       "challenge": {
         "nonce": "fixture-nonce-1",
-        "seed": "7ca9f1bad53b076c32d15dee279fb06b3e7e239ffdcf8e92f2359e682089e642",
+        "seed": "467c8a47ddee69199338476dce603a28e4eadd76c31fbaf5dec0a3b94cbb98ad",
         "algorithm": "span_sample_v1",
         "version": "1",
         "span_len": 12,
         "span_commitments": [
+          "sha256:824ec006a38716e4c5a054ef63b8a41b34771a947fa268dadcd0d0b081de4e8d",
+          "sha256:56c1e1714929a59e5309616c432e3b2af192f1686ed3ac6299c5c54ac72343a1",
+          "sha256:af114874ba26653638dbfadfdb4be6e5191bd1a0d6db3f6aea690a0208de2eab",
           "sha256:4bf9d1325926bff1ce851abdff56a125eafbbeeb1818f6303d62499fc1b6c594",
-          "sha256:06d536134d9e7b47156811af1c81388bb11ab9835cfceeca2d427d30eb654e61",
-          "sha256:584f98ab9686d19fe5a4d9152a6bb189c1779de875fe5054bf471f9a3d94b9da",
-          "sha256:fff5d56149ff996a007df88c44d1e59562c39b6bd7356670d4123b1b0e09f550",
-          "sha256:0e47a08a1011c71d17b120fc8cc797fc0297c3ed23dad531952b768774bc6f97"
+          "sha256:6e79b420337f658c6608df29017e6c8a08c13dbad66a6f4e37b1a70e9ff01285"
         ]
       },
-      "response_digest": "sha256:e6ac592cbd1f906a0b8dcd5e78a4f82e3c01577effab254dbe72895b6e8d436e",
+      "response_digest": "sha256:d18c09d01b04d00442a75b3ecd97aeb93f552b3fff9437850114c102c5e07028",
       "k": 5,
       "n": 5,
       "scoring_method": "exact_match_v1",
@@ -462,9 +462,9 @@
       "challenge_issued_at": "2026-07-04T00:00:00Z",
       "response_observed_at": "2026-07-04T00:00:00Z",
       "receipt_issued_at": "2026-07-04T00:00:00Z",
-      "sig": "2f5ddfabd786d4245f1248245b6b34ed125c7a5c3dc67774535bf0e16e0b998cb076402f0d5072fb5366d4f0fde018793150d8341482fc595afdfdd16d20b40d"
+      "sig": "5d57a4d49b7bce1e8c6cae8dd5eb2b9e74e612ac48509bcc85ff46a3cf6400634a5cf7978b4d19c2aeb12cbc71ca0c510d2440b90d5af5c0222b701b03d48b0c"
     },
-    "canonical_no_sig_sha256": "e2174d7ce001128481f90636edd03a7d922fd3dd6970b7b88e4b894b40b10ec7",
+    "canonical_no_sig_sha256": "45fdd6105926ffe6e4efded2b298ae12820f2f423f10b601e93b2217bbc2337e",
     "signature_valid": true
   }
 }
