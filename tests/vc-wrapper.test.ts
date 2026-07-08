@@ -35,7 +35,7 @@ describe('passportToVerifiableCredential', () => {
     const { input } = makePassport();
     const vc = await passportToVerifiableCredential(input, issuer.privateKey);
 
-    assert.ok(vc['@context'].includes('https://www.w3.org/ns/credentials/v2'));
+    assert.equal(vc['@context'][0], 'https://www.w3.org/ns/credentials/v2');
     assert.deepEqual(vc.type, ['VerifiableCredential', 'AgentPassportCredential']);
     assert.ok((vc.issuer as string).startsWith('did:key:z6Mk'));
 
