@@ -1,0 +1,42 @@
+name: Tests
+
+# The real gate: full type-check plus the entire test suite on every push
+# to main and every pull request. Without this, dependency-bump PRs pass
+# CI while nothing has actually exercised the code they changed.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: type-check and test suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      # Strict ci install, no `|| npm install` fallback: a lockfile that
+      # can't be installed cleanly should fail loudly, not silently
+      # resolve to different versions than the ones under review.
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check
+        run: npx tsc --noEmit
+
+      - name: Test suite
+        run: npm test
