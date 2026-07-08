@@ -45,7 +45,7 @@ async function main() {
       console.log('\n⏱  Timeout after 90s. Echo bot runs on ~60s cron.');
       console.log('   Messages received:', received.length);
       if (received.length > 0) {
-        console.log('   Last message seq:', received[received.length - 1].seq);
+        console.log('   Last message seq:', JSON.stringify(received[received.length - 1].seq));
       }
       resolve();
     }, 90000);
@@ -58,7 +58,7 @@ async function main() {
 
         if (frame.type === 'ready') {
           headSeq = frame.head_seq;
-          console.log(`✅ Ready. Head seq: ${headSeq}`);
+          console.log(`✅ Ready. Head seq: ${JSON.stringify(headSeq)}`);
           return;
         }
 
@@ -66,14 +66,14 @@ async function main() {
 
         if (frame.type === 'message') {
           received.push(frame);
-          console.log(`📬 Message seq=${frame.seq} (${frame.envelope_b64.length} chars)`);
+          console.log(`📬 Message seq=${JSON.stringify(frame.seq)} (${frame.envelope_b64.length} chars)`);
 
           // Only try to decrypt messages after we sent ours
           if (frame.seq > ourSeq && ourSeq >= 0) {
             try {
               const plaintext = await decryptFromRelay(frame.envelope_b64, TOKEN);
               const text = new TextDecoder().decode(plaintext);
-              console.log(`🔓 Decrypted: ${text.slice(0, 200)}`);
+              console.log(`🔓 Decrypted: ${JSON.stringify(text.slice(0, 200))}`);
 
               // Check if it's our echo
               if (text.includes(apsPayload.nonce)) {
@@ -86,7 +86,7 @@ async function main() {
               }
             } catch (e: any) {
               // Echo bot may re-encrypt with different keys
-              console.log(`   (cannot decrypt seq=${frame.seq}: ${JSON.stringify(String(e.message).slice(0, 80))})`);
+              console.log(`   (cannot decrypt seq=${JSON.stringify(frame.seq)}: ${JSON.stringify(String(e.message).slice(0, 80))})`);
             }
           }
         }
