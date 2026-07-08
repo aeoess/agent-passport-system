@@ -138,10 +138,18 @@ function cborDecodeMap(data: Uint8Array): Record<string, any> {
         return text;
       }
       case 5: { // map
-        const result: Record<string, any> = {};
+        // Object.create(null): no inherited Object.prototype, so a
+        // remote-controlled key of "__proto__" becomes an ordinary own
+        // data property instead of invoking the Object.prototype.__proto__
+        // accessor and reassigning this object's prototype. "constructor"
+        // and "prototype" are additionally rejected as defense in depth
+        // since CBOR maps in this protocol never legitimately use them.
+        const result: Record<string, any> = Object.create(null);
         for (let i = 0; i < info; i++) {
-          const key = readValue();
-          result[String(key)] = readValue();
+          const key = String(readValue());
+          const value = readValue();
+          if (key === '__proto__' || key === 'constructor' || key === 'prototype') continue;
+          result[key] = value;
         }
         return result;
       }
