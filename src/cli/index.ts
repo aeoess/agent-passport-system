@@ -21,7 +21,7 @@
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, chmodSync } from 'node:fs'
 import { join } from 'node:path'
-import { execSync } from 'node:child_process'
+import { execSync, execFileSync } from 'node:child_process'
 import { createInterface } from 'node:readline'
 
 import {
@@ -325,8 +325,9 @@ function tryGhCli(owner: string, repo: string, title: string, body: string): boo
   console.log('  Using GitHub CLI...')
 
   try {
-    const result = execSync(
-      `gh issue create --repo ${owner}/${repo} --title "${title.replace(/"/g, '\\"')}" --label "agora-register" --body ${JSON.stringify(body)}`,
+    const result = execFileSync(
+      'gh',
+      ['issue', 'create', '--repo', `${owner}/${repo}`, '--title', title, '--label', 'agora-register', '--body', body],
       { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }
     )
 
@@ -408,9 +409,15 @@ function fallbackManual(owner: string, repo: string, json: string, agentName: st
   // Try to open browser automatically
   try {
     const platform = process.platform
-    const openCmd = platform === 'darwin' ? 'open' :
-                    platform === 'win32' ? 'start' : 'xdg-open'
-    execSync(`${openCmd} "${url}"`, { stdio: 'pipe' })
+    if (platform === 'win32') {
+      // 'start' is a cmd.exe builtin, not a standalone executable on PATH.
+      // The empty '' argument is required: 'start' treats the first quoted
+      // argument as a window title, not the target to open.
+      execFileSync('cmd', ['/c', 'start', '', url], { stdio: 'pipe' })
+    } else {
+      const openCmd = platform === 'darwin' ? 'open' : 'xdg-open'
+      execFileSync(openCmd, [url], { stdio: 'pipe' })
+    }
     console.log('  🌐 Opened in your browser!')
   } catch {
     // Silently fail — the URL is already printed
