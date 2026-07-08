@@ -40,10 +40,28 @@ export function cedarPolicyToTuples(cedarPolicy: string): IBACTuple[] {
       const constraints: Record<string, unknown> = {}
       const pairs = whenMatch[1].split(',').map(s => s.trim()).filter(Boolean)
       for (const pair of pairs) {
-        const kv = pair.match(/(\w+)\s*(<|>|<=|>=|==)\s*(\S+)/)
-        if (kv) {
-          const val = isNaN(Number(kv[3])) ? kv[3].replace(/"/g, '') : Number(kv[3])
-          constraints[kv[1]] = val
+        // Find the earliest-occurring comparison operator via linear search
+        // rather than a single backtracking regex (a combined \w+ / \s* /
+        // alternation / \S+ pattern here is vulnerable to catastrophic
+        // backtracking on long non-matching input; each op check below is
+        // a plain O(n) indexOf, and the key/value checks are fully anchored).
+        const operators = ['<=', '>=', '==', '<', '>']
+        let opIndex = -1
+        let opFound = ''
+        for (const op of operators) {
+          const idx = pair.indexOf(op)
+          if (idx !== -1 && (opIndex === -1 || idx < opIndex)) {
+            opIndex = idx
+            opFound = op
+          }
+        }
+        if (opIndex !== -1) {
+          const key = pair.slice(0, opIndex).trim()
+          const rawVal = pair.slice(opIndex + opFound.length).trim()
+          if (/^\w+$/.test(key) && rawVal.length > 0) {
+            const val = isNaN(Number(rawVal)) ? rawVal.replace(/"/g, '') : Number(rawVal)
+            constraints[key] = val
+          }
         }
       }
       if (Object.keys(constraints).length > 0) {
