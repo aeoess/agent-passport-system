@@ -1,0 +1,27 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "Agent Passport System"
+type: software
+authors:
+  - family-names: "Pidlisnyi"
+    given-names: "Tymofii"
+    orcid: "https://orcid.org/0009-0002-4700-3594"
+version: 3.1.0
+date-released: 2026-07-04
+url: "https://agent-passport.org"
+repository-code: "https://github.com/aeoess/agent-passport-system"
+license: Apache-2.0
+abstract: >-
+  Open protocol for AI agent identity: verifiable identity, scoped
+  delegation with monotonic narrowing, and signed tamper-evident receipts
+  for permitted and denied actions.
+preferred-citation:
+  type: article
+  title: "The Agent Social Contract: Cryptographic Identity, Ethical Governance, and Beneficiary Economics for Autonomous AI Agents"
+  authors:
+    - family-names: "Pidlisnyi"
+      given-names: "Tymofii"
+      orcid: "https://orcid.org/0009-0002-4700-3594"
+  doi: "10.5281/zenodo.18749779"
+  date-released: 2026-02-23
+  url: "https://doi.org/10.5281/zenodo.18749779"
