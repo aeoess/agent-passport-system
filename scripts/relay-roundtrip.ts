@@ -66,7 +66,7 @@ async function main() {
 
         if (frame.type === 'message') {
           received.push(frame);
-          console.log(`📬 Message seq=${JSON.stringify(frame.seq)} (${frame.envelope_b64.length} chars)`);
+          console.log(`📬 Message seq=${JSON.stringify(frame.seq)} (${JSON.stringify(frame.envelope_b64?.length)} chars)`);
 
           // Only try to decrypt messages after we sent ours
           if (frame.seq > ourSeq && ourSeq >= 0) {
