@@ -21,6 +21,15 @@ npm test
 
 All 4,019 tests across 911 suites (3 skipped) must pass before submitting a PR. TypeScript strict mode must compile clean.
 
+To see line/branch/function coverage, run:
+
+```bash
+npm run test:coverage
+```
+
+This uses Node's built-in `--experimental-test-coverage` flag, no separate
+coverage tool or third-party account needed.
+
 ### Code Style
 
 - TypeScript throughout
