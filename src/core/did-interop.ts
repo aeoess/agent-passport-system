@@ -2,6 +2,8 @@
 // Translation layer between APS passports and W3C DID methods.
 // did:key for self-certifying identifiers, did:web for domain-linked.
 
+import { isIP, BlockList } from 'node:net'
+import { lookup as dnsLookup } from 'node:dns/promises'
 import { hexToMultibase, multibaseToHex } from './did.js'
 
 // ── did:key ──
@@ -71,6 +73,72 @@ export function didWebToUrl(didWeb: string): string {
   return `https://${domain}/${path}/did.json`
 }
 
+/** SSRF guard (D-SSRF1): the domain segment of a did:web identifier is
+ *  attacker/remote-peer suppliable in real callers (tool-registry trust
+ *  roots, trust-policy key locators). Block the classic SSRF targets:
+ *  loopback, link-local (including the 169.254.169.254 cloud metadata
+ *  address), and RFC1918/ULA private ranges, before the outbound fetch. */
+const SSRF_BLOCKLIST = new BlockList()
+SSRF_BLOCKLIST.addSubnet('127.0.0.0', 8, 'ipv4')   // loopback
+SSRF_BLOCKLIST.addSubnet('169.254.0.0', 16, 'ipv4') // link-local incl. cloud metadata
+SSRF_BLOCKLIST.addSubnet('10.0.0.0', 8, 'ipv4')     // RFC1918
+SSRF_BLOCKLIST.addSubnet('172.16.0.0', 12, 'ipv4')  // RFC1918
+SSRF_BLOCKLIST.addSubnet('192.168.0.0', 16, 'ipv4') // RFC1918
+SSRF_BLOCKLIST.addSubnet('0.0.0.0', 8, 'ipv4')      // "this network"
+SSRF_BLOCKLIST.addSubnet('::1', 128, 'ipv6')        // loopback
+SSRF_BLOCKLIST.addSubnet('fe80::', 10, 'ipv6')      // link-local
+SSRF_BLOCKLIST.addSubnet('fc00::', 7, 'ipv6')       // unique-local
+
+const DNS_SAFETY_TIMEOUT_MS = 3_000
+
+function isBlockedAddress(address: string, family: 4 | 6): boolean {
+  return SSRF_BLOCKLIST.check(address, family === 4 ? 'ipv4' : 'ipv6')
+}
+
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error('dns safety lookup timed out')), ms)
+    p.then(v => { clearTimeout(t); resolve(v) }, e => { clearTimeout(t); reject(e) })
+  })
+}
+
+/**
+ * Reject did:web targets that resolve to a private/internal address before
+ * any fetch is made. Fails OPEN on DNS lookup errors/timeouts for an
+ * unresolvable or unreachable hostname: that failure mode is identical to
+ * (and surfaced by) the subsequent fetch, so legitimate "domain doesn't
+ * exist" error paths are unaffected. Fails CLOSED (throws) only when a
+ * concrete address is confirmed to be in a blocked range.
+ */
+async function assertSafeDidWebTarget(url: string): Promise<void> {
+  const { hostname } = new URL(url)
+  const literalFamily = isIP(hostname)
+  if (literalFamily === 4 || literalFamily === 6) {
+    if (isBlockedAddress(hostname, literalFamily)) {
+      throw new Error(`did:web resolution blocked: ${hostname} is a private/internal address`)
+    }
+    return
+  }
+  if (hostname === 'localhost') {
+    throw new Error(`did:web resolution blocked: ${hostname} is a private/internal address`)
+  }
+  let addresses: { address: string; family: number }[]
+  try {
+    addresses = await withTimeout(dnsLookup(hostname, { all: true }), DNS_SAFETY_TIMEOUT_MS)
+  } catch {
+    // DNS failure/timeout here is not a security decision; let the
+    // subsequent fetch() surface the real network error as before.
+    return
+  }
+  for (const { address, family } of addresses) {
+    if ((family === 4 || family === 6) && isBlockedAddress(address, family)) {
+      throw new Error(
+        `did:web resolution blocked: ${hostname} resolves to a private/internal address (${address})`,
+      )
+    }
+  }
+}
+
 /**
  * Resolve a did:web DID by fetching the DID document over HTTPS.
  * Returns the parsed DID Document object.
@@ -79,6 +147,7 @@ export function didWebToUrl(didWeb: string): string {
  */
 export async function resolveDIDWeb(didWeb: string): Promise<object> {
   const url = didWebToUrl(didWeb)
+  await assertSafeDidWebTarget(url)
   const response = await fetch(url, {
     headers: { 'Accept': 'application/did+ld+json, application/json' },
     signal: AbortSignal.timeout(10_000),
