@@ -86,17 +86,16 @@ async function main() {
               }
             } catch (e: any) {
               // Echo bot may re-encrypt with different keys
-              const safeMsg = String(e.message).replace(/[\r\n\x00-\x1f\x7f]/g, ' ').slice(0, 80)
-              console.log(`   (cannot decrypt seq=${frame.seq}: ${safeMsg})`);
+              console.log(`   (cannot decrypt seq=${frame.seq}: ${JSON.stringify(String(e.message).slice(0, 80))})`);
             }
           }
         }
       } catch (e: any) {
-        console.log('Frame parse error:', String(e.message).replace(/[\r\n\x00-\x1f\x7f]/g, ' '));
+        console.log('Frame parse error:', JSON.stringify(String(e.message)));
       }
     };
 
-    ws.onerror = (e: any) => { console.log('WebSocket error:', String(e.message || e).replace(/[\r\n\x00-\x1f\x7f]/g, ' ')); };
+    ws.onerror = (e: any) => { console.log('WebSocket error:', JSON.stringify(String(e.message || e))); };
     ws.onclose = () => { console.log('WebSocket closed'); clearTimeout(timeout); resolve(); };
   });
 

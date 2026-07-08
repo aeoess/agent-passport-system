@@ -61,9 +61,8 @@ export function verify(message: string, signatureHex: string, publicKeyHex: stri
   } catch (err: unknown) {
     // Distinguish input errors from verification failures (F-PX2-003)
     const msg = err instanceof Error ? err.message : String(err)
-    const safeMsg = msg.replace(/[\r\n\x00-\x1f\x7f]/g, ' ').slice(0, 200)
     if (msg.includes('Invalid key') || msg.includes('asn1') || msg.includes('key length')) {
-      console.warn(`[agent-passport] verify(): malformed input — ${safeMsg}`)
+      console.warn(`[agent-passport] verify(): malformed input — ${JSON.stringify(msg.slice(0, 200))}`)
     }
     return false
   }
