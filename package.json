@@ -35,7 +35,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.110.0",
     "@google/generative-ai": "^0.24.1",
-    "libsodium-wrappers": "^0.8.2",
+    "libsodium-wrappers": "^0.8.4",
     "openai": "^6.34.0",
     "uuid": "^14.0.1"
   },
