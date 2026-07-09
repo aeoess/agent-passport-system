@@ -39,7 +39,16 @@ jobs:
           fi
 
       - name: Ensure npm CLI supports Trusted Publishing
-        run: npm install -g npm@latest
+        # Pinned to an exact version, not npm@latest: a real release run
+        # confirmed that whatever "latest" currently resolves to on
+        # GitHub's runner image has a corrupted install, missing its own
+        # sigstore dependency, which breaks provenance generation with
+        # "Cannot find module 'sigstore'" during npm publish. The
+        # runner's own bundled npm (10.9.8) is intact but predates OIDC
+        # Trusted Publishing support (needs 11.5.1+); pinning the exact
+        # minimum version avoids both problems, confirmed on a live
+        # runner before this change.
+        run: npm install -g npm@11.5.1
 
       - name: Install dependencies
         env:
