@@ -1,5 +1,18 @@
 # Changelog
 
+## 3.2.0
+
+### Fixed / Security
+- **Unbounded CBOR map length hung `decodeQntmInvite`** (`src/interop/qntm-bridge.ts`). The map decoder read a declared entry count straight from attacker-controlled input and used it as a loop bound with no check against the actual remaining buffer; an out-of-bounds byte read silently coerced to a valid-looking `major=0/info=0` header instead of erroring, so the runaway loop never hit a natural stop. A 54-byte crafted token declaring 765 million entries hung the decoder indefinitely. Found by fuzzing (see Added, below); fixed by rejecting a declared entry count that cannot fit in the remaining bytes before looping, and by making an out-of-bounds read a hard decode error instead of a silent zero.
+- **`verifyPassport` threw on a non-array `delegations` field instead of returning `{valid: false, ...}`** (`src/verification/verify.ts`). `passport.delegations || []` let a present-but-non-array truthy value straight into a `for...of`, violating the function's documented never-throws contract. Fixed with an explicit `Array.isArray` guard.
+
+### Added
+- **Coverage-guided fuzzing infrastructure** (`fuzz/`): 7 Jazzer.js harnesses targeting the functions with a history of real vulnerabilities or load-bearing byte-exactness (`decodeQntmInvite`, `cedarPolicyToTuples`, `canonicalize`, `canonicalizeJCS`, `parseGovernanceBlockFromHTML`, `didWebToUrl`, `verifyPassport`), wired into CI via ClusterFuzzLite. `fast-check` property tests (`tests/property-canonical.test.ts`) cover canonicalization determinism and RFC 8785 null-preservation independently of the hand-written suite.
+- **Tag-triggered release workflow** (`.github/workflows/release.yml`): runs the full gate (type-check, tests, audit) before publishing to npm via Trusted Publishing (OIDC, no long-lived token), then attaches a signed SLSA build-provenance attestation to the GitHub Release.
+
+### Removed
+- **Three unused runtime dependencies**: `@anthropic-ai/sdk`, `@google/generative-ai`, `openai`. None were imported anywhere in the codebase; every consumer installing this SDK was pulling all three for nothing. `@types/uuid` is also removed since `uuid` v14 ships its own type declarations. Runtime dependencies are now exactly `libsodium-wrappers` and `uuid`.
+
 ## 3.0.0
 
 ### Breaking
