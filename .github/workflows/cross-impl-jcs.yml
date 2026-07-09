@@ -53,10 +53,10 @@ jobs:
         # --require-hashes enforces the committed wheel/sdist SHA-256 hashes.
         run: pip install --require-hashes --no-deps -r .github/requirements/cross-impl-jcs.txt
 
-      - name: TS test — SDK canonicalizeJCS vs canonicalize@3.0.0 (erdtman)
+      - name: TS test, SDK canonicalizeJCS vs canonicalize@3.0.0 (erdtman)
         run: npm run test:cross-impl
 
-      - name: Python test — rfc8785@0.1.4 vs pinned manifest
+      - name: Python test, rfc8785@0.1.4 vs pinned manifest
         # Regenerates pinned canonical bytes + SHA-256 from rfc8785@0.1.4
         # and asserts every value matches the committed manifest byte-for-byte.
         # A mismatch here means EITHER the pinned manifest has drifted from
