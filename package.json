@@ -38,7 +38,7 @@
   },
   "devDependencies": {
     "@types/libsodium-wrappers": "^0.7.14",
-    "@types/node": "^20.11.0",
+    "@types/node": "^26.1.1",
     "canonicalize": "3.0.0",
     "tsx": "^4.23.0",
     "typescript": "^5.3.3"
