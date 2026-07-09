@@ -1,0 +1,16 @@
+name: diag-npm-version
+on:
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: '22'
+      - run: |
+          echo "node: $(node --version)"
+          echo "npm (bundled, no upgrade attempted): $(npm --version)"
+          node -e "console.log('sigstore resolvable from bundled npm:', (() => { try { require.resolve('sigstore', {paths:[require('child_process').execSync('npm root -g').toString().trim()+'/npm/node_modules']}); return 'yes'; } catch(e) { return 'no: '+e.message; } })())"
