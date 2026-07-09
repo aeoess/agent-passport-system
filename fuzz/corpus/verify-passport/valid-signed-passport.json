@@ -1,0 +1,37 @@
+{
+  "passport": {
+    "version": "1.0.0",
+    "agentId": "fuzz-seed-001",
+    "agentName": "Fuzz Seed Agent",
+    "ownerAlias": "fuzz",
+    "publicKey": "07ef224ccbd6d4b5d2f6c4bb5b3d94c973cf9c33e2a3f9c5971d1a46fb635d86",
+    "mission": "seed corpus generation",
+    "capabilities": [
+      "code_execution"
+    ],
+    "runtime": {
+      "platform": "fuzz",
+      "models": [
+        "m"
+      ],
+      "toolsCount": 1,
+      "memoryType": "m"
+    },
+    "createdAt": "2026-07-09T00:58:32.842Z",
+    "expiresAt": "2027-07-09T00:58:32.842Z",
+    "voteWeight": 2,
+    "reputation": {
+      "overall": 1,
+      "collaborationsCompleted": 0,
+      "proposalsSubmitted": 0,
+      "proposalsApproved": 0,
+      "tokensContributed": 0,
+      "tasksCompleted": 0,
+      "lastUpdated": "2026-07-09T00:58:32.843Z"
+    },
+    "delegations": [],
+    "metadata": {}
+  },
+  "signature": "cda4c7c4d69ffa3c9988376fd25996e5605b912a03622d5412ae50d114ea409c45c6a4371372e32456230bc5b7ce0fdfac9027c42ce34e96df56df4b382b0701",
+  "signedAt": "2026-07-09T00:58:32.843Z"
+}

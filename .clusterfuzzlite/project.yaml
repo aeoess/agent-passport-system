@@ -1,0 +1,7 @@
+homepage: https://github.com/aeoess/agent-passport-system
+language: javascript
+main_repo: https://github.com/aeoess/agent-passport-system
+fuzzing_engines:
+- libfuzzer
+sanitizers:
+- none

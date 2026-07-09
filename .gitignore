@@ -1,5 +1,9 @@
 node_modules/
 dist/
+dist-fuzz/
+coverage/
+crash-*
+timeout-*
 *.js.map
 *.d.ts.map
 *-keys.json

@@ -109,7 +109,15 @@ function utf8(s: string): Uint8Array {
 function cborDecodeMap(data: Uint8Array): Record<string, any> {
   let pos = 0;
 
-  function readByte(): number { return data[pos++]; }
+  function readByte(): number {
+    // A read past the buffer's end must be a hard error, not undefined.
+    // undefined >> 5 and undefined & 0x1f both coerce to 0 in JS, so an
+    // out-of-bounds read used to look exactly like a valid major=0/info=0
+    // header instead of a truncated-input error, letting a runaway loop
+    // (see the map-length check below) read "successfully" forever.
+    if (pos >= data.length) throw new Error('CBOR: unexpected end of input');
+    return data[pos++];
+  }
 
   function readMajor(): [number, number] {
     const b = readByte();
@@ -144,6 +152,20 @@ function cborDecodeMap(data: Uint8Array): Record<string, any> {
         // accessor and reassigning this object's prototype. "constructor"
         // and "prototype" are additionally rejected as defense in depth
         // since CBOR maps in this protocol never legitimately use them.
+        //
+        // info is the map's declared entry count, read straight from the
+        // input with no relationship to the actual remaining bytes. The
+        // smallest possible CBOR encoding of any value (an unsigned int
+        // under 24) is a single byte, so a legitimate map can never need
+        // fewer than 2 bytes per entry (one for the key, one for the
+        // value). A declared count that could not possibly fit in the
+        // remaining buffer is truncated or malformed input, not a huge
+        // map, and is rejected before the loop starts rather than trusting
+        // an attacker-controlled field to size it.
+        const remaining = data.length - pos;
+        if (info > remaining / 2) {
+          throw new Error(`CBOR: map declares ${info} entries but only ${remaining} bytes remain`);
+        }
         const result: Record<string, any> = Object.create(null);
         for (let i = 0; i < info; i++) {
           const key = String(readValue());
