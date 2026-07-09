@@ -1,0 +1,42 @@
+name: ClusterFuzzLite PR fuzzing
+
+on:
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'fuzz/**'
+      - '.clusterfuzzlite/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tsconfig.json'
+      - '.github/workflows/cflite_pr.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  PR:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Build Fuzzers
+        id: build
+        uses: google/clusterfuzzlite/actions/build_fuzzers@884713a6c30a92e5e8544c39945cd7cb630abcd1 # v1
+        with:
+          language: javascript
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          sanitizer: none
+      - name: Run Fuzzers
+        id: run
+        uses: google/clusterfuzzlite/actions/run_fuzzers@884713a6c30a92e5e8544c39945cd7cb630abcd1 # v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          # 7 targets, roughly 90 seconds each: a PR-scale time box, not
+          # the exhaustive run (see cflite_batch.yml for that).
+          fuzz-seconds: 600
+          mode: 'code-change'
+          sanitizer: none
+          output-sarif: true
