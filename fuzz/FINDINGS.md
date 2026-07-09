@@ -2,9 +2,13 @@
 
 Two real bugs were found by running the fuzz targets in this directory
 locally (`npx jazzer dist-fuzz/fuzz/targets/<target>.js fuzz/corpus/<target> -- -max_total_time=65 --sync`,
-after compiling with `npx tsc -p fuzz/tsconfig.json`). Neither has been
-patched. Both are written up here for separate review, per the rule that
-a genuine crash found by fuzzing should not be silently fixed inline.
+after compiling with `npx tsc -p fuzz/tsconfig.json`). Neither was patched
+inline as part of the fuzzing infrastructure work, correctly: a genuine
+crash found by fuzzing should not be silently fixed in the same change
+that adds the fuzzer. Both were reviewed and fixed separately afterward;
+see the "Fixed" note at the end of each writeup below for what changed
+and how it was verified, including re-running the exact fuzz target that
+found each bug against the fix.
 
 Both reproducing inputs are also saved as corpus regression seeds, so
 any future fuzzing run (local or CI) re-checks them automatically:
@@ -74,13 +78,17 @@ one: no crash, no memory corruption, just a declared-length amplification
 similar in spirit to a zip bomb, but via a length field rather than
 actual repeated data.
 
-**Not fixed.** A fix would need to bound `info` against the remaining
-buffer length before allocating the loop (e.g. reject if
-`info > (data.length - pos)`, since even the smallest possible encoding
-of each map entry's key and value is 1 byte), and treat an
-out-of-bounds `readByte()` as a hard decode error instead of a silent
-`0`. Left for review since it changes CBOR decode error behavior for
-malformed/truncated input generally, not just this one shape.
+**Fixed.** `readByte()` now throws `CBOR: unexpected end of input` instead
+of silently returning `undefined` (which coerced to major=0/info=0),
+and the map branch checks the declared entry count against the actual
+remaining buffer before looping: since the smallest possible encoding of
+any value is one byte, a legitimate map can never need fewer than 2
+bytes per entry, so `info > remaining / 2` is rejected up front as
+truncated or malformed input rather than trusted as a loop bound.
+Verified: the exact reproducing input now throws in 0ms instead of
+hanging. Re-ran the fuzz target itself against the fix, seeded with the
+crash corpus: 1,928,202 executions in 66 seconds, no hang, no crash.
+Full suite (4026 tests) and `tsc --noEmit` both still clean.
 
 ## Finding 2: non-array `delegations` crashes `verifyPassport`
 
@@ -128,7 +136,11 @@ assumes it always returns. Anywhere that assumption is relied on without
 its own try/catch around the call is a potential unhandled-exception
 DoS.
 
-**Not fixed.** A fix would need to guard the loop with something like
-`Array.isArray(passport.delegations) ? passport.delegations : []`
-instead of `passport.delegations || []`. Left for review since it is a
-one-line change but touches the verification hot path.
+**Fixed.** The guard is now `Array.isArray(passport.delegations) ?
+passport.delegations : []` instead of `passport.delegations || []`, so a
+present-but-non-array value is treated the same as absent rather than
+handed to `for...of`. Verified: the exact reproducing input now returns
+`{valid: false, errors: [...], warnings: [...]}` instead of throwing.
+Re-ran the fuzz target itself against the fix, seeded with both crash
+corpus files: 2,758,822 executions in 66 seconds, no crash. Full suite
+(4026 tests) and `tsc --noEmit` both still clean.

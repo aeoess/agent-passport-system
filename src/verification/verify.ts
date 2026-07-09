@@ -101,7 +101,12 @@ export function verifyPassport(
   }
 
   // Check delegations
-  for (const delegation of passport.delegations || []) {
+  // Array.isArray guard, not just `|| []`: a present-but-non-array
+  // delegations field (an object, a number, a string) is truthy, so the
+  // old `passport.delegations || []` let it straight into a for...of and
+  // threw TypeError instead of this function's documented contract of
+  // always returning {valid: false, errors: [...]} for malformed input.
+  for (const delegation of Array.isArray(passport.delegations) ? passport.delegations : []) {
     if (new Date(delegation.expiresAt) < new Date()) {
       warnings.push(`Delegation to ${delegation.delegatedTo} has expired`)
     }
