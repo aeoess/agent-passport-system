@@ -10,13 +10,17 @@ on:
       - 'v*'
 
 permissions:
-  contents: write # create the GitHub Release and upload assets
-  id-token: write # OIDC: npm Trusted Publishing + Sigstore signing for attestation
-  attestations: write # persist the build-provenance attestation
+  contents: read
 
 jobs:
   release:
     runs-on: ubuntu-latest
+    # Least privilege: the write scopes live on this job only, never at the
+    # workflow top level, so no other (future) job inherits them.
+    permissions:
+      contents: write # create the GitHub Release and upload assets
+      id-token: write # OIDC: npm Trusted Publishing + Sigstore signing for attestation
+      attestations: write # persist the build-provenance attestation
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
 
