@@ -28,7 +28,16 @@ jobs:
         with:
           language: javascript
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          sanitizer: none
+          # The build_fuzzers/run_fuzzers actions only accept address,
+          # undefined, memory, or coverage here, none is not a valid
+          # value even though project.yaml's own sanitizers: [none] is
+          # the documented default for JS projects generally (a separate
+          # field). Confirmed live: google/oss-fuzz's own cflite_pr.yml
+          # for their Python project (also memory-safe, no real ASan)
+          # uses address in this exact PR-fuzzing context, so this
+          # matches the real, working precedent rather than coverage,
+          # which the docs reserve for a dedicated report-generation job.
+          sanitizer: address
       - name: Run Fuzzers
         id: run
         uses: google/clusterfuzzlite/actions/run_fuzzers@884713a6c30a92e5e8544c39945cd7cb630abcd1 # v1
@@ -38,5 +47,5 @@ jobs:
           # the exhaustive run (see cflite_batch.yml for that).
           fuzz-seconds: 600
           mode: 'code-change'
-          sanitizer: none
+          sanitizer: address
           output-sarif: true
