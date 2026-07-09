@@ -8,7 +8,7 @@
 [![coverage](https://img.shields.io/badge/coverage-94%25%20lines%20%7C%2084%25%20branches-brightgreen)](https://github.com/aeoess/agent-passport-system/blob/main/CONTRIBUTING.md#running-tests)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/aeoess/agent-passport-system/badge)](https://scorecard.dev/viewer/?uri=github.com/aeoess/agent-passport-system)
 
-> **For AI agents:** visit [aeoess.com/llms.txt](https://aeoess.com/llms.txt) for machine-readable docs.
+> **For AI agents:** visit [agent-passport.org/llms.txt](https://agent-passport.org/llms.txt) for machine-readable docs.
 
 > **Valid signature. Hijacked intent. Denied by APS.**
 
