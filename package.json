@@ -42,7 +42,7 @@
   "devDependencies": {
     "@types/libsodium-wrappers": "^0.7.14",
     "@types/node": "^20.11.0",
-    "@types/uuid": "^9.0.7",
+    "@types/uuid": "^11.0.0",
     "canonicalize": "3.0.0",
     "tsx": "^4.23.0",
     "typescript": "^5.3.3"
