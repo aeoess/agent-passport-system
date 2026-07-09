@@ -1,0 +1,91 @@
+name: Release
+
+# Triggered by pushing a version tag (e.g. v3.2.0). Runs the full test
+# gate, publishes to npm via Trusted Publishing (OIDC, no NPM_TOKEN),
+# then creates a GitHub Release with the published tarball and a signed
+# SLSA build-provenance attestation attached as assets.
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write # create the GitHub Release and upload assets
+  id-token: write # OIDC: npm Trusted Publishing + Sigstore signing for attestation
+  attestations: write # persist the build-provenance attestation
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          # npm Trusted Publishing requires Node 22.14.0+ (npm CLI 11.5.1+).
+          # The rest of this repo's CI uses Node 20 for testing; this
+          # workflow deliberately uses a newer Node solely because
+          # publishing needs it.
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Verify tag matches package.json version
+        run: |
+          tag_version="${GITHUB_REF_NAME#v}"
+          pkg_version=$(node -p "require('./package.json').version")
+          if [ "$tag_version" != "$pkg_version" ]; then
+            echo "::error::Tag v$tag_version does not match package.json version $pkg_version"
+            exit 1
+          fi
+
+      - name: Ensure npm CLI supports Trusted Publishing
+        run: npm install -g npm@latest
+
+      - name: Install dependencies
+        env:
+          NODE_ENV: development
+        run: npm ci --include=dev
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Test
+        run: npm test
+
+      - name: Audit
+        run: npm audit --audit-level=high
+
+      - name: Build
+        run: npm run build
+
+      - name: Pack tarball
+        id: pack
+        run: |
+          tarball=$(npm pack | tail -n1)
+          echo "tarball=$tarball" >> "$GITHUB_OUTPUT"
+
+      - name: Publish to npm (Trusted Publishing, OIDC)
+        run: npm publish
+
+      - name: Attest build provenance
+        id: attest
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4
+        with:
+          subject-path: ${{ steps.pack.outputs.tarball }}
+
+      - name: Rename attestation to match Scorecard's expected suffix
+        id: attestation-asset
+        run: |
+          renamed="agent-passport-system-${GITHUB_REF_NAME#v}.intoto.jsonl"
+          cp "${{ steps.attest.outputs.bundle-path }}" "$renamed"
+          echo "path=$renamed" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            "${{ steps.pack.outputs.tarball }}" \
+            "${{ steps.attestation-asset.outputs.path }}" \
+            --title "$GITHUB_REF_NAME" \
+            --generate-notes
