@@ -144,21 +144,14 @@ install_prereqs() {
     require_cmd cargo
     require_cmd rustc
 
-    if ! command -v node >/dev/null 2>&1; then
-        log "installing Node 24.x via NodeSource"
-        if command -v apt-get >/dev/null 2>&1; then
-            curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
-            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y nodejs
-        elif command -v dnf >/dev/null 2>&1 || command -v yum >/dev/null 2>&1; then
-            curl -fsSL https://rpm.nodesource.com/setup_24.x | sudo -E bash -
-            if command -v dnf >/dev/null 2>&1; then
-                sudo dnf install -y nodejs
-            else
-                sudo yum install -y nodejs
-            fi
-        fi
-    fi
-    require_cmd node
+    # Node is a hard prerequisite; this script does not auto-install it.
+    # It previously fetched an unpinned NodeSource setup_24.x installer and ran
+    # it as root, a supply-chain risk that cannot be honestly checksum-pinned
+    # because setup_24.x is a rolling URL whose content changes. Install Node
+    # 24 or newer yourself (nvm, your OS package manager, or nodejs.org) before
+    # running this benchmark.
+    command -v node >/dev/null 2>&1 \
+        || die "node not found: this benchmark requires Node.js 24 or newer; install it before running (this script does not auto-install Node)"
     require_cmd npm
 }
 

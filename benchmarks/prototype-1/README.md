@@ -59,6 +59,14 @@ Legend (spec Section 12):
 - **L3b2** — TS SDK + Mode B2 (queued group-commit, fast-return durable).
 - **L4** — Current gateway baseline (network-bound reference).
 
+## Prerequisites
+
+`scripts/run-canonical.sh` provisions a fresh Linux box (build tools, Rust via
+a pinned rustup) but does **not** auto-install Node. Install **Node.js 24 or
+newer** (and npm) yourself before running it, via nvm, your OS package manager,
+or nodejs.org. If node is missing the script stops with a clear error rather
+than fetching and running an installer as root.
+
 ## Running
 
 Implementation pending Stream A. Once available:
