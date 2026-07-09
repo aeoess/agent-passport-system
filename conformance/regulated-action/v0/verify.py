@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright 2024-2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
+# Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
 #
 # INDEPENDENT, SDK-FREE conformance runner for the APS Regulated Action Profile v0.
 # Pure Python standard library only: a vendored RFC 8032 Ed25519 verify, an RFC 8785

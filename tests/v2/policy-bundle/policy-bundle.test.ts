@@ -1,4 +1,4 @@
-// Copyright 2024-2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
+// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
 // Signed content-addressed policy-bundle format and verifier tests.
 // Covers: round-trip sign/verify, tampered manifest rejected, tampered tar
 // rejected, a weakening changeType flagged, and a revoked bundle rejected

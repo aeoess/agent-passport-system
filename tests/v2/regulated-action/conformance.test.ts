@@ -1,4 +1,4 @@
-// Copyright 2024-2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
+// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
 // APS Regulated Action Profile v0: in-suite conformance + adversarial gate.
 // Runs the deterministic disposition verifier (A2) against the frozen conformance vectors
 // and pins the locked invariants. judgment_correctness is always not_claimed.

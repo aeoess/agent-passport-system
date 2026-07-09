@@ -1,4 +1,4 @@
-// Copyright 2024-2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
+// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
 // IPR — adversarial tests against fixture-vector negatives + spec §9 surfaces.
 
 import { describe, it } from 'node:test'

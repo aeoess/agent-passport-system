@@ -1,4 +1,4 @@
-// Copyright 2024-2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
+// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
 // Tests for the OAuth 2.1 / RFC 8693 Token Exchange delegation-token bridge.
 //
 // Covers: APS chain -> RFC 8693 act/may_act and back with authority preserved;

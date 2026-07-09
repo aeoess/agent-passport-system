@@ -1,4 +1,4 @@
-// Copyright 2024-2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
+// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
 // W2-B2 Remote Signer adapters - tests (additive).
 // Proves a KMS-mock-signed receipt verifies IDENTICALLY to the Ed25519 path and
 // that the raw private key never materializes in the consuming process. Includes

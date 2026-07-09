@@ -1,4 +1,4 @@
-// Copyright 2024-2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
+// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
 /**
  * @fileoverview Compose audience binding with the M1 RFC 9421 request-binding
  * profile WITHOUT changing the signed bytes of the HTTP Message Signature.

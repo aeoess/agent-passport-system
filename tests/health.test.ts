@@ -1,4 +1,4 @@
-// Copyright 2024-2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
+// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
 // Tests for AgentHealthStatus type shape.
 // deriveHealthStatus moved to the private gateway as part of the AAIF
 // boundary cleanup (specs/AAIF-BOUNDARY-AUDIT.md) — the thresholds were

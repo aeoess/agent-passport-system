@@ -1,4 +1,4 @@
-// Copyright 2024-2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
+// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
 // Credential Check Policy — verification timing for governance metadata
 // Proposed by @piiiico on a2aproject/A2A governance metadata thread.
 

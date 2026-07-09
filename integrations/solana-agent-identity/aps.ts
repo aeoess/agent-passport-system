@@ -42,7 +42,7 @@ interface TrustProfile {
  * - GET /api/v1/public/trust/:agentId/attestation → JWS-signed attestation
  * - GET /.well-known/jwks.json → verification keys
  *
- * npm: agent-passport-system | Docs: https://aeoess.com/llms-full.txt
+ * npm: agent-passport-system | Docs: https://agent-passport.org/llms-full.txt
  *
  * @example
  * ```typescript

@@ -1,4 +1,4 @@
-// Copyright 2024-2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
+// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
 // ══════════════════════════════════════════════════════════════════
 // Remote Signer abstraction (W2-B2, additive, EXTENDS the Ed25519 default)
 // ══════════════════════════════════════════════════════════════════

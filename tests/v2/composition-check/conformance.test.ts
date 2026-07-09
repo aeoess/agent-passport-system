@@ -1,4 +1,4 @@
-// Copyright 2024-2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
+// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
 // APS Composition Check Receipt v0: in-suite conformance + over-claim gate.
 // Runs the stateless ANCHOR verifier against the frozen conformance vectors and pins the
 // locked invariants: there is NO "safe" boolean anywhere, gateway_self never reads as a

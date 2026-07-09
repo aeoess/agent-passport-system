@@ -1,4 +1,4 @@
-// Copyright 2024-2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
+// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
 // Mutual Auth conformance: verify generated vectors round-trip through
 // the current SDK. If a code change breaks canonical form, this test
 // fails and the vectors must be regenerated intentionally.

@@ -1,4 +1,4 @@
-// Copyright 2024-2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
+// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
 // Deterministic generator for the APS Regulated Action Profile v0 conformance vectors.
 // Produces conformance/regulated-action/v0/vectors.json with REAL Ed25519 signatures, then
 // self-checks every verifier vector against the frozen expected disposition before writing.

@@ -1,4 +1,4 @@
-// Copyright 2024-2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
+// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
 // Attribution Primitive — unit tests covering construction, signing,
 // projection, verification, and the §2.5 canonicalization rules.
 //

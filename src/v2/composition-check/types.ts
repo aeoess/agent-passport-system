@@ -1,4 +1,4 @@
-// Copyright 2024-2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
+// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
 // APS Composition Check Receipt v0. Principle: carry the ANCHOR, not the verdict.
 //
 // A chain of individually rule-legal delegations can compose to a globally-unsafe

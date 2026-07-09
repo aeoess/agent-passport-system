@@ -1,4 +1,4 @@
-// Copyright 2024-2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
+// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
 // Generator for the APS Composition Check Receipt v0 conformance vectors.
 //
 // Produces conformance/composition-check/v0/vectors.json: signed receipts + caller trust

@@ -1,4 +1,4 @@
-// Copyright 2024-2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
+// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
 // Standalone conformance runner for APS Composition Check Receipt v0. Loads vectors.json,
 // runs the SDK anchor verifier, and checks each hand-specified expectation. Run from repo:
 //   npx tsx conformance/composition-check/v0/verify.mjs

@@ -1,4 +1,4 @@
-// Copyright 2024-2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
+// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
 // Build A + B + C end-to-end integration test.
 //
 // Construct 1000 Attribution Primitives using Build B weights, aggregate

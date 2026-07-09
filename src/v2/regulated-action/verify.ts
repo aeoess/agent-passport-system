@@ -1,4 +1,4 @@
-// Copyright 2024-2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
+// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
 // APS Regulated Action Profile v0: the deterministic disposition verifier (A2).
 //
 // This is the canonical truth-table from RAPV0-FROZEN-CONTRACT.md section B (amended order).

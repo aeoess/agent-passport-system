@@ -40,7 +40,7 @@ Ed25519 ActionReceipt, AuthorityBoundaryReceipt, CustodyReceipt, ContestabilityR
 - Python SDK: https://github.com/aeoess/agent-passport-python
 - Vocabulary: https://github.com/aeoess/agent-governance-vocabulary
 - Website: https://aeoess.com
-- Full project reference (machine-readable): https://aeoess.com/llms-full.txt
+- Full project reference (machine-readable): https://agent-passport.org/llms-full.txt
 
 ## Papers
 

@@ -1,4 +1,4 @@
-// Copyright 2024-2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
+// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
 // ══════════════════════════════════════════════════════════════════
 // Phase 4.1 / Q2 — Cross-receipt link fields + chain traversal
 // ══════════════════════════════════════════════════════════════════

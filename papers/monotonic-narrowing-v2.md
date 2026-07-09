@@ -564,7 +564,7 @@ The invariants presented here are amenable to standardization. INV-1 (delegation
 | Source Code | github.com/aeoess/agent-passport-system |
 | MCP Source | github.com/aeoess/agent-passport-mcp |
 | Website | aeoess.com |
-| LLM Docs | aeoess.com/llms-full.txt |
+| LLM Docs | agent-passport.org/llms-full.txt |
 | Remote MCP | mcp.aeoess.com/sse |
 | Frozen Commit | c1842eb |
 

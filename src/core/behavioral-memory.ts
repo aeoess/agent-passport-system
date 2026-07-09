@@ -1,4 +1,4 @@
-// Copyright 2024-2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
+// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
 // Behavioral Memory Objects — create, verify, expire, export/import
 
 import { v4 as uuidv4 } from 'uuid'

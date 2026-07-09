@@ -1,4 +1,4 @@
-// Copyright 2024-2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
+// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
 // Generator for mutual-auth conformance vectors.
 // Run: npx tsx scripts/build-mutual-auth-vectors.ts
 

@@ -1,4 +1,4 @@
-// Copyright 2024-2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
+// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
 // Bilateral Completion Receipt — closes the permit-execute-complete loop.
 // The permit receipt proves authorization. The completion receipt proves execution outcome.
 // linkPermitAndCompletion() cryptographically binds the two.

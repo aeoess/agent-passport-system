@@ -553,7 +553,7 @@ Wang, Q., & Li, N. (2010). Satisfiability and resiliency in workflow authorizati
 - Remote MCP: https://mcp.aeoess.com/sse
 - Source: github.com/aeoess/agent-passport-system
 - Paper: doi.org/10.5281/zenodo.18749779
-- Protocol documentation: aeoess.com/llms-full.txt
+- Protocol documentation: agent-passport.org/llms-full.txt
 
 ## Appendix B: Invariant-to-Test Mapping
 

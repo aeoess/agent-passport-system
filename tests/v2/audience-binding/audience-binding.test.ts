@@ -1,4 +1,4 @@
-// Copyright 2024-2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
+// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
 /**
  * Tests for audience binding: a versioned, additive `aud` slot on delegation
  * and receipt proofs so a passport issued for recipient A is rejected at B.

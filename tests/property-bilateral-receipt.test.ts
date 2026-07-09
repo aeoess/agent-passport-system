@@ -1,4 +1,4 @@
-// Copyright 2024-2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
+// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
 // ══════════════════════════════════════════════════════════════════
 // Property tests for v2.3 bilateral receipt emission
 // (ENFORCEMENT-TRUST-ANCHOR.md Component A — dumb-sink hardening).

@@ -1,4 +1,4 @@
-// Copyright 2024-2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
+// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
 // Generates byte-parity fixtures for the payment-rails module.
 // Run: npx tsx src/v2/payment-rails/fixtures/_generate.ts
 //

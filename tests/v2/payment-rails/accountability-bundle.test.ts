@@ -1,4 +1,4 @@
-// Copyright 2024-2026 Tymofii Pidlisnyi. Apache-2.0 license.
+// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license.
 // ══════════════════════════════════════════════════════════════════
 // Phase 4.1 / Q1 — APSBundle aggregation across rails
 // ══════════════════════════════════════════════════════════════════

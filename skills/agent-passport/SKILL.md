@@ -207,5 +207,5 @@ Grade travels with the passport. Any consumer reads it without understanding sco
 - MCP: https://www.npmjs.com/package/agent-passport-system-mcp
 - PyPI: https://pypi.org/project/agent-passport-system/
 - GitHub: https://github.com/aeoess/agent-passport-system
-- Docs: https://aeoess.com/llms-full.txt
+- Docs: https://agent-passport.org/llms-full.txt
 - Paper: https://doi.org/10.5281/zenodo.18749779

@@ -1,4 +1,4 @@
-// Copyright 2024-2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
+// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
 // x402 payment rail — adapter behavior tests with mock facilitator.
 //
 // No real network I/O; the facilitator /verify and /settle endpoints

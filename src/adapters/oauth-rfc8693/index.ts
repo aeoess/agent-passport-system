@@ -1,4 +1,4 @@
-// Copyright 2024-2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
+// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
 // OAuth 2.1 / RFC 8693 Token Exchange delegation-token bridge.
 //
 // Bridge and profile only. An APS delegation chain is expressed as RFC 8693

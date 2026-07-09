@@ -1,4 +1,4 @@
-// Copyright 2024-2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
+// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
 // Soundness verifier for the ID-JAG to APS binding descriptor.
 // Pinned to draft-ietf-oauth-identity-assertion-authz-grant-04 (2026-05-21).
 //

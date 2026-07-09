@@ -1,4 +1,4 @@
-// Copyright 2024-2026 Tymofii Pidlisnyi. Apache-2.0 license.
+// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license.
 // ══════════════════════════════════════════════════════════════════
 // Cycles external-evidence resolution: claimed vs resolved (W2-A2)
 // ══════════════════════════════════════════════════════════════════

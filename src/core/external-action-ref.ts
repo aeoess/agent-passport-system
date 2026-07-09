@@ -1,4 +1,4 @@
-// Copyright 2024-2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
+// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
 // ══════════════════════════════════════════════════════════════════
 // External action_ref (action-ref-v1-jcs-sha256): Cross-Ecosystem Correlation Key
 // ══════════════════════════════════════════════════════════════════

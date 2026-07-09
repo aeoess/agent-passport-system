@@ -1,4 +1,4 @@
-// Copyright 2024-2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
+// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
 // Reference adapter shim for verify-payment-rail-conformance.mjs.
 // Wires the bundled Nano reference rail with the default governance
 // hooks and exposes them in the shape the verifier expects.

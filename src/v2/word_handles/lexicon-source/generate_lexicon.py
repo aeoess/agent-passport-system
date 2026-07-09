@@ -125,7 +125,7 @@ def build():
 
 def emit(final, lex_id):
     rows_ts = [", ".join("'%s'" % w for w in final[i:i + 8]) for i in range(0, 2048, 8)]
-    ts = ["// Copyright 2024-2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.",
+    ts = ["// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.",
           "// " + "=" * 66,
           "// Word handles: %s lexicon (2048 words), generated data file" % LEXICON_NAME,
           "// " + "=" * 66,

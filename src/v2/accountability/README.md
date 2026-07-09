@@ -193,4 +193,4 @@ Knowledge Surface Receipt, Disclosure Manifest, Override Receipt. See spec.
 
 ## License
 
-Apache 2.0. Copyright 2024-2026 Tymofii Pidlisnyi.
+Apache 2.0. Copyright 2026 Tymofii Pidlisnyi.

@@ -1,4 +1,4 @@
-// Copyright 2024-2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
+// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
 /**
  * @fileoverview EXPERIMENTAL, ISOLATED entry point for BBS selective-disclosure
  * scope credentials. NOT imported by core. NOT core-reviewed crypto this round.

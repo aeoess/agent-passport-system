@@ -1,4 +1,4 @@
-// Copyright 2024-2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
+// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
 // W2-B3 revocation-enforcement tests (additive).
 // Explicit negative-path fixtures for every primitive, per the build spec:
 //   - fail_closed denies on a stale revocation source

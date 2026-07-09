@@ -1,4 +1,4 @@
-// Copyright 2024-2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
+// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
 // Optional package tests: each cloud adapter reduces to a core HandleSigner over
 // an injected backend port, produces byte-identical signatures to the Ed25519
 // default, and never receives the raw private key.
