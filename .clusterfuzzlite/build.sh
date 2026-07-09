@@ -6,7 +6,10 @@ cd "$SRC/agent-passport-system"
 # "production", which makes npm silently drop devDependencies (Jazzer.js,
 # TypeScript) and produce a broken build.
 export NODE_ENV=development
-npm install --include=dev
+# npm ci (not install) installs exactly the committed package-lock.json with
+# its integrity hashes, so the fuzz build is reproducible and Scorecard sees a
+# hash-pinned dependency fetch.
+npm ci --include=dev
 
 # Jazzer.js loads compiled JS modules, not TypeScript directly. Compile the
 # fuzz harnesses together with the source they import (see fuzz/tsconfig.json)

@@ -46,7 +46,7 @@ jobs:
           cache: "npm"
 
       - name: Install Node deps
-        run: npm ci || npm install
+        run: npm ci
 
       - name: Run conformance runner (fails on single-byte divergence)
         # The CLI loads the pinned vectors corpus, asserts it is

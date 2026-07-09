@@ -45,10 +45,13 @@ jobs:
           python-version: "3.11"
 
       - name: Install Node deps
-        run: npm ci || npm install
+        run: npm ci
 
       - name: Install rfc8785@0.1.4 (Python reference)
-        run: python -m pip install --upgrade pip && pip install "rfc8785==0.1.4"
+        # Hash-pinned install (Scorecard Pinned-Dependencies). rfc8785 0.1.4
+        # has no runtime dependencies (only extras), so --no-deps is safe and
+        # --require-hashes enforces the committed wheel/sdist SHA-256 hashes.
+        run: pip install --require-hashes --no-deps -r .github/requirements/cross-impl-jcs.txt
 
       - name: TS test — SDK canonicalizeJCS vs canonicalize@3.0.0 (erdtman)
         run: npm run test:cross-impl

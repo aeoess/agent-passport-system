@@ -123,8 +123,21 @@ install_prereqs() {
 
     if ! command -v rustc >/dev/null 2>&1; then
         log "installing Rust via rustup"
-        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
-            | sh -s -- -y --default-toolchain stable
+        # rustup-init.sh pinned to rust-lang/rustup 1.29.0 (commit
+        # 28d1352dbcb436d3111c3594b9e1588e94950464) via a raw.githubusercontent
+        # URL, downloaded to a file and checksum-verified before running,
+        # instead of piping an unpinned installer into a shell. Refresh the
+        # commit in the URL and the SHA-256 together to move to a newer rustup.
+        local rustup_init
+        rustup_init="$(mktemp)"
+        curl --proto '=https' --tlsv1.2 -sSf \
+            "https://raw.githubusercontent.com/rust-lang/rustup/28d1352dbcb436d3111c3594b9e1588e94950464/rustup-init.sh" \
+            -o "$rustup_init"
+        echo "6c30b75a75b28a96fd913a037c8581b580080b6ee9b8169a3c0feb1af7fe8caf  ${rustup_init}" \
+            | sha256sum -c - \
+            || die "rustup-init.sh checksum mismatch; refusing to run it"
+        sh "$rustup_init" -y --default-toolchain stable
+        rm -f "$rustup_init"
         # shellcheck disable=SC1091
         source "$HOME/.cargo/env"
     fi
@@ -232,8 +245,9 @@ build_rust() {
 
 build_ts_sdk() {
     local repo_dir="$1"
-    log "npm install + napi build for aps-sdk-runtime"
-    ( cd "$repo_dir/packages/aps-sdk-runtime" && npm install --no-audit --no-fund )
+    log "npm ci + napi build for aps-sdk-runtime"
+    # npm ci installs the committed lockfile with integrity hashes (pinned).
+    ( cd "$repo_dir/packages/aps-sdk-runtime" && npm ci --no-audit --no-fund )
     ( cd "$repo_dir/packages/aps-sdk-runtime" && npm run build )
 }
 
@@ -399,7 +413,8 @@ main() {
         fi
         if [[ ! -d "$gateway_repo_dir/node_modules" ]]; then
             log "installing gateway npm dependencies"
-            ( cd "$gateway_repo_dir" && npm install --no-audit --no-fund )
+            # npm ci installs the gateway repo's committed lockfile (pinned).
+            ( cd "$gateway_repo_dir" && npm ci --no-audit --no-fund )
         fi
         trap 'cleanup_l4 "'"$gateway_repo_dir"'"' EXIT
         run_l4 "$repo_dir" "$env_tag" "$gateway_repo_dir"
