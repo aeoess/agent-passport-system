@@ -395,3 +395,146 @@ describe('W2-B3 proof box: ScopeOfClaim dogfood', () => {
     assert.equal(scope.capture_mode, 'gateway_observed')
   })
 })
+
+// ── (5) T7 / FREEZE-VWE F4: RevocationObservation ──
+
+import {
+  buildRevocationObservation,
+  verifyRevocationObservation,
+  classifyObservation,
+  observationParamsFromSET,
+} from '../../src/v2/revocation-enforcement/index.js'
+import type {
+  RevocationObservation,
+  RevocationOutcomeLabel,
+  SignedRevocationObservation,
+} from '../../src/v2/revocation-enforcement/index.js'
+import type { RevocationFreshnessResult } from '../../src/types/policy.js'
+import { createLocalSigner } from '../../src/adapters/remote-signer/index.js'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import { dirname, join } from 'node:path'
+
+const fixturesPath = join(
+  dirname(fileURLToPath(import.meta.url)),
+  '../../src/v2/revocation-enforcement/fixtures/revocation-observation-fixtures.json',
+)
+interface ObservationFixture {
+  name: string
+  label: RevocationOutcomeLabel
+  freshness_result: RevocationFreshnessResult | null
+  observation: RevocationObservation
+}
+const observationFixtures: ObservationFixture[] =
+  JSON.parse(readFileSync(fixturesPath, 'utf8')).fixtures
+
+describe('T7 RevocationObservation: classification (labels derived, never stored)', () => {
+  it('covers all seven labels, one fixture each', () => {
+    const labels = observationFixtures.map(f => f.label).sort()
+    assert.deepEqual(labels, [
+      'fresh_valid', 'revoked_blocked', 'running_terminated', 'stale_denied',
+      'stale_permitted', 'unavailable_fail_closed', 'unavailable_fail_open',
+    ].sort())
+  })
+
+  for (const fixture of observationFixtures) {
+    it(`classifies ${fixture.name} as ${fixture.label}`, () => {
+      const context = fixture.freshness_result === null
+        ? undefined
+        : { result: fixture.freshness_result }
+      assert.equal(classifyObservation(fixture.observation, context), fixture.label)
+    })
+  }
+
+  it('no fixture stores a label field in the observation', () => {
+    for (const fixture of observationFixtures) {
+      assert.ok(!('label' in fixture.observation), fixture.name)
+      assert.ok(!('outcome' in fixture.observation), fixture.name)
+    }
+  })
+
+  it('throws when no revocation was observed and no freshness context is supplied', () => {
+    const fresh = observationFixtures.find(f => f.label === 'fresh_valid')!
+    assert.throws(() => classifyObservation(fresh.observation), /freshness result/)
+  })
+
+  it('throws on an observed revocation that was allowed without a terminating workflow response', () => {
+    const blocked = observationFixtures.find(f => f.label === 'revoked_blocked')!
+    const anomalous = { ...blocked.observation, decision: { effect: 'allow' as const } }
+    assert.throws(() => classifyObservation(anomalous), /not one of the seven/)
+  })
+})
+
+describe('T7 RevocationObservation: sign-and-verify round trip per fixture', () => {
+  const keys = generateKeyPair()
+  const signer = createLocalSigner({ privateKeyHex: keys.privateKey })
+
+  for (const fixture of observationFixtures) {
+    it(`round-trips ${fixture.name}`, async () => {
+      const signed = await buildRevocationObservation({ ...fixture.observation }, signer)
+      const verdict = verifyRevocationObservation(signed)
+      assert.equal(verdict.valid, true, verdict.reason)
+      // signed record carries the F4 fields unchanged
+      assert.equal(signed.authority_ref, fixture.observation.authority_ref)
+      assert.deepEqual(signed.status_source, fixture.observation.status_source)
+      assert.deepEqual(signed.decision, fixture.observation.decision)
+      // and no derived label anywhere in the signed bytes
+      assert.ok(!('label' in signed))
+    })
+  }
+
+  it('rejects a tampered decision (signature covers the record)', async () => {
+    const fixture = observationFixtures.find(f => f.label === 'stale_denied')!
+    const signed = await buildRevocationObservation({ ...fixture.observation }, signer)
+    const tampered: SignedRevocationObservation = {
+      ...signed,
+      decision: { effect: 'allow' },
+    }
+    assert.equal(verifyRevocationObservation(tampered).valid, false)
+  })
+
+  it('rejects a wrong pinned observer key', async () => {
+    const fixture = observationFixtures.find(f => f.label === 'fresh_valid')!
+    const signed = await buildRevocationObservation({ ...fixture.observation }, signer)
+    const other = generateKeyPair()
+    const verdict = verifyRevocationObservation(signed, { expectedObserverKey: other.publicKey })
+    assert.equal(verdict.valid, false)
+  })
+})
+
+describe('T7 RevocationObservation: SET ingestion', () => {
+  const keys = generateKeyPair()
+  const signer = createLocalSigner({ privateKeyHex: keys.privateKey })
+
+  it('converts event_timestamp epoch seconds to ISO 8601 and wires {kind:set, jti}', async () => {
+    const revokedAt = new Date('2026-07-10T11:59:30.000Z')
+    const set = buildRevocationSET({
+      issuer: 'https://issuer.example',
+      subject_id: 'dlg_t7_set_01',
+      revokedAt,
+      issuedAt: new Date('2026-07-10T12:00:00.000Z'),
+      jti: 'set_jti_ingest_01',
+    })
+    assert.ok(isWellFormedSET(set))
+    const params = observationParamsFromSET(set, {
+      decision: { effect: 'deny' },
+      maximum_staleness_ms: 60_000,
+      observed_at: new Date('2026-07-10T12:00:05.000Z'),
+    })
+    assert.equal(params.authority_ref, 'dlg_t7_set_01')
+    assert.deepEqual(params.status_source, { kind: 'set', jti: 'set_jti_ingest_01' })
+    // epoch seconds floor(revokedAt) converted back to ISO 8601
+    assert.equal(params.revoked_at, '2026-07-10T11:59:30.000Z')
+
+    const signed = await buildRevocationObservation(params, signer)
+    assert.equal(verifyRevocationObservation(signed).valid, true)
+    assert.equal(classifyObservation(signed), 'revoked_blocked')
+  })
+
+  it('refuses a claim set without the CAEP event', () => {
+    assert.throws(() => observationParamsFromSET(
+      { iss: 'x', iat: 1, jti: 'j', events: {} } as never,
+      { decision: { effect: 'deny' }, maximum_staleness_ms: 1000 },
+    ), /no well-formed CAEP/)
+  })
+})
