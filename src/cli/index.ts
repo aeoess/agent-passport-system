@@ -38,6 +38,12 @@ import {
   RegulatedActionV0
 } from '../index.js'
 
+// Direct module import: src/index.ts export lines are a single-writer
+// item deferred to T9 (FREEZE-VWE F8), so verify-bundle does not go
+// through the barrel.
+import { verifyEvidenceBundle, computeClaimBoundaryReport } from '../core/evidence-bundle.js'
+import type { EvidenceBundle, ClaimState } from '../types/evidence-bundle.js'
+
 import type {
   SignedPassport, FloorAttestation,
   ActionReceipt, Delegation, KeyPair,
@@ -136,6 +142,7 @@ switch (command) {
   case 'status': cmdStatus(); break
   case 'agora': cmdAgora(); break
   case 'verify-regulated': cmdVerifyRegulated(); break
+  case 'verify-bundle': cmdVerifyBundle(); break
   default: cmdHelp(); break
 }
 
@@ -170,6 +177,120 @@ function cmdVerifyRegulated(): void {
   console.log(JSON.stringify(result, null, 2))
   const final = result.disposition === 'reconciled' || result.disposition === 'regulator_grade_for_class'
   process.exit(final ? 0 : 2)
+}
+
+// ══════════════════════════════════════
+// VERIFY-BUNDLE: evidence bundle claim-boundary report
+// ══════════════════════════════════════
+//
+//   agent-passport verify-bundle <bundle.json> [--json] [--strict]
+//
+// Verifies an aps:evidence-bundle:v1 file (manifest signature, Merkle
+// root, member digests, inclusion proofs) and prints a per-axis
+// ClaimState report over authority, action, revocation and evidence,
+// per the SCHEMAS-DRAFT 3d mapping. States are computed from the
+// members present; what cannot be computed is reported MISSING or
+// UNKNOWN, never assumed.
+
+const VERIFY_BUNDLE_USAGE = `Usage: passport verify-bundle <bundle.json> [--json] [--strict]
+
+  Verifies an evidence bundle (aps:evidence-bundle:v1) and prints a
+  per-axis claim report: authority, action, revocation, evidence.
+
+  --json     Emit one JSON object: {axes, overall, exit_reason}
+  --strict   Treat MISSING authority or evidence as failure (exit 2)
+
+  Exit codes: 0 report produced, no axis INVALID
+              2 any axis INVALID, or --strict with MISSING
+                authority or evidence
+              3 bundle unreadable or manifest signature failed`
+
+function emitBundleReport(
+  jsonMode: boolean,
+  axes: Record<'authority' | 'action' | 'revocation' | 'evidence', { state: ClaimState, detail: string }>,
+  overall: ClaimState,
+  exitReason: string,
+): void {
+  if (jsonMode) {
+    console.log(JSON.stringify({
+      axes: {
+        authority: axes.authority.state,
+        action: axes.action.state,
+        revocation: axes.revocation.state,
+        evidence: axes.evidence.state,
+      },
+      overall,
+      exit_reason: exitReason,
+    }, null, 2))
+    return
+  }
+  console.log('')
+  console.log('📦 Evidence Bundle Claim Report')
+  for (const axis of ['authority', 'action', 'revocation', 'evidence'] as const) {
+    console.log(`  ${axis.padEnd(11)} ${axes[axis].state}`)
+    console.log(`     ${axes[axis].detail}`)
+  }
+  console.log(`  Overall: ${overall}`)
+  console.log('')
+}
+
+function cmdVerifyBundle(): void {
+  const file = args[1]
+  const jsonMode = args.includes('--json')
+  const strict = args.includes('--strict')
+  if (!file || file.startsWith('--')) {
+    console.error(VERIFY_BUNDLE_USAGE)
+    process.exit(1)
+  }
+
+  const unknownAxes = {
+    authority: { state: 'UNKNOWN' as ClaimState, detail: 'not computed' },
+    action: { state: 'UNKNOWN' as ClaimState, detail: 'not computed' },
+    revocation: { state: 'UNKNOWN' as ClaimState, detail: 'not computed' },
+    evidence: { state: 'UNKNOWN' as ClaimState, detail: 'not computed' },
+  }
+
+  let bundle: EvidenceBundle
+  try {
+    const parsed: unknown = JSON.parse(readFileSync(file, 'utf8'))
+    if (typeof parsed !== 'object' || parsed === null
+      || typeof (parsed as EvidenceBundle).signer_public_key !== 'string'
+      || typeof (parsed as EvidenceBundle).manifest !== 'object'
+      || !Array.isArray((parsed as EvidenceBundle).members)) {
+      throw new Error('file is not structurally an evidence bundle (manifest, members, signer_public_key)')
+    }
+    bundle = parsed as EvidenceBundle
+  } catch (e) {
+    console.error(`❌ Bundle unreadable: ${e instanceof Error ? e.message : String(e)}`)
+    emitBundleReport(jsonMode, unknownAxes, 'UNKNOWN', 'bundle_unreadable')
+    process.exit(3)
+  }
+
+  const verification = verifyEvidenceBundle(bundle)
+  if (!verification.signatureValid) {
+    // An unauthenticated manifest cannot support axis claims, so no
+    // axis state is computed from it.
+    console.error('❌ Manifest signature failed under the stated signer_public_key')
+    emitBundleReport(jsonMode, unknownAxes, 'UNKNOWN', 'manifest_signature_failed')
+    process.exit(3)
+  }
+
+  const report = computeClaimBoundaryReport(bundle, { verification })
+  const states = [
+    report.axes.authority.state, report.axes.action.state,
+    report.axes.revocation.state, report.axes.evidence.state,
+  ]
+  let exitCode = 0
+  let exitReason = 'ok'
+  if (states.includes('INVALID')) {
+    exitCode = 2
+    exitReason = 'axis_invalid'
+  } else if (strict && (report.axes.authority.state === 'MISSING' || report.axes.evidence.state === 'MISSING')) {
+    exitCode = 2
+    exitReason = 'strict_missing'
+  }
+  emitBundleReport(jsonMode, report.axes, report.overall, exitReason)
+  process.exit(exitCode)
 }
 
 // ══════════════════════════════════════
@@ -741,6 +862,17 @@ function cmdInspect(): void {
     console.log(`  Owner:   ${p.ownerAlias}`)
     console.log(`  Caps:    ${p.capabilities.join(', ')}`)
     console.log(`  Expires: ${p.expiresAt}`)
+  } else if (data.requestingAgentId && data.servingAgentId) {
+    // BilateralReceipt also carries receiptId, so this check must run
+    // before the Action Receipt branch below.
+    console.log('📋 Bilateral Receipt')
+    console.log(`  ID:      ${data.receiptId}`)
+    console.log(`  Requesting: ${data.requestingAgentId}`)
+    console.log(`  Serving:    ${data.servingAgentId}`)
+    console.log(`  Tool:    ${data.outcome?.toolName}`)
+    console.log(`  Status:  ${data.outcome?.status}`)
+    console.log(`  Agreed:  ${data.agreedAt}`)
+    console.log(`  Gateway: ${data.gatewaySignature ? 'countersigned' : 'not countersigned'}`)
   } else if (data.receiptId) {
     console.log('📋 Action Receipt')
     console.log(`  ID:      ${data.receiptId}`)
