@@ -74,6 +74,15 @@ This checks registry signatures and build attestations for every package in
 your tree. Each release's attestation is also linked from the package page:
 https://www.npmjs.com/package/agent-passport-system
 
+## Secrets policy
+
+The project holds no long-lived secrets. npm publishing uses OIDC Trusted
+Publishing, so no registry token exists to store or rotate. CI runs on
+ephemeral per-run GITHUB_TOKENs with a read-only default and least-privilege
+grants declared per workflow. Repository push protection blocks accidental
+secret commits. Any future credential gets a named owner, least-privilege
+scope, and rotation on collaborator change or suspected exposure.
+
 ## Recognition
 
 We gratefully acknowledge security researchers who report vulnerabilities responsibly. With your permission, we will credit you in our changelog.
