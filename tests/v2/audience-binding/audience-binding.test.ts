@@ -26,6 +26,7 @@ import {
   matchAudience,
   normalizeRecipients,
   checkAudience,
+  matchAudience,
   audienceToConstraintStatus,
   audienceFailure,
   reconcileAudienceWithCrossChain,
@@ -518,4 +519,22 @@ test('M1 compose: no expectedAuthority leaves verifyRequest behavior unchanged',
   assert.equal(r.inner.valid, true)
   assert.equal(r.audienceStatus, 'not_applicable')
   assert.equal(r.valid, true)
+})
+
+// Audit 2026-07-10: checkAudience/normalizeRecipients must fail closed, never
+// throw, on untrusted JSON that carries `aud: null` or a null proof.
+test('audit: null aud and null proof fail closed instead of throwing', () => {
+  // aud: null with requireAudience -> treated as unbound (required_absent).
+  const r1 = checkAudience({ aud: null } as never, { recipientId: 't', requireAudience: true })
+  assert.equal(r1.status, 'fail')
+  assert.equal(r1.reason, 'audience_required_absent')
+  // aud: null without requireAudience -> not_applicable, no throw.
+  const r2 = checkAudience({ aud: null } as never, { recipientId: 't' })
+  assert.equal(r2.status, 'not_applicable')
+  // null proof does not throw.
+  const r3 = checkAudience(null as never, { recipientId: 't', requireAudience: true })
+  assert.equal(r3.status, 'fail')
+  assert.equal(r3.reason, 'audience_required_absent')
+  // matchAudience tolerates null.
+  assert.equal(matchAudience(null as never, 't'), false)
 })

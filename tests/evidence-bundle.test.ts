@@ -188,10 +188,17 @@ test('revocation: observation states map per the 3d row, nothing is hardcoded', 
   assert.strictEqual(rep({ ...base, revoked_at: '2026-07-10T11:58:00Z', decision: { effect: 'deny' } }).state, 'RESOLVED')
   assert.strictEqual(rep({ ...base, revoked_at: '2026-07-10T11:58:00Z', decision: { effect: 'allow' } }).state, 'INVALID')
   assert.strictEqual(rep({ ...base, revoked_at: '2026-07-10T11:58:00Z', decision: { effect: 'allow' }, workflow_response: { reissued: false, reason: 'revoked' } }).state, 'RESOLVED')
-  assert.strictEqual(rep({ ...base, decision: { effect: 'allow' } }).state, 'VERIFIED')
+  // An allow decision is EVALUATED, not VERIFIED: the frozen F4 record does not
+  // carry the freshness result, so a consulted-and-fresh source and an
+  // unavailable source that failed open (decideFreshness fail_open, effect
+  // allow, downgraded false) are indistinguishable. Reporting VERIFIED here was
+  // a fail-open (audit 2026-07-10, evidence-bundle revocation axis).
+  assert.strictEqual(rep({ ...base, decision: { effect: 'allow' } }).state, 'EVALUATED')
   assert.strictEqual(rep({ ...base, decision: { effect: 'allow', downgraded: true } }).state, 'EVALUATED')
   assert.strictEqual(rep({ ...base, observed_at: '2026-07-10T00:00:00Z', decision: { effect: 'allow' } }).state, 'STALE')
-  assert.strictEqual(rep({ ...base, decision: { effect: 'allow' }, workflow_response: { result: 'unavailable' } }).state, 'UNKNOWN')
+  // RefreshOutcome carries no `result`/`status`; a workflow_response with such a
+  // field is ignored, so this is an ordinary allow decision -> EVALUATED.
+  assert.strictEqual(rep({ ...base, decision: { effect: 'allow' }, workflow_response: { result: 'unavailable' } }).state, 'EVALUATED')
   assert.strictEqual(rep({ authority_ref: 'del-1', decision: { effect: 'allow' } }).state, 'INVALID')
 })
 
