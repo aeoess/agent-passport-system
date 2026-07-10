@@ -34,3 +34,12 @@ Inclusion is revocable. Canonical status can be withdrawn if an artifact rots, a
 ## Appeals
 
 Artifact decisions can be contested on artifact grounds. The held surfaces are not a vote. This asymmetry is stated openly rather than hidden, because hiding it would be the dishonest version.
+
+## Roles
+
+- **Maintainer: Tymofii Pidlisnyi (@aeoess).** Releases and package publishing,
+  security response per SECURITY.md, merge authority on core surfaces,
+  standards-body representation, final call on held surfaces.
+- **Contributors.** Anyone, through the Commons and Candidate surfaces (see
+  CONTRIBUTION_PATH.md). Candidate work is reviewed on artifact merit; authority
+  does not come with it, per the sections above.

@@ -33,8 +33,8 @@ coverage tool or third-party account needed.
 ### Code Style
 
 - TypeScript throughout
-- Ed25519 cryptography via `@noble/ed25519`
-- No additional runtime dependencies — keep the dependency footprint minimal
+- Ed25519 signing and SHA-256 hashing via the Node standard library (`node:crypto`)
+- Runtime dependencies are held to two: `libsodium-wrappers` (encrypted messaging) and `uuid`. Do not add more.
 
 ## Submitting Changes
 

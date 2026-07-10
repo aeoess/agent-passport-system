@@ -60,6 +60,20 @@ The Agent Passport System operates under these assumptions:
 | mingle-mcp >= 1.1.0 | ✅ |
 | Older versions | ❌ |
 
+## Verifying releases
+
+npm releases are published through Trusted Publishing (OIDC) with a SLSA
+build-provenance attestation signed via Sigstore, so no long-lived signing key
+exists on any distribution site. To verify what you installed:
+
+```
+npm audit signatures
+```
+
+This checks registry signatures and build attestations for every package in
+your tree. Each release's attestation is also linked from the package page:
+https://www.npmjs.com/package/agent-passport-system
+
 ## Recognition
 
 We gratefully acknowledge security researchers who report vulnerabilities responsibly. With your permission, we will credit you in our changelog.

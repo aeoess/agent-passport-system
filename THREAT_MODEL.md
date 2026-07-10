@@ -77,6 +77,46 @@ A verifier relying on an APS receipt MUST, at minimum:
 
 The conformance package under `tests/conformance/` ships a golden valid fixture and a negative fixture for each rejection a verifier must make, so an implementation can prove it discharges these responsibilities.
 
+## Assurance argument
+
+The security expectations above hold because of design choices that map to
+standard secure-design principles, and countermeasures against the common ways
+implementations fail.
+
+Design principles, as instantiated here:
+
+- **Least privilege.** Delegation scope narrows monotonically at every
+  transfer. No operation widens authority downstream.
+- **Complete mediation.** Every gated action passes the gateway's evaluation;
+  an agent cannot self-permit, and the decision carries its own signature.
+- **Fail-safe defaults.** Verification fails closed. Malformed or unverifiable
+  input yields an explicit invalid result rather than a pass, and the top-level
+  verifier's never-throws contract is guarded by test.
+- **Economy of mechanism.** One signature suite (Ed25519), pinned canonical
+  byte forms covered by conformance fixtures, and two runtime dependencies.
+- **Separation of privilege.** Principal, agent, gateway, and issuer sign with
+  distinct keys in distinct roles; no signature stands in for another's.
+
+Common implementation weaknesses, as countered:
+
+- **Untrusted input.** Every externally supplied structure is validated before
+  use; decoders bound declared lengths against the bytes actually present. The
+  parsers are fuzzed continuously (seven Jazzer.js harnesses via ClusterFuzzLite,
+  with found-bug inputs kept as regression seeds) and property-tested with
+  fast-check.
+- **Injection and dynamic execution.** No eval, no dynamic code loading. Only
+  the CLI invokes external programs, by explicit exec of fixed binaries; the
+  library spawns nothing.
+- **Memory safety.** TypeScript and Rust only; no C or C++.
+- **Known vulnerability classes.** CodeQL with the security-extended query set
+  runs on every change; OpenSSF Scorecard runs on schedule.
+- **Supply chain.** Dependencies locked and monitored, CI actions pinned to
+  commit hashes, releases published with SLSA build provenance through OIDC
+  Trusted Publishing.
+
+Scope of claim: this section argues the design; the conformance fixtures and
+CI runs are what exercise it.
+
 ## Scope of claim for this document
 
 Proves: this document specifies the actors, boundaries, and the verification a conformant verifier must perform. It is matched by the conformance fixtures, which a verifier can run.
