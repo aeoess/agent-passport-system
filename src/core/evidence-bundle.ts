@@ -353,6 +353,17 @@ function revocationAxis(bundle: EvidenceBundle, now: Date): ClaimAxisReport {
       continue
     }
     const decision = p.decision as Record<string, unknown>
+    const revokedObserved = typeof p.revoked_at === 'string'
+    const terminated = workflow !== undefined
+      && workflow.reissued === false && workflow.reason === 'revoked'
+    if (revokedObserved && terminated) {
+      outcomes.push({ state: 'RESOLVED', detail: `observation "${member.member_id}" shows revocation observed; the running workflow was terminated` })
+      continue
+    }
+    if (revokedObserved && decision.effect === 'allow') {
+      outcomes.push({ state: 'INVALID', detail: `observation "${member.member_id}" carries revoked_at with an allow decision and no terminating workflow_response; outside the classify domain, malformed` })
+      continue
+    }
     if (decision.effect === 'deny') {
       outcomes.push({ state: 'RESOLVED', detail: `observation "${member.member_id}" shows revocation observed and enforced (deny)` })
       continue

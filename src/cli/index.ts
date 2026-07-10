@@ -1227,6 +1227,8 @@ function cmdHelp(): void {
     verify     Verify another agent's passport
                passport verify <agent.json or passport.json>
 
+    verify-bundle  Verify an evidence bundle: passport verify-bundle <bundle.json> [--json] [--strict]
+
     delegate   Grant authority to another agent
                --to <publicKey>  --scope <scope1,scope2>
                --limit <amount>  --hours <24>  --depth <1>

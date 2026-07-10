@@ -186,6 +186,8 @@ test('revocation: observation states map per the 3d row, nothing is hardcoded', 
   const rep = (p: Record<string, unknown>) => computeClaimBoundaryReport(obs(p), { now: NOW }).axes.revocation
 
   assert.strictEqual(rep({ ...base, revoked_at: '2026-07-10T11:58:00Z', decision: { effect: 'deny' } }).state, 'RESOLVED')
+  assert.strictEqual(rep({ ...base, revoked_at: '2026-07-10T11:58:00Z', decision: { effect: 'allow' } }).state, 'INVALID')
+  assert.strictEqual(rep({ ...base, revoked_at: '2026-07-10T11:58:00Z', decision: { effect: 'allow' }, workflow_response: { reissued: false, reason: 'revoked' } }).state, 'RESOLVED')
   assert.strictEqual(rep({ ...base, decision: { effect: 'allow' } }).state, 'VERIFIED')
   assert.strictEqual(rep({ ...base, decision: { effect: 'allow', downgraded: true } }).state, 'EVALUATED')
   assert.strictEqual(rep({ ...base, observed_at: '2026-07-10T00:00:00Z', decision: { effect: 'allow' } }).state, 'STALE')

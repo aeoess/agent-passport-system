@@ -288,7 +288,7 @@ export function classifyObservation(
 export function observationParamsFromSET(
   set: SecurityEventTokenClaims,
   params: {
-    decision: RevocationObservationDecision
+    decision: BuildObservationParams['decision']
     maximum_staleness_ms: number
     observed_at?: Date | string
     affected_scope?: string
