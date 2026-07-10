@@ -185,10 +185,108 @@ export interface SecurityEventTokenClaims {
   /** RFC 8417 'jti' - unique SET id (replay key for receivers). */
   jti: string
   /** RFC 8417 'aud' - intended audience(s). Optional per spec; populated when
-   *  the emitter knows the receiver. */
+   *  the emitter knows the receiver. This is the RFC 8417 SET audience claim,
+   *  a JWT-level receiver hint. It is NOT the APS AudienceBinding shape (the
+   *  in-body receipt binding verified by checkAudience); the two live at
+   *  different layers and are never interchangeable. */
   aud?: string | string[]
   /** RFC 8417 'sub' - optional subject of the SET as a whole. */
   sub?: string
   /** RFC 8417 'events' - map from event-type URI to the event object. */
   events: Record<CAEPEventType, CAEPRevocationEvent>
+}
+
+// ══════════════════════════════════════════════════════════════════
+// RevocationObservation (T7 / FREEZE-VWE F4) - verifier-side record
+// ══════════════════════════════════════════════════════════════════
+
+/** Which revocation signal an observation is based on.
+ *  - kind 'source': the verifier consulted a revocation source directly
+ *    (a CRL URL, a registry id; the RevocationFreshnessRecord.source value).
+ *  - kind 'set': the verifier received an RFC 8417 Security Event Token and
+ *    the jti is that SET's replay key (SecurityEventTokenClaims.jti). */
+export type RevocationStatusSource =
+  | { kind: 'source'; id: string }
+  | { kind: 'set'; jti: string }
+
+/** The decision slot of an observation. Reuses the FreshnessDecision
+ *  vocabulary: effect is 'allow' | 'deny' and a downgrade resolves to an
+ *  allow with `downgraded: true`. No third verdict value exists. */
+export interface RevocationObservationDecision {
+  effect: 'allow' | 'deny'
+  downgraded?: boolean
+}
+
+/** A verifier-side record that a specific revocation signal was OBSERVED,
+ *  from which source, for which authority, covering which scope, and what
+ *  the relying party then did.
+ *
+ *  This is an observation under a stated freshness contract: it records that
+ *  the verifier saw a signal (or failed to obtain one) at observed_at, with
+ *  maximum_staleness_ms naming the staleness the relying party was willing to
+ *  tolerate. It does not assert instant or universal revocation: a revocation
+ *  becomes effective for a relying party when that party observes it within
+ *  its freshness contract, and nothing here claims the signal reached every
+ *  relying party or reached this one immediately. */
+export interface RevocationObservation {
+  /** The revoked (or checked) delegation / agent id. Opaque string, the same
+   *  convention SETSubjectId.id uses. */
+  authority_ref: string
+  /** Where the revocation status came from. */
+  status_source: RevocationStatusSource
+  /** When the revocation took effect, ISO 8601, when a revocation was
+   *  observed. A SET carries epoch seconds (CAEPRevocationEvent
+   *  .event_timestamp); ingestion converts to ISO 8601 so the SDK-wide
+   *  timestamp convention holds. Absent when no revocation signal was
+   *  obtained (fresh, stale, or unavailable consults). */
+  revoked_at?: string
+  /** When the verifier made this observation, ISO 8601. */
+  observed_at: string
+  /** The maximum staleness, in milliseconds, the relying party's freshness
+   *  contract tolerated for this observation. Milliseconds everywhere: SET
+   *  epoch seconds are converted at ingestion, never stored as a third
+   *  convention. */
+  maximum_staleness_ms: number
+  /** The scope subtree the revocation covers, when the signal carried one.
+   *  Uses the cascade reference language of draft-pidlisnyi-aps-03 revocation
+   *  evidence: an opaque reference to the originating revocation and its
+   *  cascade transaction identity, so a verifier can reconstruct from the
+   *  records why a descendant died. */
+  affected_scope?: string
+  /** What the relying party decided under its freshness policy. */
+  decision: RevocationObservationDecision
+  /** What the relying party did next, when it did something recordable:
+   *  a refresh attempt outcome (reissued, or refused with a reason). */
+  workflow_response?: RefreshOutcome
+}
+
+/** A RevocationObservation signed by the observing verifier. The signature
+ *  covers the canonical form of every field except `signature` itself,
+ *  following the module-wide signable-subset discipline. observer_key is the
+ *  raw Ed25519 public key hex the signature verifies against; observer_key_id
+ *  follows the ed25519:<first-16-hex> convention. */
+export interface SignedRevocationObservation extends RevocationObservation {
+  observer_key: string
+  observer_key_id: string
+  signature: string
+}
+
+/** The seven derived outcome labels for an observation. DERIVED by
+ *  classifyObservation, never stored in the signed object: a label is a
+ *  verifier-report word, not wire surface. */
+export type RevocationOutcomeLabel =
+  | 'revoked_blocked'
+  | 'fresh_valid'
+  | 'stale_denied'
+  | 'stale_permitted'
+  | 'running_terminated'
+  | 'unavailable_fail_closed'
+  | 'unavailable_fail_open'
+
+/** Verdict from verifyRevocationObservation. Mechanical: structural
+ *  well-formedness plus signature validity against observer_key. It does not
+ *  assert the observed revocation is true, current, or universally visible. */
+export interface ObservationVerifyResult {
+  valid: boolean
+  reason: string
 }

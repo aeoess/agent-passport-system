@@ -80,6 +80,7 @@ import type {
 } from './types.js'
 
 export * from './types.js'
+export * from './observation.js'
 
 const CAEP_SESSION_REVOKED: CAEPEventType =
   'https://schemas.openid.net/secevent/caep/event-type/session-revoked'
