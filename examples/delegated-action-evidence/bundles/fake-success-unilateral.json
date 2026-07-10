@@ -1,53 +1,53 @@
 {
   "manifest": {
     "profile": "aps:evidence-bundle:v1",
-    "created_at": "2026-07-10T08:14:51.470Z",
+    "created_at": "2026-07-10T08:31:55.511Z",
     "members": [
       {
         "member_id": "delegation-root",
         "member_type": "delegation",
-        "digest": "2270c926398f5fe1ba67463345e96b6d2ef08d68b9df3ce3842296089dbfbff1"
+        "digest": "ed97ae37bd046b073c88ede3417666a2b6ac3a8a617987826559748182a11dff"
       },
       {
         "member_id": "delegation-sub",
         "member_type": "delegation",
-        "digest": "fa31f1179f048406ad26fd4deb9d37fcc411acc59d9d915a4691baa36f6ee722"
+        "digest": "1b209e69fa91b33cd40b047550cc6e89d4a036fbc032d61f681561fa9abbe1a6"
       },
       {
         "member_id": "receipt-local",
         "member_type": "bilateral_receipt",
-        "digest": "8e28eaa255dfb3e7a291fc2fe5beef6176648e2f1a37f1be30da1b170f425d2d"
+        "digest": "3970da6a28a99020c2afc08bcdfda2c10111b985b7c41bc6553482ad114e38f3"
       },
       {
         "member_id": "receipt-counterparty",
         "member_type": "bilateral_receipt",
-        "digest": "65ca015e7d549735383cfacb9e52e6af5980d687b6ff2ddcb2f6417cc9fc68a7"
+        "digest": "e66b114b372fc7d40e229a0126049cdf925bd450d03cd4a5bdf7d4a02ddc53fa"
       },
       {
         "member_id": "pair-verdict",
         "member_type": "bilateral_pair_verdict",
-        "digest": "2e3ecf7e2641d52e37bd7fe8826b522aafe9bce75513890247c87f99bd8024c3"
+        "digest": "71cffed23ee5071e982e0c0aeffdaed9ea571eeaf40c72bda0162c12dcf1ebef"
       },
       {
         "member_id": "revocation-check",
         "member_type": "revocation_observation",
-        "digest": "d3a16db73b5e7e946d12e1de6bd1c56cdd3834f9bc24d4a3302b9b801ba18ce5"
+        "digest": "6d4f31083eb221923c2a2a6113318b2a6733b1787a835953a42d026d6cfa3e68"
       }
     ],
-    "merkle_root": "ccc9b79aa1e45c083bc5bc9d73d91b41392fcb6987c65d0b639c37959054bf25",
-    "signature": "22486db68faf37a779dec2220f1fa9e1cd9157a8ee7723d35233d2819f3e424927c745e836aec37aae71d19b1b46f72178e600035a1fbd0d39cef7513719270c"
+    "merkle_root": "5fbe0d81f66c9f63f260885c386dfb8761a1dbad5600c89c8e4484e98167a0dc",
+    "signature": "40fb16cea319a71d50bf3adef61402681836ca28ce5cd4a40ec9d3ed56ba7884208328b8d3ed771005d28c8263c1bbd5fada2dd5782f2f5814a06804b4e05f00"
   },
-  "signer_public_key": "4ffe66d9ebc70daff7121be0e3fa29aff09f8402d5f8f1ce167c772fcfdd0e44",
+  "signer_public_key": "9a206331c498263b21326dc9fb3d31d0a8bc02f23b7da4ef66c63f3c0eb9096f",
   "members": [
     {
       "member_id": "delegation-root",
       "member_type": "delegation",
       "payload": {
-        "id": "14830b94-7f6a-4a28-9426-2e764b7914f2",
+        "id": "ca6cf700-680f-4117-8808-1609fa32c8f9",
         "version": 1,
         "supersedes": null,
         "supersession_justification": null,
-        "delegator": "332c95dfc856f344354f8d193b8d67f0165c07f9dd36782acf6c7eaa4457f61e",
+        "delegator": "62bdf863c4ae6e6d3825e36fcb2296c7b1e394981408183a4e3e56588df44cca",
         "delegatee": "did:aps:zWorkflowRequester",
         "scope": [
           "commerce:read",
@@ -59,27 +59,27 @@
           "values_floor_version": "1.0",
           "trust_epoch": 1,
           "issuer_id": "principal-demo",
-          "created_at": "2026-07-10T08:14:51.466Z",
-          "valid_from": "2026-07-10T08:14:51.466Z",
-          "valid_until": "2026-07-10T09:14:51.466Z"
+          "created_at": "2026-07-10T08:31:55.504Z",
+          "valid_from": "2026-07-10T08:31:55.504Z",
+          "valid_until": "2026-07-10T09:31:55.504Z"
         },
         "status": "active",
         "renewal_reason": null,
         "expansion_reviewer": null,
         "expansion_review_sig": null,
         "assurance_class": "mechanically_enforceable",
-        "signature": "c7856f9b6d974761398cf24feca36c8460377ded6bb0ed3e48374f30c7be5c2d3c14eb1c2e35917b4cc5e45ed303861f74c6fd9537121d503a6c01a2d596720e"
+        "signature": "22de306cc4125b4ce954d5dd589696451cae133609342463e1477b9e0b045d5ac776e84932bd020d351195a9e9bc9a8b275c721bf5a92cbae78a2f794776680b"
       }
     },
     {
       "member_id": "delegation-sub",
       "member_type": "delegation",
       "payload": {
-        "id": "18fe3d5c-f235-4162-a6e9-4d305aa27aeb",
+        "id": "2259d67d-875b-4e65-9363-9de835deba85",
         "version": 1,
         "supersedes": null,
         "supersession_justification": null,
-        "delegator": "ffe49ed3a7ab398913c1c0f0f66ffd27f6721e41dc9d5b6887b45f975b645027",
+        "delegator": "80419c4c1e9a966b51d2034f3063fa03c4aa3973031dfa9810f9096533ebafa0",
         "delegatee": "did:aps:zWorkflowServer",
         "scope": [
           "commerce:read"
@@ -89,23 +89,23 @@
           "values_floor_version": "1.0",
           "trust_epoch": 1,
           "issuer_id": "principal-demo",
-          "created_at": "2026-07-10T08:14:51.468Z",
-          "valid_from": "2026-07-10T08:14:51.468Z",
-          "valid_until": "2026-07-10T09:14:51.468Z"
+          "created_at": "2026-07-10T08:31:55.506Z",
+          "valid_from": "2026-07-10T08:31:55.506Z",
+          "valid_until": "2026-07-10T09:31:55.506Z"
         },
         "status": "active",
         "renewal_reason": null,
         "expansion_reviewer": null,
         "expansion_review_sig": null,
         "assurance_class": "mechanically_enforceable",
-        "signature": "cefb443ba7443b116cbb4caacf9443cae351cb1c16eab98cfd62f5ce15b4891fc9f09adb428db19a9f5ad09564765b8b42e43ddaa4bc0ae321c5990550f8b303"
+        "signature": "be9689a213d6f3dc6396537fa71f61a7168b2a352d332384d5b1815935f01aea3abfdb7447f174e24ce2b7d6f3754bc8bd38871943b05ec8f0b90dafc9a9a304"
       }
     },
     {
       "member_id": "receipt-local",
       "member_type": "bilateral_receipt",
       "payload": {
-        "receiptId": "bfc0c405-3ef8-4273-bce7-dd42935586b2",
+        "receiptId": "ba33f162-1006-4061-9bbe-86a9ed71dacd",
         "version": "1.0",
         "requestingAgentId": "did:aps:zWorkflowRequester",
         "servingAgentId": "did:aps:zWorkflowServer",
@@ -118,7 +118,7 @@
         },
         "requestedAt": "2026-07-10T04:00:00Z",
         "completedAt": "2026-07-10T04:00:01Z",
-        "agreedAt": "2026-07-10T08:14:51.468Z",
+        "agreedAt": "2026-07-10T08:31:55.507Z",
         "aud": {
           "profile": "aps:audience-binding:v1",
           "recipients": [
@@ -127,15 +127,15 @@
           ]
         },
         "action_ref": "a26489e9661e14eff610e7f98eb5031d5b62111a09c7b75747cf4e4262953c0e",
-        "requestingAgentSignature": "84a16f8fa4092eb81800f922b20df0c015d761d4e1e98b2c5825dbfcfd47d7fd5fe4503d08841dc5ef0b9cb4f4db628760a26cd897efd04385b478e4e2e08601",
-        "servingAgentSignature": "89c624c3f156e626a56915cb1b9bc65d0622568c8985db7dc81d77b410a03c587cfc6a8080e33fc292fca9f488ad3b0e2786beb25ca609c91006419f07ef0b08"
+        "requestingAgentSignature": "bf601c7bbb86791a0990e6c29cc29ad4532a11e6c95ee30ccd03534c3599ecbba07fc3bd33beb2c04ac14d53c687fb44c31188302bbd7e6da5b078615bbe090d",
+        "servingAgentSignature": "c748c2bd4f5cf1ed4273da651a4378f73220c3793ab8c671afa81c6d741e407bfe76438fa8064902d70c00c79f00235496e03d95d12f64fd9a8ec45e64b9390f"
       }
     },
     {
       "member_id": "receipt-counterparty",
       "member_type": "bilateral_receipt",
       "payload": {
-        "receiptId": "722e0db1-0e89-48f6-a02d-a950bdcde2d9",
+        "receiptId": "5b96aebd-53f7-472f-beb6-42262ef2ba05",
         "version": "1.0",
         "requestingAgentId": "did:aps:zWorkflowRequester",
         "servingAgentId": "did:aps:zWorkflowServer",
@@ -143,22 +143,22 @@
           "toolName": "commerce_preflight",
           "requestHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           "responseHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-          "status": "success",
-          "summary": "preflight authorized"
+          "status": "failure",
+          "summary": "preflight denied"
         },
         "requestedAt": "2026-07-10T04:00:00Z",
         "completedAt": "2026-07-10T04:00:01Z",
-        "agreedAt": "2026-07-10T08:14:51.470Z",
+        "agreedAt": "2026-07-10T08:31:55.510Z",
         "aud": {
           "profile": "aps:audience-binding:v1",
           "recipients": [
-            "did:aps:zSomeoneElse",
+            "did:aps:zWorkflowRequester",
             "did:aps:zWorkflowServer"
           ]
         },
         "action_ref": "a26489e9661e14eff610e7f98eb5031d5b62111a09c7b75747cf4e4262953c0e",
-        "requestingAgentSignature": "66979dce91918d42745ac72d23bb08a2422f7901070ab1d816353fea6aa000a88f5d99bda3727ada966a2985febb8b548375359de65d62994ef07ee40aa8e004",
-        "servingAgentSignature": "ae4c30a65654c868bf7913e384d404302ad62b76a424b2fa09da79adc7f63bba754a7425dea08bcd200066e60ebe267c56a6b011f2b4eb4bfb8d338c1861da02"
+        "requestingAgentSignature": "434d01b6e497c4f5b54558e40c79808279e61dc1f952b1d58983645462c3b09062f3e4893234a4e4d505ec5e9db93b0280b29b6275f926811cc8acd8ffda0b0d",
+        "servingAgentSignature": "18bf5f884cf6c8f5faba88e5e78d8ed1869df58c5312741dbfd078e04a6da01b607e4361f3fb5e2ae62abe1dff7a172ba1dc3e283c1c216703f2686b6571ad05"
       }
     },
     {
@@ -167,21 +167,21 @@
       "payload": {
         "status": "mismatch",
         "mismatches": [
-          "wrong_audience"
+          "unilateral_success"
         ],
         "detail": {
-          "wrong_audience": "counterparty copy does not admit self (audience_mismatch)"
+          "unilateral_success": "one copy claims success, the other does not"
         },
         "audience": {
           "counterpartyCopyToSelf": {
-            "status": "fail",
-            "reason": "audience_mismatch",
+            "status": "pass",
+            "reason": "audience_match",
             "recipients": [
-              "did:aps:zSomeoneElse",
+              "did:aps:zWorkflowRequester",
               "did:aps:zWorkflowServer"
             ],
             "checkedAgainst": "did:aps:zWorkflowRequester",
-            "message": "Relying party is not among the named recipients of this proof."
+            "message": "Relying party is a named recipient of this proof."
           },
           "localCopyToCounterparty": {
             "status": "pass",
@@ -194,18 +194,7 @@
             "message": "Relying party is a named recipient of this proof."
           }
         },
-        "constraintFailures": [
-          {
-            "facet": "audience",
-            "status": "fail",
-            "code": "audience_mismatch",
-            "severity": "hard",
-            "retryable": false,
-            "actual": "did:aps:zWorkflowRequester",
-            "limit": "did:aps:zSomeoneElse,did:aps:zWorkflowServer",
-            "message": "Relying party is not among the named recipients of this proof."
-          }
-        ]
+        "constraintFailures": []
       }
     },
     {
@@ -217,14 +206,14 @@
           "kind": "source",
           "id": "https://revocation.example/status"
         },
-        "observed_at": "2026-07-10T08:14:51.469Z",
+        "observed_at": "2026-07-10T08:31:55.507Z",
         "maximum_staleness_ms": 3600000,
         "decision": {
           "effect": "allow"
         },
-        "observer_key": "332c95dfc856f344354f8d193b8d67f0165c07f9dd36782acf6c7eaa4457f61e",
-        "observer_key_id": "ed25519:332c95dfc856f344",
-        "signature": "0d6e1bcb7c8a996d6965bd89aef20ab97356070d18f25ad1f34c6900cef292a9dc729a2edea42c56940fedadb1290db228521132b7dee568555ae45d49d66f06"
+        "observer_key": "62bdf863c4ae6e6d3825e36fcb2296c7b1e394981408183a4e3e56588df44cca",
+        "observer_key_id": "ed25519:62bdf863c4ae6e6d",
+        "signature": "4bd8bdb775249aa330055568fc1718f3e4ddb29a7ef05c620893d9aaa7380f41f823b26556585cbc61b40b44ab7034e6fd6148ac613ad66a4b655f3a66f37b09"
       }
     }
   ]
