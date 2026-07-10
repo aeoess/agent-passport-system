@@ -136,7 +136,7 @@ The SDK follows semantic versioning. Changes to public API surface require a maj
 
 - **Maintainer:** [@aeoess](https://github.com/aeoess) (Tymofii Pidlisnyi)
 - **Review timing:** maintainer-bandwidth dependent. If a PR has had no response after 5 business days, ping it — the notification may have been missed.
-- **CLA / DCO:** no CLA is required. Contributions accepted on the understanding that the submitter has the right to contribute under the Apache 2.0 license. Signed-off-by commits are welcome but not required.
+- **CLA / DCO:** no CLA. The project uses the Developer Certificate of Origin (developercertificate.org): every commit must carry a Signed-off-by line asserting you have the right to contribute it under Apache-2.0 (use `git commit -s`). CI enforces this on pull requests.
 - **Publishing:** maintainers handle npm release publishing. Please do not bump version numbers in PRs. If your change requires a version bump, call that out in the PR description so we can sequence the release.
 - **Security issues:** open a private security advisory via GitHub rather than a public issue.
 - **Code of Conduct:** Contributor Covenant 2.1 — see [`CODE_OF_CONDUCT.md`](./CODE_OF_CONDUCT.md).
