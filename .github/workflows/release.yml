@@ -93,6 +93,13 @@ jobs:
           cp "${{ steps.attest.outputs.bundle-path }}" "$renamed"
           echo "path=$renamed" >> "$GITHUB_OUTPUT"
 
+      - name: Generate SBOM
+        id: sbom
+        run: |
+          out="agent-passport-system-${GITHUB_REF_NAME#v}.sbom.spdx.json"
+          npm sbom --sbom-format spdx --omit dev > "$out"
+          echo "path=$out" >> "$GITHUB_OUTPUT"
+
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -100,5 +107,6 @@ jobs:
           gh release create "$GITHUB_REF_NAME" \
             "${{ steps.pack.outputs.tarball }}" \
             "${{ steps.attestation-asset.outputs.path }}" \
+            "${{ steps.sbom.outputs.path }}" \
             --title "$GITHUB_REF_NAME" \
             --generate-notes
