@@ -1,5 +1,32 @@
 # Changelog
 
+## 3.3.0 (2026-07-10)
+### Added
+- Bilateral receipts carry an optional action_ref inside the signed body; pair
+  reconciliation (src/v2/bilateral-pair) compares the two parties' copies across five
+  mismatch classes (payload_changed, recipient_changed, wrong_audience,
+  unilateral_success, action_ref_mismatch), with audience checks in both directions.
+- Verifier-side RevocationObservation (src/v2/revocation-enforcement): signed record
+  of an observed revocation signal and the decision taken under a stated freshness
+  contract, with derived outcome labels and SET ingestion.
+- EvidenceBundle (aps:evidence-bundle:v1): signed Merkle-committed evidence sets with
+  per-member inclusion proofs, plus CLI verify-bundle printing a per-axis claim-state
+  report (authority, action, revocation, evidence) with machine-gating exit codes.
+- Jurisdiction selection provenance (selectJurisdictionPacks): records which policy
+  packs matched a set of jurisdiction facts, surfaces constraint conflicts instead of
+  resolving them, and makes explicit precedence auditable.
+- examples/verifiable-workflow: end-to-end demo emitting five evidence bundles gated
+  by verify-bundle exit codes.
+### Fixed
+- computeActionRef now NFC-normalizes scopeRequired scope strings and sorts scope
+  arrays by Unicode code point per draft-pidlisnyi-aps-03 section 4.1; single-scope
+  ASCII refs are unchanged and the external cross-ecosystem key is unaffected.
+- CLI inspect no longer misidentifies bilateral receipts as action receipts.
+Go SDK (separate repo): ComputeActionRefScopes (spec 4.1 array shape) with NFC per
+scope and code-point sorting on a copied slice; NFC on the legacy single-scope form.
+- fix(evidence-bundle): revoked_at with allow and no terminating workflow marks the revocation axis INVALID; terminated running workflow maps RESOLVED (classify domain alignment, T9 OPEN)
+- chore: examples renamed to delegated-action-evidence
+
 ## 3.2.0
 
 ### Fixed / Security
