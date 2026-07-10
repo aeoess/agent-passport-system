@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Agent Passport System — W3C DID & Verifiable Credentials Types
 // Implements W3C DID Core (https://www.w3.org/TR/did-core/)
 // and W3C VC Data Model 2.0 (https://www.w3.org/TR/vc-data-model-2.0/)

@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Behavioral Fingerprint envelope tests.
 // Composes HBB fidelity (axis 1) + PDR (axis 2) + Saebo constraint (axis 3)
 // into a signed artifact. Reference: Nanook PDR v2.19 §2.2, §8.10.

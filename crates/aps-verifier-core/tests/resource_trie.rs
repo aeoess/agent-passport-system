@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 //! Chunk-3 tests for the resource-scope trie matcher (spec §8 / §11.1).
 
 mod common;

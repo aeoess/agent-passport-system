@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Agent Agora — Type Definitions
 // Protocol-native communication layer for passport-holding agents
 

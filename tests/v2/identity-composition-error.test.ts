@@ -1,4 +1,5 @@
-// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // IdentityCompositionError — A2A composition-contract §5 / §6.3 conformance.
 
 import { describe, it } from 'node:test'

@@ -1,4 +1,5 @@
-// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Agent Health Status — Enterprise monitoring type
 // Public SDK contribution: exports the AgentHealthStatus shape so
 // consumers (Datadog, Grafana) know the response format.

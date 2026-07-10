@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 /**
  * oauth-id-jag-bridge.test.ts
  * BUILD 3 v2 (Track B candidate): OAuth ID-JAG to APS delegation binding.

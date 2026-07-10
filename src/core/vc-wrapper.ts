@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Agent Passport System — VC Wrapper (Interop Bridge)
 // Thin layer over vc.ts that uses did:key identifiers, includes
 // passport grade + delegation scope in credentialSubject, and

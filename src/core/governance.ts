@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Governance Artifact Provenance — Module 21
 // Sign, version, and verify governance artifacts
 // Treats governance files as supply-chain artifacts, not config files

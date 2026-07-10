@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 //! Section 8 and Appendix A: CompiledAuthority in-memory layout.
 //!
 //! Section 8 normative properties the hot path MUST satisfy:

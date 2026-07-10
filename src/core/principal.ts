@@ -1,4 +1,5 @@
-// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Agent Passport System — Principal Identity
 // Cryptographic chain from human principal to agent.
 // The principal has their own Ed25519 keypair and endorses agents.

@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 //! Section 6: Decision result (packed binary, 64 bytes).
 //! Section 7: 20 reason codes, exact hex discriminants.
 //!

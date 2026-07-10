@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Attribution — Merkle primitives and beneficiary tracing
 // Report-generator tests (computeAttribution, computeCollaborationAttribution)
 // moved to the gateway at tests/sdk-migrated/core/attribution-reports.test.ts

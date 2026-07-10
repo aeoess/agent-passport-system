@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Bounded Escalation — Module 27 (Fourth Attenuation Invariant)
 // Exception authority is pre-committed, bounded, temporary, challengeable.
 // Escalation grants are delegations — subject to monotonic narrowing.

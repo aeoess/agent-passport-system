@@ -1,4 +1,5 @@
-// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Tests for AgentHealthStatus type shape.
 // deriveHealthStatus moved to the private gateway as part of the AAIF
 // boundary cleanup (specs/AAIF-BOUNDARY-AUDIT.md) — the thresholds were

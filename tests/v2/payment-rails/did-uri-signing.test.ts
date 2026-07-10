@@ -1,4 +1,5 @@
-// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // ══════════════════════════════════════════════════════════════════
 // Phase 4.1 / P12 — DID URI signer_did across all five rails
 // ══════════════════════════════════════════════════════════════════

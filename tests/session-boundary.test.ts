@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // HLC session boundary extraction tests.
 // Reference: Nanook PDR v2.19 §7.6.3, gap audit §3 row 14 / row 29 / §5 rank 5.
 

@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Governance Artifact Provenance — Types
 // Module 21: Sign, version, and verify governance artifacts (floor.yaml, policies, configs)
 // Gap 8B: Monotonic governance — weakening requires higher approval thresholds

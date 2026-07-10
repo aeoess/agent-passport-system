@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Delegation System — Depth Limits, Scope, Spend, Revocation
 // Adversarial scenarios marked with [ADVERSARIAL]
 

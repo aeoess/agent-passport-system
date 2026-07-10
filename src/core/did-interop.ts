@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Agent Passport System — DID Interop (did:key + did:web)
 // Translation layer between APS passports and W3C DID methods.
 // did:key for self-certifying identifiers, did:web for domain-linked.

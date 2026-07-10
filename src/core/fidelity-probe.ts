@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // ══════════════════════════════════════════════════════════════════
 // Fidelity Probe — Measurement Protocol for Substrate Behavioral Drift
 // ══════════════════════════════════════════════════════════════════

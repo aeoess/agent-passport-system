@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Feasibility Linting — Types (Gap 7)
 // Cheap preflight checks that catch 90% of impossible missions
 

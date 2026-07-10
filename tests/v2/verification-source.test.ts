@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Verification-source tests: happy path per method, fail-closed validation,
 // canonicalization stability, and the additive byte-identity hard gate (a
 // receipt whose commitments omit the field signs byte-for-byte as before).

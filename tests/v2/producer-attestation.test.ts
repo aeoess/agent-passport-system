@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Producer-attestation tests: commitment round-trip, hash binding (mutated
 // attestation bytes fail), omission byte-identity on both carriers, and the
 // CPA slot presence/absence behavior including fail-closed shape checks.

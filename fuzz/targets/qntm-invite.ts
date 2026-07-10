@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Fuzz target: decodeQntmInvite (src/interop/qntm-bridge.ts).
 // Exercises cborDecodeMap indirectly (it is module-private, not exported);
 // decodeQntmInvite is the real exported entry point that feeds attacker/

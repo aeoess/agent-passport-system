@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Fuzz target: canonicalize (src/core/canonical.ts).
 // Byte-exactness here is load-bearing for cross-implementation signature
 // verification (SDK, Gateway, Python must all agree byte-for-byte). The

@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Governance Regression Tests — authorization boundary enforcement
 // Tests real behaviors the gateway implements: scope matching,
 // spend limits, cascade revocation, wildcard scope.

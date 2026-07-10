@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 //! Section 5: Action Descriptor wire format.
 //!
 //! Packed canonical binary, total 204 bytes, little-endian for all

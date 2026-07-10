@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 /**
  * L2 / L3a / L3b1 / L3b2 single-thread benchmark runner.
  *

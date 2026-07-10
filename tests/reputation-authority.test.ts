@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Reputation-Gated Authority Tests
 // Coverage for primitive exports in src/core/reputation-authority.ts.
 // Drift analytics, consistency scoring, promotion review creation, and

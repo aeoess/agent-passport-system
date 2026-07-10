@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Delegation Re-anchoring — Module 26 (Gap 0B)
 // Delegations can reference DID identifiers instead of raw public keys.
 // Gateway resolves both during transition (compatibility bridge).

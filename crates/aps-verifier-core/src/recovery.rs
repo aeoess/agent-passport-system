@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 //! Section 11.4: crash recovery floor.
 //!
 //! On verifier restart the durable log is walked entry by entry, the

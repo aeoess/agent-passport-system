@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 /**
  * property-canonical.test.ts
  * Property-based tests (fast-check) for the two canonicalizers:

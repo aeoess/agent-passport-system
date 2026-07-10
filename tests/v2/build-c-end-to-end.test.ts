@@ -1,4 +1,5 @@
-// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Build A + B + C end-to-end integration test.
 //
 // Construct 1000 Attribution Primitives using Build B weights, aggregate

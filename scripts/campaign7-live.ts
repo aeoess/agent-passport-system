@@ -1,4 +1,6 @@
 #!/usr/bin/env npx tsx
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 /**
  * Campaign 7: Live E2E Test — Real Infrastructure
  *

@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // EU AI Act Compliance Types
 // Maps Agent Passport System artifacts to EU AI Act requirements
 

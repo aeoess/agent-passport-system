@@ -1,4 +1,5 @@
-// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @fileoverview OPTIONAL, ISOLATED entry point for remote signer adapters.
  * NOT imported by core. Cloud SDKs are NOT bundled: each adapter takes an

@@ -1,4 +1,5 @@
-// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // ══════════════════════════════════════════════════════════════════
 // Evidence Descriptor builder - re-export of the canonical W2-A1 builder
 // ══════════════════════════════════════════════════════════════════

@@ -1,4 +1,5 @@
-// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license.
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Generate deterministic rotation-attestation fixtures v1
 // Run: npx tsx scripts/generate-rotation-attestation-fixtures.ts
 

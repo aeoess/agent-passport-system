@@ -1,4 +1,5 @@
-// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Agent Attestation Architecture — Phase 1 Tests
 // Covers: types, issuance challenge, runtime attestation verification,
 //         passport grade computation, attestation binding, workspace manifest

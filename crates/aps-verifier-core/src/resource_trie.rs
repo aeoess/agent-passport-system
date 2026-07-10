@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 //! Section 8 and Section 11.1: resource-scope matcher for the compiled
 //! authority hot path.
 //!

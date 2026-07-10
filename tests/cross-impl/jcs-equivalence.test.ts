@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Cross-implementation JCS byte-match harness.
 //
 // For every vector in jcs-test-vectors.json (pinned expected canonical

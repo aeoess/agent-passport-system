@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Agent Passport System — Identity Bridge
 // Import external identity credentials (SPIFFE SVID, OAuth tokens)
 // into APS attestations and delegation parameters.

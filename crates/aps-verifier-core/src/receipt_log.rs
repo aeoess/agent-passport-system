@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 //! Spec §11.4 durable log format.
 //!
 //! Append-only framed entries, shared by all durability modes:

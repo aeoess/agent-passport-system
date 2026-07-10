@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Agent Posture Overlay Tests
 // Posture is a gateway enforcement overlay, NOT passport-embedded.
 // These tests verify the type contract and scope restriction patterns

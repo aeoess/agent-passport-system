@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 /**
  * property-delegation.test.ts
  * Property-based tests for delegation invariants INV-2, INV-3, INV-4, INV-5.

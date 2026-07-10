@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 //! Section 9: `aps_check` hot-path algorithm.
 //!
 //! Order of checks is normative (spec §9, steps 0-13):

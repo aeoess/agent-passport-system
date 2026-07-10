@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 //! Chunk-8 tests: Mode A sink + shared log infrastructure +
 //! aps_check emit integration.
 

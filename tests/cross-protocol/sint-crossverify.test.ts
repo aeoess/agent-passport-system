@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // APS ↔ SINT Cross-Verification Tests
 // Proves interop with SINT Protocol (https://github.com/pshkv/sint-protocol)
 // Mirrors the 9 vectors from pshkv's aps-crossverify.test.ts — zero adapter code.

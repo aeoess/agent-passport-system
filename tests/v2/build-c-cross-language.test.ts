@@ -1,4 +1,5 @@
-// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Build C — cross-language verification against specs/fixtures/build-c/*.json.
 //
 // Each fixture contains the full signed settlement record and a set of

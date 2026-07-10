@@ -1,4 +1,5 @@
-// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Bilateral Completion Receipt — closes the permit-execute-complete loop.
 // The permit receipt proves authorization. The completion receipt proves execution outcome.
 // linkPermitAndCompletion() cryptographically binds the two.

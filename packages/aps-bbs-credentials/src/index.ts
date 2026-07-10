@@ -1,4 +1,5 @@
-// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @fileoverview EXPERIMENTAL, ISOLATED entry point for BBS selective-disclosure
  * scope credentials. NOT imported by core. NOT core-reviewed crypto this round.

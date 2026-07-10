@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Tymofii Pidlisnyi
+# SPDX-License-Identifier: Apache-2.0
 """Generate pinned expected canonical bytes + SHA-256 from rfc8785@0.1.4.
 
 This produces a JSON manifest that the SDK's cross-impl test asserts against

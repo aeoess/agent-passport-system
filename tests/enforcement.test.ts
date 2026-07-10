@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Graduated Enforcement Tests
 // Tests the inline/audit/warn enforcement modes on Values Floor principles
 // Part of the Agent Passport System v1.8.0

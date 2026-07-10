@@ -1,4 +1,5 @@
-// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Scope Version Hash — bilateral receipt pre-commitment (MCP#1763)
 // Both sides commit to a hash of the scope state before evaluation begins,
 // preventing divergent state in bilateral receipts.

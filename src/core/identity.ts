@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Identity Continuity & Key Rotation — Module 22
 // When a principal rotates their key, the OLD key signs the rotation event
 // (proving the old key holder authorized it) and the NEW key also signs

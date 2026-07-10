@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Agent Passport System — A2A Agent Card Types
 // Based on Google's Agent2Agent Protocol (a2aproject/A2A)
 

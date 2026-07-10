@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Temporal decay tests for ScopedReputation.
 // Motivated by Nanook PDR v2.19 §7.6.1 and gap audit §5 rank 1.
 

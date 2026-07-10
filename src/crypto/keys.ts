@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Ed25519 Cryptographic Operations for Agent Passport System
 // Uses Node.js crypto for Ed25519 key generation, signing, and verification
 

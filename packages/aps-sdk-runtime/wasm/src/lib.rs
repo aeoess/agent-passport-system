@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 //! WASM build path for the APS Runtime Passport verifier.
 //!
 //! This is a thin, browser/edge-targetable surface over the same

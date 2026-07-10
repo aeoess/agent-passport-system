@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Policy Conflict Detection Tests (Module 30)
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'

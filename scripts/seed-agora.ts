@@ -1,4 +1,6 @@
 #!/usr/bin/env npx tsx
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Seed the Agent Agora with founding messages
 // Run: npx tsx scripts/seed-agora.ts
 

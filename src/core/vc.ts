@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Agent Passport System — W3C Verifiable Credentials
 // Wraps protocol artifacts as W3C VC Data Model 2.0 credentials.
 // Pure translation layer: no changes to core protocol.

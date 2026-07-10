@@ -1,4 +1,5 @@
-// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Build B — cross-language verification against specs/fixtures/build-b/*.json.
 //
 // Each fixture pins expected canonical output (6-digit decimal strings

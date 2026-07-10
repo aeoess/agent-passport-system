@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 //! Chunk-2 (CompiledAuthority + BitMap + ToolRegistry) tests, updated
 //! for chunk 5's registry-root validation and Result-returning add().
 

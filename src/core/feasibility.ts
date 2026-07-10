@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Feasibility Linting — Module (Gap 7)
 // Cheap preflight checks at delegation-time and task-time
 // Catches 90% of impossible missions with 10% of the effort

@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Intent Architecture Tests (Layer 5)
 // Coverage for all 11 exported functions in src/core/intent.ts
 // Addresses NIGHTWATCH-003 finding NW-PX2-012: zero prior test coverage.

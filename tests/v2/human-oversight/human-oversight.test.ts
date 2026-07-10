@@ -1,4 +1,5 @@
-// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // ══════════════════════════════════════════════════════════════════
 // Human oversight as evidence (W2-B5): tests
 // ══════════════════════════════════════════════════════════════════

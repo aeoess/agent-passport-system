@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 //! APS Runtime Passport local verifier core (Prototype 1, Stream A).
 //!
 //! Implements the spec at `specs/PROTOTYPE-1-RUNTIME-PASSPORT.md`.

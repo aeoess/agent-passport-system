@@ -1,4 +1,5 @@
-// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Fixture cross-verification — every checked-in fixture must verify clean.
 // Cross-implementation byte-match anchor: other SDKs validate against
 // THESE files. Any change to construct/* that breaks fixture signatures

@@ -1,4 +1,5 @@
-// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // x402 payment rail — adapter behavior tests with mock facilitator.
 //
 // No real network I/O; the facilitator /verify and /settle endpoints

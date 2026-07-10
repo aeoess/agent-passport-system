@@ -1,4 +1,5 @@
-// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Moved to @aeoess/gateway on 2026-04-17. See MIGRATION.md.
 // This module was reclassified as product intelligence and relocated out
 // of the public SDK under the AAIF boundary refactor.

@@ -1,4 +1,5 @@
-// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // ══════════════════════════════════════════════════════════════════
 // External action_ref (action-ref-v1-jcs-sha256): Cross-Ecosystem Correlation Key
 // ══════════════════════════════════════════════════════════════════

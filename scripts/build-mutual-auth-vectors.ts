@@ -1,4 +1,5 @@
-// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Generator for mutual-auth conformance vectors.
 // Run: npx tsx scripts/build-mutual-auth-vectors.ts
 

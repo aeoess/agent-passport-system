@@ -1,4 +1,5 @@
-// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Types for the OAuth ID-JAG to APS delegation binding.
 // Pinned to draft-ietf-oauth-identity-assertion-authz-grant-04 (2026-05-21).
 // Stable APS semantics; draft-pinned external protocol semantics.

@@ -1,4 +1,6 @@
 #!/usr/bin/env npx tsx
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 /**
  * APS ↔ qntm Full E2E Roundtrip Test
  * 1. Subscribe to WebSocket

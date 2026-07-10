@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Key Rotation — DID Document + Identity Continuity + Delegation Invalidation
 // Tests cover: identity continuity, planned/emergency rotation, chain verification,
 // state machine, delegation invalidation, backward compatibility, edge cases.

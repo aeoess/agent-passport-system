@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Agent Passport System — Principal Identity Types
 // The human (or organization) behind the agent.
 // Creates a cryptographic chain: Principal → Agent.

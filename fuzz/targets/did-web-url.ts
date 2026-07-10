@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Fuzz target: didWebToUrl (src/core/did-interop.ts).
 // This is the pure, synchronous string-parsing half of the did:web
 // pipeline; resolveDIDWeb (the async half) is deliberately NOT fuzzed

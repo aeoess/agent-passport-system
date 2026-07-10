@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Trust Bootstrap Adapters — API key, GitHub, CI with upgrade path
 // Every adapter creates a FRESH keypair. External credentials are trust
 // inputs, not identity material. Raw credentials NEVER touch the SDK.

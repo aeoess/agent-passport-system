@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 //! Section 4: Runtime Passport wire format.
 //!
 //! JSON, JCS-canonicalized for signing, Ed25519-signed by gateway.

@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Data Source Registration & Access Receipts — Tests (Module 36A)
 // 25 tests, 6 suites
 

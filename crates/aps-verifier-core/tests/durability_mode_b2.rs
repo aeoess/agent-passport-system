@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 //! Chunk-9a Mode B2 (queued group-commit) tests.
 
 mod common;

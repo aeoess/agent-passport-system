@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Agent Passport System — A2A Protocol Bridge
 // Maps Agent Passports to A2A Agent Cards and vice versa.
 // Positions AEOESS as the trust/identity layer underneath A2A.

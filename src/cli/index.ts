@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // ══════════════════════════════════════════════════════════════
 // Agent Social Contract — CLI
 // ══════════════════════════════════════════════════════════════

@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 //! Shared test helpers consumed by the integration tests via
 //! `mod common;`. Each test crate is a separate compilation unit; the
 //! directory form (`common/mod.rs`) keeps cargo from picking this up

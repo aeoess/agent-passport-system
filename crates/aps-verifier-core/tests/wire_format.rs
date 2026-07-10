@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 //! Wire-format round-trip and structural-validation tests, spec §4-§7.
 
 use aps_verifier_core::{

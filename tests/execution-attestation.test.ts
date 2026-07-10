@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Execution Attestation Tests — Checkpoint 3
 // Proves that infrastructure witnesses what ACTUALLY ran, not just what was authorized.
 

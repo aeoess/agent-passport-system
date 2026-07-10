@@ -1,4 +1,5 @@
-// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // OAuth 2.1 / RFC 8693 Token Exchange bridge. Type definitions.
 //
 // This is a bridge and profile only. An APS delegation chain is expressed as

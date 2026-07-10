@@ -1,4 +1,5 @@
-// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Attribution Primitive — public surface.
 //
 // Spec: ATTRIBUTION-PRIMITIVE-v1.1.md. See README/paper for the structural

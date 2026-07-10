@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 Tymofii Pidlisnyi
+# SPDX-License-Identifier: Apache-2.0
 """Deterministic generator for the aps-handle-en-v1 lexicon (2048 words).
 
 Derivation source: the EFF Long Wordlist. Attribution: contains words derived from
@@ -125,7 +127,8 @@ def build():
 
 def emit(final, lex_id):
     rows_ts = [", ".join("'%s'" % w for w in final[i:i + 8]) for i in range(0, 2048, 8)]
-    ts = ["// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.",
+    ts = ["// Copyright (c) 2026 Tymofii Pidlisnyi",
+          "// SPDX-License-Identifier: Apache-2.0",
           "// " + "=" * 66,
           "// Word handles: %s lexicon (2048 words), generated data file" % LEXICON_NAME,
           "// " + "=" * 66,

@@ -30,6 +30,20 @@ npm run test:coverage
 This uses Node's built-in `--experimental-test-coverage` flag, no separate
 coverage tool or third-party account needed.
 
+### Reproducible builds
+
+The TypeScript build is reproducible: given the committed lockfile, `npm ci` followed by `npm run build` produces a bit-for-bit identical `dist/` tree on repeated runs. The toolchain is pinned by `package-lock.json`. To verify, build twice and compare:
+
+```
+npm ci && npm run build
+find dist -type f | sort | xargs sha256sum | sha256sum
+rm -rf dist && npm run build
+find dist -type f | sort | xargs sha256sum | sha256sum
+
+```
+
+The two hashes must match (macOS ships `shasum -a 256` instead of `sha256sum`). Rust components build from the committed `Cargo.lock`.
+
 ### Code Style
 
 - TypeScript throughout
@@ -42,6 +56,28 @@ coverage tool or third-party account needed.
 2. Make your changes with clear, descriptive commits
 3. Ensure all tests pass (`npm test`) and `tsc --noEmit` is clean
 4. Open a pull request with a description of what you changed and why
+
+## Code review
+
+Every external pull request is reviewed by the maintainer before merge. What review checks, in order:
+
+1. The failing test exists and fails without the change (for fixes), or tests cover the new behavior (for features).
+2. The change is minimal: no scope expansion, no drive-by refactors.
+3. `npm test` and `npx tsc --noEmit` pass.
+4. Security-sensitive paths get line-by-line review: anything touching cryptography, canonical byte forms, signature verification, or delegation narrowing. Changes here may also require new conformance or adversarial fixtures before they are acceptable.
+5. Public API changes require documentation updates in the same PR.
+
+Acceptance means all five hold. A change that is useful but out of scope is redirected, not expanded in place.
+
+Beyond the checklist, every PR is evaluated against five questions, applied to every contributor equally:
+
+1. **Identity.** Is the contributor identifiable, with a real GitHub presence?
+2. **Format.** Does the change match existing patterns (module layout, naming, error handling, test density)?
+3. **Substance.** Do tests actually exercise the claimed behavior?
+4. **Scope.** Does the PR stay scoped to its stated purpose?
+5. **Reversibility.** Can the change be reverted cleanly if a downstream issue surfaces?
+
+Substantive declines include the reason. Review comments aim to be concrete and actionable.
 
 ## Reporting Issues
 
@@ -93,20 +129,6 @@ The SDK follows semantic versioning. Changes to public API surface require a maj
 - **Vendored dependencies or large binary artifacts** without specific justification
 - **Named integrations woven into core module exports** — integration code belongs in `INTEGRATION.md`, `examples/`, or a sibling adapter repo
 - **Disabling tests** without a documented reason
-
----
-
-## How review works
-
-Every PR is evaluated against five questions, applied to every contributor equally:
-
-1. **Identity.** Is the contributor identifiable, with a real GitHub presence?
-2. **Format.** Does the change match existing patterns (module layout, naming, error handling, test density)?
-3. **Substance.** Do tests actually exercise the claimed behavior?
-4. **Scope.** Does the PR stay scoped to its stated purpose?
-5. **Reversibility.** Can the change be reverted cleanly if a downstream issue surfaces?
-
-Substantive declines include the reason. Review comments aim to be concrete and actionable.
 
 ---
 

@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Probe identity verification tests.
 // Reference: Nanook PDR v2.19 §5.9, gap audit §3 row 16 / §5 rank 7.
 

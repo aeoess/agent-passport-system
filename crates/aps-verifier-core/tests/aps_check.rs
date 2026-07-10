@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 //! Chunk-7 tests for `aps_check`: spec §9 happy path + every deny
 //! reason + short-circuit ordering + decision integrity.
 

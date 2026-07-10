@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Tests for ecosystem-driven features (Day 44)
 // Items 1-4 from GitHub conversation analysis
 

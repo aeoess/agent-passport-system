@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Canonical JSON — deterministic serialization for signing
 // Sorts keys alphabetically, omits null/undefined in object keys (not arrays).
 // SECURITY NOTE: Null-stripping is intentional and consistent across all APS implementations

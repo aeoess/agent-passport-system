@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Oracle Witness Diversity — Module 28 (Gap 4)
 // Ensures no single oracle controls protocol-critical observations.
 // Multiple independent witnesses attest; consensus requires both

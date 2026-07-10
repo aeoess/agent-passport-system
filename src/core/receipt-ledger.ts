@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Receipt Ledger — Merkle-Committed Audit Primitives (Module 23)
 // ══════════════════════════════════════════════════════════════════════
 // SDK retains: types, ledger factory + addReceipt mutation, Merkle

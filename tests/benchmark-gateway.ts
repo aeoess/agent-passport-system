@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // ══════════════════════════════════════════════════════════════════
 // RESTORED 2026-05-03. Original benchmark moved to private @aeoess/gateway
 // via commit 842cd87 on 2026-04-17 (boundary refactor between protocol

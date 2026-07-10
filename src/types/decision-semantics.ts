@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // ══════════════════════════════════════════════════════════════════
 // Module 37: Decision Semantics & Cross-Engine Interop
 // ══════════════════════════════════════════════════════════════════

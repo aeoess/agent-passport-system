@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 /**
  * delegation-currency-narrowing.test.ts
  * BUILD 1 (Track B candidate): currency narrowing at the delegation layer.

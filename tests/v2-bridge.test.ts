@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 /**
  * APS v2 Bridge Tests
  * Run with: npx tsx --test tests/v2-bridge.test.ts

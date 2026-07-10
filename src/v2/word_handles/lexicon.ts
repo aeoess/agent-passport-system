@@ -1,4 +1,5 @@
-// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // ==================================================================
 // Word handles: aps-handle-en-v1 lexicon (2048 words), generated data file
 // ==================================================================

@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 //! Section 4.4 and Section 11.1: tool registry consistency.
 //!
 //! Wire form is descriptor-hash addressing (`allowed_tools` carries

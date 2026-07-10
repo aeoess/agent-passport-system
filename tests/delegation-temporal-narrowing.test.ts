@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 /**
  * delegation-temporal-narrowing.test.ts
  * Temporal narrowing at the delegation layer.

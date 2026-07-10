@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Data Source Registration & Access Receipts — Module 36A
 // Foundation layer for data contribution tracking.
 // Access is not contribution, and contribution is not value.

@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Confidence breakdown tests for ScopedReputation.
 // Motivated by Nanook PDR v2.19 §6.4 / §7.6.1 and gap audit §3 row 17.
 

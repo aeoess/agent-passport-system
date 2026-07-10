@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Copyright (c) 2026 Tymofii Pidlisnyi
+# SPDX-License-Identifier: Apache-2.0
 # Build the APS runtime WASM verifier (batched check_many surface).
 #
 # Stage 1 (always runs): compile the crate to wasm32-unknown-unknown.

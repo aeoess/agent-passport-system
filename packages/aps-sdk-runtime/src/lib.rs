@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 //! Stream B chunk 3: sink bindings + L2/L3 benchmark surface.
 //!
 //! Adds [`SinkMode`] / [`SinkConfig`] selection to [`load_passport`]

@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Reputation Scoring System
 
 import type { ReputationScore, ReputationEvent } from '../types/passport.js'

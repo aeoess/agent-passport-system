@@ -1,4 +1,5 @@
-// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Conformance harness — runs all standard scenarios against the
 // Nano reference adapter from src/v2/payment-rails/nano.ts and
 // against the canonical fixtures under conformance/fixtures/.

@@ -1,4 +1,5 @@
-// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Attribution Primitive — integration and property-style tests.
 //
 // Covers: Merkle composition under arbitrary axis orderings, batch

@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Values Floor Policy Engine — Three-Signature Chain Tests
 // ActionIntent → PolicyDecision → ActionReceipt
 // Tests cover the full chain, v1 validator, and adversarial scenarios

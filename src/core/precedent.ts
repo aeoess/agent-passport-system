@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Precedent Control — Module 25 (Gap 6)
 // Prevents precedent drift by curating normative precedents.
 // New evaluations must align with normative precedents or explicitly distinguish.

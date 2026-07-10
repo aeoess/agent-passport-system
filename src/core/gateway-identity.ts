@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // ══════════════════════════════════════════════════════════════════
 // Gateway Identity Layer — Wiring DID, Principal, Entity Verification
 // ══════════════════════════════════════════════════════════════════

@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Principal Identity Tests
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'

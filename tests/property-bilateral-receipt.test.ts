@@ -1,4 +1,5 @@
-// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // ══════════════════════════════════════════════════════════════════
 // Property tests for v2.3 bilateral receipt emission
 // (ENFORCEMENT-TRUST-ANCHOR.md Component A — dumb-sink hardening).

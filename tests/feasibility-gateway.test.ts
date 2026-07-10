@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Delegation Linting — Gateway-compatible feasibility checks
 // Only tests the 2 checks that work against current gateway schema:
 // SPEND_TOO_LOW, SCOPE_MISSING. All other checks skipped with reasons.

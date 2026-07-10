@@ -1,4 +1,5 @@
-// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 //
 // Tool Registry & Discovery Integrity — tests
 // Covers: Part 0 hash fix, signed manifests + metadata hash, publisher

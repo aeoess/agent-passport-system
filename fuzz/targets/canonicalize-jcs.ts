@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Fuzz target: canonicalizeJCS (src/core/canonical-jcs.ts), the RFC 8785
 // implementation. Same byte-exactness rationale as canonicalize.ts: this
 // is the strict RFC 8785 path new signatures use, so any divergence from

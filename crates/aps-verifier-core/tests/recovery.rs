@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 //! Chunk-9b tests: crash recovery + SEQUENCE_RECOVERY_INVALID.
 
 mod common;

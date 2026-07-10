@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 //! Round-trip + adversarial-case test stubs, per Section 14 acceptance
 //! criteria of `specs/PROTOTYPE-1-RUNTIME-PASSPORT.md`.
 //!

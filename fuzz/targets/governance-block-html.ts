@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Fuzz target: parseGovernanceBlockFromHTML (src/core/governance-block.ts).
 // Read the full function first: both its script-tag and meta-tag branches
 // wrap their JSON.parse in try/catch and return null on failure, and its

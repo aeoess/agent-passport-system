@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 //! Chunk-5 tests for [`ToolRegistry`] + Merkle root + fetcher mock.
 
 use aps_verifier_core::{

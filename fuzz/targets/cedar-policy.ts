@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Fuzz target: cedarPolicyToTuples (src/adapters/ibac-cedar.ts).
 // Historical finding: the original "when { ... }" constraint parser used a
 // single combined regex (\w+ / \s* / alternation / \S+) vulnerable to

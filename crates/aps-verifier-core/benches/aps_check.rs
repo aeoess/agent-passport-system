@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 //! Benchmark stubs for `aps_check`, per Section 13 of
 //! `specs/PROTOTYPE-1-RUNTIME-PASSPORT.md`.
 //!

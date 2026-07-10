@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 //! Section 11.2: clock-skew tolerance with risk-class-aware soft
 //! degradation.
 //!

@@ -1,4 +1,5 @@
-// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license.
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { generateKeyPair } from '../../../src/crypto/keys.js'

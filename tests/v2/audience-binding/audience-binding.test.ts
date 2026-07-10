@@ -1,4 +1,5 @@
-// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 /**
  * Tests for audience binding: a versioned, additive `aud` slot on delegation
  * and receipt proofs so a passport issued for recipient A is rejected at B.

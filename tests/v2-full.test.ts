@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 /**
  * APS v2 Full Test Suite
  * Delegation Versioning, Outcome Registration, Anomaly Detection,

@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 //! Section 11.3: event durability modes.
 //!
 //! - Mode A (memory-buffered). R0..R1. Async flush, return immediate.

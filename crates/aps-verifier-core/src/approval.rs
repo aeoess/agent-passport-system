@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 //! Section 4 ApprovalRule predicate compiler and matcher.
 //!
 //! Wire form of an approval rule is `{predicate: String, on_match:

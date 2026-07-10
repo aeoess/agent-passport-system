@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Key Rotation & Identity Continuity — Types (Module 22)
 // Tracks Ed25519 key lifecycle: creation, rotation, emergency recovery
 // Each rotation is signed by BOTH old and new keys, proving continuity + possession

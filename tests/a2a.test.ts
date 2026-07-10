@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Tests for A2A Protocol Bridge
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'

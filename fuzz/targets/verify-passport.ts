@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 // Fuzz target: verifyPassport (src/verification/verify.ts).
 // Read the full function first: its documented contract is to NEVER
 // throw, only to return a VerificationResult with valid=false and an

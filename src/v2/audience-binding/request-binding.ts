@@ -1,4 +1,5 @@
-// Copyright 2026 Tymofii Pidlisnyi. Apache-2.0 license. See LICENSE.
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @fileoverview Compose audience binding with the M1 RFC 9421 request-binding
  * profile WITHOUT changing the signed bytes of the HTTP Message Signature.

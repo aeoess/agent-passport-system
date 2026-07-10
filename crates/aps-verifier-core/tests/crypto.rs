@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Tymofii Pidlisnyi
+// SPDX-License-Identifier: Apache-2.0
 //! Chunk-6 tests for the crypto layer: passport signature verification,
 //! action_hash computation, event_mac, ClockAnchor signature.
 
