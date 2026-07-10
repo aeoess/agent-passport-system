@@ -22,10 +22,66 @@ import { canonicalHashJCS } from './canonical-jcs.js'
 import type { ActionIntent } from '../types/policy.js'
 
 /**
+ * Intent shape accepted by computeActionRef. Identical to the ActionIntent
+ * pick except that scopeRequired additionally admits a readonly string array,
+ * the form draft-pidlisnyi-aps-03 §4.1 defines for the native preimage.
+ * ActionIntent itself still types scopeRequired as a single string; widening
+ * that type is outside this module (see types/policy.ts).
+ */
+export type ActionRefIntent =
+  Omit<Pick<ActionIntent, 'agentId' | 'action' | 'createdAt'>, 'action'> & {
+    action: Omit<ActionIntent['action'], 'scopeRequired'> & {
+      scopeRequired: ActionIntent['action']['scopeRequired'] | readonly string[]
+    }
+  }
+
+/**
+ * Compare two strings by Unicode code point, per §4.1's sort requirement.
+ * The JS default sort compares UTF-16 code units, which orders astral-plane
+ * characters (surrogate pairs, lead units 0xD800..0xDBFF) BEFORE code points
+ * in U+E000..U+FFFF; code-point order puts them after. Iterates codePointAt
+ * so surrogate pairs compare as their true code points.
+ */
+function compareCodePoints(a: string, b: string): number {
+  let i = 0
+  let j = 0
+  while (i < a.length && j < b.length) {
+    const ca = a.codePointAt(i) as number
+    const cb = b.codePointAt(j) as number
+    if (ca !== cb) return ca - cb
+    i += ca > 0xffff ? 2 : 1
+    j += cb > 0xffff ? 2 : 1
+  }
+  return (a.length - i) - (b.length - j)
+}
+
+/**
+ * Canonicalize scopeRequired per draft-pidlisnyi-aps-03 §4.1 before hashing:
+ * NFC-normalize each scope string, then sort the array by Unicode code point.
+ * Operates on a copy; never mutates the caller's array. The single-string
+ * form (the current ActionIntent type) is NFC-normalized; null/undefined and
+ * any non-conforming shape (non-string elements) pass through unchanged so
+ * the strict-JCS null-preservation contract and legacy behavior for
+ * out-of-spec input both hold.
+ */
+function canonicalizeScopeRequired(scope: unknown): unknown {
+  if (typeof scope === 'string') return scope.normalize('NFC')
+  if (Array.isArray(scope) && scope.every((s) => typeof s === 'string')) {
+    return (scope as string[]).map((s) => s.normalize('NFC')).sort(compareCodePoints)
+  }
+  return scope
+}
+
+/**
  * Compute the content-addressed request identity for an ActionIntent.
  *
  * Inputs hashed: agentId, action.type, action.scopeRequired, normalized timestamp.
  * Timestamp defaults to intent.createdAt; falls back to current time.
+ *
+ * scopeRequired is canonicalized per draft-pidlisnyi-aps-03 §4.1 before
+ * hashing: each scope string is NFC-normalized and, when scopeRequired is an
+ * array, the array is sorted by Unicode code point. No case folding; scopes
+ * that differ only in case stay distinct.
  *
  * Canonicalization follows RFC 8785 JCS strictly, per draft-pidlisnyi-aps-01
  * §4.1: null/undefined-valued keys are preserved (not stripped) so that two
@@ -38,12 +94,12 @@ import type { ActionIntent } from '../types/policy.js'
  *
  * Returns: lowercase hex SHA-256 digest.
  */
-export function computeActionRef(intent: Pick<ActionIntent, 'agentId' | 'action' | 'createdAt'>): string {
+export function computeActionRef(intent: ActionRefIntent): string {
   const ts = intent.createdAt ?? new Date().toISOString()
   return canonicalHashJCS({
     agentId: intent.agentId,
     actionType: intent.action.type,
-    scopeRequired: intent.action.scopeRequired,
+    scopeRequired: canonicalizeScopeRequired(intent.action.scopeRequired),
     timestamp: normalizeTimestamp(ts),
   })
 }

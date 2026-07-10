@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { computeActionRef, actionRefsMatch } from '../src/core/action-ref.js'
+import { canonicalHashJCS } from '../src/core/canonical-jcs.js'
 import { createActionIntent, createPolicyReceipt, verifyActionIntent } from '../src/core/policy.js'
 import { generateKeyPair } from '../src/crypto/keys.js'
 import type { ActionIntent, PolicyDecision } from '../src/types/policy.js'
@@ -154,4 +156,88 @@ describe('action_ref integration — createActionIntent + createPolicyReceipt', 
     // compoundDigest is undefined by default; actionRef is independently populated
     assert.notEqual(pr.actionRef, pr.compoundDigest)
   })
+})
+
+describe('action_ref scopeRequired canonicalization (draft-pidlisnyi-aps-03 section 4.1)', () => {
+  const at = '2026-07-10T00:00:00Z'
+  const mk = (scopeRequired: string | readonly string[]) => ({
+    agentId: 'agent_canon',
+    action: { type: 'code_execution', target: 't', scopeRequired },
+    createdAt: at,
+  })
+
+  it('multi-scope: unsorted input hashes identically to sorted input, caller array untouched', () => {
+    const unsorted = ['repo:write', 'admin:keys', 'commerce:read']
+    const sorted = ['admin:keys', 'commerce:read', 'repo:write']
+    assert.equal(computeActionRef(mk(unsorted)), computeActionRef(mk(sorted)))
+    // never mutate caller input
+    assert.deepEqual(unsorted, ['repo:write', 'admin:keys', 'commerce:read'])
+  })
+
+  it('NFD and NFC forms of the same scope hash identically', () => {
+    const nfd = 'cafe\u0301:read' // e followed by U+0301 combining acute
+    const nfc = 'caf\u00e9:read' // precomposed U+00E9
+    assert.notEqual(nfd, nfc) // different code points before normalization
+    assert.equal(computeActionRef(mk([nfd])), computeActionRef(mk([nfc])))
+    // the single-string form (current ActionIntent type) is normalized too
+    assert.equal(computeActionRef(mk(nfd)), computeActionRef(mk(nfc)))
+  })
+
+  it('sorts by code point: astral-plane scope orders AFTER a U+E000..U+FFFF scope', () => {
+    const bmpHigh = 'scope:\uFF21' // U+FF21 FULLWIDTH LATIN CAPITAL A, inside U+E000..U+FFFF
+    const astral = 'scope:\u{10400}' // U+10400, UTF-16 surrogate pair 0xD801 0xDC00
+    // Default JS sort compares UTF-16 code units and puts the astral scope
+    // FIRST (0xD801 < 0xFF21); pin that hazard, then pin the correct order.
+    assert.equal([astral, bmpHigh].sort()[0], astral)
+    const correctOrder = canonicalHashJCS({
+      agentId: 'agent_canon',
+      actionType: 'code_execution',
+      scopeRequired: [bmpHigh, astral], // code-point order: U+FF21 < U+10400
+      timestamp: at,
+    })
+    const utf16Order = canonicalHashJCS({
+      agentId: 'agent_canon',
+      actionType: 'code_execution',
+      scopeRequired: [astral, bmpHigh],
+      timestamp: at,
+    })
+    assert.equal(computeActionRef(mk([astral, bmpHigh])), correctOrder)
+    assert.notEqual(computeActionRef(mk([astral, bmpHigh])), utf16Order)
+  })
+
+  it('pre-existing single-scope ASCII refs are unchanged (recorded on main at 61cd79c before this change)', () => {
+    const base = {
+      agentId: 'agent_abc',
+      action: { type: 'code_execution', target: 'repo/file.ts', scopeRequired: 'repo:write' },
+      createdAt: '2026-04-05T03:39:31.000Z',
+    }
+    const pinned: Array<[string, () => string]> = [
+      ['ca07f48910323ed98bab9fed8e3c64d4e1ae7ae670b5b5e9a0e915569daf1fe6', () => computeActionRef(base)],
+      ['ca07f48910323ed98bab9fed8e3c64d4e1ae7ae670b5b5e9a0e915569daf1fe6', () => computeActionRef({ ...base, createdAt: '2026-04-05T03:39:31.001Z' })],
+      ['9653f1d133ebfa650f731cc156bfd6f59bf7a8d2a0fc862208b0954b86f62199', () => computeActionRef({ ...base, createdAt: '2026-04-05T03:39:32.000Z' })],
+      ['0eda4ac4154f3498b42829cd110295fbd30a59ce010619319f1cf577a7d5e641', () => computeActionRef({ ...base, agentId: 'agent_xyz' })],
+      ['ce6baea251d3638bbadb99639cfe6d330c580a45d8403e867cb055fbdf28260d', () => computeActionRef({ ...base, action: { ...base.action, type: 'web_search' } })],
+      ['acf66c590d870e1ebe906321be0195d84468814ac702ba6645cefb36340de32b', () => computeActionRef({ ...base, action: { ...base.action, scopeRequired: 'repo:read' } })],
+      ['0c7573a9f120b37bda5648bea097181bf3261c0739c2f465fb878879c21c4c47', () => computeActionRef({ agentId: 'a', action: { type: 't', target: '-', scopeRequired: null as unknown as string }, createdAt: '2026-05-21T00:00:00Z' })],
+    ]
+    for (const [expected, compute] of pinned) {
+      assert.equal(compute(), expected)
+    }
+  })
+})
+
+describe('action_ref canonical vectors fixture (consumed by the Go port, T2)', () => {
+  const fixture = JSON.parse(
+    readFileSync(new URL('./fixtures/actionref-canonical-vectors.json', import.meta.url), 'utf-8'),
+  )
+  for (const v of fixture.vectors) {
+    it(`vector: ${v.name}`, () => {
+      const ref = computeActionRef({
+        agentId: v.input.agentId,
+        action: { type: v.input.actionType, target: '-', scopeRequired: v.input.scopeRequired },
+        createdAt: v.input.timestamp,
+      })
+      assert.equal(ref, v.action_ref)
+    })
+  }
 })
