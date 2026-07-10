@@ -328,3 +328,75 @@ describe('Compromise Window', () => {
     })
   })
 })
+
+// ══════════════════════════════════════════════════════════════════
+// 4. action_ref slot (FREEZE-VWE F1): additive, byte-preserving
+// ══════════════════════════════════════════════════════════════════
+
+describe('action_ref slot (FREEZE-VWE F1)', () => {
+  const base = {
+    requestingAgentId: 'did:aps:zAgentA',
+    servingAgentId: 'did:aps:zAgentB',
+    outcome: makeOutcome(),
+    requestedAt: '2026-07-10T00:00:00Z',
+    completedAt: '2026-07-10T00:00:01Z',
+    requestingAgentPrivateKey: agentA.privateKey,
+    servingAgentPrivateKey: agentB.privateKey,
+  }
+
+  it('slot-absent receipt signs and serializes byte-identically to the pre-slot body shape', async () => {
+    const { canonicalize } = await import('../src/core/canonical.js')
+    const receipt = createBilateralReceipt(base)
+    const { requestingAgentSignature, servingAgentSignature, gatewaySignature, ...body } = receipt
+
+    const canonical = canonicalize(body)
+    // The slot leaves no trace in the signed bytes when absent.
+    assert.ok(!canonical.includes('action_ref'))
+    // Byte-for-byte equal to the exact body key set the builder produced
+    // BEFORE the slot existed (canonicalize strips undefined-valued keys).
+    const preSlotBody = {
+      receiptId: receipt.receiptId,
+      version: receipt.version,
+      requestingAgentId: receipt.requestingAgentId,
+      servingAgentId: receipt.servingAgentId,
+      delegationId: undefined,
+      outcome: receipt.outcome,
+      requestedAt: receipt.requestedAt,
+      completedAt: receipt.completedAt,
+      agreedAt: receipt.agreedAt,
+      evidenceCommitments: undefined,
+      aud: undefined,
+      fieldDisclosureProfile: undefined,
+    }
+    assert.equal(canonical, canonicalize(preSlotBody))
+    // Both signatures verify over those unchanged bytes.
+    const v = verifyBilateralReceipt(receipt, agentA.publicKey, agentB.publicKey)
+    assert.equal(v.valid, true)
+    // And the wire serialization carries no action_ref key either.
+    assert.ok(!JSON.stringify(receipt).includes('action_ref'))
+  })
+
+  it('carries action_ref inside the signed body and verifies', () => {
+    const ref = 'a'.repeat(64)
+    const receipt = createBilateralReceipt({ ...base, action_ref: ref })
+    assert.equal(receipt.action_ref, ref)
+    const v = verifyBilateralReceipt(receipt, agentA.publicKey, agentB.publicKey)
+    assert.equal(v.valid, true)
+  })
+
+  it('tampering with action_ref after signing breaks both signatures', () => {
+    const receipt = createBilateralReceipt({ ...base, action_ref: 'a'.repeat(64) })
+    const tampered = { ...receipt, action_ref: 'b'.repeat(64) }
+    const v = verifyBilateralReceipt(tampered, agentA.publicKey, agentB.publicKey)
+    assert.equal(v.valid, false)
+    assert.equal(v.requestingAgentSignatureValid, false)
+    assert.equal(v.servingAgentSignatureValid, false)
+  })
+
+  it('adding action_ref to a receipt signed without it breaks both signatures', () => {
+    const receipt = createBilateralReceipt(base)
+    const upgraded = { ...receipt, action_ref: 'a'.repeat(64) }
+    const v = verifyBilateralReceipt(upgraded, agentA.publicKey, agentB.publicKey)
+    assert.equal(v.valid, false)
+  })
+})
