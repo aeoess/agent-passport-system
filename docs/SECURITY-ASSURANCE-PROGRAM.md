@@ -37,3 +37,23 @@ regression seeds.
 ## Program continuity and review
 
 The program is reviewed with each dated security review, at least annually.
+
+## Program procedures
+
+- Required competency for the security role: vulnerability triage against the
+  threat model, dependency audit tooling, and the release gate. Assessed
+  competence is evidenced above.
+- Awareness record, sole participant: the maintainer acknowledges this program
+  and its location, its objective (no known unaddressed vulnerability ships),
+  the contribution expected (run the gates on every release), and that failure
+  to follow it blocks release.
+- Program metrics: open alert count and age, time to acknowledge and time to
+  fix against the 48 hour and 7 day targets, and fuzzing findings per cycle.
+- Vulnerability records: Dependabot alert history, npm audit output in the
+  release gate, and the dated security reviews record identified
+  vulnerabilities and their disposition, including determinations that no
+  action was required.
+- Each dated security review records what changed since the prior one; that
+  series is the evidence of periodic review and continuous improvement.
+- Conformance is tracked against the ISO/IEC 18974 self-certification
+  checklist; the completed checklist is retained at docs/openchain/.
