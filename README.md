@@ -5,6 +5,7 @@
 [![tests](https://img.shields.io/badge/tests-4097%20passing-brightgreen)](https://github.com/aeoess/agent-passport-system)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18749779.svg)](https://doi.org/10.5281/zenodo.18749779)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/13536/badge)](https://www.bestpractices.dev/projects/13536)
+[![OpenSSF Baseline](https://www.bestpractices.dev/projects/13536/baseline)](https://www.bestpractices.dev/projects/13536)
 [![coverage](https://img.shields.io/badge/coverage-97%25%20lines%20%7C%2089%25%20branches-brightgreen)](https://github.com/aeoess/agent-passport-system/blob/main/CONTRIBUTING.md#running-tests)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/aeoess/agent-passport-system/badge)](https://scorecard.dev/viewer/?uri=github.com/aeoess/agent-passport-system)
 
@@ -219,6 +220,17 @@ npx agent-passport-system-mcp
 ```
 
 20 essential tools by default. Set `APS_PROFILE=full` for all 150 tools. Profiles: essential, identity, governance, coordination, commerce, data, gateway, comms, minimal, full.
+
+## Project codebases
+
+The Agent Passport System spans these repositories:
+
+- [agent-passport-system](https://github.com/aeoess/agent-passport-system): protocol and TypeScript reference implementation (this repo)
+- [agent-passport-python](https://github.com/aeoess/agent-passport-python): Python SDK
+- [agent-passport-mcp](https://github.com/aeoess/agent-passport-mcp): MCP server binding
+- [aps-conformance-suite](https://github.com/aeoess/aps-conformance-suite): cross-implementation conformance fixtures
+- [agent-governance-vocabulary](https://github.com/aeoess/agent-governance-vocabulary): open vocabulary registry and crosswalks
+- [aps-web](https://github.com/agent-passport-system/aps-web): the agent-passport.org website
 
 ## Ecosystem composition
 
