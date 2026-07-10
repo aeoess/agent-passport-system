@@ -1,0 +1,126 @@
+{
+  "manifest": {
+    "profile": "aps:evidence-bundle:v1",
+    "created_at": "2026-07-10T00:00:00Z",
+    "members": [
+      {
+        "member_id": "passport-1",
+        "member_type": "passport",
+        "digest": "3247e2a5402ffe4122f6e153b250a241cb19b73c1eab6afacc59bc358dbb6ca7"
+      },
+      {
+        "member_id": "bilateral-local",
+        "member_type": "bilateral_receipt",
+        "digest": "59e04e1861b516831ce4c2ba4fa8d7182b38bf0bac1f728f2e9c3499085bc130"
+      },
+      {
+        "member_id": "bilateral-counterparty",
+        "member_type": "bilateral_receipt",
+        "digest": "ae1a7219a85ab1b2055b7abf608ed14a36f1fcb8265cc8e6de53473d3bf79072"
+      },
+      {
+        "member_id": "note-1",
+        "member_type": "other",
+        "digest": "8a7389fa4f50d85c12f022f6d5523575382177648e9b63ba9fdb3473cad34023"
+      }
+    ],
+    "merkle_root": "60571c150d8a0623050fb4cf473592c13d02e1dee541a52f1eda4d6776d6f051",
+    "signature": "ceed7f332db3fbbad7474912ad13a1a783d56235a04dd3250353d19928820382922bf02b21f7b3c6b024025b0dc7901c2e4906405ef3de025586c14a40a66d09"
+  },
+  "signer_public_key": "47a9be6aeeda27cb18a4e84b9bd2c87085cff8d8b98fce08bc30bf758faf09df",
+  "members": [
+    {
+      "member_id": "passport-1",
+      "member_type": "passport",
+      "payload": {
+        "passport": {
+          "version": "1.0.0",
+          "agentId": "fixture-agent-t8",
+          "agentName": "fixture-agent-t8",
+          "ownerAlias": "sprint-vwe-fixtures",
+          "publicKey": "d937b269ad814f6871b45a3a0c44ee6315e01cb1b394f958108bb64e7c0ee12e",
+          "mission": "Static fixture for evidence-bundle tests",
+          "capabilities": [
+            "code_execution"
+          ],
+          "runtime": {
+            "platform": "node",
+            "models": [
+              "fixture"
+            ]
+          },
+          "createdAt": "2026-07-10T07:48:01.464Z",
+          "expiresAt": "2036-01-01T00:00:00.000Z",
+          "notBefore": "2026-07-10T07:48:01.464Z",
+          "voteWeight": 2,
+          "reputation": {
+            "overall": 1,
+            "collaborationsCompleted": 0,
+            "proposalsSubmitted": 0,
+            "proposalsApproved": 0,
+            "tokensContributed": 0,
+            "tasksCompleted": 0,
+            "lastUpdated": "2026-07-10T07:48:01.465Z"
+          },
+          "delegations": [],
+          "metadata": {}
+        },
+        "signature": "5246f29cd8689956fb3595b47ba0ace06994d5c17c29518ae2feb6652ce11c76d04cb0906b37336c04f465aeca2d73cff76587cff6eed338d7f27d88fe6f460b",
+        "signedAt": "2026-07-10T07:48:01.466Z"
+      }
+    },
+    {
+      "member_id": "bilateral-local",
+      "member_type": "bilateral_receipt",
+      "payload": {
+        "receiptId": "br-fixture-1",
+        "version": "1.0",
+        "requestingAgentId": "fixture-agent-t8",
+        "servingAgentId": "fixture-counterparty",
+        "outcome": {
+          "toolName": "echo",
+          "requestHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "responseHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "status": "success",
+          "summary": "fixture interaction"
+        },
+        "requestedAt": "2026-07-10T00:00:00Z",
+        "completedAt": "2026-07-10T00:00:01Z",
+        "agreedAt": "2026-07-10T00:00:02Z",
+        "requestingAgentSignature": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "servingAgentSignature": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "action_ref": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "member_id": "bilateral-counterparty",
+      "member_type": "bilateral_receipt",
+      "payload": {
+        "receiptId": "br-fixture-2",
+        "version": "1.0",
+        "requestingAgentId": "fixture-agent-t8",
+        "servingAgentId": "fixture-counterparty",
+        "outcome": {
+          "toolName": "echo",
+          "requestHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "responseHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "status": "success",
+          "summary": "fixture interaction"
+        },
+        "requestedAt": "2026-07-10T00:00:00Z",
+        "completedAt": "2026-07-10T00:00:01Z",
+        "agreedAt": "2026-07-10T00:00:02Z",
+        "requestingAgentSignature": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "servingAgentSignature": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "action_ref": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "member_id": "note-1",
+      "member_type": "other",
+      "payload": {
+        "note": "uncommitted context attachment"
+      }
+    }
+  ]
+}
