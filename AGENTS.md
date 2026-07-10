@@ -56,3 +56,6 @@ Before adding any new module, ask: "Is this a protocol primitive, or product int
 - Never publish to npm. Publishing requires Touch ID from the human maintainer.
 - Do not open issues on other repos on behalf of this project without explicit human approval per issue.
 - If you find yourself about to execute a bulk operation (mass issue filing, mass PR opens, mass file deletions), stop and surface the plan to a human first. The canonical reference case is the 60-issue spray that got the project MCP-blocked on Apr 7.
+
+## Verify artifacts
+Browser inspector at https://agent-passport.org/verify.html: drop a receipt or evidence bundle for a per-axis claim-state report. Verification runs locally in the page; nothing is uploaded. The CLI equivalent is the SDK verify-bundle command.

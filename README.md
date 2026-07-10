@@ -11,6 +11,8 @@
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/aeoess/agent-passport-system/badge)](https://scorecard.dev/viewer/?uri=github.com/aeoess/agent-passport-system)
 [![APS conformance](https://img.shields.io/endpoint?url=https%3A%2F%2Fgateway.aeoess.com%2Fapi%2Fv1%2Fpublic%2Fconformance%2Fbadge)](https://github.com/aeoess/aps-conformance-suite)
 
+Verify any receipt or evidence bundle in the browser: https://agent-passport.org/verify.html (per-axis claim-state report; runs locally, nothing is uploaded).
+
 > **For AI agents:** visit [agent-passport.org/llms.txt](https://agent-passport.org/llms.txt) for machine-readable docs.
 
 > **Valid signature. Hijacked intent. Denied by APS.**
