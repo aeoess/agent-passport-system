@@ -1,0 +1,159 @@
+{
+  "manifest": {
+    "profile": "aps:evidence-bundle:v1",
+    "created_at": "2026-07-10T08:14:51.471Z",
+    "members": [
+      {
+        "member_id": "delegation-root",
+        "member_type": "delegation",
+        "digest": "2270c926398f5fe1ba67463345e96b6d2ef08d68b9df3ce3842296089dbfbff1"
+      },
+      {
+        "member_id": "delegation-sub",
+        "member_type": "delegation",
+        "digest": "fa31f1179f048406ad26fd4deb9d37fcc411acc59d9d915a4691baa36f6ee722"
+      },
+      {
+        "member_id": "receipt-authorized",
+        "member_type": "bilateral_receipt",
+        "digest": "8e28eaa255dfb3e7a291fc2fe5beef6176648e2f1a37f1be30da1b170f425d2d"
+      },
+      {
+        "member_id": "receipt-late-action",
+        "member_type": "action_receipt",
+        "digest": "7809a3123ebaa4b6355eec2cfa5350287dc7e4c5e8f008ad37d610e6328a3ac8"
+      },
+      {
+        "member_id": "revocation-check-stale",
+        "member_type": "revocation_observation",
+        "digest": "4c8524027583a61892a2911dde52a00f42419351a5b4ba7d6c9bf71180313d86"
+      }
+    ],
+    "merkle_root": "29a93a78e87e26113f7721576bef287abe9d5e96b7db0a18f423f224319f3d62",
+    "signature": "132dda40345db59a67e593e97b9d12c5174a85790670a70134d0fbaa7fc4acbd5d38d2b1e5cbc3e9dd51c0ce05bca9e1763bda2aea2663dd2a9d79a1c148e006"
+  },
+  "signer_public_key": "4ffe66d9ebc70daff7121be0e3fa29aff09f8402d5f8f1ce167c772fcfdd0e44",
+  "members": [
+    {
+      "member_id": "delegation-root",
+      "member_type": "delegation",
+      "payload": {
+        "id": "14830b94-7f6a-4a28-9426-2e764b7914f2",
+        "version": 1,
+        "supersedes": null,
+        "supersession_justification": null,
+        "delegator": "332c95dfc856f344354f8d193b8d67f0165c07f9dd36782acf6c7eaa4457f61e",
+        "delegatee": "did:aps:zWorkflowRequester",
+        "scope": [
+          "commerce:read",
+          "commerce:write",
+          "repo:write"
+        ],
+        "policy_context": {
+          "policy_version": "2.0",
+          "values_floor_version": "1.0",
+          "trust_epoch": 1,
+          "issuer_id": "principal-demo",
+          "created_at": "2026-07-10T08:14:51.466Z",
+          "valid_from": "2026-07-10T08:14:51.466Z",
+          "valid_until": "2026-07-10T09:14:51.466Z"
+        },
+        "status": "active",
+        "renewal_reason": null,
+        "expansion_reviewer": null,
+        "expansion_review_sig": null,
+        "assurance_class": "mechanically_enforceable",
+        "signature": "c7856f9b6d974761398cf24feca36c8460377ded6bb0ed3e48374f30c7be5c2d3c14eb1c2e35917b4cc5e45ed303861f74c6fd9537121d503a6c01a2d596720e"
+      }
+    },
+    {
+      "member_id": "delegation-sub",
+      "member_type": "delegation",
+      "payload": {
+        "id": "18fe3d5c-f235-4162-a6e9-4d305aa27aeb",
+        "version": 1,
+        "supersedes": null,
+        "supersession_justification": null,
+        "delegator": "ffe49ed3a7ab398913c1c0f0f66ffd27f6721e41dc9d5b6887b45f975b645027",
+        "delegatee": "did:aps:zWorkflowServer",
+        "scope": [
+          "commerce:read"
+        ],
+        "policy_context": {
+          "policy_version": "2.0",
+          "values_floor_version": "1.0",
+          "trust_epoch": 1,
+          "issuer_id": "principal-demo",
+          "created_at": "2026-07-10T08:14:51.468Z",
+          "valid_from": "2026-07-10T08:14:51.468Z",
+          "valid_until": "2026-07-10T09:14:51.468Z"
+        },
+        "status": "active",
+        "renewal_reason": null,
+        "expansion_reviewer": null,
+        "expansion_review_sig": null,
+        "assurance_class": "mechanically_enforceable",
+        "signature": "cefb443ba7443b116cbb4caacf9443cae351cb1c16eab98cfd62f5ce15b4891fc9f09adb428db19a9f5ad09564765b8b42e43ddaa4bc0ae321c5990550f8b303"
+      }
+    },
+    {
+      "member_id": "receipt-authorized",
+      "member_type": "bilateral_receipt",
+      "payload": {
+        "receiptId": "bfc0c405-3ef8-4273-bce7-dd42935586b2",
+        "version": "1.0",
+        "requestingAgentId": "did:aps:zWorkflowRequester",
+        "servingAgentId": "did:aps:zWorkflowServer",
+        "outcome": {
+          "toolName": "commerce_preflight",
+          "requestHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "responseHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "status": "success",
+          "summary": "preflight authorized"
+        },
+        "requestedAt": "2026-07-10T04:00:00Z",
+        "completedAt": "2026-07-10T04:00:01Z",
+        "agreedAt": "2026-07-10T08:14:51.468Z",
+        "aud": {
+          "profile": "aps:audience-binding:v1",
+          "recipients": [
+            "did:aps:zWorkflowRequester",
+            "did:aps:zWorkflowServer"
+          ]
+        },
+        "action_ref": "a26489e9661e14eff610e7f98eb5031d5b62111a09c7b75747cf4e4262953c0e",
+        "requestingAgentSignature": "84a16f8fa4092eb81800f922b20df0c015d761d4e1e98b2c5825dbfcfd47d7fd5fe4503d08841dc5ef0b9cb4f4db628760a26cd897efd04385b478e4e2e08601",
+        "servingAgentSignature": "89c624c3f156e626a56915cb1b9bc65d0622568c8985db7dc81d77b410a03c587cfc6a8080e33fc292fca9f488ad3b0e2786beb25ca609c91006419f07ef0b08"
+      }
+    },
+    {
+      "member_id": "receipt-late-action",
+      "member_type": "action_receipt",
+      "payload": {
+        "action_ref": "aa462098bdf72d12cc166a2f6cb10a80422ed4e0d79327e819e29d2cc5cb820e",
+        "agentId": "did:aps:zWorkflowRequester",
+        "type": "commerce_preflight",
+        "executedAt": "2026-07-10T05:30:00Z"
+      }
+    },
+    {
+      "member_id": "revocation-check-stale",
+      "member_type": "revocation_observation",
+      "payload": {
+        "authority_ref": "delegation-sub",
+        "status_source": {
+          "kind": "source",
+          "id": "https://revocation.example/status"
+        },
+        "observed_at": "2026-07-01T00:00:00.000Z",
+        "maximum_staleness_ms": 60000,
+        "decision": {
+          "effect": "allow"
+        },
+        "observer_key": "332c95dfc856f344354f8d193b8d67f0165c07f9dd36782acf6c7eaa4457f61e",
+        "observer_key_id": "ed25519:332c95dfc856f344",
+        "signature": "9397b613c9459f4a34512fe593dba84921a2e9a98dc940b9c548e2e5443c6b10caac0f7da9670a64576a05a1533110f848c89e647aede95262f663b1cd595d03"
+      }
+    }
+  ]
+}

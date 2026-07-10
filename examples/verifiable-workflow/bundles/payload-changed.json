@@ -1,0 +1,220 @@
+{
+  "manifest": {
+    "profile": "aps:evidence-bundle:v1",
+    "created_at": "2026-07-10T08:14:51.470Z",
+    "members": [
+      {
+        "member_id": "delegation-root",
+        "member_type": "delegation",
+        "digest": "2270c926398f5fe1ba67463345e96b6d2ef08d68b9df3ce3842296089dbfbff1"
+      },
+      {
+        "member_id": "delegation-sub",
+        "member_type": "delegation",
+        "digest": "fa31f1179f048406ad26fd4deb9d37fcc411acc59d9d915a4691baa36f6ee722"
+      },
+      {
+        "member_id": "receipt-local",
+        "member_type": "bilateral_receipt",
+        "digest": "8e28eaa255dfb3e7a291fc2fe5beef6176648e2f1a37f1be30da1b170f425d2d"
+      },
+      {
+        "member_id": "receipt-counterparty",
+        "member_type": "bilateral_receipt",
+        "digest": "07b32edcf294de9271769f5f5be0140745d4bfe995c81b6715b97facbc2e5c3d"
+      },
+      {
+        "member_id": "pair-verdict",
+        "member_type": "bilateral_pair_verdict",
+        "digest": "79343fa3afc12cd37ad383b8862aa0376b02f7f01f090e66d3305c2d57f46c4f"
+      },
+      {
+        "member_id": "revocation-check",
+        "member_type": "revocation_observation",
+        "digest": "d3a16db73b5e7e946d12e1de6bd1c56cdd3834f9bc24d4a3302b9b801ba18ce5"
+      }
+    ],
+    "merkle_root": "0261f0070ecadc7da7565f82f838782af53eef9b6d567fe7ebe4d6640c883099",
+    "signature": "3d6e555e5c9c31512a413b904d3c4d4015fc4da8c53a09cf02d300fd9bd9f37a21841e883f9867ba08b33484c3f147beca847722d4adc3d4dfbd61b04891d600"
+  },
+  "signer_public_key": "4ffe66d9ebc70daff7121be0e3fa29aff09f8402d5f8f1ce167c772fcfdd0e44",
+  "members": [
+    {
+      "member_id": "delegation-root",
+      "member_type": "delegation",
+      "payload": {
+        "id": "14830b94-7f6a-4a28-9426-2e764b7914f2",
+        "version": 1,
+        "supersedes": null,
+        "supersession_justification": null,
+        "delegator": "332c95dfc856f344354f8d193b8d67f0165c07f9dd36782acf6c7eaa4457f61e",
+        "delegatee": "did:aps:zWorkflowRequester",
+        "scope": [
+          "commerce:read",
+          "commerce:write",
+          "repo:write"
+        ],
+        "policy_context": {
+          "policy_version": "2.0",
+          "values_floor_version": "1.0",
+          "trust_epoch": 1,
+          "issuer_id": "principal-demo",
+          "created_at": "2026-07-10T08:14:51.466Z",
+          "valid_from": "2026-07-10T08:14:51.466Z",
+          "valid_until": "2026-07-10T09:14:51.466Z"
+        },
+        "status": "active",
+        "renewal_reason": null,
+        "expansion_reviewer": null,
+        "expansion_review_sig": null,
+        "assurance_class": "mechanically_enforceable",
+        "signature": "c7856f9b6d974761398cf24feca36c8460377ded6bb0ed3e48374f30c7be5c2d3c14eb1c2e35917b4cc5e45ed303861f74c6fd9537121d503a6c01a2d596720e"
+      }
+    },
+    {
+      "member_id": "delegation-sub",
+      "member_type": "delegation",
+      "payload": {
+        "id": "18fe3d5c-f235-4162-a6e9-4d305aa27aeb",
+        "version": 1,
+        "supersedes": null,
+        "supersession_justification": null,
+        "delegator": "ffe49ed3a7ab398913c1c0f0f66ffd27f6721e41dc9d5b6887b45f975b645027",
+        "delegatee": "did:aps:zWorkflowServer",
+        "scope": [
+          "commerce:read"
+        ],
+        "policy_context": {
+          "policy_version": "2.0",
+          "values_floor_version": "1.0",
+          "trust_epoch": 1,
+          "issuer_id": "principal-demo",
+          "created_at": "2026-07-10T08:14:51.468Z",
+          "valid_from": "2026-07-10T08:14:51.468Z",
+          "valid_until": "2026-07-10T09:14:51.468Z"
+        },
+        "status": "active",
+        "renewal_reason": null,
+        "expansion_reviewer": null,
+        "expansion_review_sig": null,
+        "assurance_class": "mechanically_enforceable",
+        "signature": "cefb443ba7443b116cbb4caacf9443cae351cb1c16eab98cfd62f5ce15b4891fc9f09adb428db19a9f5ad09564765b8b42e43ddaa4bc0ae321c5990550f8b303"
+      }
+    },
+    {
+      "member_id": "receipt-local",
+      "member_type": "bilateral_receipt",
+      "payload": {
+        "receiptId": "bfc0c405-3ef8-4273-bce7-dd42935586b2",
+        "version": "1.0",
+        "requestingAgentId": "did:aps:zWorkflowRequester",
+        "servingAgentId": "did:aps:zWorkflowServer",
+        "outcome": {
+          "toolName": "commerce_preflight",
+          "requestHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "responseHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "status": "success",
+          "summary": "preflight authorized"
+        },
+        "requestedAt": "2026-07-10T04:00:00Z",
+        "completedAt": "2026-07-10T04:00:01Z",
+        "agreedAt": "2026-07-10T08:14:51.468Z",
+        "aud": {
+          "profile": "aps:audience-binding:v1",
+          "recipients": [
+            "did:aps:zWorkflowRequester",
+            "did:aps:zWorkflowServer"
+          ]
+        },
+        "action_ref": "a26489e9661e14eff610e7f98eb5031d5b62111a09c7b75747cf4e4262953c0e",
+        "requestingAgentSignature": "84a16f8fa4092eb81800f922b20df0c015d761d4e1e98b2c5825dbfcfd47d7fd5fe4503d08841dc5ef0b9cb4f4db628760a26cd897efd04385b478e4e2e08601",
+        "servingAgentSignature": "89c624c3f156e626a56915cb1b9bc65d0622568c8985db7dc81d77b410a03c587cfc6a8080e33fc292fca9f488ad3b0e2786beb25ca609c91006419f07ef0b08"
+      }
+    },
+    {
+      "member_id": "receipt-counterparty",
+      "member_type": "bilateral_receipt",
+      "payload": {
+        "receiptId": "29a5ea57-3c01-4de2-a58b-38bd91f2c3b2",
+        "version": "1.0",
+        "requestingAgentId": "did:aps:zWorkflowRequester",
+        "servingAgentId": "did:aps:zWorkflowServer",
+        "outcome": {
+          "toolName": "commerce_preflight",
+          "requestHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "responseHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "status": "success",
+          "summary": "preflight authorized"
+        },
+        "requestedAt": "2026-07-10T04:00:00Z",
+        "completedAt": "2026-07-10T04:00:01Z",
+        "agreedAt": "2026-07-10T08:14:51.469Z",
+        "aud": {
+          "profile": "aps:audience-binding:v1",
+          "recipients": [
+            "did:aps:zWorkflowRequester",
+            "did:aps:zWorkflowServer"
+          ]
+        },
+        "action_ref": "a26489e9661e14eff610e7f98eb5031d5b62111a09c7b75747cf4e4262953c0e",
+        "requestingAgentSignature": "8a23f81b04e38dd6fad10299635075a39571c2fd3b47f0356cae0dd35c99780f194c5a402a8c8a8d32081ddb4d2a68187dfe5305c6fde95729ed0c056f056706",
+        "servingAgentSignature": "ee937caebac1a4dfe00f82a30bfb97ef0a506b2be7c67cb4ac932dd3e65915a442b782e931cd3d91688f4b0be557c269d55fe67e5e56172ddce69dc47fa24203"
+      }
+    },
+    {
+      "member_id": "pair-verdict",
+      "member_type": "bilateral_pair_verdict",
+      "payload": {
+        "status": "mismatch",
+        "mismatches": [
+          "payload_changed"
+        ],
+        "detail": {
+          "payload_changed": "outcome.requestHash/responseHash differ between copies"
+        },
+        "audience": {
+          "counterpartyCopyToSelf": {
+            "status": "pass",
+            "reason": "audience_match",
+            "recipients": [
+              "did:aps:zWorkflowRequester",
+              "did:aps:zWorkflowServer"
+            ],
+            "checkedAgainst": "did:aps:zWorkflowRequester",
+            "message": "Relying party is a named recipient of this proof."
+          },
+          "localCopyToCounterparty": {
+            "status": "pass",
+            "reason": "audience_match",
+            "recipients": [
+              "did:aps:zWorkflowRequester",
+              "did:aps:zWorkflowServer"
+            ],
+            "checkedAgainst": "did:aps:zWorkflowServer",
+            "message": "Relying party is a named recipient of this proof."
+          }
+        },
+        "constraintFailures": []
+      }
+    },
+    {
+      "member_id": "revocation-check",
+      "member_type": "revocation_observation",
+      "payload": {
+        "authority_ref": "delegation-sub",
+        "status_source": {
+          "kind": "source",
+          "id": "https://revocation.example/status"
+        },
+        "observed_at": "2026-07-10T08:14:51.469Z",
+        "maximum_staleness_ms": 3600000,
+        "decision": {
+          "effect": "allow"
+        },
+        "observer_key": "332c95dfc856f344354f8d193b8d67f0165c07f9dd36782acf6c7eaa4457f61e",
+        "observer_key_id": "ed25519:332c95dfc856f344",
+        "signature": "0d6e1bcb7c8a996d6965bd89aef20ab97356070d18f25ad1f34c6900cef292a9dc729a2edea42c56940fedadb1290db228521132b7dee568555ae45d49d66f06"
+      }
+    }
+  ]
+}
