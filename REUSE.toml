@@ -1,0 +1,7 @@
+version = 1
+
+[[annotations]]
+path = ["**/*.md", "**/*.json", "**/*.yml", "**/*.yaml", "**/*.toml", "**/*.txt", "**/*.cff", "**/*.tex", "**/*.html", "**/*.xml", "**/*.lock", "**/*.smt2", "**/*.svg", "**/*.snap", "**/.gitignore", "**/.npmignore", ".github/**", "docs/**", "specs/**", "papers/**", "conformance/**", "examples/**", "values/**", "commons/**", "candidate/**", "fuzz/corpus/**", "fuzz/**/*.options", "llms.txt", "NOTICE", ".clusterfuzzlite/**", ".dockerignore", ".gitleaksignore", "_archive/**", "autoresearch/**", "benchmarks/**", "fixtures/**", "fuzz/scripts/**", "integrations/**", "**/Dockerfile", "**/*.sh", "interop/**", "scripts/**/*.mjs", "**/fixtures/**"]
+precedence = "closest"
+SPDX-FileCopyrightText = "2026 Tymofii Pidlisnyi"
+SPDX-License-Identifier = "Apache-2.0"
