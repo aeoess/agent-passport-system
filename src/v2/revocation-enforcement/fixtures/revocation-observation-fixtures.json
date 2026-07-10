@@ -1,0 +1,94 @@
+{
+  "description": "T7 / FREEZE-VWE F4 fixtures: one observation per derived outcome label. The label and freshness_result are TEST INPUTS for classifyObservation; neither is part of the signed record. freshness_result is null where classification needs no context (an observed revocation decides from the record alone). Timestamps are fixed for determinism; signatures are produced at test time by the local Signer, not stored here.",
+  "fixtures": [
+    {
+      "name": "revoked-blocked-set-sourced",
+      "label": "revoked_blocked",
+      "freshness_result": null,
+      "observation": {
+        "authority_ref": "dlg_t7_0001",
+        "status_source": { "kind": "set", "jti": "set_jti_0001" },
+        "revoked_at": "2026-07-10T11:59:30.000Z",
+        "observed_at": "2026-07-10T12:00:00.000Z",
+        "maximum_staleness_ms": 60000,
+        "affected_scope": "cascade:origin=dlg_t7_0001;txn=txn_t7_a",
+        "decision": { "effect": "deny" }
+      }
+    },
+    {
+      "name": "fresh-valid-source-consult",
+      "label": "fresh_valid",
+      "freshness_result": "fresh",
+      "observation": {
+        "authority_ref": "dlg_t7_0002",
+        "status_source": { "kind": "source", "id": "crl://registry.example/v1" },
+        "observed_at": "2026-07-10T12:01:00.000Z",
+        "maximum_staleness_ms": 60000,
+        "decision": { "effect": "allow" }
+      }
+    },
+    {
+      "name": "stale-denied-source-consult",
+      "label": "stale_denied",
+      "freshness_result": "stale",
+      "observation": {
+        "authority_ref": "dlg_t7_0003",
+        "status_source": { "kind": "source", "id": "crl://registry.example/v1" },
+        "observed_at": "2026-07-10T12:02:00.000Z",
+        "maximum_staleness_ms": 60000,
+        "decision": { "effect": "deny" }
+      }
+    },
+    {
+      "name": "stale-permitted-downgraded",
+      "label": "stale_permitted",
+      "freshness_result": "stale",
+      "observation": {
+        "authority_ref": "dlg_t7_0004",
+        "status_source": { "kind": "source", "id": "crl://registry.example/v1" },
+        "observed_at": "2026-07-10T12:03:00.000Z",
+        "maximum_staleness_ms": 60000,
+        "decision": { "effect": "allow", "downgraded": true }
+      }
+    },
+    {
+      "name": "running-terminated-refresh-refused",
+      "label": "running_terminated",
+      "freshness_result": null,
+      "observation": {
+        "authority_ref": "dlg_t7_0005",
+        "status_source": { "kind": "set", "jti": "set_jti_0005" },
+        "revoked_at": "2026-07-10T12:03:45.000Z",
+        "observed_at": "2026-07-10T12:04:00.000Z",
+        "maximum_staleness_ms": 60000,
+        "affected_scope": "cascade:origin=dlg_t7_root;txn=txn_t7_b",
+        "decision": { "effect": "deny" },
+        "workflow_response": { "reissued": false, "reason": "revoked" }
+      }
+    },
+    {
+      "name": "unavailable-fail-closed",
+      "label": "unavailable_fail_closed",
+      "freshness_result": "unavailable",
+      "observation": {
+        "authority_ref": "dlg_t7_0006",
+        "status_source": { "kind": "source", "id": "crl://registry.example/v1" },
+        "observed_at": "2026-07-10T12:05:00.000Z",
+        "maximum_staleness_ms": 60000,
+        "decision": { "effect": "deny" }
+      }
+    },
+    {
+      "name": "unavailable-fail-open",
+      "label": "unavailable_fail_open",
+      "freshness_result": "unavailable",
+      "observation": {
+        "authority_ref": "dlg_t7_0007",
+        "status_source": { "kind": "source", "id": "crl://registry.example/v1" },
+        "observed_at": "2026-07-10T12:06:00.000Z",
+        "maximum_staleness_ms": 60000,
+        "decision": { "effect": "allow" }
+      }
+    }
+  ]
+}
