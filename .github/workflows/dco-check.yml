@@ -1,0 +1,29 @@
+name: DCO
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  dco:
+    name: dco
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+      - name: All commits carry Signed-off-by
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          bad=$(git log --no-merges --format='%H%x09%(trailers:key=Signed-off-by,valueonly)' "$BASE..$HEAD" | awk -F'\t' 'NF<2 || $2==""{print $1}')
+          if [ -n "$bad" ]; then
+            echo "Commits missing Signed-off-by:"; echo "$bad"
+            echo "Fix: git rebase --signoff and push again."
+            exit 1
+          fi
+          echo "All commits signed off."
