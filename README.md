@@ -2,7 +2,7 @@
 
 [![npm version](https://img.shields.io/npm/v/agent-passport-system)](https://www.npmjs.com/package/agent-passport-system)
 [![license](https://img.shields.io/npm/l/agent-passport-system)](https://github.com/aeoess/agent-passport-system/blob/main/LICENSE)
-[![tests](https://img.shields.io/badge/tests-4097%20passing-brightgreen)](https://github.com/aeoess/agent-passport-system)
+[![tests](https://img.shields.io/badge/tests-4098%20passing-brightgreen)](https://github.com/aeoess/agent-passport-system)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18749779.svg)](https://doi.org/10.5281/zenodo.18749779)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/13536/badge)](https://www.bestpractices.dev/projects/13536)
 [![OpenSSF Baseline](https://www.bestpractices.dev/projects/13536/baseline)](https://www.bestpractices.dev/projects/13536)
@@ -242,7 +242,7 @@ The composition contract specifies how a verifier MUST cross-check per-request s
 
 ## Numbers
 
-4,097 tests. 8 protocol layers. Framework adapters for CrewAI, LangChain, ADK, A2A, MCP, OpenShell, IBAC, Gonka. Gateway evaluation under 2ms. Zero heavy dependencies. Apache-2.0.
+4,098 tests. 8 protocol layers. Framework adapters for CrewAI, LangChain, ADK, A2A, MCP, OpenShell, IBAC, Gonka. Gateway evaluation under 2ms. Zero heavy dependencies. Apache-2.0.
 
 The test count is one number derived from the suite, not three guesses. The badge above, this section, and the `package.json` description all carry the same `4,026`, which is the `tests` total reported by `npm test`. When the suite grows, re-run `npm test`, read the `tests` line, and update all three to match.
 
