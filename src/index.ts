@@ -1955,3 +1955,67 @@ export {
   type CpaProducerAttestationRef,
   type ProducerAttestationValidation,
 } from './v2/producer-attestation/index.js'
+
+// ── Jurisdiction selection provenance (VWE T5) ──
+// Records which policy packs matched a set of jurisdiction facts; constraint
+// conflicts are surfaced, never auto-resolved.
+export { selectJurisdictionPacks, RESOLVER_VERSION } from './core/jurisdiction-selection.js'
+export type { JurisdictionFacts, PolicyPackRef, PackConflict, SelectionOptions, SelectionRecord } from './types/jurisdiction-selection.js'
+
+// ── Bilateral pair reconciliation (VWE T6, FREEZE-VWE F2) ──
+// Compares the two parties' copies of a bilateral receipt; five frozen
+// mismatch classes; audience failures via the canonical builder below.
+export { reconcileBilateralPair } from './v2/bilateral-pair/reconcile.js'
+export type { BilateralMismatchReason, BilateralPairPolicy, BilateralPairVerdict } from './v2/bilateral-pair/types.js'
+
+// ── Audience binding verification surface (VWE T6) ──
+// Public so route-side verifiers can consume the SDK check instead of
+// mirroring it (the gateway mirror swap is queued on this export).
+export { checkAudience, bindAudience, matchAudience } from './v2/audience-binding/verify.js'
+export { audienceFailure } from './v2/audience-binding/reconcile.js'
+export type { AudienceBinding, AudiencePolicy, AudienceCheckResult } from './v2/audience-binding/types.js'
+
+// ── Revocation observation (VWE T7, FREEZE-VWE F4) ──
+// Signed verifier-side record of an observed revocation signal and the
+// decision taken under a stated freshness contract; labels derived, never stored.
+export {
+  buildRevocationObservation,
+  verifyRevocationObservation,
+  classifyObservation,
+  observationParamsFromSET,
+} from './v2/revocation-enforcement/observation.js'
+export type { BuildObservationParams } from './v2/revocation-enforcement/observation.js'
+export type {
+  RevocationObservation,
+  SignedRevocationObservation,
+  RevocationStatusSource,
+  RevocationObservationDecision,
+  RevocationOutcomeLabel,
+  ObservationVerifyResult,
+} from './v2/revocation-enforcement/types.js'
+
+// ── Evidence bundle + claim boundary report (VWE T8, FREEZE-VWE F5/F6) ──
+// Signed Merkle-committed evidence sets with per-member inclusion proofs and
+// the per-axis ClaimState report consumed by the verify-bundle CLI.
+export {
+  createEvidenceBundle,
+  verifyEvidenceBundle,
+  computeMemberDigest,
+  proveMemberInclusion,
+  verifyMemberInclusion,
+  computeClaimBoundaryReport,
+} from './core/evidence-bundle.js'
+export type { CreateEvidenceBundleOptions, ClaimBoundaryReportOptions } from './core/evidence-bundle.js'
+export type {
+  EvidenceBundle,
+  EvidenceBundleManifest,
+  EvidenceBundleManifestMember,
+  EvidenceBundleMember,
+  EvidenceBundleMemberType,
+  EvidenceBundleVerification,
+  EvidenceBundleMemberVerification,
+  ClaimState,
+  ClaimAxis,
+  ClaimAxisReport,
+  ClaimBoundaryReport,
+} from './types/evidence-bundle.js'
