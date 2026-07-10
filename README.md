@@ -8,6 +8,7 @@
 [![OpenSSF Baseline](https://www.bestpractices.dev/projects/13536/baseline)](https://www.bestpractices.dev/projects/13536)
 [![coverage](https://img.shields.io/badge/coverage-97%25%20lines%20%7C%2089%25%20branches-brightgreen)](https://github.com/aeoess/agent-passport-system/blob/main/CONTRIBUTING.md#running-tests)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/aeoess/agent-passport-system/badge)](https://scorecard.dev/viewer/?uri=github.com/aeoess/agent-passport-system)
+[![APS conformance](https://img.shields.io/endpoint?url=https%3A%2F%2Fgateway.aeoess.com%2Fapi%2Fv1%2Fpublic%2Fconformance%2Fbadge)](https://github.com/aeoess/aps-conformance-suite)
 
 > **For AI agents:** visit [agent-passport.org/llms.txt](https://agent-passport.org/llms.txt) for machine-readable docs.
 
