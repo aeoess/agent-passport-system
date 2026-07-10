@@ -59,6 +59,13 @@ export function createBilateralReceipt(opts: {
    * audience binding, since canonicalize() omits undefined keys.
    */
   aud?: import('../types/bilateral-receipt.js').BilateralReceipt['aud']
+  /**
+   * Optional native action_ref correlating the receipt to its request. When
+   * set, both co-signers sign over it. When omitted, the canonical body (and
+   * therefore both signatures) is byte-identical to a receipt without the
+   * slot, since canonicalize() omits undefined keys.
+   */
+  action_ref?: string
   // Additive optional slot. When omitted the body and signatures are unchanged
   // (canonicalize() strips undefined keys), so receipts that do not carry a
   // field-disclosure profile keep their exact prior bytes.
@@ -79,6 +86,7 @@ export function createBilateralReceipt(opts: {
     agreedAt: now,
     evidenceCommitments: opts.evidenceCommitments,
     aud: opts.aud,
+    action_ref: opts.action_ref,
     fieldDisclosureProfile: opts.fieldDisclosureProfile,
   }
 

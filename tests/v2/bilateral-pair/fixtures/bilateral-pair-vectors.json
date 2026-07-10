@@ -1,0 +1,379 @@
+{
+  "description": "Bilateral pair reconciliation vectors (FREEZE-VWE F2, SCHEMAS-DRAFT 3a). One reconciled pair plus one vector per frozen mismatch class. Receipts are genuinely Ed25519 co-signed; public keys included so signatures can be independently verified.",
+  "freeze": "FREEZE-VWE F2",
+  "keys": {
+    "requestingAgentPublicKey": "bb8a9093fce286ee7848f531be3991b142ec142161fa1100b86072c96d09c0a2",
+    "servingAgentPublicKey": "42b11d44ef18234b96995e85f32c130e90f25c95031b1bd57a7a7deb2be6fa6b"
+  },
+  "vectors": [
+    {
+      "name": "reconciled-pair",
+      "description": "Identical honest copies: aud names both parties, action_ref shared.",
+      "policy": {
+        "selfRecipientId": "did:aps:zPairRequester01",
+        "requireAudience": true
+      },
+      "local": {
+        "receiptId": "416ad9cc-f8b1-4212-8c46-bb2e6bf3fc06",
+        "version": "1.0",
+        "requestingAgentId": "did:aps:zPairRequester01",
+        "servingAgentId": "did:aps:zPairServer01",
+        "outcome": {
+          "toolName": "document.sign",
+          "requestHash": "1111111111111111111111111111111111111111111111111111111111111111",
+          "responseHash": "2222222222222222222222222222222222222222222222222222222222222222",
+          "status": "success",
+          "summary": "signed the document"
+        },
+        "requestedAt": "2026-07-10T01:00:00Z",
+        "completedAt": "2026-07-10T01:00:01Z",
+        "agreedAt": "2026-07-10T07:46:36.109Z",
+        "aud": {
+          "profile": "aps:audience-binding:v1",
+          "recipients": [
+            "did:aps:zPairRequester01",
+            "did:aps:zPairServer01"
+          ]
+        },
+        "action_ref": "c3828feae93209059a038cd3a39c088493a68e1099a6b4dba3cac0223f66c3bf",
+        "requestingAgentSignature": "cc88ada526a66c864b53757a37993f9036bda1585894ea26aa2fd3887fa071bf6d2f7bb4f470f672225f24cb8a6a441322659c35d6677f5258630d01740c050b",
+        "servingAgentSignature": "2f1b03c65279b14f8c8718350540ff2ff71e35780f1513113f12efbe2ae16402ec75a069df9c9cd8a661d5d51244cdc6ee52210df81491f46b1fbcdecc4c900b"
+      },
+      "counterparty": {
+        "receiptId": "416ad9cc-f8b1-4212-8c46-bb2e6bf3fc06",
+        "version": "1.0",
+        "requestingAgentId": "did:aps:zPairRequester01",
+        "servingAgentId": "did:aps:zPairServer01",
+        "outcome": {
+          "toolName": "document.sign",
+          "requestHash": "1111111111111111111111111111111111111111111111111111111111111111",
+          "responseHash": "2222222222222222222222222222222222222222222222222222222222222222",
+          "status": "success",
+          "summary": "signed the document"
+        },
+        "requestedAt": "2026-07-10T01:00:00Z",
+        "completedAt": "2026-07-10T01:00:01Z",
+        "agreedAt": "2026-07-10T07:46:36.109Z",
+        "aud": {
+          "profile": "aps:audience-binding:v1",
+          "recipients": [
+            "did:aps:zPairRequester01",
+            "did:aps:zPairServer01"
+          ]
+        },
+        "action_ref": "c3828feae93209059a038cd3a39c088493a68e1099a6b4dba3cac0223f66c3bf",
+        "requestingAgentSignature": "cc88ada526a66c864b53757a37993f9036bda1585894ea26aa2fd3887fa071bf6d2f7bb4f470f672225f24cb8a6a441322659c35d6677f5258630d01740c050b",
+        "servingAgentSignature": "2f1b03c65279b14f8c8718350540ff2ff71e35780f1513113f12efbe2ae16402ec75a069df9c9cd8a661d5d51244cdc6ee52210df81491f46b1fbcdecc4c900b"
+      },
+      "expected": {
+        "status": "reconciled",
+        "mismatches": []
+      }
+    },
+    {
+      "name": "payload-changed",
+      "description": "Counterparty copy re-minted with a different responseHash.",
+      "policy": {
+        "selfRecipientId": "did:aps:zPairRequester01",
+        "requireAudience": true
+      },
+      "local": {
+        "receiptId": "416ad9cc-f8b1-4212-8c46-bb2e6bf3fc06",
+        "version": "1.0",
+        "requestingAgentId": "did:aps:zPairRequester01",
+        "servingAgentId": "did:aps:zPairServer01",
+        "outcome": {
+          "toolName": "document.sign",
+          "requestHash": "1111111111111111111111111111111111111111111111111111111111111111",
+          "responseHash": "2222222222222222222222222222222222222222222222222222222222222222",
+          "status": "success",
+          "summary": "signed the document"
+        },
+        "requestedAt": "2026-07-10T01:00:00Z",
+        "completedAt": "2026-07-10T01:00:01Z",
+        "agreedAt": "2026-07-10T07:46:36.109Z",
+        "aud": {
+          "profile": "aps:audience-binding:v1",
+          "recipients": [
+            "did:aps:zPairRequester01",
+            "did:aps:zPairServer01"
+          ]
+        },
+        "action_ref": "c3828feae93209059a038cd3a39c088493a68e1099a6b4dba3cac0223f66c3bf",
+        "requestingAgentSignature": "cc88ada526a66c864b53757a37993f9036bda1585894ea26aa2fd3887fa071bf6d2f7bb4f470f672225f24cb8a6a441322659c35d6677f5258630d01740c050b",
+        "servingAgentSignature": "2f1b03c65279b14f8c8718350540ff2ff71e35780f1513113f12efbe2ae16402ec75a069df9c9cd8a661d5d51244cdc6ee52210df81491f46b1fbcdecc4c900b"
+      },
+      "counterparty": {
+        "receiptId": "9f56f989-82cb-4514-8cb3-f26e99b0b2b1",
+        "version": "1.0",
+        "requestingAgentId": "did:aps:zPairRequester01",
+        "servingAgentId": "did:aps:zPairServer01",
+        "outcome": {
+          "toolName": "document.sign",
+          "requestHash": "1111111111111111111111111111111111111111111111111111111111111111",
+          "responseHash": "3333333333333333333333333333333333333333333333333333333333333333",
+          "status": "success",
+          "summary": "signed the document"
+        },
+        "requestedAt": "2026-07-10T01:00:00Z",
+        "completedAt": "2026-07-10T01:00:01Z",
+        "agreedAt": "2026-07-10T07:46:36.111Z",
+        "aud": {
+          "profile": "aps:audience-binding:v1",
+          "recipients": [
+            "did:aps:zPairRequester01",
+            "did:aps:zPairServer01"
+          ]
+        },
+        "action_ref": "c3828feae93209059a038cd3a39c088493a68e1099a6b4dba3cac0223f66c3bf",
+        "requestingAgentSignature": "cd5ccbee5f55d3af414024fa5f864841b022545fb675794f011ab12725f40afcc4bd06cae04371dbdf9a24f96599b813c7bcca9e3b70fb11e1d6ffa3f314dd05",
+        "servingAgentSignature": "0d1c73e4e24df9dc2a0acced82a7b1398acc971cf214f709d8a2d161b517ebed1dbcb706bee0c5a9d9c9c3acdc2e71d0c72cd07297fa4799d4848c25de97c707"
+      },
+      "expected": {
+        "status": "mismatch",
+        "mismatches": [
+          "payload_changed"
+        ]
+      }
+    },
+    {
+      "name": "recipient-changed",
+      "description": "Counterparty copy names a different servingAgentId (re-mint attack).",
+      "policy": {
+        "selfRecipientId": "did:aps:zPairRequester01",
+        "requireAudience": true
+      },
+      "local": {
+        "receiptId": "416ad9cc-f8b1-4212-8c46-bb2e6bf3fc06",
+        "version": "1.0",
+        "requestingAgentId": "did:aps:zPairRequester01",
+        "servingAgentId": "did:aps:zPairServer01",
+        "outcome": {
+          "toolName": "document.sign",
+          "requestHash": "1111111111111111111111111111111111111111111111111111111111111111",
+          "responseHash": "2222222222222222222222222222222222222222222222222222222222222222",
+          "status": "success",
+          "summary": "signed the document"
+        },
+        "requestedAt": "2026-07-10T01:00:00Z",
+        "completedAt": "2026-07-10T01:00:01Z",
+        "agreedAt": "2026-07-10T07:46:36.109Z",
+        "aud": {
+          "profile": "aps:audience-binding:v1",
+          "recipients": [
+            "did:aps:zPairRequester01",
+            "did:aps:zPairServer01"
+          ]
+        },
+        "action_ref": "c3828feae93209059a038cd3a39c088493a68e1099a6b4dba3cac0223f66c3bf",
+        "requestingAgentSignature": "cc88ada526a66c864b53757a37993f9036bda1585894ea26aa2fd3887fa071bf6d2f7bb4f470f672225f24cb8a6a441322659c35d6677f5258630d01740c050b",
+        "servingAgentSignature": "2f1b03c65279b14f8c8718350540ff2ff71e35780f1513113f12efbe2ae16402ec75a069df9c9cd8a661d5d51244cdc6ee52210df81491f46b1fbcdecc4c900b"
+      },
+      "counterparty": {
+        "receiptId": "3df08040-05cd-4bf3-90bf-9b17c3d7cc22",
+        "version": "1.0",
+        "requestingAgentId": "did:aps:zPairRequester01",
+        "servingAgentId": "did:aps:zPairEvil01",
+        "outcome": {
+          "toolName": "document.sign",
+          "requestHash": "1111111111111111111111111111111111111111111111111111111111111111",
+          "responseHash": "2222222222222222222222222222222222222222222222222222222222222222",
+          "status": "success",
+          "summary": "signed the document"
+        },
+        "requestedAt": "2026-07-10T01:00:00Z",
+        "completedAt": "2026-07-10T01:00:01Z",
+        "agreedAt": "2026-07-10T07:46:36.111Z",
+        "aud": {
+          "profile": "aps:audience-binding:v1",
+          "recipients": [
+            "did:aps:zPairRequester01",
+            "did:aps:zPairServer01"
+          ]
+        },
+        "action_ref": "c3828feae93209059a038cd3a39c088493a68e1099a6b4dba3cac0223f66c3bf",
+        "requestingAgentSignature": "227b86d78a6252dc72e326d79399e7ce3feaf47c728055e646abb6900c4fc941a5484a56cda2e6f93aca9628c553561b59cf407c4e5fec18714ef49e2909df07",
+        "servingAgentSignature": "a4c8d6973abf4dce9dfe7f28c8ee878054cadb3d391e7fb4ee5da2e5d21cf925a7ce92a5eda13d597435977c4b4533dfede665a137c769057ae1b9660ed0fe00"
+      },
+      "expected": {
+        "status": "mismatch",
+        "mismatches": [
+          "recipient_changed"
+        ]
+      }
+    },
+    {
+      "name": "wrong-audience",
+      "description": "Counterparty copy audience-bound to a third party, not to self.",
+      "policy": {
+        "selfRecipientId": "did:aps:zPairRequester01",
+        "requireAudience": true
+      },
+      "local": {
+        "receiptId": "416ad9cc-f8b1-4212-8c46-bb2e6bf3fc06",
+        "version": "1.0",
+        "requestingAgentId": "did:aps:zPairRequester01",
+        "servingAgentId": "did:aps:zPairServer01",
+        "outcome": {
+          "toolName": "document.sign",
+          "requestHash": "1111111111111111111111111111111111111111111111111111111111111111",
+          "responseHash": "2222222222222222222222222222222222222222222222222222222222222222",
+          "status": "success",
+          "summary": "signed the document"
+        },
+        "requestedAt": "2026-07-10T01:00:00Z",
+        "completedAt": "2026-07-10T01:00:01Z",
+        "agreedAt": "2026-07-10T07:46:36.109Z",
+        "aud": {
+          "profile": "aps:audience-binding:v1",
+          "recipients": [
+            "did:aps:zPairRequester01",
+            "did:aps:zPairServer01"
+          ]
+        },
+        "action_ref": "c3828feae93209059a038cd3a39c088493a68e1099a6b4dba3cac0223f66c3bf",
+        "requestingAgentSignature": "cc88ada526a66c864b53757a37993f9036bda1585894ea26aa2fd3887fa071bf6d2f7bb4f470f672225f24cb8a6a441322659c35d6677f5258630d01740c050b",
+        "servingAgentSignature": "2f1b03c65279b14f8c8718350540ff2ff71e35780f1513113f12efbe2ae16402ec75a069df9c9cd8a661d5d51244cdc6ee52210df81491f46b1fbcdecc4c900b"
+      },
+      "counterparty": {
+        "receiptId": "ab18c1d7-3101-486f-9510-4dcec83571a2",
+        "version": "1.0",
+        "requestingAgentId": "did:aps:zPairRequester01",
+        "servingAgentId": "did:aps:zPairServer01",
+        "outcome": {
+          "toolName": "document.sign",
+          "requestHash": "1111111111111111111111111111111111111111111111111111111111111111",
+          "responseHash": "2222222222222222222222222222222222222222222222222222222222222222",
+          "status": "success",
+          "summary": "signed the document"
+        },
+        "requestedAt": "2026-07-10T01:00:00Z",
+        "completedAt": "2026-07-10T01:00:01Z",
+        "agreedAt": "2026-07-10T07:46:36.111Z",
+        "aud": {
+          "profile": "aps:audience-binding:v1",
+          "recipients": [
+            "did:aps:zPairEvil01",
+            "did:aps:zPairServer01"
+          ]
+        },
+        "action_ref": "c3828feae93209059a038cd3a39c088493a68e1099a6b4dba3cac0223f66c3bf",
+        "requestingAgentSignature": "22de7dd876d068ec46dff1bf118e83d4d61068e776ff3bd4384e79177e08b97d6701579e82e910bb89ca84c8f5280990f381255cb3f76d1fb18b090fc5adb109",
+        "servingAgentSignature": "06538648ee2ae6836aba3585483c93bfcc93633a8f49a58a5bf852669d0041a21a5274d6c8205f850161eb4ca0ea7b392d43adf279d55a8f95a51a770f906e03"
+      },
+      "expected": {
+        "status": "mismatch",
+        "mismatches": [
+          "wrong_audience"
+        ]
+      }
+    },
+    {
+      "name": "unilateral-success",
+      "description": "Local copy claims success; no counterparty copy exists.",
+      "policy": {
+        "selfRecipientId": "did:aps:zPairRequester01",
+        "requireAudience": true
+      },
+      "local": {
+        "receiptId": "416ad9cc-f8b1-4212-8c46-bb2e6bf3fc06",
+        "version": "1.0",
+        "requestingAgentId": "did:aps:zPairRequester01",
+        "servingAgentId": "did:aps:zPairServer01",
+        "outcome": {
+          "toolName": "document.sign",
+          "requestHash": "1111111111111111111111111111111111111111111111111111111111111111",
+          "responseHash": "2222222222222222222222222222222222222222222222222222222222222222",
+          "status": "success",
+          "summary": "signed the document"
+        },
+        "requestedAt": "2026-07-10T01:00:00Z",
+        "completedAt": "2026-07-10T01:00:01Z",
+        "agreedAt": "2026-07-10T07:46:36.109Z",
+        "aud": {
+          "profile": "aps:audience-binding:v1",
+          "recipients": [
+            "did:aps:zPairRequester01",
+            "did:aps:zPairServer01"
+          ]
+        },
+        "action_ref": "c3828feae93209059a038cd3a39c088493a68e1099a6b4dba3cac0223f66c3bf",
+        "requestingAgentSignature": "cc88ada526a66c864b53757a37993f9036bda1585894ea26aa2fd3887fa071bf6d2f7bb4f470f672225f24cb8a6a441322659c35d6677f5258630d01740c050b",
+        "servingAgentSignature": "2f1b03c65279b14f8c8718350540ff2ff71e35780f1513113f12efbe2ae16402ec75a069df9c9cd8a661d5d51244cdc6ee52210df81491f46b1fbcdecc4c900b"
+      },
+      "counterparty": null,
+      "expected": {
+        "status": "unilateral",
+        "mismatches": [
+          "unilateral_success"
+        ]
+      }
+    },
+    {
+      "name": "action-ref-mismatch",
+      "description": "Copies carry different action_ref values for the same interaction.",
+      "policy": {
+        "selfRecipientId": "did:aps:zPairRequester01",
+        "requireAudience": true
+      },
+      "local": {
+        "receiptId": "416ad9cc-f8b1-4212-8c46-bb2e6bf3fc06",
+        "version": "1.0",
+        "requestingAgentId": "did:aps:zPairRequester01",
+        "servingAgentId": "did:aps:zPairServer01",
+        "outcome": {
+          "toolName": "document.sign",
+          "requestHash": "1111111111111111111111111111111111111111111111111111111111111111",
+          "responseHash": "2222222222222222222222222222222222222222222222222222222222222222",
+          "status": "success",
+          "summary": "signed the document"
+        },
+        "requestedAt": "2026-07-10T01:00:00Z",
+        "completedAt": "2026-07-10T01:00:01Z",
+        "agreedAt": "2026-07-10T07:46:36.109Z",
+        "aud": {
+          "profile": "aps:audience-binding:v1",
+          "recipients": [
+            "did:aps:zPairRequester01",
+            "did:aps:zPairServer01"
+          ]
+        },
+        "action_ref": "c3828feae93209059a038cd3a39c088493a68e1099a6b4dba3cac0223f66c3bf",
+        "requestingAgentSignature": "cc88ada526a66c864b53757a37993f9036bda1585894ea26aa2fd3887fa071bf6d2f7bb4f470f672225f24cb8a6a441322659c35d6677f5258630d01740c050b",
+        "servingAgentSignature": "2f1b03c65279b14f8c8718350540ff2ff71e35780f1513113f12efbe2ae16402ec75a069df9c9cd8a661d5d51244cdc6ee52210df81491f46b1fbcdecc4c900b"
+      },
+      "counterparty": {
+        "receiptId": "dd26d40c-0154-4add-a004-a08fb4389d1f",
+        "version": "1.0",
+        "requestingAgentId": "did:aps:zPairRequester01",
+        "servingAgentId": "did:aps:zPairServer01",
+        "outcome": {
+          "toolName": "document.sign",
+          "requestHash": "1111111111111111111111111111111111111111111111111111111111111111",
+          "responseHash": "2222222222222222222222222222222222222222222222222222222222222222",
+          "status": "success",
+          "summary": "signed the document"
+        },
+        "requestedAt": "2026-07-10T01:00:00Z",
+        "completedAt": "2026-07-10T01:00:01Z",
+        "agreedAt": "2026-07-10T07:46:36.112Z",
+        "aud": {
+          "profile": "aps:audience-binding:v1",
+          "recipients": [
+            "did:aps:zPairRequester01",
+            "did:aps:zPairServer01"
+          ]
+        },
+        "action_ref": "9f49b6ea908b45f428f554085f57e2f4ec462c87f393d8797d07c29152502c3c",
+        "requestingAgentSignature": "a3de2da82edaefbe1bf3132777ab5b1d702a3aea7b4c84e760e4af0a60793190ef571fcf3d25ee671324fb81057d4cc25f77a0620217ca12a731971445d81d05",
+        "servingAgentSignature": "65adbcd5b205e9bc1b7976e5349dd0c9fe529c04dd8329ddd1191e7f2e6de5c4464219d2abb4b7cdee22d74e565b5e7b8e011d31ed2988033ca0d97c1e255b06"
+      },
+      "expected": {
+        "status": "mismatch",
+        "mismatches": [
+          "action_ref_mismatch"
+        ]
+      }
+    }
+  ]
+}

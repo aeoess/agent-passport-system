@@ -60,6 +60,17 @@ export interface BilateralReceipt {
    * existing receipts remain valid. Both co-signers sign over it when present.
    */
   aud?: import('../v2/audience-binding/types.js').AudienceBinding
+  /**
+   * Optional native action_ref (src/core/action-ref.ts) correlating this
+   * receipt to the request it records. When present, both co-signers sign
+   * over it and pair reconciliation (src/v2/bilateral-pair) compares the two
+   * parties' values with actionRefsMatch. Additive and versioned: a receipt
+   * that OMITS this field signs and serializes byte-for-byte as before
+   * (canonicalize strips undefined keys), so existing receipts remain valid.
+   * Legacy pairing for receipts without this slot is served by a
+   * caller-supplied expectedActionRef at reconciliation time.
+   */
+  action_ref?: string
   // Field-disclosure profile (additive, versioned slot).
   // Commits to a payload by hash + URI with a per-field disclosure policy so
   // raw sensitive payloads are never embedded. Optional: a receipt that omits
