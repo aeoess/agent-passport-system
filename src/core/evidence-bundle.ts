@@ -347,11 +347,6 @@ function revocationAxis(bundle: EvidenceBundle, now: Date): ClaimAxisReport {
       continue
     }
     const workflow = isRecord(p.workflow_response) ? p.workflow_response : undefined
-    const workflowResult = workflow ? (workflow.result ?? workflow.status) : undefined
-    if (workflowResult === 'unavailable' || workflowResult === 'skipped') {
-      outcomes.push({ state: 'UNKNOWN', detail: `observation "${member.member_id}" reports the status source as ${String(workflowResult)}` })
-      continue
-    }
     const decision = p.decision as Record<string, unknown>
     const revokedObserved = typeof p.revoked_at === 'string'
     const terminated = workflow !== undefined
@@ -372,9 +367,20 @@ function revocationAxis(bundle: EvidenceBundle, now: Date): ClaimAxisReport {
       outcomes.push({ state: 'EVALUATED', detail: `observation "${member.member_id}" allowed on non-fresh input (downgraded)` })
       continue
     }
+    // Allow decision, not downgraded, no revoked_at. The frozen F4 record does
+    // not carry the freshness RESULT (fresh vs unavailable/stale): a source
+    // consulted-and-fresh and a source that was unavailable but failed open
+    // (decideFreshness fail_open with the default action_on_stale 'allow'
+    // returns effect 'allow', downgraded false) produce an identical record.
+    // VERIFIED asserts a fresh, not-revoked source, which cannot be proven
+    // here, so EVALUATED is the ceiling (a decision was recorded), mirroring the
+    // authority and evidence axes whose VERIFIED cells are also unreachable by
+    // design. The observation's own age still gates STALE. Reporting VERIFIED
+    // for an allow decision was a fail-open: an unavailable-fail-open
+    // observation read as fresh-not-revoked.
     const freshUntil = Date.parse(p.observed_at as string) + (p.maximum_staleness_ms as number)
     if (freshUntil >= now.getTime()) {
-      outcomes.push({ state: 'VERIFIED', detail: `observation "${member.member_id}" is fresh and shows not revoked` })
+      outcomes.push({ state: 'EVALUATED', detail: `observation "${member.member_id}" records an allow decision; source freshness is not provable from the frozen record, so VERIFIED is unreachable` })
     } else {
       outcomes.push({ state: 'STALE', detail: `observation "${member.member_id}" exceeded maximum_staleness_ms at verification time` })
     }

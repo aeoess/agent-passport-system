@@ -50,8 +50,9 @@ export interface AudienceBearer {
  * Returns null when the binding is malformed (absent recipients, empty set,
  * or a non-string member). Callers treat null as `audience_malformed`.
  */
-export function normalizeRecipients(aud: AudienceBinding | undefined): string[] | null {
-  if (aud === undefined) return null
+export function normalizeRecipients(aud: AudienceBinding | undefined | null): string[] | null {
+  if (aud === undefined || aud === null) return null
+  if (typeof aud !== 'object') return null
   if (aud.profile !== AUDIENCE_BINDING_PROFILE) return null
   if (!Array.isArray(aud.recipients)) return null
   if (aud.recipients.length === 0) return null
@@ -103,10 +104,13 @@ export function checkAudience(
     }
   }
 
-  const aud = proof.aud
+  // Optional chaining and the null check below keep this fail-closed on
+  // untrusted JSON: a null proof, or an explicit `aud: null` (which a JSON
+  // body can carry), is treated as unbound rather than throwing a TypeError.
+  const aud = proof?.aud
 
   // Unbound proof.
-  if (aud === undefined) {
+  if (aud === undefined || aud === null) {
     if (policy.requireAudience === true) {
       return {
         status: 'fail',

@@ -803,10 +803,16 @@ function cmdAudit(): void {
   const floor = loadFloor(readFileSync(floorPath, 'utf8'))
   const verifier = generateKeyPair()
 
-  // Build delegation context
+  // Build delegation context. Reflect each delegation's own advisory `revoked`
+  // flag rather than hardcoding false (which made the F-004 revocability check
+  // always report "enforced"). This in-band flag is unsigned and not
+  // authoritative revocation; the CLI cannot consult a revocation source
+  // statelessly. `verify-bundle` reports revocation honestly from a signed
+  // RevocationObservation.
   const delContext = new Map<string, { scope: string[]; revoked: boolean }>()
   for (const d of delegations) {
-    delContext.set(d.delegationId, { scope: d.scope, revoked: false })
+    const revoked = (d as { revoked?: unknown }).revoked === true
+    delContext.set(d.delegationId, { scope: d.scope, revoked })
   }
 
   const report = auditCompliance(agent.agentId, receipts, floor, delContext, verifier)

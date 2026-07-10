@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Fixed / Security (audit 2026-07-10; pending review before release)
+- **verify-bundle revocation axis fail-open.** `revocationAxis` read `workflow_response.result`/`.status`, fields that do not exist on `RefreshOutcome`, so the unavailable/skipped branch was dead and an allow decision was reported VERIFIED. Because the frozen F4 record does not carry the freshness result, a consulted-and-fresh source and an unavailable source that failed open are indistinguishable; the VERIFIED ceiling is now EVALUATED, matching the authority and evidence axes.
+- **audience-binding threw on untrusted null.** `checkAudience`/`normalizeRecipients`/`matchAudience` threw a TypeError on `aud: null` (or a null proof) from untrusted JSON; they now fail closed (null binding treated as unbound). The gateway route already coalesced null; the SDK primitive is now self-safe.
+- **CLI `audit` hardcoded `revoked: false`** for every delegation, so the F-004 revocability check always reported enforced. It now reflects the delegation's advisory `revoked` flag; `verify-bundle` remains the authoritative-honest path.
+
 ## 3.3.0 (2026-07-10)
 ### Added
 - Bilateral receipts carry an optional action_ref inside the signed body; pair
