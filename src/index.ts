@@ -1041,6 +1041,7 @@ export {
   createOfficeRegistry,
   createOfficeTransfer,
   createApprovalRequest, addApprovalSignature, evaluateApprovalRequest,
+  approvalSignContent,
   findOffice, findOfficesByHolder, resolveSuccessor,
   checkIncompatibility, checkQuorum,
 } from './core/charter.js'
