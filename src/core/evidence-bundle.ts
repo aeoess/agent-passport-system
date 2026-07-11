@@ -161,9 +161,10 @@ export function verifyMemberInclusion(proof: ReceiptInclusionProof): boolean {
  * signable subset, Merkle root over the manifest digests, per-member
  * payload digest against the manifest, and per-member inclusion via
  * proveInclusion/verifyInclusion. Single-member manifests skip the
- * inclusion-proof check (the digest IS the root and generateMerkleProof
- * has no sibling path to build); the digest and root checks still bind
- * the member. valid is true only when every check passes.
+ * inclusion-proof check (the root is the domain-separated hash of the
+ * single digest and generateMerkleProof has no sibling path to build);
+ * the digest and root checks still bind the member. valid is true only
+ * when every check passes.
  */
 export function verifyEvidenceBundle(bundle: EvidenceBundle): EvidenceBundleVerification {
   const errors: string[] = []
@@ -206,7 +207,7 @@ export function verifyEvidenceBundle(bundle: EvidenceBundle): EvidenceBundleVeri
       errors.push(`Member "${entry.member_id}" payload digest does not match the manifest`)
     }
     const inclusionValid = manifest.members.length === 1
-      ? rootValid && entry.digest === manifest.merkle_root
+      ? rootValid
       : verifyMemberInclusion(proveMemberInclusion(manifest, entry.member_id))
     if (!inclusionValid) {
       errors.push(`Member "${entry.member_id}" inclusion proof failed against the bundle root`)
