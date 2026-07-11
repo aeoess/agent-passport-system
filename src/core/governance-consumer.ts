@@ -230,8 +230,11 @@ export function governanceLoop360(input: {
     }
   }
 
-  // Step 4: Check usage
-  const permitted = governance.usageCheck?.permitted ?? true
+  // Step 4: Check usage. Gate on governance.verified so a forged or unverified
+  // governance block cannot fail open: an unverified block never yields a
+  // permitted headline, regardless of its (attacker-controlled) terms. The
+  // receipt still records governance_verified for the audit trail below.
+  const permitted = governance.verified && (governance.usageCheck?.permitted ?? false)
 
   // Step 4: Create access receipt
   const receipt = createAccessReceipt({

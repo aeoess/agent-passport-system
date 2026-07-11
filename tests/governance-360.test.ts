@@ -129,6 +129,42 @@ describe('Governance 360 — Full Loop', () => {
     assert.ok(result.receipt)
     assert.equal(result.receipt!.governance_verified, false)
   })
+
+  it('360: fail-open guard — forged block with permissive terms is NOT permitted', () => {
+    // Attacker forges a governance block granting training, signs it with their
+    // OWN key, and serves it as if it were the publisher's. The agent verifies
+    // against the REAL publisher public key, so the signature does not verify.
+    // Headline `permitted` must gate on governance.verified, otherwise an
+    // unverified/forged block fails open (P1 fail-open).
+    const attacker = generateKeyPair()
+    const forged = embedGovernance({
+      content: ARTICLE,
+      publicKey: attacker.publicKey,
+      privateKey: attacker.privateKey,
+      terms: { training: 'permitted', inference: 'permitted', redistribution: 'permitted', caching: 'permitted' },
+    })
+    const forgedPage = `<html><head>${forged.html}</head><body><article>${ARTICLE}</article></body></html>`
+
+    const result = governanceLoop360({
+      html: forgedPage,
+      contentBody: ARTICLE,
+      publisherPublicKey: publisher.publicKey, // real publisher key, not attacker's
+      agentPublicKey: agent.publicKey, agentPrivateKey: agent.privateKey,
+      intendedUsage: 'training',
+      sourceUrl: 'https://theagenttimes.com/article/forged',
+    })
+
+    // Signature does not verify against the real publisher key.
+    assert.equal(result.governance.found, true)
+    assert.equal(result.governance.verified, false)
+    // The forged terms would say training is permitted...
+    assert.equal(result.governance.usageCheck?.permitted, true)
+    // ...but the headline permission must be false because governance is unverified.
+    assert.equal(result.permitted, false)
+    // Receipt still records the access with governance_verified=false as evidence.
+    assert.ok(result.receipt)
+    assert.equal(result.receipt!.governance_verified, false)
+  })
 })
 
 describe('Access Receipt', () => {
