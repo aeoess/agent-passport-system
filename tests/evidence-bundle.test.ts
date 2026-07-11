@@ -9,6 +9,7 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert'
+import { createHash } from 'node:crypto'
 import { spawnSync } from 'node:child_process'
 import { mkdtempSync, writeFileSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -70,9 +71,16 @@ test('verifyEvidenceBundle: roundtrip on a multi-member bundle passes every chec
   assert.ok(v.memberResults.every(r => r.digestValid && r.inclusionValid))
 })
 
-test('verifyEvidenceBundle: single-member bundle verifies (digest is the root)', () => {
+test('verifyEvidenceBundle: single-member bundle verifies (root is the tagged leaf hash of the digest)', () => {
   const bundle = makeBundle([{ member_id: 'only', member_type: 'other', payload: { z: true } }])
-  assert.strictEqual(bundle.manifest.merkle_root, computeMemberDigest({ z: true }))
+  // Recomputed from first principles, independent of buildMerkleRoot:
+  // the single-leaf root is sha256(0x00 || utf8(digest)), never the raw digest.
+  const digest = computeMemberDigest({ z: true })
+  const taggedLeafHash = createHash('sha256')
+    .update(Buffer.concat([Buffer.from([0x00]), Buffer.from(digest, 'utf8')]))
+    .digest('hex')
+  assert.strictEqual(bundle.manifest.merkle_root, taggedLeafHash)
+  assert.notStrictEqual(bundle.manifest.merkle_root, digest)
   const v = verifyEvidenceBundle(bundle)
   assert.strictEqual(v.valid, true, v.errors.join('; '))
 })

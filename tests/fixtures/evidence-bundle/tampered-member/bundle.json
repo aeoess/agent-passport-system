@@ -6,7 +6,7 @@
       {
         "member_id": "passport-1",
         "member_type": "passport",
-        "digest": "3247e2a5402ffe4122f6e153b250a241cb19b73c1eab6afacc59bc358dbb6ca7"
+        "digest": "1890db828ff1458526af2c63e429ecd31ee4cf61eb58662af196dd8176b6e2ba"
       },
       {
         "member_id": "bilateral-local",
@@ -24,10 +24,10 @@
         "digest": "8a7389fa4f50d85c12f022f6d5523575382177648e9b63ba9fdb3473cad34023"
       }
     ],
-    "merkle_root": "60571c150d8a0623050fb4cf473592c13d02e1dee541a52f1eda4d6776d6f051",
-    "signature": "ceed7f332db3fbbad7474912ad13a1a783d56235a04dd3250353d19928820382922bf02b21f7b3c6b024025b0dc7901c2e4906405ef3de025586c14a40a66d09"
+    "merkle_root": "8beacf4f0098b2bc07467fa74dc279cec949cf9cad56bf680059fdb381f48a0e",
+    "signature": "4be1066aa71d3956237f2fa55f3320751744bf2caa7b7a35893c0a3514ef3523456e5153accefbe08d91d1fc8abdb5c81831b4b05064feebd3f0d7eaa360f804"
   },
-  "signer_public_key": "47a9be6aeeda27cb18a4e84b9bd2c87085cff8d8b98fce08bc30bf758faf09df",
+  "signer_public_key": "04974111debaa8c65b20994f725ea138d466d6dfbe068e4036160eebcdb54ef0",
   "members": [
     {
       "member_id": "passport-1",
@@ -38,7 +38,7 @@
           "agentId": "fixture-agent-t8",
           "agentName": "fixture-agent-t8",
           "ownerAlias": "sprint-vwe-fixtures",
-          "publicKey": "d937b269ad814f6871b45a3a0c44ee6315e01cb1b394f958108bb64e7c0ee12e",
+          "publicKey": "03c4617adc4b9937701d6fb80e5ad3173fbeccab9e2a9dac1fd90cdb3bec00cc",
           "mission": "Static fixture for evidence-bundle tests",
           "capabilities": [
             "code_execution"
@@ -49,9 +49,9 @@
               "fixture"
             ]
           },
-          "createdAt": "2026-07-10T07:48:01.464Z",
+          "createdAt": "2026-07-11T23:05:59.518Z",
           "expiresAt": "2036-01-01T00:00:00.000Z",
-          "notBefore": "2026-07-10T07:48:01.464Z",
+          "notBefore": "2026-07-11T23:05:59.518Z",
           "voteWeight": 2,
           "reputation": {
             "overall": 1,
@@ -60,13 +60,13 @@
             "proposalsApproved": 0,
             "tokensContributed": 0,
             "tasksCompleted": 0,
-            "lastUpdated": "2026-07-10T07:48:01.465Z"
+            "lastUpdated": "2026-07-11T23:05:59.519Z"
           },
           "delegations": [],
           "metadata": {}
         },
-        "signature": "5246f29cd8689956fb3595b47ba0ace06994d5c17c29518ae2feb6652ce11c76d04cb0906b37336c04f465aeca2d73cff76587cff6eed338d7f27d88fe6f460b",
-        "signedAt": "2026-07-10T07:48:01.466Z"
+        "signature": "726b3ea21f3b7c453a516c35f50efd40d9908f7f5263f4055dbad2e63a50a076587593cb8f47f821696efe6429b22fc3ec69908ad97db4f3e7975de3380e5005",
+        "signedAt": "2026-07-11T23:05:59.520Z"
       }
     },
     {
