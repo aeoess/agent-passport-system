@@ -13,6 +13,7 @@
 
 import { createHash } from 'node:crypto'
 import { canonicalizeJCS } from '../../../core/canonical-jcs.js'
+import { isRecord } from '../../../core/is-record.js'
 import { verify } from '../../../crypto/keys.js'
 import type {
   CustodyReceipt,
@@ -54,6 +55,11 @@ const VALID_PURPOSES: readonly CustodyPurpose[] = [
 ]
 
 export function verifyCustodyReceipt(receipt: CustodyReceipt): CustodyReceiptVerifyResult {
+  // Null / undefined / non-object rejects as a wrong claim type rather than
+  // throwing on the property access below.
+  if (!isRecord(receipt)) {
+    return { valid: false, reason: 'INVALID_CLAIM_TYPE' }
+  }
   if (receipt.claim_type !== 'aps:custody:v1') {
     return { valid: false, reason: 'INVALID_CLAIM_TYPE' }
   }

@@ -42,6 +42,7 @@
 // ══════════════════════════════════════════════════════════════════
 
 import { verifyActionReceipt } from '../accountability/verify/action.js'
+import { isRecord } from '../../core/is-record.js'
 import type { ActionReceipt } from '../accountability/types/action.js'
 import type { WitnessConflict } from '../../types/gateway.js'
 import {
@@ -122,6 +123,29 @@ export function verifyOffline(
   receipt: ActionReceipt,
   opts: OfflineVerifyOptions = {},
 ): OfflineVerifyResult {
+  // ── 0. input guard ──
+  // Null / undefined / non-object (attacker-deliverable JSON `null`) rejects
+  // at the crypto layer rather than throwing on the receipt.signer_did access
+  // used to seed the descriptor below. The descriptor is still emitted so a
+  // relying party always gets a mechanical-facts view, even on this rejection.
+  if (!isRecord(receipt)) {
+    const descriptor = buildDescriptor({
+      receiptId: '',
+      signatures: [
+        { signerId: '', role: 'action_signer', claim: 'outcome', valid: false },
+      ],
+    })
+    return {
+      verdict: 'reject',
+      cryptoValid: false,
+      contextChecked: false,
+      contextValid: false,
+      reason: 'INVALID_CLAIM_TYPE',
+      rejectedAtLayer: 'crypto',
+      descriptor,
+    }
+  }
+
   // ── 1. crypto layer ──
   const crypto = verifyActionReceipt(receipt)
   const cryptoValid = crypto.valid

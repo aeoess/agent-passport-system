@@ -18,6 +18,7 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { sign, verify } from '../crypto/keys.js'
 import { canonicalize } from './canonical.js'
+import { isRecord } from './is-record.js'
 import type {
   BilateralReceipt,
   BilateralReceiptVerification,
@@ -118,6 +119,20 @@ export function verifyBilateralReceipt(
   gatewayPublicKey?: string
 ): BilateralReceiptVerification {
   const errors: string[] = []
+
+  // Null / undefined / non-object (attacker-deliverable JSON `null`) rejects
+  // rather than throwing on the destructuring below.
+  if (!isRecord(receipt)) {
+    return {
+      valid: false,
+      requestingAgentSignatureValid: false,
+      servingAgentSignatureValid: false,
+      gatewaySignatureValid: null,
+      outcomeConsistent: false,
+      timingValid: false,
+      errors: ['Invalid receipt: not an object'],
+    }
+  }
 
   // Reconstruct the body both agents signed
   const { requestingAgentSignature, servingAgentSignature, gatewaySignature, ...body } = receipt

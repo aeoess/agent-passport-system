@@ -29,6 +29,7 @@
 import { v4 as uuidv4 } from 'uuid'
 import { sign, verify } from '../crypto/keys.js'
 import { canonicalize } from '../core/canonical.js'
+import { isRecord } from '../core/is-record.js'
 import type {
   Delegation, ActionReceipt, RevocationRecord, DelegationStatus,
   CascadeRevocationResult, DelegationChainValidation,
@@ -268,6 +269,18 @@ export function verifyDelegation(delegation: Delegation, opts?: {
    *  compatibility but ancestor walks now require store.validateChain(). */
   checkAncestors?: boolean
 }): DelegationStatus {
+  // Null / undefined / non-object (attacker-deliverable JSON `null`) rejects
+  // as an invalid delegation rather than throwing on the destructuring below.
+  if (!isRecord(delegation)) {
+    return {
+      valid: false,
+      revoked: false,
+      expired: false,
+      notYetValid: false,
+      depthExceeded: false,
+      errors: ['Invalid delegation: not an object'],
+    }
+  }
   const policy = opts?.revocationCheckPolicy ?? 'fail_open'
   const errors: string[] = []
 
@@ -343,6 +356,9 @@ export function verifyDelegation(delegation: Delegation, opts?: {
 // ══════════════════════════════════════
 
 export function verifyRevocation(revocation: RevocationRecord): boolean {
+  // Null / undefined / non-object rejects (unverifiable) rather than throwing
+  // on the destructuring below.
+  if (!isRecord(revocation)) return false
   const { signature, ...unsigned } = revocation
   const canonical = canonicalize(unsigned)
   return verify(canonical, signature, revocation.revokedBy)

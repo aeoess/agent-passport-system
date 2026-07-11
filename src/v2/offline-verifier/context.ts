@@ -35,6 +35,7 @@
 // ══════════════════════════════════════════════════════════════════
 
 import { verifyActionReceipt } from '../accountability/verify/action.js'
+import { isRecord } from '../../core/is-record.js'
 import type { ActionReceipt } from '../accountability/types/action.js'
 
 // ── Reasons a conformant verifier rejects a receipt ─────────────────
@@ -112,6 +113,11 @@ export function verifyReceiptContext(
   receipt: ActionReceipt,
   ctx: ReceiptContext,
 ): ContextVerifyResult {
+  // Null / undefined / non-object rejects at the crypto layer rather than
+  // throwing on a downstream property access.
+  if (!isRecord(receipt)) {
+    return { valid: false, reason: 'INVALID_CLAIM_TYPE' }
+  }
   const crypto = verifyActionReceipt(receipt)
   if (!crypto.valid) {
     return { valid: false, reason: crypto.reason as RejectReason }
