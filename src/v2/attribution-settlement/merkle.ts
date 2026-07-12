@@ -8,10 +8,15 @@
 // The construction:
 //
 //   1. Compute leaf hashes over canonicalized contributor bodies.
-//   2. Adjacent-pair reduction: pair (2i, 2i+1) → hashNode(left, right).
-//   3. If a level has an odd number of nodes, the trailing node is
-//      duplicated (hashNode(node, node)) — common Bitcoin-style convention.
-//   4. Recurse until one root remains.
+//   2. Domain-separate: every leaf is re-hashed as sha256(0x00 || leaf)
+//      and every internal node as sha256(0x01 || left || right), so an
+//      internal node value can never be reinterpreted as a leaf.
+//   3. Adjacent-pair reduction: pair (2i, 2i+1) → internal(left, right).
+//   4. If a level has an odd number of nodes, the trailing node is
+//      promoted unchanged (NOT duplicated). Duplicating it would let a
+//      set like [a,b,c] collide with [a,b,c,c] and forge phantom-
+//      duplicate inclusion (CVE-2012-2459 class).
+//   5. Recurse until one root remains.
 //
 // The empty-axis convention (I-C5) uses sha256(canonicalize([])) as the
 // axis_merkle_root — handled by the caller.
@@ -19,7 +24,24 @@
 
 import { createHash } from 'node:crypto'
 import { canonicalize } from '../../core/canonical.js'
-import { hashNode } from '../attribution-primitive/canonical.js'
+
+const LEAF_TAG = Buffer.from([0x00])
+const NODE_TAG = Buffer.from([0x01])
+
+/** Path token marking a level where the target was the lone odd node and
+ *  was promoted unchanged. It cannot collide with a 64-hex digest, so
+ *  {@link verifyMerklePath} disambiguates promotion from a real sibling. */
+const PROMOTED_LEVEL = 'promoted'
+
+/** Domain-separated leaf hash: sha256(0x00 || leaf). */
+function hashLeafNode(leaf: Buffer): Buffer {
+  return createHash('sha256').update(Buffer.concat([LEAF_TAG, leaf])).digest()
+}
+
+/** Domain-separated internal node: sha256(0x01 || left || right). */
+function hashInternalNode(left: Buffer, right: Buffer): Buffer {
+  return createHash('sha256').update(Buffer.concat([NODE_TAG, left, right])).digest()
+}
 
 /** sha256(canonicalize(obj)) as raw 32 bytes. */
 export function leafHash(obj: unknown): Buffer {
@@ -27,20 +49,24 @@ export function leafHash(obj: unknown): Buffer {
 }
 
 /** Build a balanced binary Merkle tree over arbitrary leaf hashes and
- *  return the root as raw bytes. Odd levels duplicate the trailing node
- *  (the standard fold convention). Throws on empty input — the caller is
- *  responsible for using the empty-axis convention in that case. */
+ *  return the root as raw bytes. Leaves and internal nodes are domain-
+ *  separated; an odd trailing node is promoted unchanged (never
+ *  duplicated) to avoid the CVE-2012-2459 duplicate-leaf collision.
+ *  Throws on empty input — the caller is responsible for using the
+ *  empty-axis convention in that case. */
 export function buildMerkleRoot(leaves: Buffer[]): Buffer {
   if (leaves.length === 0) {
     throw new Error('attribution-settlement: buildMerkleRoot requires at least one leaf')
   }
-  let level = leaves.slice()
+  let level = leaves.map(hashLeafNode)
   while (level.length > 1) {
     const next: Buffer[] = []
     for (let i = 0; i < level.length; i += 2) {
-      const left = level[i]
-      const right = i + 1 < level.length ? level[i + 1] : level[i]
-      next.push(hashNode(left, right))
+      next.push(
+        i + 1 < level.length
+          ? hashInternalNode(level[i], level[i + 1])
+          : level[i], // odd node promoted unchanged, never duplicated
+      )
     }
     level = next
   }
@@ -65,18 +91,23 @@ export function buildContributorMerklePath(
     )
   }
   const path: string[] = []
-  let level = leaves.slice()
+  let level = leaves.map(hashLeafNode)
   let idx = targetIndex
   while (level.length > 1) {
     const isRight = idx % 2 === 1
     const siblingIdx = isRight ? idx - 1 : idx + 1
-    const sibling = siblingIdx < level.length ? level[siblingIdx] : level[idx]
-    path.push(sibling.toString('hex'))
+    // Exactly one entry per level keeps the verifier's index arithmetic in
+    // sync. When the target is the lone odd node it has no sibling and is
+    // promoted unchanged, recorded as PROMOTED_LEVEL rather than a self-
+    // duplicate (which would reintroduce the collision).
+    path.push(siblingIdx < level.length ? level[siblingIdx].toString('hex') : PROMOTED_LEVEL)
     const next: Buffer[] = []
     for (let i = 0; i < level.length; i += 2) {
-      const left = level[i]
-      const right = i + 1 < level.length ? level[i + 1] : level[i]
-      next.push(hashNode(left, right))
+      next.push(
+        i + 1 < level.length
+          ? hashInternalNode(level[i], level[i + 1])
+          : level[i],
+      )
     }
     level = next
     idx = Math.floor(idx / 2)
@@ -94,14 +125,19 @@ export function verifyMerklePath(
   expectedRootHex: string,
 ): boolean {
   if (leafIndex < 0) return false
-  let acc = leaf
+  let acc = hashLeafNode(leaf)
   let idx = leafIndex
   for (const siblingHex of path) {
+    if (siblingHex === PROMOTED_LEVEL) {
+      // Lone odd node promoted unchanged: nothing to combine at this level.
+      idx = Math.floor(idx / 2)
+      continue
+    }
     if (typeof siblingHex !== 'string' || !/^[0-9a-f]{64}$/i.test(siblingHex)) return false
     const sibling = Buffer.from(siblingHex, 'hex')
     if (sibling.length !== 32) return false
     const isRight = idx % 2 === 1
-    acc = isRight ? hashNode(sibling, acc) : hashNode(acc, sibling)
+    acc = isRight ? hashInternalNode(sibling, acc) : hashInternalNode(acc, sibling)
     idx = Math.floor(idx / 2)
   }
   return acc.toString('hex') === expectedRootHex.toLowerCase()

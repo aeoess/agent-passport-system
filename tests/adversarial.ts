@@ -90,7 +90,10 @@ test('Adversarial: Merkle tree edge cases', async (t) => {
   await t.test('Single receipt', () => {
     const hashes = ['a'.repeat(64)]
     const root = buildMerkleRoot(hashes)
-    assert.equal(root, hashes[0], 'Single leaf IS the root')
+    // sha256(0x00 || utf8('a' x 64)): the single-leaf root is the tagged
+    // leaf hash, never the leaf itself.
+    assert.equal(root, '88df0645999a1bc9dec19086e862403750a069436d7ecf7775256f78279b3fcb', 'Single-leaf root is the tagged leaf hash')
+    assert.notEqual(root, hashes[0], 'Root must not be the raw leaf')
     const proof = generateMerkleProof(hashes, hashes[0])
     assert.ok(proof !== null, 'Can prove single element')
     assert.ok(verifyMerkleProof(proof!), 'Single element proof verifies')

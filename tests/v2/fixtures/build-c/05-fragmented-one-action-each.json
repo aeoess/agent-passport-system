@@ -1929,7 +1929,7 @@
           }
         ],
         "residual_bucket": null,
-        "axis_merkle_root": "f88dbaf5beff1ded2c38c5262468b1791f5c84787eaff0d2156219d8e39817fa"
+        "axis_merkle_root": "afb610df8a556471130a21153dcfef0e80cfa026d58de28b6ec8183902190459"
       },
       "P": {
         "axis": "P",
@@ -2254,7 +2254,7 @@
           }
         ],
         "residual_bucket": null,
-        "axis_merkle_root": "5e787a8d749bbc0bb9a17032822890260ee318a79840fd32eec33f202d568bf1"
+        "axis_merkle_root": "974d4ffa93639d537e01d69af728eb92a97911a93c4badb9b164a350aa0a11c4"
       },
       "C": {
         "axis": "C",
@@ -2567,13 +2567,13 @@
           }
         ],
         "residual_bucket": null,
-        "axis_merkle_root": "b4b1381ee3228185cee8d5c0da72d7337a7634510bb62e4cbfd4813abd36a9ff"
+        "axis_merkle_root": "e382a47f42351f12a18a3c7418463c6832b67a535487d22cc2235a9233136e98"
       }
     },
-    "input_receipts_hash": "779c0018b3880f2e76d9570743be0b17d9668b1558d9eaf14dc7584b7e0e862f",
+    "input_receipts_hash": "1478369869c255011de94103da93cd70822a5c7e0a8fc15b2b8fc5df4337440b",
     "total_input_count": 50,
     "issued_at": "2026-04-10T00:00:00.001Z",
-    "signature": "526681d01282f5fb7515b1fd800808e2d2c2eea10626edc4f9c6ec8f39ec9184bdd2f83f76e0684d474a8d91022966a37c360490e2036bc3cbaaf3751525a700"
+    "signature": "9b4b19a63a47668a6ffbf6174c8d965d66f85caa5a6e51bf67c45b2f7c17b9a67ec2ff0e770bfe141b56f3eeb0ebef6c62d499c59386994661258b5414c1650f"
   },
   "contributor_queries": [
     {
@@ -2899,7 +2899,7 @@
                 }
               ],
               "residual_bucket": null,
-              "axis_merkle_root": "f88dbaf5beff1ded2c38c5262468b1791f5c84787eaff0d2156219d8e39817fa"
+              "axis_merkle_root": "afb610df8a556471130a21153dcfef0e80cfa026d58de28b6ec8183902190459"
             },
             "P": {
               "axis": "P",
@@ -3224,7 +3224,7 @@
                 }
               ],
               "residual_bucket": null,
-              "axis_merkle_root": "5e787a8d749bbc0bb9a17032822890260ee318a79840fd32eec33f202d568bf1"
+              "axis_merkle_root": "974d4ffa93639d537e01d69af728eb92a97911a93c4badb9b164a350aa0a11c4"
             },
             "C": {
               "axis": "C",
@@ -3537,15 +3537,15 @@
                 }
               ],
               "residual_bucket": null,
-              "axis_merkle_root": "b4b1381ee3228185cee8d5c0da72d7337a7634510bb62e4cbfd4813abd36a9ff"
+              "axis_merkle_root": "e382a47f42351f12a18a3c7418463c6832b67a535487d22cc2235a9233136e98"
             }
           },
-          "input_receipts_hash": "779c0018b3880f2e76d9570743be0b17d9668b1558d9eaf14dc7584b7e0e862f",
+          "input_receipts_hash": "1478369869c255011de94103da93cd70822a5c7e0a8fc15b2b8fc5df4337440b",
           "total_input_count": 50,
           "issued_at": "2026-04-10T00:00:00.001Z",
-          "signature": "526681d01282f5fb7515b1fd800808e2d2c2eea10626edc4f9c6ec8f39ec9184bdd2f83f76e0684d474a8d91022966a37c360490e2036bc3cbaaf3751525a700"
+          "signature": "9b4b19a63a47668a6ffbf6174c8d965d66f85caa5a6e51bf67c45b2f7c17b9a67ec2ff0e770bfe141b56f3eeb0ebef6c62d499c59386994661258b5414c1650f"
         },
-        "settlement_record_hash": "93475a3a9298ee43348b70aca2e14f21f44a5a2e9443cf6f6f68317459e25ffb",
+        "settlement_record_hash": "00442934837a270a6ce7f3fa6a8bc1697fb44e9630b8d211be35dd15a48cb914",
         "contributor_did": "did:data:unique-0",
         "per_axis": {
           "D": {
@@ -3553,14 +3553,14 @@
             "contribution_count": 1,
             "leaf_index": 0,
             "merkle_path": [
-              "85202e09ce0ea1a3f6afd0d54aed11139d1550d23ea015cef307729b821d48e8",
-              "75336f2ae5162f01db7c72906e9551cd139318d2d8b27865335809c6a0a21d25",
-              "fb33c3bbe1dfea8a7b199fdbab46de43b02af23d4abdb47cfaed4c312257f53c",
-              "a05fcf4992d46ba95898e50749fd1f2240a435918123a398ced146d38434f25f",
-              "68956feff95be95600ec2849dce1252ce171baf65926171a7962402b8c18d5e0",
-              "0847f5c6ea45fadc6cdb3b7971ef4414c28c31373385639ebd15ddfa4dd76311"
+              "f565eed98a6b763eca1eae1fdd46c3f85d44c5716ca002490e02c0147a651c87",
+              "5a3cea58a7e80dae976a856bb702ea8ab5a50dfaa6916142d38c3ee03f894bee",
+              "2dfe9b9275b5a3897258890c7d994e19f1b4ee73b94dbb8e6713f1ab57623e98",
+              "228a92d140ce35d38c083d5bb67456907e3dd41b34f7ad5a0f4f8cf6bbdaa942",
+              "a0ae5f326f54ef915081e5c1b494e16e2b14c0e1ca8a87d2def0caae970292f4",
+              "3ffb17e856cecf88e0a9c044d6d25627d9fb5e164b2210f73ef6ff7369299f54"
             ],
-            "axis_root": "f88dbaf5beff1ded2c38c5262468b1791f5c84787eaff0d2156219d8e39817fa"
+            "axis_root": "afb610df8a556471130a21153dcfef0e80cfa026d58de28b6ec8183902190459"
           }
         }
       }
@@ -3888,7 +3888,7 @@
                 }
               ],
               "residual_bucket": null,
-              "axis_merkle_root": "f88dbaf5beff1ded2c38c5262468b1791f5c84787eaff0d2156219d8e39817fa"
+              "axis_merkle_root": "afb610df8a556471130a21153dcfef0e80cfa026d58de28b6ec8183902190459"
             },
             "P": {
               "axis": "P",
@@ -4213,7 +4213,7 @@
                 }
               ],
               "residual_bucket": null,
-              "axis_merkle_root": "5e787a8d749bbc0bb9a17032822890260ee318a79840fd32eec33f202d568bf1"
+              "axis_merkle_root": "974d4ffa93639d537e01d69af728eb92a97911a93c4badb9b164a350aa0a11c4"
             },
             "C": {
               "axis": "C",
@@ -4526,15 +4526,15 @@
                 }
               ],
               "residual_bucket": null,
-              "axis_merkle_root": "b4b1381ee3228185cee8d5c0da72d7337a7634510bb62e4cbfd4813abd36a9ff"
+              "axis_merkle_root": "e382a47f42351f12a18a3c7418463c6832b67a535487d22cc2235a9233136e98"
             }
           },
-          "input_receipts_hash": "779c0018b3880f2e76d9570743be0b17d9668b1558d9eaf14dc7584b7e0e862f",
+          "input_receipts_hash": "1478369869c255011de94103da93cd70822a5c7e0a8fc15b2b8fc5df4337440b",
           "total_input_count": 50,
           "issued_at": "2026-04-10T00:00:00.001Z",
-          "signature": "526681d01282f5fb7515b1fd800808e2d2c2eea10626edc4f9c6ec8f39ec9184bdd2f83f76e0684d474a8d91022966a37c360490e2036bc3cbaaf3751525a700"
+          "signature": "9b4b19a63a47668a6ffbf6174c8d965d66f85caa5a6e51bf67c45b2f7c17b9a67ec2ff0e770bfe141b56f3eeb0ebef6c62d499c59386994661258b5414c1650f"
         },
-        "settlement_record_hash": "93475a3a9298ee43348b70aca2e14f21f44a5a2e9443cf6f6f68317459e25ffb",
+        "settlement_record_hash": "00442934837a270a6ce7f3fa6a8bc1697fb44e9630b8d211be35dd15a48cb914",
         "contributor_did": "did:data:unique-49",
         "per_axis": {
           "D": {
@@ -4542,14 +4542,14 @@
             "contribution_count": 1,
             "leaf_index": 44,
             "merkle_path": [
-              "89982f81359a0e84357406d53a8c67330d99e842c239cb453f1d8c7924d44a1a",
-              "790ae0916328dbe06d284cec1f90cbaa2399de057cfbe63847a4513fc5a6f1a1",
-              "4200d4e162397b008096968858d1af78a741587f739803f1c519215ad9a77830",
-              "2873273d82ec2bd9e1b4f862052ee1bf73c50d0d6bbbd2291d04e8a26728f497",
-              "2a3c509f244746a69bd9ad504d458b8899ad322da9105e308109892caf46c58f",
-              "0e5cc0a0001b73f111302bf2444a40ab9d64cb7dd3060fa28eefafe29c526338"
+              "2f02f15232c6ec1698ac7d7c2391d7649f1e283b13071fee7f1184dc33c17e03",
+              "82991995c33e13edb6c9ad2d43a05af62ec4663a0895caacde16cf4315a19126",
+              "50371e75e25d43c1a729ef3a2239e05ce1f2344119cb2845708618f83e580ce0",
+              "2895cd137b1a7dad0a9a85e5b59001c9da129828da4778cf7c30adfa8eea7246",
+              "a8fe9b8055f3c5cd130159064f9d431d1bb825d302a182f2e996893e7abd0a55",
+              "726aa72f4e75e9f3e2c782998117e7a8837cf6e58244a21ed4a45dfcad31c46a"
             ],
-            "axis_root": "f88dbaf5beff1ded2c38c5262468b1791f5c84787eaff0d2156219d8e39817fa"
+            "axis_root": "afb610df8a556471130a21153dcfef0e80cfa026d58de28b6ec8183902190459"
           }
         }
       }
@@ -4877,7 +4877,7 @@
                 }
               ],
               "residual_bucket": null,
-              "axis_merkle_root": "f88dbaf5beff1ded2c38c5262468b1791f5c84787eaff0d2156219d8e39817fa"
+              "axis_merkle_root": "afb610df8a556471130a21153dcfef0e80cfa026d58de28b6ec8183902190459"
             },
             "P": {
               "axis": "P",
@@ -5202,7 +5202,7 @@
                 }
               ],
               "residual_bucket": null,
-              "axis_merkle_root": "5e787a8d749bbc0bb9a17032822890260ee318a79840fd32eec33f202d568bf1"
+              "axis_merkle_root": "974d4ffa93639d537e01d69af728eb92a97911a93c4badb9b164a350aa0a11c4"
             },
             "C": {
               "axis": "C",
@@ -5515,15 +5515,15 @@
                 }
               ],
               "residual_bucket": null,
-              "axis_merkle_root": "b4b1381ee3228185cee8d5c0da72d7337a7634510bb62e4cbfd4813abd36a9ff"
+              "axis_merkle_root": "e382a47f42351f12a18a3c7418463c6832b67a535487d22cc2235a9233136e98"
             }
           },
-          "input_receipts_hash": "779c0018b3880f2e76d9570743be0b17d9668b1558d9eaf14dc7584b7e0e862f",
+          "input_receipts_hash": "1478369869c255011de94103da93cd70822a5c7e0a8fc15b2b8fc5df4337440b",
           "total_input_count": 50,
           "issued_at": "2026-04-10T00:00:00.001Z",
-          "signature": "526681d01282f5fb7515b1fd800808e2d2c2eea10626edc4f9c6ec8f39ec9184bdd2f83f76e0684d474a8d91022966a37c360490e2036bc3cbaaf3751525a700"
+          "signature": "9b4b19a63a47668a6ffbf6174c8d965d66f85caa5a6e51bf67c45b2f7c17b9a67ec2ff0e770bfe141b56f3eeb0ebef6c62d499c59386994661258b5414c1650f"
         },
-        "settlement_record_hash": "93475a3a9298ee43348b70aca2e14f21f44a5a2e9443cf6f6f68317459e25ffb",
+        "settlement_record_hash": "00442934837a270a6ce7f3fa6a8bc1697fb44e9630b8d211be35dd15a48cb914",
         "contributor_did": "did:compute:unique-25",
         "per_axis": {
           "C": {
@@ -5531,14 +5531,14 @@
             "contribution_count": 1,
             "leaf_index": 18,
             "merkle_path": [
-              "5d627a56efa3828f492433f95d069418e3872cae20270cc7b4130e7d59b03d22",
-              "a9d679c21907337aa8ccb5e13119cbefdc5d269d6a25242acea714b448247e11",
-              "22398d1957c1e563cc8ea592acd808dbdb0b50397d7e8539d6e64f93b498a0c6",
-              "d7bea88d028f2fc1967412241e6d5668aab3c80452113ffd6654c36077b748bc",
-              "4c746dbf809509df6cc65112056104772c119272bf0f2f48847669706f38dbd7",
-              "c092a68a5ac82e729dd18d4501da8fe46f4782ff4b109d53311833e3237918a7"
+              "8b871ad28321aac62afc5e6d3d3e72061603c80824c9dfc86848b41984642e93",
+              "090e700260b09eeb62ce5c9f397512001f59fbe5e9646bd1b527710a4aeb1ca3",
+              "2d55271c19f34784aef34547ff24ef6c80096b44dc2ff40688a8eac65f05a466",
+              "dcc4d351b4abc8458c0700df5ad0210aed6afd62c66b4a79594b33138c577cf9",
+              "5186df2d18495dae5494be278666c942955bf69b0686c499dbc59ba85f44e632",
+              "31abda1644288b0b291e4d488bfe8d917e43e918120112f5eaa28c563114c917"
             ],
-            "axis_root": "b4b1381ee3228185cee8d5c0da72d7337a7634510bb62e4cbfd4813abd36a9ff"
+            "axis_root": "e382a47f42351f12a18a3c7418463c6832b67a535487d22cc2235a9233136e98"
           }
         }
       }

@@ -190,24 +190,40 @@ export function verifyAttributionReport(
 // receipts in 32 bytes and prove any individual receipt in O(log N)
 // hashes. This is how attribution scales to millions of actions.
 
+// Domain separation (CVE-2012-2459 class). Leaves are hashed under a 0x00
+// prefix and internal nodes under a 0x01 prefix so an internal node value
+// can never be reinterpreted as a leaf. Odd nodes are promoted unchanged
+// rather than duplicated, so distinct receipt multisets (for example
+// [a,b,c] versus [a,b,c,c]) can never fold to the same root.
+function hashLeafNode(leaf: string): string {
+  return sha256('\x00' + leaf)
+}
+
+function hashInternalNode(left: string, right: string): string {
+  return sha256('\x01' + left + right)
+}
+
 /**
  * Build a Merkle root from leaf hashes.
  * Leaves are sorted for determinism — same set always produces same root.
- * Odd levels duplicate the last node (standard Bitcoin-style).
+ * Leaves and internal nodes are domain-separated; an odd node at any level
+ * is carried up unchanged (never duplicated) to avoid the CVE-2012-2459
+ * duplicate-leaf collision.
  */
 export function buildMerkleRoot(leafHashes: string[]): string {
   if (leafHashes.length === 0) return sha256('empty')
-  if (leafHashes.length === 1) return leafHashes[0]
 
   const sorted = [...leafHashes].sort()
-  let level = sorted
+  let level = sorted.map(hashLeafNode)
 
   while (level.length > 1) {
     const next: string[] = []
     for (let i = 0; i < level.length; i += 2) {
-      const left = level[i]
-      const right = i + 1 < level.length ? level[i + 1] : left
-      next.push(sha256(left + right))
+      next.push(
+        i + 1 < level.length
+          ? hashInternalNode(level[i], level[i + 1])
+          : level[i], // odd node promoted unchanged, never duplicated
+      )
     }
     level = next
   }
@@ -230,23 +246,24 @@ export function generateMerkleProof(
   if (targetIndex === -1) return null
 
   const proof: MerkleProofNode[] = []
-  let level = sorted
+  let level = sorted.map(hashLeafNode)
   let index = targetIndex
 
   while (level.length > 1) {
-    const next: string[] = []
-    const sibling = index % 2 === 0 ? index + 1 : index - 1
+    const isRightChild = index % 2 === 1
+    const siblingIndex = isRightChild ? index - 1 : index + 1
 
-    if (sibling < level.length && sibling !== index) {
-      proof.push({ hash: level[sibling], position: index % 2 === 0 ? 'right' : 'left' })
-    } else {
-      proof.push({ hash: level[index], position: 'right' })
+    // A lone odd node is promoted unchanged: it has no sibling, so it
+    // contributes no proof node at this level.
+    if (siblingIndex < level.length) {
+      proof.push({ hash: level[siblingIndex], position: isRightChild ? 'left' : 'right' })
     }
 
+    const next: string[] = []
     for (let i = 0; i < level.length; i += 2) {
-      const left = level[i]
-      const right = i + 1 < level.length ? level[i + 1] : left
-      next.push(sha256(left + right))
+      next.push(
+        i + 1 < level.length ? hashInternalNode(level[i], level[i + 1]) : level[i],
+      )
     }
 
     level = next
@@ -261,12 +278,12 @@ export function generateMerkleProof(
  * Recompute the root from the leaf + proof, compare against claimed root.
  */
 export function verifyMerkleProof(proof: MerkleProof): boolean {
-  let hash = proof.receiptHash
+  let hash = hashLeafNode(proof.receiptHash)
 
   for (const node of proof.proof) {
     hash = node.position === 'left'
-      ? sha256(node.hash + hash)
-      : sha256(hash + node.hash)
+      ? hashInternalNode(node.hash, hash)
+      : hashInternalNode(hash, node.hash)
   }
 
   return hash === proof.root

@@ -329,9 +329,12 @@ describe('Merkle Tree', () => {
     assert.equal(proof, null)
   })
 
-  it('handles single-element tree', () => {
+  it('handles single-element tree (root is the tagged leaf hash, not the leaf)', () => {
     const root = buildMerkleRoot(['onlyone'])
-    assert.equal(root, 'onlyone')
+    // sha256(0x00 || utf8('onlyone')): a single leaf hashes under the leaf
+    // tag so an internal node value can never replay as a single-leaf root.
+    assert.equal(root, '752d700812f4fa618502e8f3d6496373b82807d0353581c9744c82b1efdc3a34')
+    assert.notEqual(root, 'onlyone')
   })
 
   it('handles empty tree', () => {
