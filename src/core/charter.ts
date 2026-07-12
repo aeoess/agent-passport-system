@@ -169,10 +169,13 @@ export function verifyCharter(
     }
   }
 
-  // 3. Check if founding signatures meet the amendment policy threshold
+  // 3. Check if founding signatures meet the amendment policy threshold.
+  // Founding signatures are produced over the charter contentHash
+  // (createCharter/signCharter), so that is the threshold subject.
   const quorumEval = evaluateThreshold(
     charter.amendmentPolicy,
     foundingSignatures.map(s => ({ publicKey: s.publicKey, keyClass: s.role, signedAt: s.signedAt, signature: s.signature })),
+    contentHash,
   )
   const quorumMet = quorumEval.met
   if (!quorumMet) errors.push('Founding signatures do not meet amendment policy threshold')
@@ -249,24 +252,57 @@ export function verifyCharter(
 // ══════════════════════════════════════
 
 /** Evaluate whether a set of signatures satisfies a multi-class threshold policy.
- *  All class requirements must be met (conjunction). Review Q5. */
+ *  All class requirements must be met (conjunction). Review Q5.
+ *
+ *  Day-145 fix (Track A / self-conflict 4): a signer counts toward a class
+ *  only when its Ed25519 signature verifies over `signedContent` — the exact
+ *  bytes the producer path signed. Callers must pass the producer-defined
+ *  subject:
+ *    - founding signatures (createCharter/signCharter): charter.contentHash
+ *    - amendment signatures (createAmendment/signAmendment): amendmentSignContent(amendment)
+ *    - approval signatures (addApprovalSignature): approvalSignContent(request)
+ *  A signature that is empty, malformed, or fails verification contributes
+ *  zero and is reported in errors[]. BREAKING: signedContent is required. */
 export function evaluateThreshold(
   policy: MultiClassThresholdPolicy,
   signatures: ApprovalSignature[],
+  signedContent: string,
 ): ApprovalEvaluation {
   const errors: string[] = []
   const classStatus: KeyClassStatus[] = []
   let totalValid = 0
   let totalRequired = 0
 
+  // Verify every supplied signature over the signed content once.
+  // verify() returns false (never throws) on empty, malformed, or forged
+  // input; the explicit falsy guard keeps the intent obvious.
+  const signatureValid = signatures.map(s => {
+    if (!s.signature) return false
+    try {
+      return verify(signedContent, s.signature, s.publicKey)
+    } catch {
+      return false
+    }
+  })
+
   for (const req of policy.requirements) {
-    // Count valid signatures for this class
-    const validSigs = signatures.filter(s =>
-      s.keyClass === req.role && req.eligibleKeys.includes(s.publicKey)
-    )
-    // Deduplicate — same key signing twice doesn't count twice
-    const uniqueSigners = new Set(validSigs.map(s => s.publicKey))
-    const collected = uniqueSigners.size
+    // Count signers for this class: correct class, eligible key, AND a
+    // verifying signature. Deduplicate — same key never counts twice.
+    const counted = new Set<string>()
+    for (let i = 0; i < signatures.length; i++) {
+      const s = signatures[i]
+      if (s.keyClass !== req.role) continue
+      if (!req.eligibleKeys.includes(s.publicKey)) {
+        errors.push(`Class '${req.role}': key ${s.publicKey.slice(0, 8)}... is not eligible`)
+        continue
+      }
+      if (!signatureValid[i]) {
+        errors.push(`Class '${req.role}': invalid signature from ${s.publicKey.slice(0, 8)}...`)
+        continue
+      }
+      counted.add(s.publicKey)
+    }
+    const collected = counted.size
     const satisfied = collected >= req.requiredSignatures
 
     if (!satisfied) {
@@ -284,7 +320,10 @@ export function evaluateThreshold(
   }
 
   return {
-    met: errors.length === 0,
+    // met is the conjunction of class satisfaction. errors[] may name
+    // excluded signatures even when the threshold is met, so it can no
+    // longer double as the met signal.
+    met: classStatus.every(c => c.satisfied),
     classStatus,
     totalValidSignatures: totalValid,
     totalRequired,
@@ -427,7 +466,9 @@ export function verifyAmendment(
     }
   }
 
-  // 4. Threshold met
+  // 4. Threshold met. Amendment signatures are produced over
+  // amendmentSignContent (createAmendment/signAmendment), so counting
+  // re-verifies each signature over those exact bytes.
   const thresholdEval = evaluateThreshold(
     charter.amendmentPolicy,
     amendment.signatures.map(s => ({
@@ -436,6 +477,7 @@ export function verifyAmendment(
       signedAt: s.signedAt,
       signature: s.signature,
     })),
+    sigContent,
   )
   const thresholdMet = thresholdEval.met
   if (!thresholdMet) errors.push('Amendment does not meet charter amendment policy threshold')
@@ -552,6 +594,15 @@ export function createApprovalRequest(
   }
 }
 
+/** Canonical content an approval signer signs. The requestId binds the
+ *  signature to this request; the subject binds it to the approved action.
+ *  This is the threshold subject evaluateApprovalRequest verifies against. */
+export function approvalSignContent(
+  request: Pick<ApprovalRequest, 'requestId' | 'subject'>,
+): string {
+  return request.requestId + ':' + request.subject
+}
+
 /** Add a signature to an approval request. Validates the signer
  *  is not a duplicate and the request hasn't expired. */
 export function addApprovalSignature(
@@ -571,7 +622,7 @@ export function addApprovalSignature(
     throw new Error(`Signer ${signerPublicKey.slice(0, 8)}... already signed`)
   }
 
-  const sigContent = request.requestId + ':' + request.subject
+  const sigContent = approvalSignContent(request)
   const sig: ApprovalSignature = {
     publicKey: signerPublicKey,
     keyClass,
@@ -596,7 +647,9 @@ export function evaluateApprovalRequest(
   const expired = new Date(request.expiresAt) < new Date()
 
   if (policy.type === 'threshold' && policy.threshold) {
-    const evaluation = evaluateThreshold(policy.threshold, request.signatures)
+    // Approval signatures are produced over approvalSignContent(request)
+    // (addApprovalSignature), so that is the threshold subject.
+    const evaluation = evaluateThreshold(policy.threshold, request.signatures, approvalSignContent(request))
     evaluation.expired = expired
     const status = expired ? 'expired' :
       evaluation.met ? 'approved' : 'pending'

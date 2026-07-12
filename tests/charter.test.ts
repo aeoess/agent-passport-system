@@ -5,7 +5,7 @@
 import { describe, it, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  generateKeyPair,
+  generateKeyPair, sign,
   createCharter, signCharter, verifyCharter,
   createAmendment, signAmendment, verifyAmendment,
   evaluateThreshold,
@@ -234,6 +234,10 @@ describe('Charter — Create & Verify', () => {
 // ══════════════════════════════════════
 
 describe('Approval — Multi-Class Threshold (Review Q5)', () => {
+  // evaluateThreshold now verifies each signature over the signed content
+  // (Day-145 verify-before-count), so fixtures sign a shared subject.
+  const SUBJECT = 'threshold-test-subject'
+
   it('passes when all class requirements met', () => {
     const board1 = generateKeyPair()
     const board2 = generateKeyPair()
@@ -245,12 +249,12 @@ describe('Approval — Multi-Class Threshold (Review Q5)', () => {
     )
 
     const sigs = [
-      { publicKey: board1.publicKey, keyClass: 'board', signedAt: new Date().toISOString(), signature: 'sig1' },
-      { publicKey: board2.publicKey, keyClass: 'board', signedAt: new Date().toISOString(), signature: 'sig2' },
-      { publicKey: counsel.publicKey, keyClass: 'counsel', signedAt: new Date().toISOString(), signature: 'sig3' },
+      { publicKey: board1.publicKey, keyClass: 'board', signedAt: new Date().toISOString(), signature: sign(SUBJECT, board1.privateKey) },
+      { publicKey: board2.publicKey, keyClass: 'board', signedAt: new Date().toISOString(), signature: sign(SUBJECT, board2.privateKey) },
+      { publicKey: counsel.publicKey, keyClass: 'counsel', signedAt: new Date().toISOString(), signature: sign(SUBJECT, counsel.privateKey) },
     ]
 
-    const result = evaluateThreshold(policy, sigs)
+    const result = evaluateThreshold(policy, sigs, SUBJECT)
     assert.ok(result.met)
     assert.equal(result.classStatus.length, 2)
     assert.ok(result.classStatus[0].satisfied) // board
@@ -271,11 +275,11 @@ describe('Approval — Multi-Class Threshold (Review Q5)', () => {
 
     // Only 1 board sig — need 2
     const sigs = [
-      { publicKey: board1.publicKey, keyClass: 'board', signedAt: new Date().toISOString(), signature: 'sig1' },
-      { publicKey: counsel.publicKey, keyClass: 'counsel', signedAt: new Date().toISOString(), signature: 'sig3' },
+      { publicKey: board1.publicKey, keyClass: 'board', signedAt: new Date().toISOString(), signature: sign(SUBJECT, board1.privateKey) },
+      { publicKey: counsel.publicKey, keyClass: 'counsel', signedAt: new Date().toISOString(), signature: sign(SUBJECT, counsel.privateKey) },
     ]
 
-    const result = evaluateThreshold(policy, sigs)
+    const result = evaluateThreshold(policy, sigs, SUBJECT)
     assert.ok(!result.met)
     assert.ok(!result.classStatus[0].satisfied)
     assert.ok(result.classStatus[1].satisfied)
@@ -288,11 +292,11 @@ describe('Approval — Multi-Class Threshold (Review Q5)', () => {
     const policy = makeThresholdPolicy([board1.publicKey], 2) // requires 2 but only 1 key
 
     const sigs = [
-      { publicKey: board1.publicKey, keyClass: 'board', signedAt: new Date().toISOString(), signature: 'sig1' },
-      { publicKey: board1.publicKey, keyClass: 'board', signedAt: new Date().toISOString(), signature: 'sig2' },
+      { publicKey: board1.publicKey, keyClass: 'board', signedAt: new Date().toISOString(), signature: sign(SUBJECT, board1.privateKey) },
+      { publicKey: board1.publicKey, keyClass: 'board', signedAt: new Date().toISOString(), signature: sign(SUBJECT, board1.privateKey) },
     ]
 
-    const result = evaluateThreshold(policy, sigs)
+    const result = evaluateThreshold(policy, sigs, SUBJECT)
     assert.ok(!result.met, 'Same key twice should count as 1')
     assert.equal(result.classStatus[0].collected, 1)
   })
@@ -302,12 +306,13 @@ describe('Approval — Multi-Class Threshold (Review Q5)', () => {
     const rando = generateKeyPair()
     const policy = makeThresholdPolicy([board1.publicKey], 1)
 
-    // rando is not in the eligible keys list
+    // rando is not in the eligible keys list — even a genuine signature
+    // over the subject must not count
     const sigs = [
-      { publicKey: rando.publicKey, keyClass: 'board', signedAt: new Date().toISOString(), signature: 'sig1' },
+      { publicKey: rando.publicKey, keyClass: 'board', signedAt: new Date().toISOString(), signature: sign(SUBJECT, rando.privateKey) },
     ]
 
-    const result = evaluateThreshold(policy, sigs)
+    const result = evaluateThreshold(policy, sigs, SUBJECT)
     assert.ok(!result.met, 'Ineligible key should not count')
     assert.equal(result.classStatus[0].collected, 0)
   })
