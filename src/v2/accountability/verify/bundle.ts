@@ -6,6 +6,7 @@
 
 import { createHash } from 'node:crypto'
 import { canonicalizeJCS } from '../../../core/canonical-jcs.js'
+import { isRecord } from '../../../core/is-record.js'
 import { verify as edVerifyHex } from '../../../crypto/keys.js'
 import type { APSBundle } from '../types/bundle.js'
 
@@ -26,6 +27,11 @@ function sha256Hex(input: string): string {
 }
 
 export function verifyAPSBundle(bundle: APSBundle): APSBundleVerifyResult {
+  // Null / undefined / non-object rejects as a wrong claim type rather than
+  // throwing on the property access below.
+  if (!isRecord(bundle)) {
+    return { valid: false, reason: 'INVALID_CLAIM_TYPE' }
+  }
   if (bundle.claim_type !== 'aps:bundle:v1') {
     return { valid: false, reason: 'INVALID_CLAIM_TYPE' }
   }

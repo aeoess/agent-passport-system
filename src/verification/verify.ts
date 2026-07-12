@@ -4,6 +4,7 @@
 
 import { verify } from '../crypto/keys.js'
 import { canonicalize } from '../core/canonical.js'
+import { isRecord } from '../core/is-record.js'
 import { isExpired } from '../core/passport.js'
 import type { SignedPassport, VerificationResult, Challenge } from '../types/passport.js'
 import type { CoreVerifyClockOptions } from '../types/policy.js'
@@ -30,6 +31,13 @@ export function verifyPassport(
 ): VerificationResult {
   const errors: string[] = []
   const warnings: string[] = []
+
+  // Null / undefined / non-object (attacker-deliverable JSON `null`) rejects
+  // with the missing-fields verdict rather than throwing on the property
+  // access below.
+  if (!isRecord(signed)) {
+    return { valid: false, errors: ['Missing passport or signature'], warnings }
+  }
 
   // Check required fields
   if (!signed.passport || !signed.signature) {

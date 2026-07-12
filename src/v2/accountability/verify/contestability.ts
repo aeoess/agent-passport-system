@@ -16,6 +16,7 @@
 
 import { createHash } from 'node:crypto'
 import { canonicalizeJCS } from '../../../core/canonical-jcs.js'
+import { isRecord } from '../../../core/is-record.js'
 import { verify } from '../../../crypto/keys.js'
 import type {
   ContestabilityReceipt,
@@ -79,6 +80,11 @@ function withoutControllerResponse(receipt: ContestabilityReceipt): Contestabili
 export function verifyContestabilityReceipt(
   receipt: ContestabilityReceipt,
 ): ContestabilityReceiptVerifyResult {
+  // Null / undefined / non-object rejects as a wrong claim type rather than
+  // throwing on the property access below.
+  if (!isRecord(receipt)) {
+    return { valid: false, reason: 'INVALID_CLAIM_TYPE' }
+  }
   if (receipt.claim_type !== 'aps:contestability:v1') {
     return { valid: false, reason: 'INVALID_CLAIM_TYPE' }
   }

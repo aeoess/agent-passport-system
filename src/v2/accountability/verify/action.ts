@@ -11,6 +11,7 @@
 
 import { createHash } from 'node:crypto'
 import { canonicalizeJCS } from '../../../core/canonical-jcs.js'
+import { isRecord } from '../../../core/is-record.js'
 import { verify } from '../../../crypto/keys.js'
 import type { ActionReceipt } from '../types/action.js'
 
@@ -25,6 +26,11 @@ export interface ActionReceiptVerifyResult {
 }
 
 export function verifyActionReceipt(receipt: ActionReceipt): ActionReceiptVerifyResult {
+  // Null / undefined / non-object (attacker-deliverable JSON `null`) rejects
+  // as a wrong claim type rather than throwing on the property access below.
+  if (!isRecord(receipt)) {
+    return { valid: false, reason: 'INVALID_CLAIM_TYPE' }
+  }
   if (receipt.claim_type !== 'aps:action:v1') {
     return { valid: false, reason: 'INVALID_CLAIM_TYPE' }
   }
