@@ -11,6 +11,10 @@
 // The effect-instantiation block, lifecycle records, fold, divergence, and
 // admission checkpoint are later steps and are not implemented here.
 
+import { createHash } from 'node:crypto'
+import { sign, verify } from '../crypto/keys.js'
+import { canonicalize } from './canonical.js'
+
 // ══════════════════════════════════════
 // STEP 1 - Two-axis output (spec section 0)
 // ══════════════════════════════════════
@@ -387,4 +391,154 @@ export function verifyAssertedClass(
     return { ok: false, reason: 'mismatch', asserted: element.asserted_realized_class, recomputed: recomputed.realized }
   }
   return { ok: true, recomputed }
+}
+
+// ══════════════════════════════════════
+// STEP 5a - Two-stage lifecycle (spec section 5)
+// ══════════════════════════════════════
+//
+// The block gets its own lifecycle, mirroring the receipt's pending/reconciled
+// states, so the async-confirmation contradiction dissolves.
+//
+//  - Execution receipt: provisional. evidence_status = pending, carries the
+//    provisional class facts and the enforcement class that GOVERNED admission.
+//    Append-only.
+//  - Reconciliation receipt: hash-linked to the execution receipt, signed,
+//    derives the realized facts. It MUST NOT rewrite the execution receipt, and
+//    transitions are monotonic (pending refines to compensable or irreversible,
+//    never an arbitrary replacement).
+//
+// Enforcement direction (hard rule): the PROVISIONAL binding is what governed
+// admission. The reconciliation receipt is an audit-time correction with NO
+// retroactive enforcement power. You cannot un-admit a settled action. A
+// consumer asking "what gated the action" reads admittedEnforcementClass, which
+// reads ONLY the execution receipt and never the reconciliation's realized
+// class.
+
+/** Provisional stage. Append-only. */
+export interface ExecutionStageReceipt {
+  stage: 'execution'
+  action_ref: string
+  run_id: string
+  /** The provisional class facts. */
+  effect_instantiation: EffectInstantiationBlock
+  /** Stage-level evidence status. Provisional receipts are always pending. */
+  evidence_status: 'pending'
+  /** The enforcement class that GOVERNED admission, recorded by the gateway that
+   *  admitted the action. Never rewritten by any later stage. */
+  admitted_enforcement_class: EnforcementClass
+  created_at: string
+}
+
+export interface ReconciliationSignature {
+  algorithm: 'Ed25519'
+  public_key: string
+  value: string
+}
+
+/** Audit stage. Hash-linked to an execution receipt and signed. Carries the
+ *  refined realized class, which has NO enforcement power. */
+export interface ReconciliationStageReceipt {
+  stage: 'reconciliation'
+  /** SHA-256 hash-link to the execution receipt this refines. */
+  execution_receipt_hash: string
+  action_ref: string
+  /** Audit-time realized class. Never gates admission. */
+  realized_class: RealizedClass
+  /** Refined evidence status after reconciliation. */
+  evidence_status: 'resolved' | 'unavailable' | 'conflicted'
+  reconciled_at: string
+  signature: ReconciliationSignature
+}
+
+/** SHA-256 (over strict JCS bytes) of an execution receipt. Any change to the
+ *  execution receipt changes this hash, so a hash-link detects a rewrite. */
+export function hashExecutionReceipt(receipt: ExecutionStageReceipt): string {
+  return 'sha256:' + createHash('sha256').update(canonicalize(receipt)).digest('hex')
+}
+
+export interface CreateReconciliationInput {
+  realized_class: RealizedClass
+  evidence_status: 'resolved' | 'unavailable' | 'conflicted'
+  reconciled_at: string
+  signerPrivateKey: string
+  signerPublicKey: string
+}
+
+/** Create a reconciliation receipt hash-linked to an execution receipt and
+ *  signed over its canonical body. Does not touch the execution receipt. */
+export function createReconciliationReceipt(
+  execution: ExecutionStageReceipt,
+  input: CreateReconciliationInput,
+): ReconciliationStageReceipt {
+  const body = {
+    stage: 'reconciliation' as const,
+    execution_receipt_hash: hashExecutionReceipt(execution),
+    action_ref: execution.action_ref,
+    realized_class: input.realized_class,
+    evidence_status: input.evidence_status,
+    reconciled_at: input.reconciled_at,
+  }
+  const value = sign(canonicalize(body), input.signerPrivateKey)
+  return { ...body, signature: { algorithm: 'Ed25519', public_key: input.signerPublicKey, value } }
+}
+
+/** The realized classes a reconciliation may refine a pending stage into.
+ *  pending -> compensable and pending -> irreversible only. */
+const MONOTONIC_RECONCILED_CLASSES: ReadonlySet<RealizedClass> = new Set<RealizedClass>([
+  'compensable',
+  'irreversible',
+])
+
+export interface TransitionCheck {
+  ok: boolean
+  errors: string[]
+}
+
+/** Validate a reconciliation against its execution receipt. Rejects a broken
+ *  hash-link (a rewritten execution receipt), an invalid signature, a stage
+ *  that is not pending, and any non-monotonic realized class. */
+export function validateTransition(
+  execution: ExecutionStageReceipt,
+  reconciliation: ReconciliationStageReceipt,
+): TransitionCheck {
+  const errors: string[] = []
+
+  // Hash-link integrity: the reconciliation must reference THIS execution
+  // receipt. A post-hoc rewrite of the execution receipt breaks the link.
+  if (reconciliation.execution_receipt_hash !== hashExecutionReceipt(execution)) {
+    errors.push('hash-link mismatch: reconciliation does not reference this execution receipt')
+  }
+
+  if (reconciliation.action_ref !== execution.action_ref) {
+    errors.push('action_ref mismatch between stages')
+  }
+
+  // Signature over the reconciliation body (excluding the signature block).
+  const { signature, ...body } = reconciliation
+  if (!verify(canonicalize(body), signature.value, signature.public_key)) {
+    errors.push('reconciliation signature invalid')
+  }
+
+  // Monotonic transition: the execution stage is provisional (pending); the
+  // reconciliation may only refine to compensable or irreversible. Anything
+  // else is an arbitrary replacement and is rejected.
+  if (execution.evidence_status !== 'pending') {
+    errors.push('execution receipt is not in the pending stage')
+  }
+  if (!MONOTONIC_RECONCILED_CLASSES.has(reconciliation.realized_class)) {
+    errors.push(
+      `non-monotonic realized_class '${reconciliation.realized_class}' (only compensable or irreversible refine a pending stage)`,
+    )
+  }
+
+  return { ok: errors.length === 0, errors }
+}
+
+/** The enforcement class that GOVERNED admission. This reads ONLY the execution
+ *  receipt: the reconciliation's realized class is audit-time truth and carries
+ *  no enforcement power, so a consumer cannot read the final class as the one
+ *  that gated the action. */
+export function admittedEnforcementClass(execution: ExecutionStageReceipt): EnforcementClass {
+  return execution.admitted_enforcement_class
 }

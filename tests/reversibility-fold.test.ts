@@ -16,8 +16,13 @@ import {
   rapvExternalityToEffectFacts,
   type RealizedClass,
   type EffectFacts,
+  hashExecutionReceipt,
+  createReconciliationReceipt,
+  validateTransition,
+  admittedEnforcementClass,
   type EffectInstantiationElement,
   type EffectInstantiationBlock,
+  type ExecutionStageReceipt,
 } from '../src/core/reversibility-fold.js'
 import { createMinimalEnvelope, verifyExecutionEnvelope } from '../src/index.js'
 import { generateKeyPair, sign } from '../src/crypto/keys.js'
@@ -466,5 +471,152 @@ describe('reversibility-fold step 3b - optional effect_instantiation block on Ex
     assert.equal(withBlock.evaluatorSignatureValid, without.evaluatorSignatureValid)
     assert.deepEqual(withBlock.errors, without.errors)
     assert.equal(withBlock.valid, without.valid)
+  })
+})
+
+// ══════════════════════════════════════
+// STEP 5a - two-stage lifecycle (spec section 5)
+// ══════════════════════════════════════
+
+function execReceipt(over: Partial<ExecutionStageReceipt> = {}): ExecutionStageReceipt {
+  return {
+    stage: 'execution',
+    action_ref: 'act:xyz',
+    run_id: 'run:1',
+    effect_instantiation: {
+      instantiated_effects: [element({ effect_scope: 'external', recovery_mechanism_ref: null })],
+    },
+    evidence_status: 'pending',
+    admitted_enforcement_class: 'irreversible',
+    created_at: '2026-07-13T00:00:00.000Z',
+    ...over,
+  }
+}
+
+describe('reversibility-fold step 5a - monotonic transitions', () => {
+  it('pending -> compensable is a valid monotonic transition', () => {
+    const signer = generateKeyPair()
+    const exec = execReceipt()
+    const recon = createReconciliationReceipt(exec, {
+      realized_class: 'compensable',
+      evidence_status: 'resolved',
+      reconciled_at: '2026-07-13T01:00:00.000Z',
+      signerPrivateKey: signer.privateKey,
+      signerPublicKey: signer.publicKey,
+    })
+    const check = validateTransition(exec, recon)
+    assert.equal(check.ok, true, check.errors.join('; '))
+  })
+
+  it('pending -> irreversible is a valid monotonic transition', () => {
+    const signer = generateKeyPair()
+    const exec = execReceipt()
+    const recon = createReconciliationReceipt(exec, {
+      realized_class: 'irreversible',
+      evidence_status: 'resolved',
+      reconciled_at: '2026-07-13T01:00:00.000Z',
+      signerPrivateKey: signer.privateKey,
+      signerPublicKey: signer.publicKey,
+    })
+    assert.equal(validateTransition(exec, recon).ok, true)
+  })
+
+  it('an arbitrary replacement (tentative or unresolved) is rejected', () => {
+    const signer = generateKeyPair()
+    const exec = execReceipt()
+    for (const bad of ['tentative', 'unresolved'] as const) {
+      const recon = createReconciliationReceipt(exec, {
+        realized_class: bad,
+        evidence_status: 'resolved',
+        reconciled_at: '2026-07-13T01:00:00.000Z',
+        signerPrivateKey: signer.privateKey,
+        signerPublicKey: signer.publicKey,
+      })
+      const check = validateTransition(exec, recon)
+      assert.equal(check.ok, false)
+      assert.ok(check.errors.some((e) => e.includes('non-monotonic')))
+    }
+  })
+})
+
+describe('reversibility-fold step 5a - hash-link integrity and no-rewrite', () => {
+  it('a tampered hash-link fails', () => {
+    const signer = generateKeyPair()
+    const exec = execReceipt()
+    const recon = createReconciliationReceipt(exec, {
+      realized_class: 'irreversible',
+      evidence_status: 'resolved',
+      reconciled_at: '2026-07-13T01:00:00.000Z',
+      signerPrivateKey: signer.privateKey,
+      signerPublicKey: signer.publicKey,
+    })
+    const tampered = { ...recon, execution_receipt_hash: 'sha256:0000' }
+    const check = validateTransition(exec, tampered)
+    assert.equal(check.ok, false)
+    assert.ok(check.errors.some((e) => e.includes('hash-link mismatch')))
+  })
+
+  it('rewriting the execution receipt after reconciliation breaks the link (rewrite rejected)', () => {
+    const signer = generateKeyPair()
+    const exec = execReceipt({ admitted_enforcement_class: 'irreversible' })
+    const recon = createReconciliationReceipt(exec, {
+      realized_class: 'compensable',
+      evidence_status: 'resolved',
+      reconciled_at: '2026-07-13T01:00:00.000Z',
+      signerPrivateKey: signer.privateKey,
+      signerPublicKey: signer.publicKey,
+    })
+    // Attacker tries to rewrite the execution receipt after the fact.
+    const rewritten = { ...exec, admitted_enforcement_class: 'compensable' as const }
+    const check = validateTransition(rewritten, recon)
+    assert.equal(check.ok, false)
+    assert.ok(check.errors.some((e) => e.includes('hash-link mismatch')))
+  })
+
+  it('a reconciliation with a tampered realized_class fails the signature', () => {
+    const signer = generateKeyPair()
+    const exec = execReceipt()
+    const recon = createReconciliationReceipt(exec, {
+      realized_class: 'compensable',
+      evidence_status: 'resolved',
+      reconciled_at: '2026-07-13T01:00:00.000Z',
+      signerPrivateKey: signer.privateKey,
+      signerPublicKey: signer.publicKey,
+    })
+    const forged = { ...recon, realized_class: 'irreversible' as const }
+    const check = validateTransition(exec, forged)
+    assert.equal(check.ok, false)
+    assert.ok(check.errors.some((e) => e.includes('signature invalid')))
+  })
+})
+
+describe('reversibility-fold step 5a - no retroactive enforcement', () => {
+  it('the reconciliation does not change the enforcement class the execution receipt carried', () => {
+    const signer = generateKeyPair()
+    // Admission gated at irreversible (fail-closed during pending).
+    const exec = execReceipt({ admitted_enforcement_class: 'irreversible' })
+    // Audit later refines the realized truth down to compensable.
+    const recon = createReconciliationReceipt(exec, {
+      realized_class: 'compensable',
+      evidence_status: 'resolved',
+      reconciled_at: '2026-07-13T01:00:00.000Z',
+      signerPrivateKey: signer.privateKey,
+      signerPublicKey: signer.publicKey,
+    })
+    assert.equal(validateTransition(exec, recon).ok, true)
+    // The enforcement binding that gated the action is unchanged: you cannot
+    // un-admit a settled action. admittedEnforcementClass reads only the exec.
+    assert.equal(admittedEnforcementClass(exec), 'irreversible')
+    assert.equal(exec.admitted_enforcement_class, 'irreversible')
+    // The reconciliation's realized class is audit-only and differs.
+    assert.equal(recon.realized_class, 'compensable')
+    assert.notEqual(admittedEnforcementClass(exec), recon.realized_class)
+  })
+
+  it('hashExecutionReceipt is stable for identical receipts and changes on any edit', () => {
+    const a = execReceipt()
+    const b = execReceipt()
+    assert.equal(hashExecutionReceipt(a), hashExecutionReceipt(b))
+    assert.notEqual(hashExecutionReceipt(a), hashExecutionReceipt(execReceipt({ admitted_enforcement_class: 'compensable' })))
   })
 })
