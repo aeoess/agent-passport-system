@@ -10,9 +10,30 @@ import {
   registeredProfileIds,
   reversibilityMappingV0,
   REVERSIBILITY_MAPPING_V0_ID,
+  recomputeEffect,
+  recomputeBlock,
+  verifyAssertedClass,
+  rapvExternalityToEffectFacts,
   type RealizedClass,
   type EffectFacts,
+  type EffectInstantiationElement,
+  type EffectInstantiationBlock,
 } from '../src/core/reversibility-fold.js'
+
+// A well-formed base element; individual tests override the fields under test.
+function element(over: Partial<EffectInstantiationElement> = {}): EffectInstantiationElement {
+  return {
+    effect_scope: 'external',
+    effect_target_ref: 'urn:target:acme-merchant',
+    finality_state: 'pending',
+    recovery_mechanism_ref: null,
+    recovery_controller: null,
+    recovery_deadline: null,
+    evidence_status: 'resolved',
+    classification_profile_id: REVERSIBILITY_MAPPING_V0_ID,
+    ...over,
+  }
+}
 
 // ══════════════════════════════════════
 // STEP 1 - projection realized -> enforcement (spec section 0)
@@ -207,5 +228,147 @@ describe('reversibility-fold step 2 - versioned profile registry', () => {
     assert.ok(p)
     const facts: EffectFacts = { externality: 'external-irreversible', finalityState: 'pending' }
     assert.deepEqual(p.classify(facts), classifyV0(facts))
+  })
+})
+
+// ══════════════════════════════════════
+// STEP 3a - effect-instantiation block + recompute (spec section 3)
+// ══════════════════════════════════════
+
+describe('reversibility-fold step 3a - recompute over each externality bucket via the block', () => {
+  it('internal effect with an observable recovery mechanism -> compensable', () => {
+    const out = recomputeEffect(element({ effect_scope: 'internal', recovery_mechanism_ref: 'snapshot://db-2026-07-13' }))
+    assert.equal(out.status, 'recomputed')
+    assert.equal(out.status === 'recomputed' && out.result.realized, 'compensable')
+  })
+
+  it('internal effect with no recovery mechanism (key destruction) -> irreversible', () => {
+    const out = recomputeEffect(element({ effect_scope: 'internal', recovery_mechanism_ref: null }))
+    assert.equal(out.status === 'recomputed' && out.result.realized, 'irreversible')
+  })
+
+  it('external effect with no recovery (external-irreversible) -> irreversible + upper_bound (unverified)', () => {
+    const out = recomputeEffect(element({ effect_scope: 'external', recovery_mechanism_ref: null }))
+    assert.equal(out.status, 'recomputed')
+    if (out.status === 'recomputed') {
+      assert.equal(out.result.realized, 'irreversible')
+      assert.equal(out.result.label, 'upper_bound')
+    }
+  })
+
+  it('external effect with a recovery mechanism (external-reversible) fails closed to irreversible pre-actor-axis', () => {
+    // In step 3 the actor axis (external reversal-right signer) is not supplied,
+    // so an external-reversible effect cannot reach compensable and fails closed.
+    const out = recomputeEffect(element({
+      effect_scope: 'external',
+      recovery_mechanism_ref: 'refund://acme/settle',
+      recovery_controller: 'urn:principal:me',
+    }))
+    assert.equal(out.status === 'recomputed' && out.result.realized, 'irreversible')
+  })
+})
+
+describe('reversibility-fold step 3a - targetBindingVerified hard rule (verifier only)', () => {
+  it('external-irreversible stays upper_bound when the verifier does not pass targetBindingVerified', () => {
+    const out = recomputeEffect(element({ effect_scope: 'external', recovery_mechanism_ref: null, finality_state: 'settled' }))
+    assert.equal(out.status === 'recomputed' && out.result.label, 'upper_bound')
+  })
+
+  it('external-irreversible becomes definitive (no label) only when the verifier passes targetBindingVerified AND finality is settled', () => {
+    const el = element({ effect_scope: 'external', recovery_mechanism_ref: null, finality_state: 'settled' })
+    const out = recomputeEffect(el, { targetBindingVerified: true })
+    assert.equal(out.status, 'recomputed')
+    if (out.status === 'recomputed') {
+      assert.equal(out.result.realized, 'irreversible')
+      assert.equal(out.result.label, undefined)
+    }
+  })
+
+  it('verifier targetBindingVerified without settled finality still reads upper_bound', () => {
+    const el = element({ effect_scope: 'external', recovery_mechanism_ref: null, finality_state: 'pending' })
+    const out = recomputeEffect(el, { targetBindingVerified: true })
+    assert.equal(out.status === 'recomputed' && out.result.label, 'upper_bound')
+  })
+})
+
+describe('reversibility-fold step 3a - unknown profile is a distinct failure', () => {
+  it('an unknown classification_profile_id surfaces as unknown_profile, NOT unresolved', () => {
+    const out = recomputeEffect(element({ classification_profile_id: 'reversibility-mapping-v999' }))
+    assert.equal(out.status, 'unknown_profile')
+    assert.equal(out.status === 'unknown_profile' && out.classificationProfileId, 'reversibility-mapping-v999')
+  })
+})
+
+describe('reversibility-fold step 3a - asserted cache class is never trusted', () => {
+  it('a matching asserted cache passes', () => {
+    // internal + no recovery recomputes irreversible; cache agrees.
+    const el = element({ effect_scope: 'internal', recovery_mechanism_ref: null, asserted_realized_class: 'irreversible' })
+    const check = verifyAssertedClass(el)
+    assert.equal(check.ok, true)
+  })
+
+  it('a mismatching asserted cache FAILS with the recomputed class named', () => {
+    // internal + no recovery recomputes irreversible; cache lies "compensable".
+    const el = element({ effect_scope: 'internal', recovery_mechanism_ref: null, asserted_realized_class: 'compensable' })
+    const check = verifyAssertedClass(el)
+    assert.equal(check.ok, false)
+    if (check.ok === false && check.reason === 'mismatch') {
+      assert.equal(check.asserted, 'compensable')
+      assert.equal(check.recomputed, 'irreversible')
+    } else {
+      assert.fail('expected a mismatch failure')
+    }
+  })
+
+  it('an absent asserted cache passes', () => {
+    const check = verifyAssertedClass(element({ effect_scope: 'internal', recovery_mechanism_ref: 'snapshot://x' }))
+    assert.equal(check.ok, true)
+  })
+
+  it('an unknown profile cannot verify an asserted cache', () => {
+    const el = element({ classification_profile_id: 'nope', asserted_realized_class: 'irreversible' })
+    const check = verifyAssertedClass(el)
+    assert.equal(check.ok === false && check.reason, 'unknown_profile')
+  })
+})
+
+describe('reversibility-fold step 3a - RAPV0 externality adapter', () => {
+  it("RAPV0 'none' -> undefined -> unresolved", () => {
+    assert.equal(rapvExternalityToEffectFacts('none'), undefined)
+    assert.equal(classifyV0({ externality: rapvExternalityToEffectFacts('none') }).realized, 'unresolved')
+  })
+
+  it('RAPV0 absent/null -> undefined -> unresolved', () => {
+    assert.equal(rapvExternalityToEffectFacts(undefined), undefined)
+    assert.equal(rapvExternalityToEffectFacts(null), undefined)
+    assert.equal(classifyV0({ externality: rapvExternalityToEffectFacts(undefined) }).realized, 'unresolved')
+  })
+
+  it('RAPV0 substantive buckets pass through to EffectFacts.externality', () => {
+    assert.equal(rapvExternalityToEffectFacts('internal'), 'internal')
+    assert.equal(rapvExternalityToEffectFacts('external-reversible'), 'external-reversible')
+    assert.equal(rapvExternalityToEffectFacts('external-irreversible'), 'external-irreversible')
+  })
+})
+
+describe('reversibility-fold step 3a - multi-effect block recomputes per element', () => {
+  it('a block with three distinct effects recomputes each independently, preserving order', () => {
+    const block: EffectInstantiationBlock = {
+      instantiated_effects: [
+        // compensable payment authorization (internal, snapshot recovery)
+        element({ effect_scope: 'internal', recovery_mechanism_ref: 'snapshot://ledger' }),
+        // irreversible external email (external, no recovery)
+        element({ effect_scope: 'external', recovery_mechanism_ref: null }),
+        // internal irreversible key deletion (internal, no recovery)
+        element({ effect_scope: 'internal', recovery_mechanism_ref: null }),
+      ],
+    }
+    const outs = recomputeBlock(block)
+    assert.equal(outs.length, 3)
+    assert.equal(outs[0].status === 'recomputed' && outs[0].result.realized, 'compensable')
+    assert.equal(outs[1].status === 'recomputed' && outs[1].result.realized, 'irreversible')
+    assert.equal(outs[1].status === 'recomputed' && outs[1].result.label, 'upper_bound')
+    assert.equal(outs[2].status === 'recomputed' && outs[2].result.realized, 'irreversible')
+    // no collapse to a single max: three separate outcomes preserved.
   })
 })

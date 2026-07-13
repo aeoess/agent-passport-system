@@ -222,3 +222,169 @@ export function getClassificationProfile(id: string): ClassificationProfile | un
 export function registeredProfileIds(): string[] {
   return [...PROFILE_REGISTRY.keys()]
 }
+
+// ══════════════════════════════════════
+// STEP 3a - Effect-instantiation block + recompute (spec section 3)
+// ══════════════════════════════════════
+//
+// One action can produce several effects at once (a compensable payment
+// authorization, an irreversible email, an internal irreversible key deletion).
+// A single scalar collapses them to the max and loses the cause, so the block
+// carries a vector of effects. Each element carries the RAW facts, never a
+// trusted class: an asserted class MAY appear as a cache only, and a verifier
+// recompute that disagrees FAILS.
+//
+// This step defines the block schema and the recompute over it. It performs no
+// signing and does not bind resource_confirmation_ref (that is a later step).
+// The hard rule below keeps unverified external-irreversible effects fail-closed.
+
+/** Where an effect lands. Coarser than the classifier's externality bucket:
+ *  the reversible-vs-irreversible distinction for an external effect is not a
+ *  field an author sets, it is recomputed from the recovery facts (spec Q4:
+ *  reversibility is not a scalar of the effect location). */
+export type EffectScope = 'internal' | 'external'
+
+/** Whether the effect's facts are established yet. Carried per section 3 and
+ *  consumed by the two-stage lifecycle (a later step), not by this recompute. */
+export type EvidenceStatus = 'resolved' | 'pending' | 'unavailable' | 'conflicted'
+
+/** One instantiated effect. Raw facts only. */
+export interface EffectInstantiationElement {
+  effect_scope: EffectScope
+  effect_target_ref: string
+  finality_state: FinalityState
+  recovery_mechanism_ref: string | null
+  recovery_controller: string | null
+  recovery_deadline: string | null
+  evidence_status: EvidenceStatus
+  classification_profile_id: string
+  /** Optional cache ONLY. Never trusted. A verifier recomputes the realized
+   *  class and any mismatch fails verification (verifyAssertedClass). */
+  asserted_realized_class?: RealizedClass
+}
+
+/** The effect-instantiation block: the effect vector (v0). */
+export interface EffectInstantiationBlock {
+  instantiated_effects: EffectInstantiationElement[]
+}
+
+/** RAPV0 TaskClassification.externality value space. Declared here to avoid
+ *  coupling this primitive to the reputation type; the values mirror
+ *  src/types/reputation-authority.ts TaskClassification.externality. */
+export type RapvExternality = 'none' | 'internal' | 'external-reversible' | 'external-irreversible'
+
+/** Map an RAPV0 externality onto the value used for EffectFacts.externality.
+ *  'none' or absent maps to undefined (unbound), which classifies unresolved.
+ *  This is a pure adapter, not an import-and-couple. */
+export function rapvExternalityToEffectFacts(
+  externality: RapvExternality | null | undefined,
+): EffectExternality | undefined {
+  if (externality == null || externality === 'none') return undefined
+  return externality
+}
+
+/** Verifier-supplied context for a recompute. Facts a verifier establishes
+ *  out of band. Everything defaults to the fail-closed value when absent. */
+export interface RecomputeOptions {
+  /** HARD RULE: an author NEVER sets this from the block. Only a verifier that
+   *  checked the resource_confirmation_ref cryptographic commitment (a later
+   *  step) may pass true. Absent or false keeps an external-irreversible effect
+   *  at irreversible + upper_bound. */
+  targetBindingVerified?: boolean
+}
+
+/** The outcome of a recompute. An unknown classification_profile_id is a
+ *  DISTINCT failure from unbound facts: it is surfaced, never silently
+ *  classified as unresolved. */
+export type RecomputeOutcome =
+  | { status: 'recomputed'; classificationProfileId: string; result: ClassificationResult }
+  | { status: 'unknown_profile'; classificationProfileId: string }
+
+/** Derive the classifier externality bucket from an element's raw facts.
+ *  internal -> internal. external with a recovery mechanism present -> external-
+ *  reversible (a compensating operation exists in principle). external with no
+ *  recovery mechanism -> external-irreversible. The reversible verdict is then
+ *  refined by classifyV0, which still requires the actor-axis mandate to reach
+ *  compensable, so this derivation never fails open. */
+function deriveExternality(element: EffectInstantiationElement): EffectExternality {
+  if (element.effect_scope === 'internal') return 'internal'
+  const hasRecovery =
+    element.recovery_mechanism_ref != null && element.recovery_mechanism_ref !== ''
+  return hasRecovery ? 'external-reversible' : 'external-irreversible'
+}
+
+/** Build classifier facts from an element plus verifier context. Note what is
+ *  deliberately NOT supplied here: actingPrincipal and the external reversal-
+ *  right attestation are the actor axis (a later step), so an external-
+ *  reversible effect fails closed to irreversible under this recompute until
+ *  that step supplies verified actor-axis facts. targetBindingVerified comes
+ *  only from the verifier context, never from the element (hard rule). */
+function effectFactsFromElement(
+  element: EffectInstantiationElement,
+  options?: RecomputeOptions,
+): EffectFacts {
+  return {
+    externality: deriveExternality(element),
+    recoveryController: element.recovery_controller,
+    recoveryMechanismRef: element.recovery_mechanism_ref,
+    finalityState: element.finality_state,
+    targetBindingVerified: options?.targetBindingVerified === true,
+  }
+}
+
+/** Recompute the realized class for one effect element. Resolves the mapping
+ *  profile by classification_profile_id; an unknown id is surfaced as its own
+ *  failure and is NOT classified. Otherwise runs the profile over the element's
+ *  facts and returns the ClassificationResult. */
+export function recomputeEffect(
+  element: EffectInstantiationElement,
+  options?: RecomputeOptions,
+): RecomputeOutcome {
+  const profile = getClassificationProfile(element.classification_profile_id)
+  if (profile === undefined) {
+    return { status: 'unknown_profile', classificationProfileId: element.classification_profile_id }
+  }
+  const facts = effectFactsFromElement(element, options)
+  return {
+    status: 'recomputed',
+    classificationProfileId: element.classification_profile_id,
+    result: profile.classify(facts),
+  }
+}
+
+/** Recompute every effect in a block, per element. No folding or collapsing to
+ *  a maximum here (that is the fold, a later step). */
+export function recomputeBlock(
+  block: EffectInstantiationBlock,
+  options?: RecomputeOptions,
+): RecomputeOutcome[] {
+  return block.instantiated_effects.map((e) => recomputeEffect(e, options))
+}
+
+/** The result of checking an element's asserted cache class against the
+ *  recompute. Absent cache passes. A present cache that differs from the
+ *  recomputed realized class fails. An unknown profile cannot be verified. */
+export type AssertedClassCheck =
+  | { ok: true; recomputed: ClassificationResult }
+  | { ok: false; reason: 'mismatch'; asserted: RealizedClass; recomputed: RealizedClass }
+  | { ok: false; reason: 'unknown_profile'; classificationProfileId: string }
+
+/** Verify an element's asserted cache class (if any) against the recompute.
+ *  A cache is a convenience only and is never trusted: a mismatch fails. */
+export function verifyAssertedClass(
+  element: EffectInstantiationElement,
+  options?: RecomputeOptions,
+): AssertedClassCheck {
+  const outcome = recomputeEffect(element, options)
+  if (outcome.status === 'unknown_profile') {
+    return { ok: false, reason: 'unknown_profile', classificationProfileId: outcome.classificationProfileId }
+  }
+  const recomputed = outcome.result
+  if (element.asserted_realized_class === undefined) {
+    return { ok: true, recomputed }
+  }
+  if (element.asserted_realized_class !== recomputed.realized) {
+    return { ok: false, reason: 'mismatch', asserted: element.asserted_realized_class, recomputed: recomputed.realized }
+  }
+  return { ok: true, recomputed }
+}
