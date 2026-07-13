@@ -19,6 +19,9 @@ import {
   type EffectInstantiationElement,
   type EffectInstantiationBlock,
 } from '../src/core/reversibility-fold.js'
+import { createMinimalEnvelope, verifyExecutionEnvelope } from '../src/index.js'
+import { generateKeyPair, sign } from '../src/crypto/keys.js'
+import { canonicalize } from '../src/core/canonical.js'
 
 // A well-formed base element; individual tests override the fields under test.
 function element(over: Partial<EffectInstantiationElement> = {}): EffectInstantiationElement {
@@ -370,5 +373,98 @@ describe('reversibility-fold step 3a - multi-effect block recomputes per element
     assert.equal(outs[1].status === 'recomputed' && outs[1].result.label, 'upper_bound')
     assert.equal(outs[2].status === 'recomputed' && outs[2].result.realized, 'irreversible')
     // no collapse to a single max: three separate outcomes preserved.
+  })
+})
+
+// ══════════════════════════════════════
+// STEP 3b - optional block on the common execution-receipt envelope
+// ══════════════════════════════════════
+
+// Build a valid minimal ExecutionEnvelope carrying no block.
+function minimalEnvelope(signer: { publicKey: string; privateKey: string }) {
+  return createMinimalEnvelope({
+    agentDid: 'did:aps:agent',
+    runId: 'run-3b',
+    actionId: 'act-3b',
+    scope: ['data:read'],
+    revocationStatus: 'active',
+    decisionHash: 'sha256:deadbeef',
+    policyRef: 'floor.v1',
+    evaluationMethod: 'deterministic',
+    verdict: 'permit',
+    evaluatedAt: new Date().toISOString(),
+    evaluatorDid: 'did:aps:evaluator',
+    evaluatorSignature: 'evsig',
+    receiptHash: 'sha256:cafef00d',
+    signerPrivateKey: signer.privateKey,
+    signerPublicKey: signer.publicKey,
+  })
+}
+
+const SAMPLE_BLOCK: EffectInstantiationBlock = {
+  instantiated_effects: [
+    {
+      effect_scope: 'external',
+      effect_target_ref: 'urn:target:acme',
+      finality_state: 'settled',
+      recovery_mechanism_ref: null,
+      recovery_controller: null,
+      recovery_deadline: null,
+      evidence_status: 'resolved',
+      classification_profile_id: REVERSIBILITY_MAPPING_V0_ID,
+    },
+  ],
+}
+
+describe('reversibility-fold step 3b - optional effect_instantiation block on ExecutionEnvelope', () => {
+  it('an existing receipt with NO block still validates (back-compat)', () => {
+    const signer = generateKeyPair()
+    const env = minimalEnvelope(signer)
+    assert.equal(env.effect_instantiation, undefined)
+    const v = verifyExecutionEnvelope(env)
+    assert.equal(v.valid, true)
+    assert.equal(v.signatureValid, true)
+  })
+
+  it('a receipt carrying a well-formed block validates', () => {
+    const signer = generateKeyPair()
+    const env = minimalEnvelope(signer)
+    // Attach the block and re-sign the body (the block is part of the signed body).
+    const { signature, ...body } = env
+    const bodyWithBlock = { ...body, effect_instantiation: SAMPLE_BLOCK }
+    const value = sign(canonicalize(bodyWithBlock), signer.privateKey)
+    const envWithBlock = { ...bodyWithBlock, signature: { ...signature, value } }
+    const v = verifyExecutionEnvelope(envWithBlock)
+    assert.equal(v.valid, true)
+    assert.equal(v.signatureValid, true)
+    assert.deepEqual(envWithBlock.effect_instantiation, SAMPLE_BLOCK)
+  })
+
+  it("the block is inside the signed body: adding it WITHOUT re-signing fails the signature", () => {
+    const signer = generateKeyPair()
+    const env = minimalEnvelope(signer)
+    // Tamper: attach a block but keep the original blockless signature.
+    const tampered = { ...env, effect_instantiation: SAMPLE_BLOCK }
+    const v = verifyExecutionEnvelope(tampered)
+    assert.equal(v.signatureValid, false)
+    assert.equal(v.valid, false)
+  })
+
+  it('presence of the block does not alter any existing validation aspect', () => {
+    const signer = generateKeyPair()
+    const env = minimalEnvelope(signer)
+    const { signature, ...body } = env
+    const bodyWithBlock = { ...body, effect_instantiation: SAMPLE_BLOCK }
+    const value = sign(canonicalize(bodyWithBlock), signer.privateKey)
+    const envWithBlock = { ...bodyWithBlock, signature: { ...signature, value } }
+
+    const without = verifyExecutionEnvelope(env)
+    const withBlock = verifyExecutionEnvelope(envWithBlock)
+    // Every existing validation aspect is identical whether or not the block is present.
+    assert.equal(withBlock.capabilityActive, without.capabilityActive)
+    assert.equal(withBlock.decisionFresh, without.decisionFresh)
+    assert.equal(withBlock.evaluatorSignatureValid, without.evaluatorSignatureValid)
+    assert.deepEqual(withBlock.errors, without.errors)
+    assert.equal(withBlock.valid, without.valid)
   })
 })

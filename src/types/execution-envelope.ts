@@ -11,6 +11,8 @@
 // existing 3-signature chain.
 // ══════════════════════════════════════════════════════════════════
 
+import type { EffectInstantiationBlock } from '../core/reversibility-fold.js'
+
 export type EvaluationMethod = 'deterministic' | 'probabilistic' | 'model_dependent' | 'hybrid'
 export type EnvelopeVerdict = 'permit' | 'deny' | 'narrow' | 'audit'
 export type RevocationStatus = 'active' | 'revoked'
@@ -72,6 +74,13 @@ export interface ExecutionEnvelope {
 
   /** When the envelope was created */
   timestamp: string
+
+  /** OPTIONAL effect-instantiation block (reversibility fold, spec v2 section 3).
+   *  Absent on existing receipts, which stay valid unchanged. A fold over a
+   *  receipt lacking it is incomplete, never irreversible. When present the
+   *  block is part of the signed body; its presence does not change any
+   *  existing validation path. */
+  effect_instantiation?: EffectInstantiationBlock
 
   signature: {
     algorithm: 'Ed25519'
