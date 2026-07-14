@@ -13,7 +13,7 @@
 
 import { createHash } from 'node:crypto'
 import { sign, verify } from '../crypto/keys.js'
-import { canonicalize } from './canonical.js'
+import { canonicalizeJCS } from './canonical-jcs.js'
 
 // ══════════════════════════════════════
 // STEP 1 - Two-axis output (spec section 0)
@@ -249,7 +249,7 @@ export function profileContentDigest(content: unknown): string {
   const preimage = Buffer.concat([
     Buffer.from('APS-REVERSIBILITY-PROFILE-V0', 'utf8'),
     Buffer.from([0x00]),
-    Buffer.from(canonicalize(content), 'utf8'),
+    Buffer.from(canonicalizeJCS(content), 'utf8'),
   ])
   return 'sha256:' + createHash('sha256').update(preimage).digest('hex')
 }
@@ -606,7 +606,7 @@ export interface ReconciliationStageReceipt {
 /** SHA-256 (over strict JCS bytes) of an execution receipt. Any change to the
  *  execution receipt changes this hash, so a hash-link detects a rewrite. */
 export function hashExecutionReceipt(receipt: ExecutionStageReceipt): string {
-  return 'sha256:' + createHash('sha256').update(canonicalize(receipt)).digest('hex')
+  return 'sha256:' + createHash('sha256').update(canonicalizeJCS(receipt)).digest('hex')
 }
 
 export interface CreateReconciliationInput {
@@ -631,7 +631,7 @@ export function createReconciliationReceipt(
     evidence_status: input.evidence_status,
     reconciled_at: input.reconciled_at,
   }
-  const value = sign(canonicalize(body), input.signerPrivateKey)
+  const value = sign(canonicalizeJCS(body), input.signerPrivateKey)
   return { ...body, signature: { algorithm: 'Ed25519', public_key: input.signerPublicKey, value } }
 }
 
@@ -668,7 +668,7 @@ export function validateTransition(
 
   // Signature over the reconciliation body (excluding the signature block).
   const { signature, ...body } = reconciliation
-  if (!verify(canonicalize(body), signature.value, signature.public_key)) {
+  if (!verify(canonicalizeJCS(body), signature.value, signature.public_key)) {
     errors.push('reconciliation signature invalid')
   }
 
@@ -747,7 +747,7 @@ export function hashEffectState(element: EffectInstantiationElement): string {
   const preimage = Buffer.concat([
     Buffer.from('APS-REVERSIBILITY-EFFECT-STATE-V0', 'utf8'),
     Buffer.from([0x00]),
-    Buffer.from(canonicalize(effectStatePreimage(element)), 'utf8'),
+    Buffer.from(canonicalizeJCS(effectStatePreimage(element)), 'utf8'),
   ])
   return 'sha256:' + createHash('sha256').update(preimage).digest('hex')
 }
@@ -762,7 +762,7 @@ export function deriveEffectId(action_ref: string, action_instance_id: string, l
   const preimage = Buffer.concat([
     Buffer.from('APS-REVERSIBILITY-EFFECT-ID-V0', 'utf8'),
     Buffer.from([0x00]),
-    Buffer.from(canonicalize({ action_ref, action_instance_id, local_effect_id }), 'utf8'),
+    Buffer.from(canonicalizeJCS({ action_ref, action_instance_id, local_effect_id }), 'utf8'),
   ])
   return createHash('sha256').update(preimage).digest('base64url')
 }
