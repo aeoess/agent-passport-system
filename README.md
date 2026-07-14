@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/banner.png" alt="Agent Passport System banner. Governance infrastructure for the agent economy. Cryptographic identity, signed action receipts, beneficiary attribution." width="100%">
+  <img src="docs/assets/banner-hero.png" alt="Agent Passport System banner. Governance infrastructure for the agent economy. Cryptographic identity, signed action receipts, beneficiary attribution." width="100%">
 </p>
 
 # Agent Passport System
