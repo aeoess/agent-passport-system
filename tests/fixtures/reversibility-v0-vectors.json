@@ -1,0 +1,52 @@
+{
+  "profile_id": "reversibility-mapping-v0",
+  "profile_digest": "sha256:23ef78e02e68e1b1fc94844cc9ccd7e7beae598fc612bddcdb12a9c2792ae322",
+  "note": "Conformance vectors for reversibility-mapping-v0 (v4 section 4). Each fixture is raw effect facts plus the expected realized_class, enforcement_class, label, and reason code. TS, Python, and Go must produce byte-identical realized/enforcement/label/reason on every fixture. Stale, conflicted, and revoked-evidence fixtures are DEFERRED: they belong to the v4 section 10 external reversal subsystem, which is not built in v0, so they are intentionally absent here.",
+  "vectors": [
+    {
+      "name": "internal-observable-recovery-compensable",
+      "input": { "externality": "internal", "recovery_mechanism_ref": "snapshot://ledger-2026-07-13" },
+      "expected": { "realized": "compensable", "enforcement": "compensable", "reason": "RM_V0_INTERNAL_RECOVERABLE" }
+    },
+    {
+      "name": "internal-no-recovery-irreversible",
+      "input": { "externality": "internal", "recovery_mechanism_ref": null },
+      "expected": { "realized": "irreversible", "enforcement": "irreversible", "reason": "RM_V0_INTERNAL_NO_RECOVERY" }
+    },
+    {
+      "name": "internal-missing-recovery-fails-closed",
+      "input": { "externality": "internal" },
+      "expected": { "realized": "irreversible", "enforcement": "irreversible", "reason": "RM_V0_INTERNAL_NO_RECOVERY" }
+    },
+    {
+      "name": "external-irreversible-upper-bound",
+      "input": { "externality": "external-irreversible", "finality_state": "pending" },
+      "expected": { "realized": "irreversible", "enforcement": "irreversible", "label": "upper_bound", "reason": "RM_V0_EXTERNAL_UPPER_BOUND" }
+    },
+    {
+      "name": "external-reversible-collapses-to-irreversible-upper-bound",
+      "input": { "externality": "external-reversible", "recovery_mechanism_ref": "refund://acme" },
+      "expected": { "realized": "irreversible", "enforcement": "irreversible", "label": "upper_bound", "reason": "RM_V0_EXTERNAL_UPPER_BOUND" }
+    },
+    {
+      "name": "external-definitive-when-settled-and-target-bound",
+      "input": { "externality": "external-irreversible", "finality_state": "settled", "target_binding_verified": true },
+      "expected": { "realized": "irreversible", "enforcement": "irreversible", "reason": "RM_V0_EXTERNAL_DEFINITIVE" }
+    },
+    {
+      "name": "external-settled-without-target-binding-stays-upper-bound",
+      "input": { "externality": "external-irreversible", "finality_state": "settled" },
+      "expected": { "realized": "irreversible", "enforcement": "irreversible", "label": "upper_bound", "reason": "RM_V0_EXTERNAL_UPPER_BOUND" }
+    },
+    {
+      "name": "unbound-missing-externality-unresolved",
+      "input": {},
+      "expected": { "realized": "unresolved", "enforcement": "irreversible", "reason": "RM_V0_UNBOUND" }
+    },
+    {
+      "name": "unknown-profile-id-distinct-failure",
+      "input": { "classification_profile_id": "reversibility-mapping-vX", "externality": "internal", "recovery_mechanism_ref": "snapshot://x" },
+      "expected": { "failure": "unknown_profile" }
+    }
+  ]
+}
