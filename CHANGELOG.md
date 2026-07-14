@@ -1,5 +1,16 @@
 # Changelog
 
+## 4.1.0 (2026-07-13)
+
+### Fixed / Security
+- **JCS canonicalization now rejects lone surrogates (RFC 8785).** `canonicalizeJCS` and the signing paths that call it previously accepted strings carrying an unpaired UTF-16 surrogate (U+D800 to U+DFFF) and let it reach the canonical output, so input that is not valid Unicode could be signed and could canonicalize differently across implementations. Such input is now rejected before hashing with a stable error, matching the Python and Go SDKs and the RFC 8785 requirement that input be valid Unicode.
+
+### Behavior change
+- Input that was previously accepted is now rejected. A value carrying a lone surrogate on a canonicalization or signing path throws instead of producing a signature. Callers that never emit unpaired surrogates see no change. This is why the minor version moves rather than the patch.
+
+### Internal
+- Reversibility-fold v0 groundwork landed (per-effect classifier and profile registry). It is not exported from the package entry and adds no public API. No consumer action.
+
 ## 3.3.1 (2026-07-10)
 
 ### Fixed / Security (audit 2026-07-10)
