@@ -54,3 +54,50 @@ describe('canonicalizeJCS — lone surrogate rejection (RFC 8785)', () => {
     assert.equal(canonicalizeJCS({ v: '퟿' }), '{"v":"퟿"}')
   })
 })
+
+describe('canonicalizeJCS: lone surrogate property-name and structural coverage', () => {
+  it('rejects a lone surrogate in a nested object value', () => {
+    assert.throws(() => canonicalizeJCS({ a: { b: HIGH } }), isLoneSurrogate)
+  })
+
+  it('rejects a lone surrogate in an array element', () => {
+    assert.throws(() => canonicalizeJCS({ a: [HIGH] }), isLoneSurrogate)
+  })
+
+  it('rejects a lone surrogate in a nested object key', () => {
+    assert.throws(() => canonicalizeJCS({ a: { [LOW]: 'x' } }), isLoneSurrogate)
+  })
+
+  it('accepts a valid pair immediately followed by a lone low surrogate is still rejected', () => {
+    // Off-by-one guard: a valid pair then a lone low surrogate must reject.
+    assert.throws(() => canonicalizeJCS({ v: EMOJI + LOW }), isLoneSurrogate)
+  })
+})
+
+describe('canonicalizeJCS: error contract', () => {
+  it('the thrown error is an Error and a JcsCanonicalizationError with a stable category/reason', () => {
+    try {
+      canonicalizeJCS({ v: HIGH })
+      assert.fail('expected throw')
+    } catch (e) {
+      // Caught by the canonicalizer's declared error type; instanceof Error holds.
+      assert.ok(e instanceof Error)
+      assert.ok(e instanceof JcsCanonicalizationError)
+      const je = e as JcsCanonicalizationError
+      assert.equal(je.category, 'invalid_unicode')
+      assert.equal(je.reason, 'lone_surrogate')
+      // The offending string is not leaked into the message.
+      assert.ok(!je.message.includes(HIGH))
+    }
+  })
+})
+
+describe('canonicalizeJCS: signing boundary', () => {
+  it('a real sign-preimage API (computeDelegationChainRoot) fails closed on a lone surrogate, producing no output', async () => {
+    const { computeDelegationChainRoot } = await import('../src/decisionReceipt.js')
+    // A lone surrogate anywhere in the signed preimage must throw before any
+    // hash or signature is produced; no fallback to the legacy canonicalizer.
+    const chain = [{ scope: [HIGH] }] as unknown as Parameters<typeof computeDelegationChainRoot>[0]
+    assert.throws(() => computeDelegationChainRoot(chain), isLoneSurrogate)
+  })
+})

@@ -14,13 +14,20 @@
 // working with the legacy function. Verification tries both.
 // ══════════════════════════════════════════════════════════════════
 
-/** Raised when a value cannot be canonicalized under RFC 8785. */
+/** Raised when a value cannot be canonicalized under RFC 8785. Subclasses the
+ *  built-in Error that canonicalizeJCS already throws, so any existing handler
+ *  that catches Error (or `catch (e)`) still catches it and fails closed. */
 export class JcsCanonicalizationError extends Error {
   readonly code: string
-  constructor(code: string, message: string) {
+  /** Stable machine-readable category, shared across the APS SDKs. */
+  readonly category = 'invalid_unicode'
+  /** Specific failure within the category, e.g. 'lone_surrogate'. */
+  readonly reason: string
+  constructor(code: string, message: string, reason = 'lone_surrogate') {
     super(message)
     this.name = 'JcsCanonicalizationError'
     this.code = code
+    this.reason = reason
   }
 }
 
