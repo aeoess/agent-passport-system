@@ -752,44 +752,136 @@ export function hashEffectState(element: EffectInstantiationElement): string {
   return 'sha256:' + createHash('sha256').update(preimage).digest('hex')
 }
 
-export interface LineageCheck {
-  ok: boolean
-  errors: string[]
+/** Deterministic derivation of an effect_id (v4 section 2):
+ *  base64url( SHA-256( UTF8("APS-REVERSIBILITY-EFFECT-ID-V0") || 0x00 ||
+ *  UTF8(JCS({action_ref, action_instance_id, local_effect_id})) ) ), where
+ *  local_effect_id is unique within the receipt and STABLE across retries (an
+ *  id, not a nonce). The id is a function of stable inputs, so a retry produces
+ *  the same effect_id and the same lineage identity. */
+export function deriveEffectId(action_ref: string, action_instance_id: string, local_effect_id: string): string {
+  const preimage = Buffer.concat([
+    Buffer.from('APS-REVERSIBILITY-EFFECT-ID-V0', 'utf8'),
+    Buffer.from([0x00]),
+    Buffer.from(canonicalize({ action_ref, action_instance_id, local_effect_id }), 'utf8'),
+  ])
+  return createHash('sha256').update(preimage).digest('base64url')
+}
+
+/** The typed outcome of lineage validation (v4 section 2, corrected).
+ *  - ok: a single rooted, gap-free, correctly chained lineage per effect_id.
+ *  - lineage_incomplete: a gap in sequences, a non-zero origin, or no root
+ *    (missing states).
+ *  - lineage_conflicted: a fork, where one predecessor state has two distinct
+ *    successors.
+ *  - equivocation: two distinct roots share an effect_id (multiple-roots), or two
+ *    states occupy the same (effect_id, sequence) with different hashes without a
+ *    shared predecessor. Named as the provable condition; it is NOT a claim about
+ *    a semantic collision between unrelated effects.
+ *  - invalid_state: a state at sequence n>0 whose predecessor_effect_state_hash
+ *    does not equal the hash of the state at n-1 (a broken chain link). */
+export type LineageStatus = 'ok' | 'lineage_incomplete' | 'lineage_conflicted' | 'equivocation' | 'invalid_state'
+
+export interface LineageResult {
+  status: LineageStatus
+  /** Exact-duplicate states (identical full effect-state hash) removed before
+   *  the graph checks, aggregated across all effect_ids in the block. */
+  duplicate_count: number
+}
+
+/** Validate one effect_id's lineage, order-invariant. First removes exact
+ *  duplicates (same full hash), then enforces the graph invariant. */
+function validateOneLineage(states: EffectInstantiationElement[]): LineageResult {
+  // Deduplicate exact-duplicate states by full effect-state hash.
+  const byHash = new Map<string, EffectInstantiationElement>()
+  let duplicate_count = 0
+  for (const s of states) {
+    const h = hashEffectState(s)
+    if (byHash.has(h)) duplicate_count++
+    else byHash.set(h, s)
+  }
+  const unique = [...byHash.values()]
+
+  // Exactly one root at sequence 0 with a null predecessor.
+  const roots = unique.filter((s) => s.predecessor_effect_state_hash === null)
+  if (roots.length > 1) return { status: 'equivocation', duplicate_count }
+  if (roots.length === 0) return { status: 'lineage_incomplete', duplicate_count }
+  if (roots[0].sequence !== 0) return { status: 'lineage_incomplete', duplicate_count }
+
+  // Fork: no predecessor hash may have more than one distinct successor. This
+  // holds regardless of the successors' sequences, so a fork whose branches sit
+  // at different sequences is still a fork, not a broken link.
+  const succOfPred = new Map<string, number>()
+  for (const s of unique) {
+    if (s.predecessor_effect_state_hash !== null) {
+      succOfPred.set(s.predecessor_effect_state_hash, (succOfPred.get(s.predecessor_effect_state_hash) ?? 0) + 1)
+    }
+  }
+  if ([...succOfPred.values()].some((c) => c > 1)) {
+    return { status: 'lineage_conflicted', duplicate_count }
+  }
+
+  // At most one state per sequence. A remaining collision (not from a shared
+  // predecessor, since forks were already caught) is an equivocation about the
+  // position: two states claim the same sequence with different hashes.
+  const bySeq = new Map<number, number>()
+  for (const s of unique) bySeq.set(s.sequence, (bySeq.get(s.sequence) ?? 0) + 1)
+  if ([...bySeq.values()].some((c) => c > 1)) {
+    return { status: 'equivocation', duplicate_count }
+  }
+
+  // Consecutive sequences 0..n-1 (a gap is incomplete), and each state at n>0
+  // references the hash of the state at n-1 (else the chain link is invalid).
+  const ordered = [...unique].sort((a, b) => a.sequence - b.sequence)
+  for (let i = 0; i < ordered.length; i++) {
+    if (ordered[i].sequence !== i) return { status: 'lineage_incomplete', duplicate_count }
+  }
+  for (let i = 1; i < ordered.length; i++) {
+    if (ordered[i].predecessor_effect_state_hash !== hashEffectState(ordered[i - 1])) {
+      return { status: 'invalid_state', duplicate_count }
+    }
+  }
+  return { status: 'ok', duplicate_count }
 }
 
 /** Validate the identity and lineage structure of a block, independent of array
- *  order (v4 section 2). Within each effect_id: sequence is strictly monotonic,
- *  and predecessor_effect_state_hash chains (the first state is null, each later
- *  state references the prior state's hash). Grouping by effect_id and ordering
- *  by sequence normalizes array order, so reordering or adding elements does not
- *  change the result. This validates identity only; the lineage-based fold
- *  reading is the fold, which is not built here. */
-export function validateEffectLineage(block: EffectInstantiationBlock): LineageCheck {
-  const errors: string[] = []
+ *  order (v4 section 2, corrected). Returns a TYPED status plus a duplicate_count.
+ *  The block is ok only when every effect_id's lineage is ok; otherwise the
+ *  status is that of the lexicographically first non-ok effect_id (deterministic).
+ *  This validates identity only; the lineage-based fold reading (classify from
+ *  the latest lineage state per effect_id) is the fold, not built here. */
+export function validateEffectLineage(block: EffectInstantiationBlock): LineageResult {
   const byEffect = new Map<string, EffectInstantiationElement[]>()
   for (const el of block.instantiated_effects) {
     const states = byEffect.get(el.effect_id) ?? []
     states.push(el)
     byEffect.set(el.effect_id, states)
   }
-  // Deterministic iteration (effect ids sorted) so the error list is stable and
-  // independent of the order elements appeared in the array.
+  let duplicate_count = 0
+  let firstNonOk: LineageStatus | undefined
   for (const effectId of [...byEffect.keys()].sort()) {
-    const ordered = [...byEffect.get(effectId)!].sort((a, b) => a.sequence - b.sequence)
-    for (let i = 0; i < ordered.length; i++) {
-      if (i > 0 && ordered[i].sequence <= ordered[i - 1].sequence) {
-        errors.push(
-          `effect ${effectId}: non-monotonic sequence (${ordered[i - 1].sequence} then ${ordered[i].sequence})`,
-        )
-      }
-      if (i === 0) {
-        if (ordered[i].predecessor_effect_state_hash !== null) {
-          errors.push(`effect ${effectId}: first lineage state must have a null predecessor`)
-        }
-      } else if (ordered[i].predecessor_effect_state_hash !== hashEffectState(ordered[i - 1])) {
-        errors.push(`effect ${effectId}: broken lineage chain at sequence ${ordered[i].sequence}`)
-      }
-    }
+    const r = validateOneLineage(byEffect.get(effectId)!)
+    duplicate_count += r.duplicate_count
+    if (r.status !== 'ok' && firstNonOk === undefined) firstNonOk = r.status
   }
-  return { ok: errors.length === 0, errors }
+  return { status: firstNonOk ?? 'ok', duplicate_count }
+}
+
+/** The latest valid state per effect_id, but ONLY for an ok lineage. Returns
+ *  undefined for any non-ok block, so a caller cannot pull a latest state from an
+ *  incomplete, conflicted, equivocating, or invalid lineage. Order-invariant. */
+export function latestValidEffectStates(
+  block: EffectInstantiationBlock,
+): Map<string, EffectInstantiationElement> | undefined {
+  if (validateEffectLineage(block).status !== 'ok') return undefined
+  const byEffect = new Map<string, EffectInstantiationElement[]>()
+  for (const el of block.instantiated_effects) {
+    const states = byEffect.get(el.effect_id) ?? []
+    states.push(el)
+    byEffect.set(el.effect_id, states)
+  }
+  const latest = new Map<string, EffectInstantiationElement>()
+  for (const [id, states] of byEffect) {
+    latest.set(id, [...states].sort((a, b) => b.sequence - a.sequence)[0])
+  }
+  return latest
 }

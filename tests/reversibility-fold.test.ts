@@ -29,6 +29,8 @@ import {
   hashEffectState,
   effectStatePreimage,
   validateEffectLineage,
+  deriveEffectId,
+  latestValidEffectStates,
   type EffectInstantiationElement,
   type EffectInstantiationBlock,
   type ExecutionStageReceipt,
@@ -39,11 +41,12 @@ import { canonicalize } from '../src/core/canonical.js'
 import { createHash } from 'node:crypto'
 
 // A well-formed base element; individual tests override the fields under test.
-// Each bare element() is its own single-state lineage: a unique effect_id, a
-// null predecessor, and sequence 0.
-let _effectSeq = 0
-function element(over: Partial<EffectInstantiationElement> = {}): EffectInstantiationElement {
-  const n = _effectSeq++
+// effect_id is DETERMINISTIC (no mutable counter): derived from action_ref +
+// action_instance_id + a stable local id (default 'default'). Callers wanting a
+// distinct effect pass a distinct localId or override effect_id directly.
+function element(over: Partial<EffectInstantiationElement> = {}, localId = 'default'): EffectInstantiationElement {
+  const action_ref = over.action_ref ?? 'action_ref:acme-req-1'
+  const action_instance_id = over.action_instance_id ?? 'action-instance:1'
   return {
     effect_scope: 'external',
     effect_target_ref: 'urn:target:acme-merchant',
@@ -54,9 +57,9 @@ function element(over: Partial<EffectInstantiationElement> = {}): EffectInstanti
     evidence_status: 'resolved',
     classification_profile_id: REVERSIBILITY_MAPPING_V0_ID,
     classification_profile_digest: REVERSIBILITY_MAPPING_V0_DIGEST,
-    action_ref: 'action_ref:acme-req-1',
-    action_instance_id: 'action-instance:1',
-    effect_id: `eff:${n}`,
+    action_ref,
+    action_instance_id,
+    effect_id: deriveEffectId(action_ref, action_instance_id, localId),
     predecessor_effect_state_hash: null,
     sequence: 0,
     ...over,
@@ -370,11 +373,11 @@ describe('reversibility-fold step 3a - multi-effect block recomputes per element
     const block: EffectInstantiationBlock = {
       instantiated_effects: [
         // compensable payment authorization (internal, snapshot recovery)
-        element({ effect_scope: 'internal', recovery_mechanism_ref: 'snapshot://ledger' }),
+        element({ effect_id: 'eff:pay', effect_scope: 'internal', recovery_mechanism_ref: 'snapshot://ledger' }),
         // irreversible external email (external, no recovery)
-        element({ effect_scope: 'external', recovery_mechanism_ref: null }),
+        element({ effect_id: 'eff:email', effect_scope: 'external', recovery_mechanism_ref: null }),
         // internal irreversible key deletion (internal, no recovery)
-        element({ effect_scope: 'internal', recovery_mechanism_ref: null }),
+        element({ effect_id: 'eff:keydel', effect_scope: 'internal', recovery_mechanism_ref: null }),
       ],
     }
     const outs = recomputeBlock(block)
@@ -663,58 +666,95 @@ describe('reversibility-fold v0-2 - lineage identity fields', () => {
     assert.equal(el.sequence, 0)
   })
 
-  it('a valid single-state lineage (null predecessor) passes', () => {
-    const block: EffectInstantiationBlock = { instantiated_effects: [element()] }
-    assert.equal(validateEffectLineage(block).ok, true)
+  it('a valid single-state lineage (null predecessor) is ok', () => {
+    const r = validateEffectLineage({ instantiated_effects: [element()] })
+    assert.equal(r.status, 'ok')
+    assert.equal(r.duplicate_count, 0)
   })
 
-  it('a valid multi-state lineage (chained) passes', () => {
-    const block: EffectInstantiationBlock = { instantiated_effects: lineage('eff:A', 3) }
-    const check = validateEffectLineage(block)
-    assert.equal(check.ok, true, check.errors.join('; '))
+  it('a valid multi-state lineage (chained) is ok', () => {
+    const r = validateEffectLineage({ instantiated_effects: lineage('eff:A', 3) })
+    assert.equal(r.status, 'ok')
   })
 
-  it('multiple distinct effects, each a valid lineage, pass together', () => {
+  it('multiple distinct effects, each a valid lineage, are ok together', () => {
     const block: EffectInstantiationBlock = {
       instantiated_effects: [...lineage('eff:A', 2), ...lineage('eff:B', 3), element({ effect_id: 'eff:C' })],
     }
-    assert.equal(validateEffectLineage(block).ok, true)
+    assert.equal(validateEffectLineage(block).status, 'ok')
   })
 })
 
-describe('reversibility-fold v0-2 - structural validation rejects malformed lineages', () => {
-  it('a non-monotonic sequence within one effect_id is rejected', () => {
-    const states = lineage('eff:A', 3)
-    // Duplicate the sequence of the middle state (0,1,1).
-    const broken = [states[0], states[1], { ...states[2], sequence: 1 }]
-    const check = validateEffectLineage({ instantiated_effects: broken })
-    assert.equal(check.ok, false)
-    assert.ok(check.errors.some((e) => e.includes('non-monotonic')))
+// A root and two distinct successors of that root (a fork), plus helpers for the
+// other malformed shapes.
+function forkBlock(): EffectInstantiationBlock {
+  const root = element({ effect_id: 'eff:F', sequence: 0, predecessor_effect_state_hash: null })
+  const h = hashEffectState(root)
+  const a = element({ effect_id: 'eff:F', sequence: 1, predecessor_effect_state_hash: h, effect_target_ref: 'urn:a' })
+  const b = element({ effect_id: 'eff:F', sequence: 1, predecessor_effect_state_hash: h, effect_target_ref: 'urn:b' })
+  return { instantiated_effects: [root, a, b] }
+}
+
+describe('reversibility-fold v0-4b - typed lineage validation (v4 s2)', () => {
+  it('a fork (one predecessor, two distinct successors) -> lineage_conflicted', () => {
+    assert.equal(validateEffectLineage(forkBlock()).status, 'lineage_conflicted')
   })
 
-  it('a first lineage state with a non-null predecessor is rejected', () => {
-    const el = element({ effect_id: 'eff:A', sequence: 0, predecessor_effect_state_hash: 'sha256:bogus' })
-    const check = validateEffectLineage({ instantiated_effects: [el] })
-    assert.equal(check.ok, false)
-    assert.ok(check.errors.some((e) => e.includes('first lineage state must have a null predecessor')))
+  it('a fork whose branches sit at different sequences is still lineage_conflicted', () => {
+    // root -> A@1 and root -> B@2 both reference the root: one predecessor, two
+    // distinct successors, even though they do not share a sequence.
+    const root = element({ effect_id: 'eff:FD', sequence: 0, predecessor_effect_state_hash: null })
+    const h = hashEffectState(root)
+    const a = element({ effect_id: 'eff:FD', sequence: 1, predecessor_effect_state_hash: h, effect_target_ref: 'urn:a' })
+    const b = element({ effect_id: 'eff:FD', sequence: 2, predecessor_effect_state_hash: h, effect_target_ref: 'urn:b' })
+    assert.equal(validateEffectLineage({ instantiated_effects: [root, a, b] }).status, 'lineage_conflicted')
   })
 
-  it('a broken predecessor chain (wrong prior hash) is rejected', () => {
-    const states = lineage('eff:A', 2)
-    const broken = [states[0], { ...states[1], predecessor_effect_state_hash: 'sha256:wrong' }]
-    const check = validateEffectLineage({ instantiated_effects: broken })
-    assert.equal(check.ok, false)
-    assert.ok(check.errors.some((e) => e.includes('broken lineage chain')))
+  it('a gap in sequences -> lineage_incomplete', () => {
+    const root = element({ effect_id: 'eff:G', sequence: 0, predecessor_effect_state_hash: null })
+    const s2 = element({ effect_id: 'eff:G', sequence: 2, predecessor_effect_state_hash: 'sha256:missing' })
+    assert.equal(validateEffectLineage({ instantiated_effects: [root, s2] }).status, 'lineage_incomplete')
+  })
+
+  it('a non-zero origin (root not at sequence 0) -> lineage_incomplete', () => {
+    const s = element({ effect_id: 'eff:N', sequence: 1, predecessor_effect_state_hash: null })
+    assert.equal(validateEffectLineage({ instantiated_effects: [s] }).status, 'lineage_incomplete')
+  })
+
+  it('two distinct roots sharing an effect_id -> equivocation (multiple-roots)', () => {
+    const r1 = element({ effect_id: 'eff:R', sequence: 0, predecessor_effect_state_hash: null, effect_target_ref: 'urn:1' })
+    const r2 = element({ effect_id: 'eff:R', sequence: 0, predecessor_effect_state_hash: null, effect_target_ref: 'urn:2' })
+    assert.equal(validateEffectLineage({ instantiated_effects: [r1, r2] }).status, 'equivocation')
+  })
+
+  it('same (effect_id, sequence) with different hashes and no shared predecessor -> equivocation', () => {
+    const root = element({ effect_id: 'eff:E', sequence: 0, predecessor_effect_state_hash: null })
+    const a = element({ effect_id: 'eff:E', sequence: 1, predecessor_effect_state_hash: hashEffectState(root), effect_target_ref: 'urn:a' })
+    const b = element({ effect_id: 'eff:E', sequence: 1, predecessor_effect_state_hash: 'sha256:phantom', effect_target_ref: 'urn:b' })
+    assert.equal(validateEffectLineage({ instantiated_effects: [root, a, b] }).status, 'equivocation')
+  })
+
+  it('a broken chain link (wrong predecessor hash at n>0) -> invalid_state', () => {
+    const root = element({ effect_id: 'eff:I', sequence: 0, predecessor_effect_state_hash: null })
+    const s1 = element({ effect_id: 'eff:I', sequence: 1, predecessor_effect_state_hash: 'sha256:wrong' })
+    assert.equal(validateEffectLineage({ instantiated_effects: [root, s1] }).status, 'invalid_state')
+  })
+
+  it('an exact-duplicate state is deduped with duplicate_count > 0 and the lineage stays ok', () => {
+    const chain = lineage('eff:D', 2)
+    const r = validateEffectLineage({ instantiated_effects: [...chain, chain[1]] })
+    assert.equal(r.status, 'ok')
+    assert.equal(r.duplicate_count, 1)
   })
 })
 
-describe('reversibility-fold v0-2 - reorder and add invariance', () => {
-  it('reordering instantiated_effects does not change the lineage validation result', () => {
+describe('reversibility-fold v0-4b - reorder invariance and latest-state', () => {
+  it('reordering instantiated_effects does not change the typed result', () => {
     const items = [...lineage('eff:A', 3), ...lineage('eff:B', 2)]
     const forward = validateEffectLineage({ instantiated_effects: items })
     const reversed = validateEffectLineage({ instantiated_effects: shuffle(items) })
     assert.deepEqual(forward, reversed)
-    assert.equal(forward.ok, true)
+    assert.equal(forward.status, 'ok')
   })
 
   it('reordering does not change per-effect recompute results', () => {
@@ -737,12 +777,35 @@ describe('reversibility-fold v0-2 - reorder and add invariance', () => {
   it('adding an unrelated effect does not change the result for existing effects', () => {
     const base = lineage('eff:A', 2)
     const withExtra = [...base, element({ effect_id: 'eff:Z', effect_scope: 'internal', recovery_mechanism_ref: 'snapshot://z' })]
-    // eff:A stays valid, and its recompute is unchanged, whether or not eff:Z is present.
-    assert.equal(validateEffectLineage({ instantiated_effects: base }).ok, true)
-    assert.equal(validateEffectLineage({ instantiated_effects: withExtra }).ok, true)
+    assert.equal(validateEffectLineage({ instantiated_effects: base }).status, 'ok')
+    assert.equal(validateEffectLineage({ instantiated_effects: withExtra }).status, 'ok')
     const aOut = recomputeEffect(base[base.length - 1])
     const aOut2 = recomputeEffect(withExtra[1])
     assert.deepEqual(aOut, aOut2)
+  })
+
+  it('latestValidEffectStates returns the unambiguous latest for an ok lineage, order-invariant', () => {
+    const chain = lineage('eff:L', 3)
+    const latest = latestValidEffectStates({ instantiated_effects: chain })
+    assert.ok(latest)
+    assert.equal(latest.get('eff:L')?.sequence, 2)
+    const latestShuffled = latestValidEffectStates({ instantiated_effects: shuffle(chain) })
+    assert.ok(latestShuffled)
+    assert.equal(latestShuffled.get('eff:L')?.sequence, 2)
+  })
+
+  it('latestValidEffectStates returns nothing for a non-ok lineage', () => {
+    assert.equal(latestValidEffectStates(forkBlock()), undefined)
+    const s = element({ effect_id: 'eff:N', sequence: 1, predecessor_effect_state_hash: null })
+    assert.equal(latestValidEffectStates({ instantiated_effects: [s] }), undefined)
+  })
+
+  it('the deterministic effect_id helper is stable across retries and binds action_ref + action_instance_id', () => {
+    const id1 = deriveEffectId('action_ref:r', 'action-instance:1', 'local-a')
+    const id2 = deriveEffectId('action_ref:r', 'action-instance:1', 'local-a')
+    assert.equal(id1, id2) // stable across retries (an id, not a nonce)
+    assert.notEqual(id1, deriveEffectId('action_ref:r', 'action-instance:2', 'local-a'))
+    assert.notEqual(id1, deriveEffectId('action_ref:r', 'action-instance:1', 'local-b'))
   })
 })
 
