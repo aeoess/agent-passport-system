@@ -264,15 +264,21 @@ describe('reversibility-fold step 3a - recompute over each externality bucket vi
     }
   })
 
-  it('external effect with a recovery mechanism (external-reversible) fails closed to irreversible pre-actor-axis', () => {
-    // In step 3 the actor axis (external reversal-right signer) is not supplied,
-    // so an external-reversible effect cannot reach compensable and fails closed.
+  it('external effect with a self-declared recovery_mechanism_ref -> irreversible + upper_bound (v4 s4.1: recovery-ref derives nothing)', () => {
+    // v0: external always derives external-irreversible. A self-declared
+    // recovery_mechanism_ref is a carried raw fact and derives nothing about the
+    // class, so this is identical to an external effect with no recovery ref:
+    // irreversible + upper_bound, never external-reversible and never compensable.
     const out = recomputeEffect(element({
       effect_scope: 'external',
       recovery_mechanism_ref: 'refund://acme/settle',
       recovery_controller: 'urn:principal:me',
     }))
-    assert.equal(out.status === 'recomputed' && out.result.realized, 'irreversible')
+    assert.equal(out.status, 'recomputed')
+    if (out.status === 'recomputed') {
+      assert.equal(out.result.realized, 'irreversible')
+      assert.equal(out.result.label, 'upper_bound')
+    }
   })
 })
 

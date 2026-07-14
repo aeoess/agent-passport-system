@@ -304,17 +304,18 @@ export type RecomputeOutcome =
   | { status: 'recomputed'; classificationProfileId: string; result: ClassificationResult }
   | { status: 'unknown_profile'; classificationProfileId: string }
 
-/** Derive the classifier externality bucket from an element's raw facts.
- *  internal -> internal. external with a recovery mechanism present -> external-
- *  reversible (a compensating operation exists in principle). external with no
- *  recovery mechanism -> external-irreversible. The reversible verdict is then
- *  refined by classifyV0, which still requires the actor-axis mandate to reach
- *  compensable, so this derivation never fails open. */
+/** Derive the classifier externality bucket from an element's raw facts (v4
+ *  section 4.1). internal -> internal. external -> external-irreversible,
+ *  ALWAYS, in v0: there is no verified reversal right in v0, so no external
+ *  effect reaches external-reversible, and a self-declared recovery_mechanism_ref
+ *  derives NOTHING about the class. recovery_mechanism_ref remains a carried raw
+ *  fact and still informs the INTERNAL branch's observable-recovery test; it is
+ *  simply not evidence of reversibility for an external effect. Downstream, an
+ *  external effect classifies to irreversible + upper_bound (target binding is
+ *  not verified in v0), never bare irreversible and never compensable. */
 function deriveExternality(element: EffectInstantiationElement): EffectExternality {
   if (element.effect_scope === 'internal') return 'internal'
-  const hasRecovery =
-    element.recovery_mechanism_ref != null && element.recovery_mechanism_ref !== ''
-  return hasRecovery ? 'external-reversible' : 'external-irreversible'
+  return 'external-irreversible'
 }
 
 /** Build classifier facts from an element plus verifier context. Note what is
