@@ -101,3 +101,34 @@ describe('canonicalizeJCS: signing boundary', () => {
     assert.throws(() => computeDelegationChainRoot(chain), isLoneSurrogate)
   })
 })
+
+describe('canonicalizeJCS: adversarial raw payloads reach the same terminal state as Go', () => {
+  // The same raw JSON text pinned in the Go scanner tests. TypeScript preserves a
+  // lone surrogate through JSON.parse and rejects it at canonicalizeJCS, so it
+  // reaches the same accept/reject terminal state as the Go raw-JSON path.
+  const parseCanon = (raw: string): string => canonicalizeJCS(JSON.parse(raw))
+
+  const REJECT: Array<[string, string]> = [
+    ['space-separated-non-adjacent', String.raw`{"v":"\uD800 \uDC00"}`],
+    ['newline-separated-non-adjacent', String.raw`{"v":"\uD800\n\uDC00"}`],
+    ['lone-low-first', String.raw`{"v":"\uDC00"}`],
+    ['low-then-high', String.raw`{"v":"\uDC00\uD800"}`],
+    ['high-then-literal-low', String.raw`{"v":"\uD800\\uDC00"}`],
+    ['lone-in-key', String.raw`{"\uD800":"x"}`],
+    ['lowercase-hex', String.raw`{"v":"\ud800"}`],
+    ['literal-backslash-then-lone', String.raw`{"v":"\\\uD800"}`],
+  ]
+  for (const [name, raw] of REJECT) {
+    it(`rejects ${name}`, () => assert.throws(() => parseCanon(raw), isLoneSurrogate))
+  }
+
+  const ACCEPT: Array<[string, string]> = [
+    ['valid-adjacent-pair', String.raw`{"v":"😀"}`],
+    ['escaped-backslash-literal', String.raw`{"v":"\\uD800"}`],
+    ['double-backslash-literal', String.raw`{"v":"\\\\uD800"}`],
+    ['genuine-replacement-char', String.raw`{"v":"�"}`],
+  ]
+  for (const [name, raw] of ACCEPT) {
+    it(`accepts ${name}`, () => assert.doesNotThrow(() => parseCanon(raw)))
+  }
+})
