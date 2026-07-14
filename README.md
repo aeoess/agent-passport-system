@@ -17,23 +17,25 @@
 [![OpenChain ISO/IEC 5230:2020 conformant (self-certified)](https://img.shields.io/badge/OpenChain-5230%20self--certified-2e7d32)](https://openchainproject.org/community-of-conformance)
 [![OpenChain ISO/IEC 18974:2023 conformant (self-certified)](https://img.shields.io/badge/OpenChain-18974%20self--certified-2e7d32)](https://openchainproject.org/community-of-conformance)
 
-Verify any receipt or evidence bundle in the browser: https://agent-passport.org/verify.html (per-axis claim-state report; runs locally, nothing is uploaded).
+**Governance infrastructure for the agent economy.**
 
-> **For AI agents:** visit [agent-passport.org/llms.txt](https://agent-passport.org/llms.txt) for machine-readable docs.
+APS lets a person or company give an AI agent limited authority to act on its behalf, and produces verifiable proof of what the agent does with it. Open protocol, Apache 2.0.
 
-> **Valid signature. Hijacked intent. Denied by APS.**
+It answers four practical questions about any agent action:
 
-**Enforcement and accountability layer for AI agents. Bring your own identity.**
+- Who is this agent?
+- Who authorized it?
+- What is it allowed to do?
+- What evidence exists after it acts, or after it is denied?
 
-Accepts did:key, did:web, SPIFFE SVIDs, OAuth tokens, and native did:aps. Authority can only decrease at each transfer point. The gateway is both judge and executor. Every action produces a signed receipt. Gateway evaluation under 2ms.
-
-The narrowing invariant:
+Authority can pass from one agent to the next, but it can only get narrower. Scope, spending limits, expiration, and approved services are checked before an action runs, at a gateway that is both judge and executor: a request outside the granted authority is denied before it executes. Every decision, allowed or denied, produces a signed receipt, so anyone can later verify what was requested, what authority was presented, which policy applied, and what APS decided.
 
 ```mermaid
 flowchart LR
-    P["Principal<br/>full authority"] -->|"scope: payments<br/>limit: $500, 30 days"| A["Agent A<br/>payments, $500"]
-    A -->|"scope: refunds only<br/>limit: $100, 7 days"| B["Agent B<br/>refunds, $100"]
-    B -.->|"$200 request:<br/>exceeds chain authority"| X["denied + signed receipt"]
+    P["Person or company"] -->|"payments up to $500"| A["Agent A"]
+    A -->|"refunds up to $100"| B["Agent B"]
+    B -->|"$200 refund request"| G{"APS gateway"}
+    G -->|"outside delegated authority"| X["denied + signed receipt"]
 ```
 
 ```bash
@@ -41,6 +43,8 @@ npm install agent-passport-system
 ```
 
 Also implemented in [Python](https://pypi.org/project/agent-passport-system/) and [Go](https://pkg.go.dev/github.com/aeoess/agent-passport-go), byte-parity-checked against this TypeScript reference.
+
+Verify any receipt or evidence bundle in your browser at [agent-passport.org/verify.html](https://agent-passport.org/verify.html) (runs locally, nothing is uploaded). Machine-readable docs for agents are at [agent-passport.org/llms.txt](https://agent-passport.org/llms.txt).
 
 ## Quick Start
 
@@ -51,10 +55,23 @@ import {
   createPassport, createDelegation,
   evaluateIntent, commercePreflight, generateKeyPair
 } from 'agent-passport-system/core'
-
-// Full 925-export API still available. Use when Core does not cover your case.
-// import { ... } from 'agent-passport-system'
 ```
+
+## Core Protocol
+
+*Status: Canonical.*
+
+What ships in every deployment.
+
+**Identity** -- Ed25519 passports, passport grades 0-3, key rotation, did:aps identifiers. Bring your own identity too: APS accepts did:key, did:web, SPIFFE SVIDs, and OAuth tokens alongside native did:aps.
+
+**Delegation** -- Scoped authority with monotonic narrowing. Sub-delegation can only reduce scope. Cascade revocation propagates through the full chain. `subDelegateAdvisor` implements the bounded-escalation delegation pattern used in multi-model agent workflows where a lower-cost executor escalates to a higher-capability advisor at decision points -- the advisor delegation is count-bounded, cannot execute tools, and cascade-revokes with its parent.
+
+**Enforcement** -- 3-signature action chain: agent signs intent, policy engine signs evaluation, agent signs execution receipt. The agent cannot skip the check. Gateway evaluation runs under 2ms.
+
+**Commerce** -- 5-gate preflight: valid passport, scope check, spend limit, merchant allowlist, idempotency. Human approval thresholds for high-value transactions.
+
+**Reputation** -- Bayesian trust scoring across 5 tiers. Authority is earned per-scope, not global. Passport grades compound with behavioral history.
 
 ## Status labels
 
@@ -73,22 +90,6 @@ flowchart LR
     GW -->|deny| STOP[Blocked]
     GW --> RC[("Signed receipt<br/>every outcome, both verdicts")]
 ```
-
-## Core Protocol
-
-*Status: Canonical.*
-
-What ships in every deployment.
-
-**Identity** -- Ed25519 passports, passport grades 0-3, key rotation, did:aps identifiers.
-
-**Delegation** -- Scoped authority with monotonic narrowing. Sub-delegation can only reduce scope. Cascade revocation propagates through the full chain. `subDelegateAdvisor` implements the bounded-escalation delegation pattern used in multi-model agent workflows where a lower-cost executor escalates to a higher-capability advisor at decision points -- the advisor delegation is count-bounded, cannot execute tools, and cascade-revokes with its parent.
-
-**Enforcement** -- 3-signature action chain: agent signs intent, policy engine signs evaluation, agent signs execution receipt. The agent cannot skip the check.
-
-**Commerce** -- 5-gate preflight: valid passport, scope check, spend limit, merchant allowlist, idempotency. Human approval thresholds for high-value transactions.
-
-**Reputation** -- Bayesian trust scoring across 5 tiers. Authority is earned per-scope, not global. Passport grades compound with behavioral history.
 
 ## Receipt graph
 
