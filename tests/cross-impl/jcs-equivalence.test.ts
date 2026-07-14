@@ -151,3 +151,27 @@ describe('manifest metadata sanity', () => {
     }
   })
 })
+
+// A lone/unpaired UTF-16 surrogate has no UTF-8 encoding. RFC 8785 and the
+// reference rfc8785@0.1.4 (Python side) reject it; the SDK strict-JCS path must
+// reject it too, rather than emit a \ud800 escape. This keeps the cross-language
+// byte-identity property intact on the only input where the implementations
+// previously diverged. Valid inputs are unchanged (asserted by the vectors above).
+describe('cross-impl JCS: lone surrogate is rejected, not escaped', () => {
+  const HIGH = String.fromCharCode(0xd800)
+  const LOW = String.fromCharCode(0xdfff)
+  const EMOJI = String.fromCodePoint(0x1f600)
+
+  it('SDK canonicalizeJCS rejects a lone high surrogate', () => {
+    assert.throws(() => canonicalizeJCS({ v: HIGH }))
+  })
+  it('SDK canonicalizeJCS rejects a lone low surrogate', () => {
+    assert.throws(() => canonicalizeJCS({ v: LOW }))
+  })
+  it('SDK canonicalizeJCS rejects a lone surrogate after a valid pair', () => {
+    assert.throws(() => canonicalizeJCS({ v: EMOJI + HIGH }))
+  })
+  it('SDK canonicalizeJCS still accepts a valid non-BMP pair as raw UTF-8', () => {
+    assert.equal(canonicalizeJCS({ v: EMOJI }), `{"v":"${EMOJI}"}`)
+  })
+})
