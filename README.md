@@ -2,7 +2,7 @@
   <img src="docs/assets/banner-hero.png" alt="Agent Passport System banner. Governance infrastructure for the agent economy. Cryptographic identity, signed action receipts, beneficiary attribution." width="100%">
 </p>
 
-# Agent Passport System
+APS lets a person or company give an AI agent limited authority to act on its behalf, and produces verifiable proof of what the agent does with it. Open protocol, Apache 2.0.
 
 [![npm version](https://img.shields.io/npm/v/agent-passport-system)](https://www.npmjs.com/package/agent-passport-system)
 [![license](https://img.shields.io/npm/l/agent-passport-system)](https://github.com/aeoess/agent-passport-system/blob/main/LICENSE)
@@ -16,10 +16,6 @@
 [![APS conformance](https://img.shields.io/endpoint?url=https%3A%2F%2Fgateway.aeoess.com%2Fapi%2Fv1%2Fpublic%2Fconformance%2Fbadge)](https://github.com/aeoess/aps-conformance-suite)
 [![OpenChain ISO/IEC 5230:2020 conformant (self-certified)](https://img.shields.io/badge/OpenChain-5230%20self--certified-2e7d32)](https://openchainproject.org/community-of-conformance)
 [![OpenChain ISO/IEC 18974:2023 conformant (self-certified)](https://img.shields.io/badge/OpenChain-18974%20self--certified-2e7d32)](https://openchainproject.org/community-of-conformance)
-
-**Governance infrastructure for the agent economy.**
-
-APS lets a person or company give an AI agent limited authority to act on its behalf, and produces verifiable proof of what the agent does with it. Open protocol, Apache 2.0.
 
 It answers four practical questions about any agent action:
 
