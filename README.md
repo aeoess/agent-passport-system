@@ -10,6 +10,8 @@
 [![coverage](https://img.shields.io/badge/coverage-97%25%20lines%20%7C%2089%25%20branches-brightgreen)](https://github.com/aeoess/agent-passport-system/blob/main/CONTRIBUTING.md#running-tests)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/aeoess/agent-passport-system/badge)](https://scorecard.dev/viewer/?uri=github.com/aeoess/agent-passport-system)
 [![APS conformance](https://img.shields.io/endpoint?url=https%3A%2F%2Fgateway.aeoess.com%2Fapi%2Fv1%2Fpublic%2Fconformance%2Fbadge)](https://github.com/aeoess/aps-conformance-suite)
+[![OpenChain ISO/IEC 5230:2020 conformant (self-certified)](https://img.shields.io/badge/OpenChain-5230%20self--certified-2e7d32)](https://openchainproject.org/community-of-conformance)
+[![OpenChain ISO/IEC 18974:2023 conformant (self-certified)](https://img.shields.io/badge/OpenChain-18974%20self--certified-2e7d32)](https://openchainproject.org/community-of-conformance)
 
 Verify any receipt or evidence bundle in the browser: https://agent-passport.org/verify.html (per-axis claim-state report; runs locally, nothing is uploaded).
 
