@@ -14,6 +14,42 @@
 // working with the legacy function. Verification tries both.
 // ══════════════════════════════════════════════════════════════════
 
+/** Raised when a value cannot be canonicalized under RFC 8785. Subclasses the
+ *  built-in Error that canonicalizeJCS already throws, so any existing handler
+ *  that catches Error (or `catch (e)`) still catches it and fails closed. */
+export class JcsCanonicalizationError extends Error {
+  readonly code: string
+  /** Stable machine-readable category, shared across the APS SDKs. */
+  readonly category = 'invalid_unicode'
+  /** Specific failure within the category, e.g. 'lone_surrogate'. */
+  readonly reason: string
+  constructor(code: string, message: string, reason = 'lone_surrogate') {
+    super(message)
+    this.name = 'JcsCanonicalizationError'
+    this.code = code
+    this.reason = reason
+  }
+}
+
+/** Reject a string containing an unpaired UTF-16 surrogate: a high surrogate
+ *  (U+D800..U+DBFF) not immediately followed by a low surrogate (U+DC00..U+DFFF),
+ *  or a low surrogate not immediately preceded by a high one. A lone surrogate is
+ *  not a valid Unicode scalar and has no UTF-8 encoding, so RFC 8785 requires
+ *  rejecting the input rather than escaping it. A valid surrogate PAIR passes. */
+function assertNoLoneSurrogate(s: string): void {
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i)
+    if (c >= 0xd800 && c <= 0xdbff) {
+      const next = i + 1 < s.length ? s.charCodeAt(i + 1) : 0
+      if (next >= 0xdc00 && next <= 0xdfff) { i++; continue } // valid pair
+      throw new JcsCanonicalizationError('ERR_JCS_LONE_SURROGATE', 'canonicalizeJCS: string contains an unpaired UTF-16 high surrogate; a lone surrogate has no valid UTF-8 encoding and RFC 8785 requires rejection')
+    }
+    if (c >= 0xdc00 && c <= 0xdfff) {
+      throw new JcsCanonicalizationError('ERR_JCS_LONE_SURROGATE', 'canonicalizeJCS: string contains an unpaired UTF-16 low surrogate; a lone surrogate has no valid UTF-8 encoding and RFC 8785 requires rejection')
+    }
+  }
+}
+
 /** RFC 8785 JSON Canonicalization Scheme.
  *  Differences from legacy canonicalize():
  *  - null values ARE preserved (not filtered)
@@ -32,6 +68,7 @@ export function canonicalizeJCS(value: unknown): string {
       return JSON.stringify(value)
     }
     case 'string':
+      assertNoLoneSurrogate(value)
       return JSON.stringify(value)
     case 'object': {
       if (value instanceof Date) return JSON.stringify(value)
@@ -43,6 +80,7 @@ export function canonicalizeJCS(value: unknown): string {
       const keys = Object.keys(obj).sort()
       const pairs: string[] = []
       for (const key of keys) {
+        assertNoLoneSurrogate(key)
         const v = obj[key]
         // RFC 8785: undefined becomes null, null is preserved
         // Only skip if the key was never set (shouldn't happen with Object.keys)
