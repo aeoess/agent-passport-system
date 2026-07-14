@@ -262,6 +262,14 @@ export interface EffectInstantiationElement {
   recovery_deadline: string | null
   evidence_status: EvidenceStatus
   classification_profile_id: string
+  /** Stable id for this effect across its lifecycle stages (v4 section 2).
+   *  Precedence is defined by lineage under this id, never by array position. */
+  effect_id: string
+  /** Hash of the prior signed state of THIS effect, or null on the first state.
+   *  Chains an effect's lineage so a later state references its predecessor. */
+  predecessor_effect_state_hash: string | null
+  /** Monotonic position within THIS effect's own lineage (not the array). */
+  sequence: number
   /** Optional cache ONLY. Never trusted. A verifier recomputes the realized
    *  class and any mismatch fails verification (verifyAssertedClass). */
   asserted_realized_class?: RealizedClass
@@ -542,4 +550,63 @@ export function validateTransition(
  *  that gated the action. */
 export function admittedEnforcementClass(execution: ExecutionStageReceipt): EnforcementClass {
   return execution.admitted_enforcement_class
+}
+
+// ══════════════════════════════════════
+// STEP v0-2 - Effect identity and lineage (v4 section 2)
+// ══════════════════════════════════════
+//
+// Every effect element carries a stable identity so precedence is defined
+// without array position. The fold (a later step) classifies from the LATEST
+// valid lineage state per effect_id, never from position in instantiated_effects
+// and never from the existence of a right. This step adds and validates the
+// identity fields only; it does not build the fold.
+
+/** SHA-256 (over strict JCS bytes) of one effect state. Chains a lineage: a
+ *  later state's predecessor_effect_state_hash references the hash of the prior
+ *  state. v0 hashes the element bytes; signing is a later slice. */
+export function hashEffectState(element: EffectInstantiationElement): string {
+  return 'sha256:' + createHash('sha256').update(canonicalize(element)).digest('hex')
+}
+
+export interface LineageCheck {
+  ok: boolean
+  errors: string[]
+}
+
+/** Validate the identity and lineage structure of a block, independent of array
+ *  order (v4 section 2). Within each effect_id: sequence is strictly monotonic,
+ *  and predecessor_effect_state_hash chains (the first state is null, each later
+ *  state references the prior state's hash). Grouping by effect_id and ordering
+ *  by sequence normalizes array order, so reordering or adding elements does not
+ *  change the result. This validates identity only; the lineage-based fold
+ *  reading is the fold, which is not built here. */
+export function validateEffectLineage(block: EffectInstantiationBlock): LineageCheck {
+  const errors: string[] = []
+  const byEffect = new Map<string, EffectInstantiationElement[]>()
+  for (const el of block.instantiated_effects) {
+    const states = byEffect.get(el.effect_id) ?? []
+    states.push(el)
+    byEffect.set(el.effect_id, states)
+  }
+  // Deterministic iteration (effect ids sorted) so the error list is stable and
+  // independent of the order elements appeared in the array.
+  for (const effectId of [...byEffect.keys()].sort()) {
+    const ordered = [...byEffect.get(effectId)!].sort((a, b) => a.sequence - b.sequence)
+    for (let i = 0; i < ordered.length; i++) {
+      if (i > 0 && ordered[i].sequence <= ordered[i - 1].sequence) {
+        errors.push(
+          `effect ${effectId}: non-monotonic sequence (${ordered[i - 1].sequence} then ${ordered[i].sequence})`,
+        )
+      }
+      if (i === 0) {
+        if (ordered[i].predecessor_effect_state_hash !== null) {
+          errors.push(`effect ${effectId}: first lineage state must have a null predecessor`)
+        }
+      } else if (ordered[i].predecessor_effect_state_hash !== hashEffectState(ordered[i - 1])) {
+        errors.push(`effect ${effectId}: broken lineage chain at sequence ${ordered[i].sequence}`)
+      }
+    }
+  }
+  return { ok: errors.length === 0, errors }
 }
