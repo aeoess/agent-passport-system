@@ -10,6 +10,12 @@ import {
   registeredProfileIds,
   reversibilityMappingV0,
   REVERSIBILITY_MAPPING_V0_ID,
+  REVERSIBILITY_MAPPING_V0_DIGEST,
+  REVERSIBILITY_PROFILE_V0_CONTENT,
+  profileContentDigest,
+  getRegisteredProfile,
+  getProfileDigest,
+  verifyProfileBinding,
   recomputeEffect,
   recomputeBlock,
   verifyAssertedClass,
@@ -29,6 +35,7 @@ import {
 import { createMinimalEnvelope, verifyExecutionEnvelope } from '../src/index.js'
 import { generateKeyPair, sign } from '../src/crypto/keys.js'
 import { canonicalize } from '../src/core/canonical.js'
+import { createHash } from 'node:crypto'
 
 // A well-formed base element; individual tests override the fields under test.
 // Each bare element() is its own single-state lineage: a unique effect_id, a
@@ -45,6 +52,7 @@ function element(over: Partial<EffectInstantiationElement> = {}): EffectInstanti
     recovery_deadline: null,
     evidence_status: 'resolved',
     classification_profile_id: REVERSIBILITY_MAPPING_V0_ID,
+    classification_profile_digest: REVERSIBILITY_MAPPING_V0_DIGEST,
     action_ref: 'action_ref:acme-req-1',
     action_instance_id: 'action-instance:1',
     effect_id: `eff:${n}`,
@@ -414,6 +422,7 @@ const SAMPLE_BLOCK: EffectInstantiationBlock = {
       recovery_deadline: null,
       evidence_status: 'resolved',
       classification_profile_id: REVERSIBILITY_MAPPING_V0_ID,
+      classification_profile_digest: REVERSIBILITY_MAPPING_V0_DIGEST,
       action_ref: 'action_ref:sample-req',
       action_instance_id: 'action-instance:sample',
       effect_id: 'eff:sample',
@@ -812,5 +821,115 @@ describe('reversibility-fold v0-3 - no entry point yields external + compensable
       if (b === 'internal') assert.equal(realized, 'compensable')
       else assert.notEqual(realized, 'compensable')
     }
+  })
+})
+
+// ══════════════════════════════════════
+// v0-5b - immutable content-addressed profile registry + digest + reason codes
+// ══════════════════════════════════════
+
+// The v0 profile digest, pinned. Reproduced byte-for-byte by TS/Python/Go (see
+// the separate reversibility-profile-parity test). Any change to an authoritative
+// profile field changes this value and must be updated deliberately.
+const GOLDEN_V0_DIGEST = 'sha256:23ef78e02e68e1b1fc94844cc9ccd7e7beae598fc612bddcdb12a9c2792ae322'
+
+describe('reversibility-fold v0-5b - profile content digest', () => {
+  it('the v0 digest is stable and equals the pinned golden value', () => {
+    assert.equal(REVERSIBILITY_MAPPING_V0_DIGEST, GOLDEN_V0_DIGEST)
+    assert.equal(profileContentDigest(REVERSIBILITY_PROFILE_V0_CONTENT), GOLDEN_V0_DIGEST)
+  })
+
+  it('the domain-separated construction differs from a bare SHA-256 of the JCS', () => {
+    const bare = 'sha256:' + createHash('sha256').update(canonicalize(REVERSIBILITY_PROFILE_V0_CONTENT)).digest('hex')
+    assert.notEqual(REVERSIBILITY_MAPPING_V0_DIGEST, bare)
+  })
+
+  it('changing any authoritative profile field changes the digest', () => {
+    assert.notEqual(profileContentDigest({ ...REVERSIBILITY_PROFILE_V0_CONTENT, external_compensable: true }), REVERSIBILITY_MAPPING_V0_DIGEST)
+    assert.notEqual(profileContentDigest({ ...REVERSIBILITY_PROFILE_V0_CONTENT, schema_version: 'v1' }), REVERSIBILITY_MAPPING_V0_DIGEST)
+    assert.notEqual(profileContentDigest({ ...REVERSIBILITY_PROFILE_V0_CONTENT, reason_codes: [] }), REVERSIBILITY_MAPPING_V0_DIGEST)
+  })
+
+  it('excluded diagnostic metadata is NOT part of the digest', () => {
+    // The registry entry carries display_name/description; they are not in the
+    // content, so the digest is over content only and a metadata change cannot
+    // move it.
+    const reg = getRegisteredProfile(REVERSIBILITY_MAPPING_V0_ID)
+    assert.ok(reg)
+    assert.equal(reg.digest, profileContentDigest(reg.content))
+    // The content object itself carries no display_name/description.
+    assert.equal((REVERSIBILITY_PROFILE_V0_CONTENT as Record<string, unknown>).display_name, undefined)
+    assert.equal((REVERSIBILITY_PROFILE_V0_CONTENT as Record<string, unknown>).description, undefined)
+  })
+})
+
+describe('reversibility-fold v0-5b - immutable registry and binding failures', () => {
+  it('the registry resolves the v0 profile with its content and digest', () => {
+    const reg = getRegisteredProfile(REVERSIBILITY_MAPPING_V0_ID)
+    assert.ok(reg)
+    assert.equal(reg.profile, reversibilityMappingV0)
+    assert.equal(reg.digest, REVERSIBILITY_MAPPING_V0_DIGEST)
+    assert.equal(getProfileDigest(REVERSIBILITY_MAPPING_V0_ID), REVERSIBILITY_MAPPING_V0_DIGEST)
+  })
+
+  it('verifyProfileBinding: an unknown id fails unknown_profile (distinct from mismatch)', () => {
+    const r = verifyProfileBinding('reversibility-mapping-vX', REVERSIBILITY_MAPPING_V0_DIGEST)
+    assert.equal(r.ok, false)
+    assert.equal(r.ok === false && r.reason, 'unknown_profile')
+  })
+
+  it('verifyProfileBinding: a known id with the wrong digest fails digest_mismatch (distinct from unknown)', () => {
+    const r = verifyProfileBinding(REVERSIBILITY_MAPPING_V0_ID, 'sha256:0000')
+    assert.equal(r.ok, false)
+    if (r.ok === false && r.reason === 'digest_mismatch') {
+      assert.equal(r.declaredDigest, 'sha256:0000')
+      assert.equal(r.expectedDigest, REVERSIBILITY_MAPPING_V0_DIGEST)
+    } else {
+      assert.fail('expected digest_mismatch')
+    }
+  })
+
+  it('verifyProfileBinding: matching id + digest passes', () => {
+    const r = verifyProfileBinding(REVERSIBILITY_MAPPING_V0_ID, REVERSIBILITY_MAPPING_V0_DIGEST)
+    assert.equal(r.ok, true)
+  })
+
+  it('recomputeEffect: an element whose declared digest is wrong fails profile_digest_mismatch (distinct from unknown_profile)', () => {
+    const badDigest = recomputeEffect(element({ classification_profile_digest: 'sha256:deadbeef' }))
+    assert.equal(badDigest.status, 'profile_digest_mismatch')
+    if (badDigest.status === 'profile_digest_mismatch') {
+      assert.equal(badDigest.declaredDigest, 'sha256:deadbeef')
+      assert.equal(badDigest.expectedDigest, REVERSIBILITY_MAPPING_V0_DIGEST)
+    }
+    const badId = recomputeEffect(element({ classification_profile_id: 'no-such-profile' }))
+    assert.equal(badId.status, 'unknown_profile')
+  })
+
+  it('verifyAssertedClass: a wrong digest surfaces profile_digest_mismatch', () => {
+    const check = verifyAssertedClass(element({ classification_profile_digest: 'sha256:deadbeef', asserted_realized_class: 'irreversible' }))
+    assert.equal(check.ok === false && check.reason, 'profile_digest_mismatch')
+  })
+})
+
+describe('reversibility-fold v0-5b - deterministic reason codes', () => {
+  it('each mapping branch emits its reason code', () => {
+    assert.equal(classifyV0({}).reason, 'RM_V0_UNBOUND')
+    assert.equal(classifyV0({ externality: 'external-irreversible', finalityState: 'pending' }).reason, 'RM_V0_EXTERNAL_UPPER_BOUND')
+    assert.equal(classifyV0({ externality: 'external-irreversible', finalityState: 'settled', targetBindingVerified: true }).reason, 'RM_V0_EXTERNAL_DEFINITIVE')
+    assert.equal(classifyV0({ externality: 'external-reversible' }).reason, 'RM_V0_EXTERNAL_UPPER_BOUND')
+    assert.equal(classifyV0({ externality: 'internal', recoveryMechanismRef: 'snapshot://x' }).reason, 'RM_V0_INTERNAL_RECOVERABLE')
+    assert.equal(classifyV0({ externality: 'internal', recoveryMechanismRef: null }).reason, 'RM_V0_INTERNAL_NO_RECOVERY')
+  })
+
+  it('the profile content lists exactly the reason codes the classifier can emit', () => {
+    const emitted = new Set([
+      classifyV0({}).reason,
+      classifyV0({ externality: 'external-irreversible', finalityState: 'pending' }).reason,
+      classifyV0({ externality: 'external-irreversible', finalityState: 'settled', targetBindingVerified: true }).reason,
+      classifyV0({ externality: 'internal', recoveryMechanismRef: 'x' }).reason,
+      classifyV0({ externality: 'internal', recoveryMechanismRef: null }).reason,
+    ])
+    const declared = new Set((REVERSIBILITY_PROFILE_V0_CONTENT as { reason_codes: string[] }).reason_codes)
+    assert.deepEqual([...emitted].sort(), [...declared].sort())
   })
 })

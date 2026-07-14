@@ -124,14 +124,24 @@ export interface EffectFacts {
   recoveryMechanismRef?: string | null
 }
 
+/** Deterministic reason codes for the v0 profile. One per mapping rule, so a
+ *  verifier and an auditor read the same explanation for the same facts. Part of
+ *  the profile's authoritative content (its reason-code set). */
+export type ReasonCode =
+  | 'RM_V0_UNBOUND'
+  | 'RM_V0_INTERNAL_RECOVERABLE'
+  | 'RM_V0_INTERNAL_NO_RECOVERY'
+  | 'RM_V0_EXTERNAL_DEFINITIVE'
+  | 'RM_V0_EXTERNAL_UPPER_BOUND'
+
 /** The result of a classification. The RealizedClass is the mapping output;
  *  `label` carries the section-4 upper_bound annotation, present only when an
- *  external-irreversible verdict is not backed by verified finality and target
- *  binding (that is, the irreversible verdict is an upper bound, not a
- *  definitive finding). */
+ *  external verdict is not backed by verified finality and target binding; and
+ *  `reason` is the deterministic reason code for the rule that fired. */
 export interface ClassificationResult {
   realized: RealizedClass
   label?: 'upper_bound'
+  reason: ReasonCode
 }
 
 /** A versioned mapping profile: a pure function from raw effect facts to a
@@ -169,7 +179,7 @@ export function classifyV0(facts: EffectFacts): ClassificationResult {
   // Unbound / missing externality: we cannot even name the bucket. Honest
   // unresolved; enforcementFrom() lifts this to irreversible for admission.
   if (ext === undefined || ext === null) {
-    return { realized: 'unresolved' }
+    return { realized: 'unresolved', reason: 'RM_V0_UNBOUND' }
   }
 
   // Any external effect -> irreversible; upper bound unless finality is settled
@@ -180,43 +190,140 @@ export function classifyV0(facts: EffectFacts): ClassificationResult {
     const finalityVerified = facts.finalityState === 'settled'
     const definitive = finalityVerified && facts.targetBindingVerified === true
     return definitive
-      ? { realized: 'irreversible' }
-      : { realized: 'irreversible', label: 'upper_bound' }
+      ? { realized: 'irreversible', reason: 'RM_V0_EXTERNAL_DEFINITIVE' }
+      : { realized: 'irreversible', label: 'upper_bound', reason: 'RM_V0_EXTERNAL_UPPER_BOUND' }
   }
 
   // internal -> classified from observable recovery facts.
   if (ext === 'internal') {
     const hasObservableRecovery =
       facts.recoveryMechanismRef != null && facts.recoveryMechanismRef !== ''
-    return { realized: hasObservableRecovery ? 'compensable' : 'irreversible' }
+    return hasObservableRecovery
+      ? { realized: 'compensable', reason: 'RM_V0_INTERNAL_RECOVERABLE' }
+      : { realized: 'irreversible', reason: 'RM_V0_INTERNAL_NO_RECOVERY' }
   }
 
   // Unreachable for typed inputs. Any unrecognized externality bucket is
   // treated as unbound and fails to unresolved (never a compensable fall-open).
-  return { realized: 'unresolved' }
+  return { realized: 'unresolved', reason: 'RM_V0_UNBOUND' }
 }
 
-/** The v0 profile. */
+/** The v0 profile function object. */
 export const reversibilityMappingV0: ClassificationProfile = {
   id: REVERSIBILITY_MAPPING_V0_ID,
   classify: classifyV0,
 }
 
-const PROFILE_REGISTRY: ReadonlyMap<string, ClassificationProfile> = new Map([
-  [REVERSIBILITY_MAPPING_V0_ID, reversibilityMappingV0],
+/** The AUTHORITATIVE, canonical content of the v0 profile (v4 section 4): its
+ *  input schema, mapping rules, reason-code set, and time semantics, and nothing
+ *  else. No runtime, diagnostic, or human-facing metadata (display name,
+ *  comments, timestamps) is included, so those can change without changing the
+ *  content digest. This object is what the digest commits to. */
+export const REVERSIBILITY_PROFILE_V0_CONTENT = {
+  profile_id: REVERSIBILITY_MAPPING_V0_ID,
+  input_fields: ['externality', 'recovery_mechanism_ref', 'finality_state', 'target_binding_verified'],
+  externality_values: ['internal', 'external-reversible', 'external-irreversible'],
+  finality_values: ['settled', 'pending', 'expired', 'contradicted'],
+  external_compensable: false,
+  // label is present only when the rule emits one (upper_bound). No null values
+  // anywhere in the content: the three SDK JCS implementations disagree on
+  // null-valued keys (TS and Python drop them, Go keeps them), so a null-free
+  // content is the parity-safe form that canonicalizes byte-identically.
+  rules: [
+    { id: 'unbound', when: 'externality_absent', realized: 'unresolved', reason: 'RM_V0_UNBOUND' },
+    { id: 'external_definitive', when: 'externality_external AND finality_settled AND target_binding_verified', realized: 'irreversible', reason: 'RM_V0_EXTERNAL_DEFINITIVE' },
+    { id: 'external_upper_bound', when: 'externality_external AND NOT(finality_settled AND target_binding_verified)', realized: 'irreversible', label: 'upper_bound', reason: 'RM_V0_EXTERNAL_UPPER_BOUND' },
+    { id: 'internal_recoverable', when: 'externality_internal AND observable_recovery_mechanism', realized: 'compensable', reason: 'RM_V0_INTERNAL_RECOVERABLE' },
+    { id: 'internal_no_recovery', when: 'externality_internal AND NOT observable_recovery_mechanism', realized: 'irreversible', reason: 'RM_V0_INTERNAL_NO_RECOVERY' },
+  ],
+  reason_codes: ['RM_V0_UNBOUND', 'RM_V0_EXTERNAL_DEFINITIVE', 'RM_V0_EXTERNAL_UPPER_BOUND', 'RM_V0_INTERNAL_RECOVERABLE', 'RM_V0_INTERNAL_NO_RECOVERY'],
+  time_semantics: { clock_skew_ms: 0, finality_source: 'bound_input', target_binding_source: 'verifier_supplied' },
+  schema_version: 'v0',
+}
+
+/** Domain-separated content digest of a profile (v4 section 4):
+ *  SHA-256( UTF8("APS-REVERSIBILITY-PROFILE-V0") || 0x00 || UTF8(JCS(content)) ).
+ *  Any language that JCS-canonicalizes the same content reproduces this byte-for-
+ *  byte. */
+export function profileContentDigest(content: unknown): string {
+  const preimage = Buffer.concat([
+    Buffer.from('APS-REVERSIBILITY-PROFILE-V0', 'utf8'),
+    Buffer.from([0x00]),
+    Buffer.from(canonicalize(content), 'utf8'),
+  ])
+  return 'sha256:' + createHash('sha256').update(preimage).digest('hex')
+}
+
+/** The v0 profile's content digest. */
+export const REVERSIBILITY_MAPPING_V0_DIGEST = profileContentDigest(REVERSIBILITY_PROFILE_V0_CONTENT)
+
+/** A registered profile: its function object, its authoritative content, its
+ *  content digest, and non-authoritative diagnostic metadata that is NOT part of
+ *  the digest. */
+export interface RegisteredProfile {
+  profile: ClassificationProfile
+  content: unknown
+  digest: string
+  /** Diagnostic/human-facing only. Excluded from the digest; may change freely. */
+  metadata: { display_name: string; description: string }
+}
+
+/** The immutable content-addressed registry (v4 section 4). It never mutates an
+ *  existing (id, digest) pair; a change to a profile's content yields a new
+ *  digest and is a NEW profile with a new id. Resolving an unknown id, or an
+ *  (id, digest) mismatch, is a DISTINCT failure, never a silent fallback. */
+const PROFILE_REGISTRY: ReadonlyMap<string, RegisteredProfile> = new Map([
+  [REVERSIBILITY_MAPPING_V0_ID, {
+    profile: reversibilityMappingV0,
+    content: REVERSIBILITY_PROFILE_V0_CONTENT,
+    digest: REVERSIBILITY_MAPPING_V0_DIGEST,
+    metadata: {
+      display_name: 'Reversibility mapping v0',
+      description: 'Fail-closed-on-external v0 classifier: internal from recovery facts, external irreversible.',
+    },
+  }],
 ])
 
-/** Resolve a mapping profile by its classification_profile_id. Returns
- *  undefined for an unknown id; callers decide how to treat a missing profile
- *  (an unresolvable profile is not the same event as unbound facts, and this
- *  step does not conflate them). */
+/** Resolve a mapping profile function by its classification_profile_id. Returns
+ *  undefined for an unknown id (a distinct event from unbound facts). */
 export function getClassificationProfile(id: string): ClassificationProfile | undefined {
+  return PROFILE_REGISTRY.get(id)?.profile
+}
+
+/** Resolve the full registered profile (function, content, digest, metadata). */
+export function getRegisteredProfile(id: string): RegisteredProfile | undefined {
   return PROFILE_REGISTRY.get(id)
+}
+
+/** The registry's content digest for a profile id, or undefined if unknown. */
+export function getProfileDigest(id: string): string | undefined {
+  return PROFILE_REGISTRY.get(id)?.digest
 }
 
 /** The set of registered profile ids. */
 export function registeredProfileIds(): string[] {
   return [...PROFILE_REGISTRY.keys()]
+}
+
+/** The outcome of checking a declared (id, digest) against the registry. Unknown
+ *  id and digest mismatch are DISTINCT failures, never conflated. */
+export type ProfileBindingCheck =
+  | { ok: true; digest: string }
+  | { ok: false; reason: 'unknown_profile'; classificationProfileId: string }
+  | { ok: false; reason: 'digest_mismatch'; classificationProfileId: string; declaredDigest: string; expectedDigest: string }
+
+/** Check a declared profile id + content digest against the immutable registry.
+ *  An id not in the registry fails unknown_profile; a known id whose declared
+ *  digest does not equal the registry digest fails digest_mismatch. */
+export function verifyProfileBinding(id: string, declaredDigest: string): ProfileBindingCheck {
+  const registered = PROFILE_REGISTRY.get(id)
+  if (registered === undefined) {
+    return { ok: false, reason: 'unknown_profile', classificationProfileId: id }
+  }
+  if (declaredDigest !== registered.digest) {
+    return { ok: false, reason: 'digest_mismatch', classificationProfileId: id, declaredDigest, expectedDigest: registered.digest }
+  }
+  return { ok: true, digest: registered.digest }
 }
 
 // ══════════════════════════════════════
@@ -254,6 +361,11 @@ export interface EffectInstantiationElement {
   recovery_deadline: string | null
   evidence_status: EvidenceStatus
   classification_profile_id: string
+  /** The content digest of the profile named by classification_profile_id (v4
+   *  section 4). A recompute checks it against the immutable registry: a
+   *  mismatch fails distinctly from an unknown profile. Binding the id to the
+   *  digest proves which profile CONTENT governed the classification. */
+  classification_profile_digest: string
   /** Content-addressed request/action identity of the execution instance this
    *  effect belongs to (v4 section 2). Sourced from the carrying receipt's
    *  action_ref (ExecutionEnvelope.action_ref, the APS correlation key). A
@@ -319,6 +431,7 @@ export interface RecomputeOptions {
 export type RecomputeOutcome =
   | { status: 'recomputed'; classificationProfileId: string; result: ClassificationResult }
   | { status: 'unknown_profile'; classificationProfileId: string }
+  | { status: 'profile_digest_mismatch'; classificationProfileId: string; declaredDigest: string; expectedDigest: string }
 
 /** Derive the classifier externality bucket from an element's raw facts (v4
  *  section 4.1). internal -> internal. external -> external-irreversible,
@@ -361,15 +474,25 @@ export function recomputeEffect(
   element: EffectInstantiationElement,
   options?: RecomputeOptions,
 ): RecomputeOutcome {
-  const profile = getClassificationProfile(element.classification_profile_id)
-  if (profile === undefined) {
+  const registered = getRegisteredProfile(element.classification_profile_id)
+  if (registered === undefined) {
     return { status: 'unknown_profile', classificationProfileId: element.classification_profile_id }
+  }
+  // Bind id to content: a declared digest that does not match the registry is a
+  // DISTINCT failure from an unknown profile, and is not classified.
+  if (element.classification_profile_digest !== registered.digest) {
+    return {
+      status: 'profile_digest_mismatch',
+      classificationProfileId: element.classification_profile_id,
+      declaredDigest: element.classification_profile_digest,
+      expectedDigest: registered.digest,
+    }
   }
   const facts = effectFactsFromElement(element, options)
   return {
     status: 'recomputed',
     classificationProfileId: element.classification_profile_id,
-    result: profile.classify(facts),
+    result: registered.profile.classify(facts),
   }
 }
 
@@ -389,9 +512,12 @@ export type AssertedClassCheck =
   | { ok: true; recomputed: ClassificationResult }
   | { ok: false; reason: 'mismatch'; asserted: RealizedClass; recomputed: RealizedClass }
   | { ok: false; reason: 'unknown_profile'; classificationProfileId: string }
+  | { ok: false; reason: 'profile_digest_mismatch'; classificationProfileId: string; declaredDigest: string; expectedDigest: string }
 
 /** Verify an element's asserted cache class (if any) against the recompute.
- *  A cache is a convenience only and is never trusted: a mismatch fails. */
+ *  A cache is a convenience only and is never trusted: a mismatch fails. An
+ *  unknown profile or a profile-digest mismatch cannot be verified and surfaces
+ *  distinctly. */
 export function verifyAssertedClass(
   element: EffectInstantiationElement,
   options?: RecomputeOptions,
@@ -399,6 +525,15 @@ export function verifyAssertedClass(
   const outcome = recomputeEffect(element, options)
   if (outcome.status === 'unknown_profile') {
     return { ok: false, reason: 'unknown_profile', classificationProfileId: outcome.classificationProfileId }
+  }
+  if (outcome.status === 'profile_digest_mismatch') {
+    return {
+      ok: false,
+      reason: 'profile_digest_mismatch',
+      classificationProfileId: outcome.classificationProfileId,
+      declaredDigest: outcome.declaredDigest,
+      expectedDigest: outcome.expectedDigest,
+    }
   }
   const recomputed = outcome.result
   if (element.asserted_realized_class === undefined) {
