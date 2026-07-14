@@ -27,6 +27,7 @@ import {
   validateTransition,
   admittedEnforcementClass,
   hashEffectState,
+  effectStatePreimage,
   validateEffectLineage,
   type EffectInstantiationElement,
   type EffectInstantiationBlock,
@@ -931,5 +932,78 @@ describe('reversibility-fold v0-5b - deterministic reason codes', () => {
     ])
     const declared = new Set((REVERSIBILITY_PROFILE_V0_CONTENT as { reason_codes: string[] }).reason_codes)
     assert.deepEqual([...emitted].sort(), [...declared].sort())
+  })
+})
+
+// ══════════════════════════════════════
+// v0-4a - domain-separated effect-state hash over the signed preimage (v4 s2)
+// ══════════════════════════════════════
+
+describe('reversibility-fold v0-4a - effect-state hash hardening', () => {
+  it('changing ANY signed effect-state field changes the hash', () => {
+    const base = element({ effect_id: 'eff:h', sequence: 0 })
+    const h0 = hashEffectState(base)
+    const mutations: Partial<EffectInstantiationElement>[] = [
+      { effect_scope: 'internal' },
+      { effect_target_ref: 'urn:other' },
+      { finality_state: 'settled' },
+      { recovery_mechanism_ref: 'refund://x' },
+      { recovery_controller: 'urn:ctrl' },
+      { recovery_deadline: '2026-12-31T00:00:00Z' },
+      { evidence_status: 'pending' },
+      { classification_profile_id: 'reversibility-mapping-vX' },
+      { classification_profile_digest: 'sha256:other' },
+      { action_ref: 'action_ref:other' },
+      { action_instance_id: 'action-instance:other' },
+      { effect_id: 'eff:h2' },
+      { sequence: 1 },
+      { predecessor_effect_state_hash: 'sha256:prev' },
+    ]
+    for (const m of mutations) {
+      assert.notEqual(hashEffectState({ ...base, ...m }), h0, `mutation did not change the hash: ${JSON.stringify(m)}`)
+    }
+  })
+
+  it('changing the asserted class changes the state hash but NOT the recomputed classification', () => {
+    const withCache = element({ effect_id: 'eff:ac', asserted_realized_class: 'irreversible' })
+    const other = { ...withCache, asserted_realized_class: 'compensable' as const }
+    assert.notEqual(hashEffectState(withCache), hashEffectState(other))
+    // The recompute ignores the asserted cache: same facts, same realized class.
+    const a = recomputeEffect(withCache)
+    const b = recomputeEffect(other)
+    assert.equal(a.status, 'recomputed')
+    assert.equal(b.status, 'recomputed')
+    if (a.status === 'recomputed' && b.status === 'recomputed') {
+      assert.equal(a.result.realized, b.result.realized)
+      assert.equal(a.result.reason, b.result.reason)
+    }
+  })
+
+  it('a computed verification output on the element object does NOT change the state hash', () => {
+    const base = element({ effect_id: 'eff:cv' })
+    const h0 = hashEffectState(base)
+    // Extra computed keys (a classification result) are not in the allowlist, so
+    // the preimage builder ignores them.
+    const decorated = { ...base, realized: 'compensable', enforcement: 'irreversible', reason: 'RM_V0_INTERNAL_RECOVERABLE' } as unknown as EffectInstantiationElement
+    assert.equal(hashEffectState(decorated), h0)
+    // And the preimage carries no computed-output keys.
+    const p = effectStatePreimage(base)
+    for (const k of ['realized', 'enforcement', 'label', 'reason']) {
+      assert.equal(k in p, false, `preimage must not contain computed output ${k}`)
+    }
+  })
+
+  it('the domain-separated construction differs from a bare SHA-256 of the JCS preimage', () => {
+    const el = element({ effect_id: 'eff:ds' })
+    const bare = 'sha256:' + createHash('sha256').update(canonicalize(effectStatePreimage(el))).digest('hex')
+    assert.notEqual(hashEffectState(el), bare)
+  })
+
+  it('the preimage is null-free even when nullable fields are null', () => {
+    const el = element({ effect_id: 'eff:nf', recovery_mechanism_ref: null, recovery_controller: null, recovery_deadline: null, predecessor_effect_state_hash: null })
+    const p = effectStatePreimage(el)
+    for (const [, v] of Object.entries(p)) assert.notEqual(v, null)
+    assert.equal('recovery_mechanism_ref' in p, false)
+    assert.equal('predecessor_effect_state_hash' in p, false)
   })
 })

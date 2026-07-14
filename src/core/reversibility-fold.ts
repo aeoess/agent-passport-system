@@ -705,11 +705,51 @@ export function admittedEnforcementClass(execution: ExecutionStageReceipt): Enfo
 // and never from the existence of a right. This step adds and validates the
 // identity fields only; it does not build the fold.
 
-/** SHA-256 (over strict JCS bytes) of one effect state. Chains a lineage: a
- *  later state's predecessor_effect_state_hash references the hash of the prior
- *  state. v0 hashes the element bytes; signing is a later slice. */
+/** The signed authoritative fields of one effect state as a null-free object
+ *  (v4 section 2). It commits to every signed field: effect_id, sequence,
+ *  predecessor_effect_state_hash, the raw effect facts, classification_profile_id,
+ *  classification_profile_digest, the evidence status, and the receipt/action
+ *  binding (action_ref, action_instance_id). The asserted class is signed content
+ *  and part of the state identity, so it is included when present, but it is
+ *  non-authoritative for classification (a verifier recomputes). Computed
+ *  verification outputs, the state hash itself, and out-of-object signatures are
+ *  excluded: the builder reads only the known signed fields, so an extra property
+ *  on the element object cannot enter the preimage. Only non-null fields are
+ *  included, the same parity-safe rule the profile content follows, because the
+ *  SDK JCS implementations diverge on null-valued keys. */
+export function effectStatePreimage(el: EffectInstantiationElement): Record<string, unknown> {
+  const p: Record<string, unknown> = {
+    effect_scope: el.effect_scope,
+    effect_target_ref: el.effect_target_ref,
+    finality_state: el.finality_state,
+    evidence_status: el.evidence_status,
+    classification_profile_id: el.classification_profile_id,
+    classification_profile_digest: el.classification_profile_digest,
+    action_ref: el.action_ref,
+    action_instance_id: el.action_instance_id,
+    effect_id: el.effect_id,
+    sequence: el.sequence,
+  }
+  if (el.recovery_mechanism_ref != null) p.recovery_mechanism_ref = el.recovery_mechanism_ref
+  if (el.recovery_controller != null) p.recovery_controller = el.recovery_controller
+  if (el.recovery_deadline != null) p.recovery_deadline = el.recovery_deadline
+  if (el.predecessor_effect_state_hash != null) p.predecessor_effect_state_hash = el.predecessor_effect_state_hash
+  if (el.asserted_realized_class !== undefined) p.asserted_realized_class = el.asserted_realized_class
+  return p
+}
+
+/** Domain-separated hash of one effect state (v4 section 2):
+ *  SHA-256( UTF8("APS-REVERSIBILITY-EFFECT-STATE-V0") || 0x00 || UTF8(JCS(preimage)) )
+ *  over the null-free preimage of every signed authoritative field. Chains a
+ *  lineage: a later state's predecessor_effect_state_hash references this. Any
+ *  language that JCS-canonicalizes the same preimage reproduces it byte-for-byte. */
 export function hashEffectState(element: EffectInstantiationElement): string {
-  return 'sha256:' + createHash('sha256').update(canonicalize(element)).digest('hex')
+  const preimage = Buffer.concat([
+    Buffer.from('APS-REVERSIBILITY-EFFECT-STATE-V0', 'utf8'),
+    Buffer.from([0x00]),
+    Buffer.from(canonicalize(effectStatePreimage(element)), 'utf8'),
+  ])
+  return 'sha256:' + createHash('sha256').update(preimage).digest('hex')
 }
 
 export interface LineageCheck {
