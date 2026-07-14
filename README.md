@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/assets/aps-banner.png" alt="Agent Passport System banner. Governance infrastructure for the agent economy. Cryptographic identity, signed action receipts, beneficiary attribution." width="100%">
+</p>
+
 # Agent Passport System
 
 [![npm version](https://img.shields.io/npm/v/agent-passport-system)](https://www.npmjs.com/package/agent-passport-system)
