@@ -254,6 +254,17 @@ export interface EffectInstantiationElement {
   recovery_deadline: string | null
   evidence_status: EvidenceStatus
   classification_profile_id: string
+  /** Content-addressed request/action identity of the execution instance this
+   *  effect belongs to (v4 section 2). Sourced from the carrying receipt's
+   *  action_ref (ExecutionEnvelope.action_ref, the APS correlation key). A
+   *  stable, signed binding so an effect state cannot be transplanted between
+   *  receipts. */
+  action_ref: string
+  /** Stable unique id of the specific execution instance (v4 section 2). Sourced
+   *  from the carrying receipt's per-instance id (ExecutionEnvelope.action_id or
+   *  RAPV0.receipt_id). Distinguishes two instances that share a content-
+   *  addressed action_ref. */
+  action_instance_id: string
   /** Stable id for this effect across its lifecycle stages (v4 section 2).
    *  Precedence is defined by lineage under this id, never by array position. */
   effect_id: string
