@@ -1,22 +1,27 @@
 {
   "profile_id": "reversibility-mapping-v0",
-  "profile_digest": "sha256:23ef78e02e68e1b1fc94844cc9ccd7e7beae598fc612bddcdb12a9c2792ae322",
+  "profile_digest": "sha256:12f270844b11c828eb42087c443e8d0272f60551cb098067028113e3b91f1d6b",
   "note": "Conformance vectors for reversibility-mapping-v0 (v4 section 4). Each fixture is raw effect facts plus the expected realized_class, enforcement_class, label, and reason code. TS, Python, and Go must produce byte-identical realized/enforcement/label/reason on every fixture. Stale, conflicted, and revoked-evidence fixtures are DEFERRED: they belong to the v4 section 10 external reversal subsystem, which is not built in v0, so they are intentionally absent here.",
   "vectors": [
     {
-      "name": "internal-observable-recovery-compensable",
+      "name": "internal-self-declared-recovery-not-compensable",
       "input": { "externality": "internal", "recovery_mechanism_ref": "snapshot://ledger-2026-07-13" },
-      "expected": { "realized": "compensable", "enforcement": "compensable", "reason": "RM_V0_INTERNAL_RECOVERABLE" }
+      "expected": { "realized": "irreversible", "enforcement": "irreversible", "label": "upper_bound", "reason": "RM_V0_INTERNAL_UPPER_BOUND" }
     },
     {
-      "name": "internal-no-recovery-irreversible",
+      "name": "internal-no-recovery-irreversible-upper-bound",
       "input": { "externality": "internal", "recovery_mechanism_ref": null },
-      "expected": { "realized": "irreversible", "enforcement": "irreversible", "reason": "RM_V0_INTERNAL_NO_RECOVERY" }
+      "expected": { "realized": "irreversible", "enforcement": "irreversible", "label": "upper_bound", "reason": "RM_V0_INTERNAL_UPPER_BOUND" }
     },
     {
       "name": "internal-missing-recovery-fails-closed",
       "input": { "externality": "internal" },
-      "expected": { "realized": "irreversible", "enforcement": "irreversible", "reason": "RM_V0_INTERNAL_NO_RECOVERY" }
+      "expected": { "realized": "irreversible", "enforcement": "irreversible", "label": "upper_bound", "reason": "RM_V0_INTERNAL_UPPER_BOUND" }
+    },
+    {
+      "name": "internal-definitive-when-settled-and-target-bound",
+      "input": { "externality": "internal", "finality_state": "settled", "target_binding_verified": true },
+      "expected": { "realized": "irreversible", "enforcement": "irreversible", "reason": "RM_V0_INTERNAL_DEFINITIVE" }
     },
     {
       "name": "external-irreversible-upper-bound",

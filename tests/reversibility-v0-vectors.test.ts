@@ -101,11 +101,11 @@ def classify(inp):
         else:
             realized, reason, label = "irreversible", "RM_V0_EXTERNAL_UPPER_BOUND", "upper_bound"
     elif ext == "internal":
-        rec = inp.get("recovery_mechanism_ref")
-        if rec is not None and rec != "":
-            realized, reason = "compensable", "RM_V0_INTERNAL_RECOVERABLE"
+        definitive = inp.get("finality_state") == "settled" and inp.get("target_binding_verified") is True
+        if definitive:
+            realized, reason = "irreversible", "RM_V0_INTERNAL_DEFINITIVE"
         else:
-            realized, reason = "irreversible", "RM_V0_INTERNAL_NO_RECOVERY"
+            realized, reason, label = "irreversible", "RM_V0_INTERNAL_UPPER_BOUND", "upper_bound"
     else:
         realized, reason = "unresolved", "RM_V0_UNBOUND"
     enforcement = "irreversible" if realized == "unresolved" else realized
@@ -136,11 +136,11 @@ func classify(inp map[string]interface{}) map[string]interface{} {
       realized, reason, label = "irreversible", "RM_V0_EXTERNAL_UPPER_BOUND", "upper_bound"
     }
   } else if ext == "internal" {
-    rec, ok := inp["recovery_mechanism_ref"]
-    if ok && rec != nil && rec != "" {
-      realized, reason = "compensable", "RM_V0_INTERNAL_RECOVERABLE"
+    definitive := inp["finality_state"] == "settled" && inp["target_binding_verified"] == true
+    if definitive {
+      realized, reason = "irreversible", "RM_V0_INTERNAL_DEFINITIVE"
     } else {
-      realized, reason = "irreversible", "RM_V0_INTERNAL_NO_RECOVERY"
+      realized, reason, label = "irreversible", "RM_V0_INTERNAL_UPPER_BOUND", "upper_bound"
     }
   } else {
     realized, reason = "unresolved", "RM_V0_UNBOUND"

@@ -147,9 +147,11 @@ describe('reversibility-fold step 2 - v0 classifier, one per section-4 branch', 
     assert.equal(r.label, 'upper_bound')
   })
 
-  it('internal with observable recovery mechanism -> compensable', () => {
+  it('internal with a self-declared recovery_mechanism_ref -> irreversible + upper_bound (v4 s4: derives nothing)', () => {
     const facts: EffectFacts = { externality: 'internal', recoveryMechanismRef: 'snapshot://backup-2026-07-13' }
-    assert.equal(classifyV0(facts).realized, 'compensable')
+    const r = classifyV0(facts)
+    assert.equal(r.realized, 'irreversible')
+    assert.equal(r.label, 'upper_bound')
   })
 
   it('unbound / missing externality -> unresolved', () => {
@@ -177,14 +179,57 @@ describe('reversibility-fold step 2 - v0 fail-closed regressions', () => {
     }
   })
 
-  it('internal key-destruction facts (no observable recovery) -> irreversible', () => {
-    assert.equal(classifyV0({ externality: 'internal', recoveryMechanismRef: null }).realized, 'irreversible')
+  it('internal is irreversible + upper_bound regardless of recovery_mechanism_ref (present, null, or empty)', () => {
+    for (const rmr of ['snapshot://x', null, ''] as (string | null)[]) {
+      const r = classifyV0({ externality: 'internal', recoveryMechanismRef: rmr })
+      assert.equal(r.realized, 'irreversible')
+      assert.equal(r.label, 'upper_bound')
+    }
     assert.equal(classifyV0({ externality: 'internal' }).realized, 'irreversible')
-    assert.equal(classifyV0({ externality: 'internal', recoveryMechanismRef: '' }).realized, 'irreversible')
   })
 
   it('missing facts -> unresolved (externality absent even if other fields present)', () => {
     assert.equal(classifyV0({ actingPrincipal: PRINCIPAL, recoveryController: PRINCIPAL }).realized, 'unresolved')
+  })
+})
+
+describe('reversibility-fold v0-7 - no self-attested internal-compensable path (v4 s4)', () => {
+  it('a bare (self-declared) recovery_mechanism_ref does NOT yield compensable', () => {
+    const r = classifyV0({ externality: 'internal', recoveryMechanismRef: 'snapshot://ledger' })
+    assert.notEqual(r.realized, 'compensable')
+    assert.equal(r.realized, 'irreversible')
+    assert.equal(r.label, 'upper_bound')
+  })
+
+  it('NO v0 entry point produces a compensable outcome for an internal effect', () => {
+    // (1) direct classifier, over every recovery-ref shape
+    for (const rmr of ['snapshot://x', null, ''] as (string | null)[]) {
+      assert.notEqual(classifyV0({ externality: 'internal', recoveryMechanismRef: rmr }).realized, 'compensable')
+    }
+    // (2) block pipeline: deriveExternality -> classify
+    const out = recomputeEffect(element({ effect_scope: 'internal', recovery_mechanism_ref: 'snapshot://x' }))
+    assert.equal(out.status === 'recomputed' && out.result.realized !== 'compensable', true)
+    // (3) RAPV0 adapter path
+    assert.notEqual(
+      classifyV0({ externality: rapvExternalityToEffectFacts('internal'), recoveryMechanismRef: 'snapshot://x' }).realized,
+      'compensable',
+    )
+  })
+
+  it('classifyV0 never returns compensable for ANY externality bucket in v0, even with every recovery/actor fact set', () => {
+    const buckets = [undefined, 'internal', 'external-reversible', 'external-irreversible'] as const
+    for (const ext of buckets) {
+      const r = classifyV0({
+        externality: ext as EffectFacts['externality'],
+        recoveryMechanismRef: 'snapshot://x',
+        recoveryController: PRINCIPAL,
+        actingPrincipal: PRINCIPAL,
+        reversalRight: { signer: OTHER_DOMAIN },
+        finalityState: 'settled',
+        targetBindingVerified: true,
+      })
+      assert.notEqual(r.realized, 'compensable')
+    }
   })
 })
 
@@ -195,15 +240,10 @@ describe('reversibility-fold step 2 - projection ties enforcement to the classif
     assert.equal(enforcementFrom(realized), 'irreversible')
   })
 
-  it('a compensable realization enforces compensable (no over-restriction)', () => {
-    // The surviving compensable path in v0 is internal-compensable (mechanical,
-    // recomputable recovery). External compensability does not exist in v0.
-    const realized = classifyV0({
-      externality: 'internal',
-      recoveryMechanismRef: 'snapshot://ledger-2026-07-13',
-    }).realized
-    assert.equal(realized, 'compensable')
-    assert.equal(enforcementFrom(realized), 'compensable')
+  it('the enforcement projection preserves compensable (no over-restriction)', () => {
+    // v0 produces no compensable outcome, but the projection must stay the
+    // identity on compensable so a future verified-recovery class is not lifted.
+    assert.equal(enforcementFrom('compensable'), 'compensable')
   })
 })
 
@@ -245,15 +285,22 @@ describe('reversibility-fold step 2 - versioned profile registry', () => {
 // ══════════════════════════════════════
 
 describe('reversibility-fold step 3a - recompute over each externality bucket via the block', () => {
-  it('internal effect with an observable recovery mechanism -> compensable', () => {
+  it('internal effect with a self-declared recovery mechanism -> irreversible + upper_bound (v4 s4)', () => {
     const out = recomputeEffect(element({ effect_scope: 'internal', recovery_mechanism_ref: 'snapshot://db-2026-07-13' }))
     assert.equal(out.status, 'recomputed')
-    assert.equal(out.status === 'recomputed' && out.result.realized, 'compensable')
+    if (out.status === 'recomputed') {
+      assert.equal(out.result.realized, 'irreversible')
+      assert.equal(out.result.label, 'upper_bound')
+    }
   })
 
-  it('internal effect with no recovery mechanism (key destruction) -> irreversible', () => {
+  it('internal effect with no recovery mechanism (key destruction) -> irreversible + upper_bound', () => {
     const out = recomputeEffect(element({ effect_scope: 'internal', recovery_mechanism_ref: null }))
-    assert.equal(out.status === 'recomputed' && out.result.realized, 'irreversible')
+    assert.equal(out.status, 'recomputed')
+    if (out.status === 'recomputed') {
+      assert.equal(out.result.realized, 'irreversible')
+      assert.equal(out.result.label, 'upper_bound')
+    }
   })
 
   it('external effect with no recovery (external-irreversible) -> irreversible + upper_bound (unverified)', () => {
@@ -372,7 +419,7 @@ describe('reversibility-fold step 3a - multi-effect block recomputes per element
   it('a block with three distinct effects recomputes each independently, preserving order', () => {
     const block: EffectInstantiationBlock = {
       instantiated_effects: [
-        // compensable payment authorization (internal, snapshot recovery)
+        // internal effect with a self-declared recovery ref (irreversible + upper_bound in v0)
         element({ effect_id: 'eff:pay', effect_scope: 'internal', recovery_mechanism_ref: 'snapshot://ledger' }),
         // irreversible external email (external, no recovery)
         element({ effect_id: 'eff:email', effect_scope: 'external', recovery_mechanism_ref: null }),
@@ -382,7 +429,8 @@ describe('reversibility-fold step 3a - multi-effect block recomputes per element
     }
     const outs = recomputeBlock(block)
     assert.equal(outs.length, 3)
-    assert.equal(outs[0].status === 'recomputed' && outs[0].result.realized, 'compensable')
+    assert.equal(outs[0].status === 'recomputed' && outs[0].result.realized, 'irreversible')
+    assert.equal(outs[0].status === 'recomputed' && outs[0].result.label, 'upper_bound')
     assert.equal(outs[1].status === 'recomputed' && outs[1].result.realized, 'irreversible')
     assert.equal(outs[1].status === 'recomputed' && outs[1].result.label, 'upper_bound')
     assert.equal(outs[2].status === 'recomputed' && outs[2].result.realized, 'irreversible')
@@ -862,15 +910,15 @@ describe('reversibility-fold v0-3 - no entry point yields external + compensable
     assert.notEqual(realized, 'compensable')
   })
 
-  it('internal-compensable is unaffected and still reachable', () => {
-    assert.equal(classifyV0({ externality: 'internal', recoveryMechanismRef: 'snapshot://x' }).realized, 'compensable')
+  it('internal is ALSO not compensable in v0 (v0-7 removed the self-attested internal path)', () => {
+    assert.notEqual(classifyV0({ externality: 'internal', recoveryMechanismRef: 'snapshot://x' }).realized, 'compensable')
     const out = recomputeEffect(element({ effect_scope: 'internal', recovery_mechanism_ref: 'snapshot://x' }))
-    assert.equal(out.status === 'recomputed' && out.result.realized, 'compensable')
+    assert.equal(out.status === 'recomputed' && out.result.realized !== 'compensable', true)
   })
 
-  it('the only compensable results anywhere in the classifier are internal', () => {
-    // Sweep every EffectExternality bucket with maximal "reversibility" facts;
-    // compensable appears only for internal.
+  it('NO externality bucket yields compensable in v0, with maximal reversibility facts set', () => {
+    // Sweep every EffectExternality bucket with every recovery/actor fact set;
+    // compensable appears nowhere in v0.
     const buckets = ['internal', 'external-reversible', 'external-irreversible'] as const
     for (const b of buckets) {
       const realized = classifyV0({
@@ -882,8 +930,7 @@ describe('reversibility-fold v0-3 - no entry point yields external + compensable
         finalityState: 'settled',
         targetBindingVerified: true,
       }).realized
-      if (b === 'internal') assert.equal(realized, 'compensable')
-      else assert.notEqual(realized, 'compensable')
+      assert.notEqual(realized, 'compensable')
     }
   })
 })
@@ -895,7 +942,7 @@ describe('reversibility-fold v0-3 - no entry point yields external + compensable
 // The v0 profile digest, pinned. Reproduced byte-for-byte by TS/Python/Go (see
 // the separate reversibility-profile-parity test). Any change to an authoritative
 // profile field changes this value and must be updated deliberately.
-const GOLDEN_V0_DIGEST = 'sha256:23ef78e02e68e1b1fc94844cc9ccd7e7beae598fc612bddcdb12a9c2792ae322'
+const GOLDEN_V0_DIGEST = 'sha256:12f270844b11c828eb42087c443e8d0272f60551cb098067028113e3b91f1d6b'
 
 describe('reversibility-fold v0-5b - profile content digest', () => {
   it('the v0 digest is stable and equals the pinned golden value', () => {
@@ -981,8 +1028,8 @@ describe('reversibility-fold v0-5b - deterministic reason codes', () => {
     assert.equal(classifyV0({ externality: 'external-irreversible', finalityState: 'pending' }).reason, 'RM_V0_EXTERNAL_UPPER_BOUND')
     assert.equal(classifyV0({ externality: 'external-irreversible', finalityState: 'settled', targetBindingVerified: true }).reason, 'RM_V0_EXTERNAL_DEFINITIVE')
     assert.equal(classifyV0({ externality: 'external-reversible' }).reason, 'RM_V0_EXTERNAL_UPPER_BOUND')
-    assert.equal(classifyV0({ externality: 'internal', recoveryMechanismRef: 'snapshot://x' }).reason, 'RM_V0_INTERNAL_RECOVERABLE')
-    assert.equal(classifyV0({ externality: 'internal', recoveryMechanismRef: null }).reason, 'RM_V0_INTERNAL_NO_RECOVERY')
+    assert.equal(classifyV0({ externality: 'internal', finalityState: 'pending' }).reason, 'RM_V0_INTERNAL_UPPER_BOUND')
+    assert.equal(classifyV0({ externality: 'internal', finalityState: 'settled', targetBindingVerified: true }).reason, 'RM_V0_INTERNAL_DEFINITIVE')
   })
 
   it('the profile content lists exactly the reason codes the classifier can emit', () => {
@@ -990,8 +1037,8 @@ describe('reversibility-fold v0-5b - deterministic reason codes', () => {
       classifyV0({}).reason,
       classifyV0({ externality: 'external-irreversible', finalityState: 'pending' }).reason,
       classifyV0({ externality: 'external-irreversible', finalityState: 'settled', targetBindingVerified: true }).reason,
-      classifyV0({ externality: 'internal', recoveryMechanismRef: 'x' }).reason,
-      classifyV0({ externality: 'internal', recoveryMechanismRef: null }).reason,
+      classifyV0({ externality: 'internal', finalityState: 'pending' }).reason,
+      classifyV0({ externality: 'internal', finalityState: 'settled', targetBindingVerified: true }).reason,
     ])
     const declared = new Set((REVERSIBILITY_PROFILE_V0_CONTENT as { reason_codes: string[] }).reason_codes)
     assert.deepEqual([...emitted].sort(), [...declared].sort())
@@ -1047,7 +1094,7 @@ describe('reversibility-fold v0-4a - effect-state hash hardening', () => {
     const h0 = hashEffectState(base)
     // Extra computed keys (a classification result) are not in the allowlist, so
     // the preimage builder ignores them.
-    const decorated = { ...base, realized: 'compensable', enforcement: 'irreversible', reason: 'RM_V0_INTERNAL_RECOVERABLE' } as unknown as EffectInstantiationElement
+    const decorated = { ...base, realized: 'irreversible', enforcement: 'irreversible', reason: 'RM_V0_INTERNAL_UPPER_BOUND' } as unknown as EffectInstantiationElement
     assert.equal(hashEffectState(decorated), h0)
     // And the preimage carries no computed-output keys.
     const p = effectStatePreimage(base)

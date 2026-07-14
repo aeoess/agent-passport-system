@@ -24,7 +24,7 @@ import {
   type EffectInstantiationElement,
 } from '../src/core/reversibility-fold.js'
 
-const GOLDEN_V0_DIGEST = 'sha256:23ef78e02e68e1b1fc94844cc9ccd7e7beae598fc612bddcdb12a9c2792ae322'
+const GOLDEN_V0_DIGEST = 'sha256:12f270844b11c828eb42087c443e8d0272f60551cb098067028113e3b91f1d6b'
 const PY_SDK = join(homedir(), 'agent-passport-python')
 const GO_SDK = join(homedir(), 'agent-passport-go')
 

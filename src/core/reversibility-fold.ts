@@ -116,11 +116,10 @@ export interface EffectFacts {
    *  irreversible effects. Both finality and this must hold to drop the
    *  upper_bound label. */
   targetBindingVerified?: boolean
-  /** Observable recovery mechanism reference for an internal effect. A present,
-   *  non-empty ref is observable recovery and classifies compensable; an
-   *  absent/null/empty ref (for example key destruction, un-snapshotted
-   *  mutation) classifies irreversible. Internal is classified from OBSERVABLE
-   *  facts, never from an asserted own-class. */
+  /** A producer-declared recovery mechanism reference. Carried as raw data only:
+   *  in v0 it derives NOTHING about the class (v4 s4 / s4.1). A self-declared ref
+   *  is self-attestation, so it cannot mint compensability; internal-compensable
+   *  requires a verifier-checked recovery result that v0 defers. */
   recoveryMechanismRef?: string | null
 }
 
@@ -129,8 +128,8 @@ export interface EffectFacts {
  *  the profile's authoritative content (its reason-code set). */
 export type ReasonCode =
   | 'RM_V0_UNBOUND'
-  | 'RM_V0_INTERNAL_RECOVERABLE'
-  | 'RM_V0_INTERNAL_NO_RECOVERY'
+  | 'RM_V0_INTERNAL_DEFINITIVE'
+  | 'RM_V0_INTERNAL_UPPER_BOUND'
   | 'RM_V0_EXTERNAL_DEFINITIVE'
   | 'RM_V0_EXTERNAL_UPPER_BOUND'
 
@@ -168,11 +167,12 @@ export const REVERSIBILITY_MAPPING_V0_ID = 'reversibility-mapping-v0'
  *  - external-irreversible AND external-reversible -> irreversible. Upper bound
  *    (label upper_bound) unless finality is settled AND the target binding is
  *    verified. The two external buckets are treated identically in v0.
- *  - internal -> classified from observable recovery facts, never an asserted
- *    own-class. Observable recovery mechanism present -> compensable; absent
- *    (key destruction, un-snapshotted mutation) -> irreversible. internal-
- *    compensable is mechanical, recomputable reversibility and is unaffected.
- *  - unbound / missing externality -> unresolved. */
+ *  - internal -> irreversible, treated exactly like an external-irreversible
+ *    effect (upper_bound unless finality settled AND target binding verified). A
+ *    self-declared recovery_mechanism_ref derives nothing (v4 s4 / s4.1), so v0
+ *    has no internal-compensable path.
+ *  - unbound / missing externality -> unresolved.
+ *  v0 therefore emits no compensable outcome at all. */
 export function classifyV0(facts: EffectFacts): ClassificationResult {
   const ext = facts.externality
 
@@ -194,13 +194,24 @@ export function classifyV0(facts: EffectFacts): ClassificationResult {
       : { realized: 'irreversible', label: 'upper_bound', reason: 'RM_V0_EXTERNAL_UPPER_BOUND' }
   }
 
-  // internal -> classified from observable recovery facts.
+  // internal -> irreversible in v0. A self-declared recovery_mechanism_ref is
+  // self-attestation and derives NOTHING about the class (v4 s4 / s4.1), the same
+  // conflation removed for the external path: a producer cannot mint
+  // compensability by naming a rollback path. v0 has no verifier-checked recovery
+  // evidence (recoveryMechanismRef, recoveryController, recovery_deadline, and
+  // evidence_status are all producer-declared, and the only verifier-supplied
+  // signal, targetBindingVerified, is the external resource-confirmation check).
+  // internal-compensable requires a verified recovery result that v0 defers, so
+  // internal is treated exactly as an external-irreversible effect: irreversible
+  // plus upper_bound, unless finality is settled AND the binding is verified. v0
+  // therefore has no compensable outcome at all, the sound and consistent
+  // position across both externality axes.
   if (ext === 'internal') {
-    const hasObservableRecovery =
-      facts.recoveryMechanismRef != null && facts.recoveryMechanismRef !== ''
-    return hasObservableRecovery
-      ? { realized: 'compensable', reason: 'RM_V0_INTERNAL_RECOVERABLE' }
-      : { realized: 'irreversible', reason: 'RM_V0_INTERNAL_NO_RECOVERY' }
+    const finalityVerified = facts.finalityState === 'settled'
+    const definitive = finalityVerified && facts.targetBindingVerified === true
+    return definitive
+      ? { realized: 'irreversible', reason: 'RM_V0_INTERNAL_DEFINITIVE' }
+      : { realized: 'irreversible', label: 'upper_bound', reason: 'RM_V0_INTERNAL_UPPER_BOUND' }
   }
 
   // Unreachable for typed inputs. Any unrecognized externality bucket is
@@ -221,22 +232,26 @@ export const reversibilityMappingV0: ClassificationProfile = {
  *  content digest. This object is what the digest commits to. */
 export const REVERSIBILITY_PROFILE_V0_CONTENT = {
   profile_id: REVERSIBILITY_MAPPING_V0_ID,
-  input_fields: ['externality', 'recovery_mechanism_ref', 'finality_state', 'target_binding_verified'],
+  input_fields: ['externality', 'finality_state', 'target_binding_verified'],
   externality_values: ['internal', 'external-reversible', 'external-irreversible'],
   finality_values: ['settled', 'pending', 'expired', 'contradicted'],
   external_compensable: false,
+  internal_compensable: false,
   // label is present only when the rule emits one (upper_bound). No null values
   // anywhere in the content: the three SDK JCS implementations disagree on
   // null-valued keys (TS and Python drop them, Go keeps them), so a null-free
   // content is the parity-safe form that canonicalizes byte-identically.
+  // v0 has no compensable outcome: both compensable strengths require verified
+  // recovery evidence that v0 defers, and a self-declared recovery_mechanism_ref
+  // derives nothing, so it is not a classification input.
   rules: [
     { id: 'unbound', when: 'externality_absent', realized: 'unresolved', reason: 'RM_V0_UNBOUND' },
     { id: 'external_definitive', when: 'externality_external AND finality_settled AND target_binding_verified', realized: 'irreversible', reason: 'RM_V0_EXTERNAL_DEFINITIVE' },
     { id: 'external_upper_bound', when: 'externality_external AND NOT(finality_settled AND target_binding_verified)', realized: 'irreversible', label: 'upper_bound', reason: 'RM_V0_EXTERNAL_UPPER_BOUND' },
-    { id: 'internal_recoverable', when: 'externality_internal AND observable_recovery_mechanism', realized: 'compensable', reason: 'RM_V0_INTERNAL_RECOVERABLE' },
-    { id: 'internal_no_recovery', when: 'externality_internal AND NOT observable_recovery_mechanism', realized: 'irreversible', reason: 'RM_V0_INTERNAL_NO_RECOVERY' },
+    { id: 'internal_definitive', when: 'externality_internal AND finality_settled AND target_binding_verified', realized: 'irreversible', reason: 'RM_V0_INTERNAL_DEFINITIVE' },
+    { id: 'internal_upper_bound', when: 'externality_internal AND NOT(finality_settled AND target_binding_verified)', realized: 'irreversible', label: 'upper_bound', reason: 'RM_V0_INTERNAL_UPPER_BOUND' },
   ],
-  reason_codes: ['RM_V0_UNBOUND', 'RM_V0_EXTERNAL_DEFINITIVE', 'RM_V0_EXTERNAL_UPPER_BOUND', 'RM_V0_INTERNAL_RECOVERABLE', 'RM_V0_INTERNAL_NO_RECOVERY'],
+  reason_codes: ['RM_V0_UNBOUND', 'RM_V0_EXTERNAL_DEFINITIVE', 'RM_V0_EXTERNAL_UPPER_BOUND', 'RM_V0_INTERNAL_DEFINITIVE', 'RM_V0_INTERNAL_UPPER_BOUND'],
   time_semantics: { clock_skew_ms: 0, finality_source: 'bound_input', target_binding_source: 'verifier_supplied' },
   schema_version: 'v0',
 }
@@ -279,7 +294,7 @@ const PROFILE_REGISTRY: ReadonlyMap<string, RegisteredProfile> = new Map([
     digest: REVERSIBILITY_MAPPING_V0_DIGEST,
     metadata: {
       display_name: 'Reversibility mapping v0',
-      description: 'Fail-closed-on-external v0 classifier: internal from recovery facts, external irreversible.',
+      description: 'Fail-closed v0 classifier: internal and external both resolve to irreversible; no compensable outcome, since verified recovery evidence is deferred.',
     },
   }],
 ])
