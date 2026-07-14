@@ -1,5 +1,13 @@
 # Changelog
 
+## 4.1.1 (2026-07-14)
+
+No functional change from 4.1.0. The code, the API, and the test suite are identical.
+
+4.1.0 was published by hand, so the release workflow never reached its publish step and that version carries no build-provenance attestation, no SBOM, and no tarball on its GitHub Release. Every release before it does. This version goes through the release pipeline instead, so the package on npm and its GitHub Release carry the same signed SLSA provenance as 4.0.0 and earlier. Provenance cannot be attached to an already-published version, which is why this ships as a new patch rather than a correction to 4.1.0.
+
+Consumers on 4.1.0 need not upgrade for behavior. Upgrade if you verify provenance before install.
+
 ## 4.1.0 (2026-07-13)
 
 ### Fixed / Security
