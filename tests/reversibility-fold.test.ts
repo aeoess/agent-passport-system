@@ -118,7 +118,10 @@ describe('reversibility-fold step 2 - v0 classifier, one per section-4 branch', 
     assert.equal(r.label, undefined)
   })
 
-  it('external-reversible -> compensable when controller is the principal AND external reversal-right present', () => {
+  it('external-reversible -> irreversible + upper_bound in v0 (no external-compensable path, v4 s4/s10)', () => {
+    // The legacy external-reversible taxonomy value is treated exactly as
+    // external-irreversible in v0. Even a controller-is-principal plus a
+    // different-domain reversal-right does NOT reach compensable.
     const facts: EffectFacts = {
       externality: 'external-reversible',
       actingPrincipal: PRINCIPAL,
@@ -126,8 +129,8 @@ describe('reversibility-fold step 2 - v0 classifier, one per section-4 branch', 
       reversalRight: { signer: OTHER_DOMAIN },
     }
     const r = classifyV0(facts)
-    assert.equal(r.realized, 'compensable')
-    assert.equal(r.label, undefined)
+    assert.equal(r.realized, 'irreversible')
+    assert.equal(r.label, 'upper_bound')
   })
 
   it('internal with observable recovery mechanism -> compensable', () => {
@@ -140,49 +143,24 @@ describe('reversibility-fold step 2 - v0 classifier, one per section-4 branch', 
   })
 })
 
-describe('reversibility-fold step 2 - mandated regressions (section 4 fail-closed)', () => {
-  it('external-reversible WITHOUT the external reversal-right signature -> irreversible', () => {
-    const facts: EffectFacts = {
-      externality: 'external-reversible',
-      actingPrincipal: PRINCIPAL,
-      recoveryController: PRINCIPAL,
-      // no reversalRight
+describe('reversibility-fold step 2 - v0 fail-closed regressions', () => {
+  it('external-reversible input is irreversible + upper_bound regardless of any reversal-right or controller facts', () => {
+    // In v0 the reversal-right and controller facts are RESERVED and never read
+    // by the classifier, so no combination of them changes the external verdict.
+    // Every one of these once fed the removed compensable branch; all are now
+    // irreversible + upper_bound.
+    const variants: EffectFacts[] = [
+      { externality: 'external-reversible', actingPrincipal: PRINCIPAL, recoveryController: PRINCIPAL }, // no reversalRight
+      { externality: 'external-reversible', actingPrincipal: PRINCIPAL, recoveryController: PRINCIPAL, reversalRight: { signer: PRINCIPAL } }, // self-attested
+      { externality: 'external-reversible', actingPrincipal: PRINCIPAL, recoveryController: PRINCIPAL, reversalRight: { signer: '' } }, // empty signer
+      { externality: 'external-reversible', actingPrincipal: PRINCIPAL, recoveryController: OTHER_DOMAIN, reversalRight: { signer: OTHER_DOMAIN } }, // controller != principal
+      { externality: 'external-reversible', actingPrincipal: PRINCIPAL, recoveryController: PRINCIPAL, reversalRight: { signer: OTHER_DOMAIN } }, // the once-compensable config
+    ]
+    for (const facts of variants) {
+      const r = classifyV0(facts)
+      assert.equal(r.realized, 'irreversible')
+      assert.equal(r.label, 'upper_bound')
     }
-    assert.equal(classifyV0(facts).realized, 'irreversible')
-  })
-
-  it('external-reversible with a SELF-attested reversal-right (signer is the principal) -> irreversible', () => {
-    // Self-attestation does not establish the right; the signer must be a
-    // domain other than the acting principal.
-    const facts: EffectFacts = {
-      externality: 'external-reversible',
-      actingPrincipal: PRINCIPAL,
-      recoveryController: PRINCIPAL,
-      reversalRight: { signer: PRINCIPAL },
-    }
-    assert.equal(classifyV0(facts).realized, 'irreversible')
-  })
-
-  it('external-reversible with a degenerate empty-signer reversal-right -> irreversible', () => {
-    // An empty signer is not a real external domain; fail closed.
-    const facts: EffectFacts = {
-      externality: 'external-reversible',
-      actingPrincipal: PRINCIPAL,
-      recoveryController: PRINCIPAL,
-      reversalRight: { signer: '' },
-    }
-    assert.equal(classifyV0(facts).realized, 'irreversible')
-  })
-
-  it('external-reversible where the controller is NOT the acting principal -> irreversible', () => {
-    // A counterparty who CAN reverse but is not our controllable lever.
-    const facts: EffectFacts = {
-      externality: 'external-reversible',
-      actingPrincipal: PRINCIPAL,
-      recoveryController: OTHER_DOMAIN,
-      reversalRight: { signer: OTHER_DOMAIN },
-    }
-    assert.equal(classifyV0(facts).realized, 'irreversible')
   })
 
   it('internal key-destruction facts (no observable recovery) -> irreversible', () => {
@@ -204,11 +182,11 @@ describe('reversibility-fold step 2 - projection ties enforcement to the classif
   })
 
   it('a compensable realization enforces compensable (no over-restriction)', () => {
+    // The surviving compensable path in v0 is internal-compensable (mechanical,
+    // recomputable recovery). External compensability does not exist in v0.
     const realized = classifyV0({
-      externality: 'external-reversible',
-      actingPrincipal: PRINCIPAL,
-      recoveryController: PRINCIPAL,
-      reversalRight: { signer: OTHER_DOMAIN },
+      externality: 'internal',
+      recoveryMechanismRef: 'snapshot://ledger-2026-07-13',
     }).realized
     assert.equal(realized, 'compensable')
     assert.equal(enforcementFrom(realized), 'compensable')
@@ -367,9 +345,11 @@ describe('reversibility-fold step 3a - RAPV0 externality adapter', () => {
     assert.equal(classifyV0({ externality: rapvExternalityToEffectFacts(undefined) }).realized, 'unresolved')
   })
 
-  it('RAPV0 substantive buckets pass through to EffectFacts.externality', () => {
+  it('RAPV0 external-reversible collapses to external-irreversible in v0 (no compensable backdoor, v4 s4/s10)', () => {
     assert.equal(rapvExternalityToEffectFacts('internal'), 'internal')
-    assert.equal(rapvExternalityToEffectFacts('external-reversible'), 'external-reversible')
+    // The legacy external-reversible taxonomy is NOT passed through as-is; it
+    // maps to external-irreversible so it cannot be a backdoor into compensability.
+    assert.equal(rapvExternalityToEffectFacts('external-reversible'), 'external-irreversible')
     assert.equal(rapvExternalityToEffectFacts('external-irreversible'), 'external-irreversible')
   })
 })
@@ -758,5 +738,75 @@ describe('reversibility-fold v0-2 - hashEffectState', () => {
     const b = element({ effect_id: 'eff:A', sequence: 0 })
     assert.equal(hashEffectState(a), hashEffectState(b))
     assert.notEqual(hashEffectState(a), hashEffectState({ ...a, sequence: 1 }))
+  })
+})
+
+// ══════════════════════════════════════
+// v0-3 - NO external-compensable path exists in v0 (v4 s4/s10)
+// ══════════════════════════════════════
+
+describe('reversibility-fold v0-3 - no entry point yields external + compensable', () => {
+  it('the block pipeline (deriveExternality -> classify) never yields compensable for an external effect', () => {
+    // Try to trick the derivation with a self-declared recovery mechanism and
+    // controller; the block pipeline still yields irreversible.
+    const outs = [
+      recomputeEffect(element({ effect_scope: 'external', recovery_mechanism_ref: 'refund://acme', recovery_controller: 'urn:principal:me' })),
+      recomputeEffect(element({ effect_scope: 'external', recovery_mechanism_ref: null })),
+      recomputeEffect(element({ effect_scope: 'external', recovery_mechanism_ref: 'refund://acme', finality_state: 'settled' })),
+    ]
+    for (const out of outs) {
+      assert.equal(out.status, 'recomputed')
+      if (out.status === 'recomputed') assert.equal(out.result.realized, 'irreversible')
+    }
+  })
+
+  it('the RAPV0 adapter path (rapvExternalityToEffectFacts -> classify) never yields compensable', () => {
+    for (const rapv of ['external-reversible', 'external-irreversible'] as const) {
+      const realized = classifyV0({
+        externality: rapvExternalityToEffectFacts(rapv),
+        actingPrincipal: PRINCIPAL,
+        recoveryController: PRINCIPAL,
+        reversalRight: { signer: OTHER_DOMAIN },
+        recoveryMechanismRef: 'refund://acme',
+      }).realized
+      assert.equal(realized, 'irreversible')
+    }
+  })
+
+  it('classifyV0 called directly with external-reversible plus a hand-built reversal-right and principal -> irreversible', () => {
+    // The exact configuration that once produced compensable.
+    const realized = classifyV0({
+      externality: 'external-reversible',
+      actingPrincipal: PRINCIPAL,
+      recoveryController: PRINCIPAL,
+      reversalRight: { signer: OTHER_DOMAIN },
+    }).realized
+    assert.equal(realized, 'irreversible')
+    assert.notEqual(realized, 'compensable')
+  })
+
+  it('internal-compensable is unaffected and still reachable', () => {
+    assert.equal(classifyV0({ externality: 'internal', recoveryMechanismRef: 'snapshot://x' }).realized, 'compensable')
+    const out = recomputeEffect(element({ effect_scope: 'internal', recovery_mechanism_ref: 'snapshot://x' }))
+    assert.equal(out.status === 'recomputed' && out.result.realized, 'compensable')
+  })
+
+  it('the only compensable results anywhere in the classifier are internal', () => {
+    // Sweep every EffectExternality bucket with maximal "reversibility" facts;
+    // compensable appears only for internal.
+    const buckets = ['internal', 'external-reversible', 'external-irreversible'] as const
+    for (const b of buckets) {
+      const realized = classifyV0({
+        externality: b,
+        actingPrincipal: PRINCIPAL,
+        recoveryController: PRINCIPAL,
+        reversalRight: { signer: OTHER_DOMAIN },
+        recoveryMechanismRef: 'snapshot://x',
+        finalityState: 'settled',
+        targetBindingVerified: true,
+      }).realized
+      if (b === 'internal') assert.equal(realized, 'compensable')
+      else assert.notEqual(realized, 'compensable')
+    }
   })
 })

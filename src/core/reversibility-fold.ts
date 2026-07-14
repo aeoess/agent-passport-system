@@ -98,14 +98,16 @@ export interface EffectFacts {
    *  classifies as unresolved. A caller mapping RAPV0 'none' should pass it
    *  as undefined here. */
   externality?: EffectExternality
-  /** Identity of the acting principal the effect is attributed to. */
+  /** RESERVED for the deferred v4 section 10 four-object subsystem. Not consumed
+   *  by the v0 classifier: v0 has no external-compensable path, so the acting
+   *  principal plays no part in v0 classification. */
   actingPrincipal?: string
-  /** Who can invoke reversal (recovery_controller). For external-reversible,
-   *  compensable requires this to equal the acting principal. */
+  /** Who can invoke reversal (recovery_controller), a carried raw fact. Not
+   *  consumed by the v0 classifier (v0 external is irreversible-only). */
   recoveryController?: string | null
-  /** External reversal-right attestation. Must be signed by a domain other
-   *  than the acting principal to count. Absent fails closed to irreversible
-   *  for external-reversible effects. */
+  /** RESERVED for the deferred v4 section 10 four-object subsystem. Not consumed
+   *  by the v0 classifier. In v0 no reversal-right can ground compensability;
+   *  external compensability is a future profile, not a v0 branch. */
   reversalRight?: ReversalRightFact | null
   /** Finality of an external-irreversible effect. Only 'settled' contributes
    *  to a definitive (non-upper-bound) irreversible verdict. */
@@ -143,18 +145,23 @@ export interface ClassificationProfile {
  *  literal, only that classification_profile_id must be bound. */
 export const REVERSIBILITY_MAPPING_V0_ID = 'reversibility-mapping-v0'
 
-/** The v0 mapping rules (spec section 4), as a pure function.
+/** The v0 mapping rules (v4 sections 4, 4.1, 10), as a pure function.
  *
- *  - external-irreversible -> irreversible. Upper bound (label upper_bound)
- *    unless finality is settled AND the target binding is verified.
- *  - external-reversible -> compensable ONLY IF recovery_controller is the
- *    acting principal AND a reversal-right is attested by a domain other than
- *    the acting principal. Else irreversible, fail-closed. (A counterparty who
- *    CAN reverse but is not the acting principal's controllable lever does not
- *    make the effect compensable-by-us.)
+ *  v0 has NO external-compensable path. External compensability is a FUTURE
+ *  profile (reversibility-mapping-v1) built on the deferred four-object subsystem
+ *  of v4 section 10, never a branch inside the v0 profile. v4 section 10 rejects
+ *  the domain-separation-without-authority model (a non-empty reversal-right
+ *  signer different from the principal): a registration outside operator control
+ *  shows only separation, not authority-over-a-mechanism, so it cannot ground
+ *  compensability. This profile must not behave differently by entry point.
+ *
+ *  - external-irreversible AND external-reversible -> irreversible. Upper bound
+ *    (label upper_bound) unless finality is settled AND the target binding is
+ *    verified. The two external buckets are treated identically in v0.
  *  - internal -> classified from observable recovery facts, never an asserted
  *    own-class. Observable recovery mechanism present -> compensable; absent
- *    (key destruction, un-snapshotted mutation) -> irreversible.
+ *    (key destruction, un-snapshotted mutation) -> irreversible. internal-
+ *    compensable is mechanical, recomputable reversibility and is unaffected.
  *  - unbound / missing externality -> unresolved. */
 export function classifyV0(facts: EffectFacts): ClassificationResult {
   const ext = facts.externality
@@ -165,31 +172,16 @@ export function classifyV0(facts: EffectFacts): ClassificationResult {
     return { realized: 'unresolved' }
   }
 
-  // external-irreversible -> irreversible; upper bound unless finality settled
-  // AND target binding verified.
-  if (ext === 'external-irreversible') {
+  // Any external effect -> irreversible; upper bound unless finality is settled
+  // AND target binding verified. v0 has no external-compensable path, so the
+  // legacy 'external-reversible' taxonomy value is treated exactly as
+  // 'external-irreversible' here (no compensable branch, no reversal-right read).
+  if (ext === 'external-irreversible' || ext === 'external-reversible') {
     const finalityVerified = facts.finalityState === 'settled'
     const definitive = finalityVerified && facts.targetBindingVerified === true
     return definitive
       ? { realized: 'irreversible' }
       : { realized: 'irreversible', label: 'upper_bound' }
-  }
-
-  // external-reversible -> compensable ONLY under an external mandate held by
-  // the acting principal; else fail closed to irreversible.
-  if (ext === 'external-reversible') {
-    const controllerIsPrincipal =
-      facts.actingPrincipal != null &&
-      facts.recoveryController != null &&
-      facts.recoveryController === facts.actingPrincipal
-    const externalReversalRight =
-      facts.reversalRight != null &&
-      facts.reversalRight.signer !== '' &&
-      facts.actingPrincipal != null &&
-      facts.reversalRight.signer !== facts.actingPrincipal
-    return controllerIsPrincipal && externalReversalRight
-      ? { realized: 'compensable' }
-      : { realized: 'irreversible' }
   }
 
   // internal -> classified from observable recovery facts.
@@ -286,13 +278,18 @@ export interface EffectInstantiationBlock {
 export type RapvExternality = 'none' | 'internal' | 'external-reversible' | 'external-irreversible'
 
 /** Map an RAPV0 externality onto the value used for EffectFacts.externality.
- *  'none' or absent maps to undefined (unbound), which classifies unresolved.
- *  This is a pure adapter, not an import-and-couple. */
+ *  'none' or absent -> undefined (unbound), which classifies unresolved.
+ *  internal -> internal. Both external buckets -> external-irreversible: the
+ *  legacy 'external-reversible' taxonomy carried a stronger meaning than v0
+ *  grants, so it is NOT passed through as-is; mapping it to external-irreversible
+ *  keeps it from being a backdoor into compensability (v4 s4/s10). This is a pure
+ *  adapter, not an import-and-couple. */
 export function rapvExternalityToEffectFacts(
   externality: RapvExternality | null | undefined,
 ): EffectExternality | undefined {
   if (externality == null || externality === 'none') return undefined
-  return externality
+  if (externality === 'internal') return 'internal'
+  return 'external-irreversible'
 }
 
 /** Verifier-supplied context for a recompute. Facts a verifier establishes
