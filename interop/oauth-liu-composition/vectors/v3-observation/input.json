@@ -1,0 +1,40 @@
+{
+ "delegation_chain": [
+  {
+   "delegator_id": "wit://agent-a.test.invalid/sha256.aaa111synthetic",
+   "delegatee_id": "wit://agent-b.test.invalid/sha256.bbb222synthetic",
+   "delegation_timestamp": 1752868800,
+   "root_evidence_ref": "urn:uuid:f81d4fae-7dec-11d0-a765-00a0c91e6bf6",
+   "delegated_policy": {
+    "type": "rego",
+    "content": "package agent\ndefault allow = false\n\nallow {\n  input.action == \"inventory_check\"\n}\n\nallow {\n  input.action == \"cart_add\"\n}",
+    "entry_point": "allow"
+   },
+   "operation_summary": "Delegate inventory check and cart add for the storefront session",
+   "delegator_signature": "eyJhbGciOiJFUzI1NiJ9..synthetic-delegator-sig-hop1",
+   "as_signature": "eyJhbGciOiJSUzI1NiJ9..synthetic-as-sig-hop1"
+  },
+  {
+   "delegator_id": "wit://agent-b.test.invalid/sha256.bbb222synthetic",
+   "delegatee_id": "wit://agent-c.test.invalid/sha256.ccc333synthetic",
+   "delegation_timestamp": 1752868860,
+   "root_evidence_ref": "urn:uuid:f81d4fae-7dec-11d0-a765-00a0c91e6bf6",
+   "delegated_policy": {
+    "type": "rego",
+    "content": "package agent\ndefault allow = false\n\nallow {\n  input.action == \"inventory_check\"\n}",
+    "entry_point": "allow"
+   },
+   "operation_summary": "Narrow to inventory check only",
+   "delegator_signature": "eyJhbGciOiJFUzI1NiJ9..synthetic-delegator-sig-hop2",
+   "as_signature": "eyJhbGciOiJSUzI1NiJ9..synthetic-as-sig-hop2"
+  }
+ ],
+ "revocation_signal": {
+  "set_jti": "set-jti-synthetic-9f2c1a",
+  "revoked_hop": {
+   "delegator_id": "wit://agent-b.test.invalid/sha256.bbb222synthetic",
+   "delegatee_id": "wit://agent-c.test.invalid/sha256.ccc333synthetic"
+  },
+  "revoked_at": "2026-07-18T19:25:00.000Z"
+ }
+}
