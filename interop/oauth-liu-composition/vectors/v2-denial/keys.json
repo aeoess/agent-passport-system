@@ -1,0 +1,5 @@
+{
+ "signer": "did:aps:test:liu-composition-issuer",
+ "key_id": "test-key-1",
+ "public_key_hex": "137ed55258f893bd06cc4f9256f8cc0db3244ad55dcabe81816236aadb3b84d3"
+}

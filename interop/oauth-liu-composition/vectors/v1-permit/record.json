@@ -1,0 +1,36 @@
+{
+ "profile": "aps-receipt-v1",
+ "receipt_type": "policy-decision",
+ "issuer": "did:aps:test:liu-composition-issuer",
+ "subject_agent": "wit://agent-c.test.invalid/sha256.ccc333synthetic",
+ "action_ref": "8a36264ba332d909a9799af44bf44a4948a804e2cb6b74feca3ae283659a0f34",
+ "delegation_ref": "liu-chain:sha256:686e0c331d00e9c15ed2544ecbd2f2873c09a1e7545af9e35bfe824a85967258",
+ "decision_ref": "60537aad5517665e61d0f5ae4c6f5182b4bcc49d18586622cf7c11470ddf7352",
+ "issued_at": "2026-07-18T19:30:00.000Z",
+ "evidence_refs": [
+  {
+   "artifact_type": "liu-oauth-authorization-evidence-01/authorization_details",
+   "sha256": "4150640f42ad625018cbf3b814e566aac48efd873a606dc9da0c9ada0af6d32a"
+  },
+  {
+   "artifact_type": "liu-oauth-chain-delegation-00/delegation_chain",
+   "sha256": "686e0c331d00e9c15ed2544ecbd2f2873c09a1e7545af9e35bfe824a85967258"
+  }
+ ],
+ "result": {
+  "decision": "allow",
+  "policy_id": "policy-storefront-narrowed",
+  "narrowed_subset": [
+   "inventory_check"
+  ]
+ },
+ "receipt_id": "d9a67a03131b380dbaaee24d4b9e8ddf89a58151e779b5fa56b63733f23cad56",
+ "signatures": [
+  {
+   "signer": "did:aps:test:liu-composition-issuer",
+   "key_id": "test-key-1",
+   "alg": "Ed25519",
+   "value": "c2c16da04fefadaba02fa327169e80645d7453338e71129a59fa391dac14502b71203704cdaf7d96cebf7d06e431926f19de2af9d4291be90fd57cd7f83d0803"
+  }
+ ]
+}

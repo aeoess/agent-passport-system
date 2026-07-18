@@ -1,0 +1,17 @@
+{
+ "authority_ref": "liu-chain-hop:wit://agent-b.test.invalid/sha256.bbb222synthetic->wit://agent-c.test.invalid/sha256.ccc333synthetic",
+ "status_source": {
+  "kind": "set",
+  "jti": "set-jti-synthetic-9f2c1a"
+ },
+ "observed_at": "2026-07-18T19:31:00.000Z",
+ "maximum_staleness_ms": 300000,
+ "decision": {
+  "effect": "deny"
+ },
+ "revoked_at": "2026-07-18T19:25:00.000Z",
+ "affected_scope": "inventory_check",
+ "observer_key": "12da0a8eb7683ab63bdfc3f8fb6061513f306f8e8474c5f0512581eca674b5ba",
+ "observer_key_id": "observer-key-1",
+ "signature": "4d5680059d7bcf06e070a265b2c4a4357b8176f006cf67f4d9f717ef39833b65b6c5aa75ef2bc9f82635b9c12cbf8459654de6dbbe006dc8e84ff03362d7110e"
+}
