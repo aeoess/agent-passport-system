@@ -2020,3 +2020,15 @@ export type {
   ClaimAxisReport,
   ClaimBoundaryReport,
 } from './types/evidence-bundle.js'
+
+// ── Protocol binding profiles (v1): MCP aps-mcp-1 + A2A identity extension ──
+// Pre-dispatch authorization middleware for MCP tools/call and the native
+// Agent Card identity extension for A2A. Both resolve signing keys through a
+// caller-supplied HistoricalKeyResolver.
+export * from './profiles/mcp/index.js'
+export * from './profiles/a2a/index.js'
+export type {
+  HistoricalKeyResolver,
+  HistoricalKeyResolutionRequest,
+  HistoricalKeyResolutionResult,
+} from './v2/identity-binding/types.js'

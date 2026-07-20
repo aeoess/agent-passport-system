@@ -1,5 +1,14 @@
 # Changelog
 
+## 4.2.0 (2026-07-20)
+
+### Added
+- **aps-mcp-1: pre-dispatch authorization profile for MCP `tools/call`.** A signed, replay-claimed, delegation-referenced authorization object carried in `_meta` under `org.agent-passport/authorization`, plus `createApsMcpToolCallMiddleware`, a pre-dispatch guard that cannot be bypassed by the handler it wraps: transport authentication first, then signature, target, arguments-hash, and action_ref verification, a single-use replay claim, an authority decision, and only then dispatch, with a receipt attached to the result under `org.agent-passport/receipt`. Issue and verify helpers: `issueApsMcpAuthorizationV1`, `verifyApsMcpAuthorizationV1`, `computeMcpArgumentsHashV1`, `canonicalMcpServerUri`.
+- **A2A identity extension profile (`identity-v1`).** Native Agent Card extension under `https://agent-passport.org/a2a/extensions/identity/v1` with JWS Agent Card signatures: `attachApsIdentityExtensionV1`, `signA2AAgentCardV1`, `verifyApsA2AAgentCardV1`.
+- **v2 core modules behind draft-pidlisnyi-aps-03 landed in the repository:** receipt-core v1, authority delegation with a budget ledger, identity binding v2, action reference v2, and OAuth ID-JAG import v1. Exported from the package entry this release: the two binding profiles and the `HistoricalKeyResolver` types. The remaining v2 module entry points ship in a follow-up once their export surface is deduplicated; until then they are in-repo, tested, and not part of the public API.
+- **Liu-family OAuth composition harness** under `interop/` (not part of the npm package): three SDK-emitted vectors (permit, denial, revocation observation), each checked by an independent no-SDK verifier that recomputes JCS and Ed25519.
+- Seven new test files registered in the suite (protocol bindings, receipt-core, identity binding, action reference, ID-JAG import, authority delegation and budget).
+
 ## 4.1.1 (2026-07-14)
 
 No functional change from 4.1.0. The code, the API, and the test suite are identical.
