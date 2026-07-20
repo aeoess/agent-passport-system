@@ -1,0 +1,1288 @@
+
+
+
+
+Web Authorization Protocol                                        D. Liu
+Internet-Draft                                                    H. Zhu
+Intended status: Standards Track                           Alibaba Group
+Expires: 25 December 2026                                    S. Krishnan
+                                                                   Cisco
+                                                              A. Parecki
+                                                                    Okta
+                                                            23 June 2026
+
+
+   Authorization Evidence and Audit Trail for OAuth 2.0 Access Tokens
+               draft-liu-oauth-authorization-evidence-01
+
+Abstract
+
+   This specification defines an authorization details type for
+   including authorization evidence and audit trail information in OAuth
+   2.0 access tokens using the Rich Authorization Requests (RAR)
+   framework.  When an Authorization Server processes user consent, it
+   enriches the authorization details with cryptographic proof of user
+   confirmation, supporting accountability, compliance, and dispute
+   resolution in scenarios where autonomous agents act on behalf of
+   users.
+
+Status of This Memo
+
+   This Internet-Draft is submitted in full conformance with the
+   provisions of BCP 78 and BCP 79.
+
+   Internet-Drafts are working documents of the Internet Engineering
+   Task Force (IETF).  Note that other groups may also distribute
+   working documents as Internet-Drafts.  The list of current Internet-
+   Drafts is at https://datatracker.ietf.org/drafts/current/.
+
+   Internet-Drafts are draft documents valid for a maximum of six months
+   and may be updated, replaced, or obsoleted by other documents at any
+   time.  It is inappropriate to use Internet-Drafts as reference
+   material or to cite them other than as "work in progress."
+
+   This Internet-Draft will expire on 25 December 2026.
+
+Copyright Notice
+
+   Copyright (c) 2026 IETF Trust and the persons identified as the
+   document authors.  All rights reserved.
+
+
+
+
+
+
+Liu, et al.             Expires 25 December 2026                [Page 1]
+
+Internet-Draft        OAuth Authorization Evidence             June 2026
+
+
+   This document is subject to BCP 78 and the IETF Trust's Legal
+   Provisions Relating to IETF Documents (https://trustee.ietf.org/
+   license-info) in effect on the date of publication of this document.
+   Please review these documents carefully, as they describe your rights
+   and restrictions with respect to this document.  Code Components
+   extracted from this document must include Revised BSD License text as
+   described in Section 4.e of the Trust Legal Provisions and are
+   provided without warranty as described in the Revised BSD License.
+
+Table of Contents
+
+   1.  Introduction  . . . . . . . . . . . . . . . . . . . . . . . .   3
+     1.1.  Requirements Language . . . . . . . . . . . . . . . . . .   3
+     1.2.  Relationship to Rich Authorization Requests . . . . . . .   4
+   2.  Terminology . . . . . . . . . . . . . . . . . . . . . . . . .   4
+   3.  The authorization_evidence Authorization Details Type . . . .   5
+     3.1.  Type Definition . . . . . . . . . . . . . . . . . . . . .   5
+     3.2.  Client Request  . . . . . . . . . . . . . . . . . . . . .   5
+     3.3.  Enriched Response . . . . . . . . . . . . . . . . . . . .   5
+     3.4.  Evidence Object Structure . . . . . . . . . . . . . . . .   6
+     3.5.  Field Definitions . . . . . . . . . . . . . . . . . . . .   7
+       3.5.1.  user_confirmation Object  . . . . . . . . . . . . . .   7
+     3.6.  AS Signature  . . . . . . . . . . . . . . . . . . . . . .   8
+   4.  The audit_trail Sub-object  . . . . . . . . . . . . . . . . .   9
+     4.1.  Structure . . . . . . . . . . . . . . . . . . . . . . . .   9
+     4.2.  Field Definitions . . . . . . . . . . . . . . . . . . . .  10
+     4.3.  Semantic Expansion Levels . . . . . . . . . . . . . . . .  11
+   5.  Audit Trail Purposes  . . . . . . . . . . . . . . . . . . . .  12
+   6.  Authorization Server Processing . . . . . . . . . . . . . . .  12
+     6.1.  Evidence Collection from User Interaction . . . . . . . .  12
+       6.1.1.  General Consent-to-Evidence Pattern . . . . . . . . .  12
+       6.1.2.  Consent UI to Evidence Field Mapping  . . . . . . . .  13
+       6.1.3.  Example: JWT Grant Interaction Response Flow  . . . .  14
+       6.1.4.  Applicability to Other Flows  . . . . . . . . . . . .  15
+     6.2.  Evidence Generation . . . . . . . . . . . . . . . . . . .  16
+   7.  Resource Server Processing  . . . . . . . . . . . . . . . . .  16
+     7.1.  Evidence Verification . . . . . . . . . . . . . . . . . .  16
+     7.2.  Audit Logging . . . . . . . . . . . . . . . . . . . . . .  17
+   8.  Security Considerations . . . . . . . . . . . . . . . . . . .  17
+     8.1.  Signature Verification  . . . . . . . . . . . . . . . . .  17
+     8.2.  Evidence Tampering and Trust in the AS  . . . . . . . . .  17
+     8.3.  Replay Attacks  . . . . . . . . . . . . . . . . . . . . .  18
+     8.4.  Token-Evidence Binding  . . . . . . . . . . . . . . . . .  18
+     8.5.  Cross-Domain Evidence Verification  . . . . . . . . . . .  19
+     8.6.  Privacy Considerations  . . . . . . . . . . . . . . . . .  19
+   9.  IANA Considerations . . . . . . . . . . . . . . . . . . . . .  19
+     9.1.  OAuth Authorization Details Type Registration . . . . . .  19
+   10. References  . . . . . . . . . . . . . . . . . . . . . . . . .  19
+
+
+
+Liu, et al.             Expires 25 December 2026                [Page 2]
+
+Internet-Draft        OAuth Authorization Evidence             June 2026
+
+
+     10.1.  Normative References . . . . . . . . . . . . . . . . . .  19
+     10.2.  Informative References . . . . . . . . . . . . . . . . .  20
+   Appendix A.  Complete Example . . . . . . . . . . . . . . . . . .  21
+   Acknowledgments . . . . . . . . . . . . . . . . . . . . . . . . .  23
+   Authors' Addresses  . . . . . . . . . . . . . . . . . . . . . . .  23
+
+1.  Introduction
+
+   In traditional OAuth 2.0 [RFC6749] flows, the Authorization Server
+   records user consent internally, but this information is not
+   typically conveyed to Resource Servers or included in access tokens.
+   For many use cases, this is sufficient.  However, emerging scenarios,
+   particularly those involving AI agents acting autonomously on behalf
+   of users, require stronger guarantees about user intent and consent.
+
+   This specification addresses the need for:
+
+   *  Verifiable consent: Cryptographic proof that a user explicitly
+      authorized a specific operation;
+
+   *  Audit trails: Traceable records linking user intent to system
+      actions;
+
+   *  Dispute resolution: Evidence that can be examined if questions
+      arise about what was authorized;
+
+   *  Regulatory compliance: Documentation required by applicable
+      regulations.
+
+   This specification defines an authorization details type that
+   leverages the Rich Authorization Requests (RAR) [RFC9396] framework
+   to convey authorization evidence.  When a client includes an
+   authorization_evidence authorization details object in its request,
+   the Authorization Server enriches it during the consent process with
+   cryptographic proof of user confirmation.
+
+   Unless otherwise noted, all data types and serialization rules follow
+   the JSON data interchange format as defined in [RFC8259].
+
+1.1.  Requirements Language
+
+   The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
+   "SHOULD", "SHOULD NOT", "RECOMMENDED", "NOT RECOMMENDED", "MAY", and
+   "OPTIONAL" in this document are to be interpreted as described in BCP
+   14 [RFC2119] [RFC8174] when, and only when, they appear in all
+   capitals.
+
+
+
+
+
+Liu, et al.             Expires 25 December 2026                [Page 3]
+
+Internet-Draft        OAuth Authorization Evidence             June 2026
+
+
+1.2.  Relationship to Rich Authorization Requests
+
+   This specification builds on the Rich Authorization Requests (RAR)
+   framework [RFC9396].  In RAR, clients include authorization_details
+   in authorization requests to convey fine-grained authorization data.
+   RAR Section 7.1 defines an "Enriched Response" mechanism where the
+   Authorization Server dynamically populates fields in the
+   authorization_details based on user consent decisions or policy
+   rules.
+
+   The authorization_evidence type defined in this specification follows
+   this enriched response pattern:
+
+   1.  The client includes an authorization_evidence authorization
+       details object in its request, typically with minimal or
+       placeholder fields indicating that evidence is requested.
+
+   2.  During the consent interaction, the AS presents the requested
+       operation to the user and captures the user's confirmation
+       action.
+
+   3.  The AS enriches the authorization_evidence object with the
+       complete evidence record, including user_confirmation details and
+       the AS's cryptographic signature.
+
+   4.  The enriched authorization details is included in the token
+       response and bound to the issued access token.
+
+   This approach ensures that authorization evidence is structured as a
+   first-class authorization detail rather than a standalone JWT claim,
+   enabling consistent handling across OAuth flows and composability
+   with other authorization details types.
+
+2.  Terminology
+
+   User Confirmation:  An explicit action by the user (e.g., clicking
+      "Allow") to approve an authorization request.
+
+   Displayed Content:  The human-readable description of the operation
+      shown to the user during the consent flow.
+
+   Evidence:  A cryptographically signed record of user confirmation,
+      including what was displayed and how the user responded.
+
+   Audit Trail:  Metadata that enables tracing from user intent through
+      system interpretation to final authorized action.
+
+   Semantic Expansion:  The process of translating user intent (e.g.,
+
+
+
+Liu, et al.             Expires 25 December 2026                [Page 4]
+
+Internet-Draft        OAuth Authorization Evidence             June 2026
+
+
+      natural language) into concrete system operations.
+
+3.  The authorization_evidence Authorization Details Type
+
+   The authorization_evidence authorization details type contains a
+   record of the user's confirmation action during the authorization
+   process.  Following the RAR enriched response pattern ([RFC9396]
+   Section 7.1), the client requests this type and the AS enriches it
+   with the complete evidence record.
+
+3.1.  Type Definition
+
+   Type Identifier:  authorization_evidence
+
+   Usage:  authorization_details in authorization requests and token
+      responses
+
+3.2.  Client Request
+
+   A client requests authorization evidence by including an
+   authorization_evidence authorization details object in its
+   authorization request.  The client typically includes minimal fields,
+   indicating that evidence is requested:
+
+   {
+     "authorization_details": [
+       {
+         "type": "authorization_evidence"
+       }
+     ]
+   }
+
+                                  Figure 1
+
+   The client MAY include optional fields to indicate preferences, such
+   as specific audit trail requirements.  However, the AS has final
+   authority over the evidence content based on the actual consent
+   interaction.
+
+3.3.  Enriched Response
+
+   After the user completes the consent interaction, the AS enriches the
+   authorization_evidence object with the complete evidence record.  The
+   enriched authorization details is included in the token response:
+
+
+
+
+
+
+
+Liu, et al.             Expires 25 December 2026                [Page 5]
+
+Internet-Draft        OAuth Authorization Evidence             June 2026
+
+
+   {
+     "authorization_details": [
+       {
+         "type": "authorization_evidence",
+         "evidence": {
+           "id": "urn:uuid:f81d4fae-7dec-11d0-a765-00a0c91e6bf6",
+           "user_confirmation": {
+             "displayed_content": "Add items under $50 to cart",
+             "user_action": "confirmed_via_button_click",
+             "timestamp": 1731320595
+           },
+           "as_signature": "eyJhbGciOiJFUzI1NiJ9..MEUCIQDx...",
+           "audit_trail": {
+             "semantic_expansion_level": "medium",
+             "proposal_ref": "urn:uuid:proposal-xyz"
+           }
+         }
+       }
+     ]
+   }
+
+                                  Figure 2
+
+3.4.  Evidence Object Structure
+
+   The evidence object within the authorization_evidence authorization
+   details type contains the following fields:
+
+   {
+     "evidence": {
+       "id": "urn:uuid:f81d4fae-7dec-11d0-a765-00a0c91e6bf6",
+       "user_confirmation": {
+         "displayed_content": "Add items under $50 to cart",
+         "user_action": "confirmed_via_button_click",
+         "timestamp": 1731320595
+       },
+       "as_signature": "eyJhbGciOiJFUzI1NiJ9..MEUCIQDx..."
+     }
+   }
+
+                                  Figure 3
+
+
+
+
+
+
+
+
+
+
+Liu, et al.             Expires 25 December 2026                [Page 6]
+
+Internet-Draft        OAuth Authorization Evidence             June 2026
+
+
+3.5.  Field Definitions
+
+    +===================+======+===========+==========================+
+    | Field             |Type  |Requirement| Description              |
+    +===================+======+===========+==========================+
+    | id                |string|REQUIRED   | Unique identifier for    |
+    |                   |      |           | this evidence record.    |
+    |                   |      |           | The value MUST use a URI |
+    |                   |      |           | or URN format with at    |
+    |                   |      |           | least 128 bits of        |
+    |                   |      |           | collision resistance.    |
+    |                   |      |           | UUID URNs (e.g.,         |
+    |                   |      |           | "urn:uuid:f81d4fae-7dec- |
+    |                   |      |           | 11d0-a765-00a0c91e6bf6") |
+    |                   |      |           | are RECOMMENDED.         |
+    +-------------------+------+-----------+--------------------------+
+    | user_confirmation |object|REQUIRED   | Details of the user's    |
+    |                   |      |           | confirmation action.     |
+    +-------------------+------+-----------+--------------------------+
+    | as_signature      |string|REQUIRED   | AS signature over the    |
+    |                   |      |           | confirmation record.     |
+    +-------------------+------+-----------+--------------------------+
+
+                      Table 1: Evidence Object Fields
+
+3.5.1.  user_confirmation Object
+
+   +=================+===========+===========+=========================+
+   |Field            |Type       |Requirement| Description             |
+   +=================+===========+===========+=========================+
+   |displayed_content|string     |REQUIRED   | The text shown to user  |
+   |                 |           |           | for confirmation.       |
+   +-----------------+-----------+-----------+-------------------------+
+   |user_action      |string     |REQUIRED   | How the user confirmed  |
+   |                 |           |           | the operation.  The     |
+   |                 |           |           | value is a free-form    |
+   |                 |           |           | string, but             |
+   |                 |           |           | implementations SHOULD  |
+   |                 |           |           | use values from the     |
+   |                 |           |           | following set for       |
+   |                 |           |           | interoperability:       |
+   |                 |           |           | button_click,           |
+   |                 |           |           | biometric_confirmation, |
+   |                 |           |           | pin_entry,              |
+   |                 |           |           | voice_confirmation,     |
+   |                 |           |           | hardware_key,           |
+   |                 |           |           | implicit_consent.       |
+   |                 |           |           | Custom values MAY be    |
+
+
+
+Liu, et al.             Expires 25 December 2026                [Page 7]
+
+Internet-Draft        OAuth Authorization Evidence             June 2026
+
+
+   |                 |           |           | used for deployment-    |
+   |                 |           |           | specific confirmation   |
+   |                 |           |           | mechanisms.             |
+   +-----------------+-----------+-----------+-------------------------+
+   |timestamp        |NumericDate|REQUIRED   | When the confirmation   |
+   |                 |           |           | occurred.               |
+   +-----------------+-----------+-----------+-------------------------+
+
+                     Table 2: user_confirmation Fields
+
+3.6.  AS Signature
+
+   The as_signature field contains a cryptographic signature from the
+   Authorization Server over the evidence record.  This signature:
+
+   *  Proves the AS witnessed the user's consent;
+
+   *  Ensures the evidence has not been tampered with;
+
+   *  Provides strong evidence of user consent for dispute resolution
+      (subject to trust in the AS, as discussed in Section 8).
+
+   The signature MUST be computed over the following fields of the
+   evidence object:
+
+   *  id
+
+   *  user_confirmation (entire object)
+
+   The as_signature field itself MUST be excluded from the signature
+   computation.  The signature format MUST be a detached JWS [RFC7515]
+   in Compact Serialization using the AS's signing key.  In detached
+   Compact Serialization (see RFC 7515 Appendix F), the payload portion
+   is omitted, resulting in the format "header..signature".
+
+   The signature input is constructed using the following deterministic
+   algorithm:
+
+   1.  Create a new JSON object containing only the id and
+       user_confirmation fields copied from the evidence object.  No
+       other fields from the evidence object are included.
+
+   2.  Apply the JSON Canonicalization Scheme (JCS) as defined in
+       [RFC8785] to the JSON object from the previous step, producing a
+       deterministic byte string.
+
+
+
+
+
+
+Liu, et al.             Expires 25 December 2026                [Page 8]
+
+Internet-Draft        OAuth Authorization Evidence             June 2026
+
+
+   3.  Compute a detached JWS (Compact Serialization) over the JCS
+       output from Step 2 using the AS's private signing key.  The
+       resulting value (header..signature) is stored in the as_signature
+       field of the evidence object.
+
+   To verify an as_signature, the verifier reconstructs the JCS input by
+   performing Steps 1 and 2 above on the received evidence object
+   (excluding the as_signature field), then verifies the detached JWS
+   using the AS's public key.  Any extension fields present in the
+   evidence object beyond id, user_confirmation, and as_signature MUST
+   NOT be included in the JCS input and therefore are not covered by the
+   signature.
+
+   Note: In examples throughout this document, the as_signature value is
+   shown in abbreviated form for readability.  Actual values MUST use
+   the detached JWS Compact Serialization format described above.
+
+   The key used to sign the evidence record MAY be the same key used to
+   sign the access token, or it MAY be a separate dedicated key.  When a
+   separate key is used, implementations MUST ensure that the evidence
+   signing key is associated with the AS through a verifiable mechanism
+   (e.g., published in the AS's JWKS endpoint as defined in [RFC7517]).
+   Using a dedicated evidence signing key enables independent key
+   rotation without affecting token validation.
+
+4.  The audit_trail Sub-object
+
+   The audit_trail sub-object provides metadata for semantic
+   traceability, enabling analysis of how user intent was interpreted
+   and translated into authorized operations.  It is included within the
+   evidence object in the authorization_evidence authorization details
+   type.
+
+4.1.  Structure
+
+   {
+     "audit_trail": {
+       "semantic_expansion_level": "medium",
+       "proposal_ref": "urn:uuid:proposal-xyz"
+     }
+   }
+
+                                  Figure 4
+
+
+
+
+
+
+
+
+Liu, et al.             Expires 25 December 2026                [Page 9]
+
+Internet-Draft        OAuth Authorization Evidence             June 2026
+
+
+4.2.  Field Definitions
+
+   +==========================+========+=============+=================+
+   | Field                    | Type   | Requirement | Description     |
+   +==========================+========+=============+=================+
+   | evidence_ref             | string | OPTIONAL    | Reference to a  |
+   |                          |        |             | related         |
+   |                          |        |             | evidence        |
+   |                          |        |             | record by ID.   |
+   |                          |        |             | Can be used to  |
+   |                          |        |             | link this       |
+   |                          |        |             | audit trail to  |
+   |                          |        |             | another         |
+   |                          |        |             | evidence        |
+   |                          |        |             | record, such    |
+   |                          |        |             | as the          |
+   |                          |        |             | original        |
+   |                          |        |             | consent in a    |
+   |                          |        |             | delegation      |
+   |                          |        |             | chain.          |
+   +--------------------------+--------+-------------+-----------------+
+   | semantic_expansion_level | string | OPTIONAL    | Degree of       |
+   |                          |        |             | interpretation  |
+   |                          |        |             | applied (none,  |
+   |                          |        |             | low, medium,    |
+   |                          |        |             | high).          |
+   +--------------------------+--------+-------------+-----------------+
+   | proposal_ref             | URI    | OPTIONAL    | Reference to    |
+   |                          |        |             | the original    |
+   |                          |        |             | authorization   |
+   |                          |        |             | proposal, the   |
+   |                          |        |             | agent's         |
+   |                          |        |             | initial         |
+   |                          |        |             | request         |
+   |                          |        |             | describing the  |
+   |                          |        |             | intended        |
+   |                          |        |             | operation       |
+   |                          |        |             | before the AS   |
+   |                          |        |             | applied policy  |
+   |                          |        |             | evaluation,     |
+   |                          |        |             | scope           |
+   |                          |        |             | reduction, or   |
+   |                          |        |             | user consent    |
+   |                          |        |             | modifications.  |
+   |                          |        |             | The value is    |
+   |                          |        |             | an opaque URI   |
+   |                          |        |             | assigned by     |
+   |                          |        |             | the AS for      |
+
+
+
+Liu, et al.             Expires 25 December 2026               [Page 10]
+
+Internet-Draft        OAuth Authorization Evidence             June 2026
+
+
+   |                          |        |             | internal        |
+   |                          |        |             | correlation;    |
+   |                          |        |             | no protocol     |
+   |                          |        |             | for retrieving  |
+   |                          |        |             | the proposal    |
+   |                          |        |             | content via     |
+   |                          |        |             | this URI is     |
+   |                          |        |             | defined by      |
+   |                          |        |             | this            |
+   |                          |        |             | specification.  |
+   |                          |        |             | This enables    |
+   |                          |        |             | post-hoc        |
+   |                          |        |             | comparison      |
+   |                          |        |             | between what    |
+   |                          |        |             | the agent       |
+   |                          |        |             | originally      |
+   |                          |        |             | requested and   |
+   |                          |        |             | what was        |
+   |                          |        |             | ultimately      |
+   |                          |        |             | authorized.     |
+   +--------------------------+--------+-------------+-----------------+
+
+                        Table 3: audit_trail Fields
+
+4.3.  Semantic Expansion Levels
+
+   The semantic_expansion_level field indicates how much the system
+   interpreted or expanded the user's original intent.  The following
+   four values form a closed set; implementations MUST NOT use values
+   outside this set:
+
+   none:  No interpretation; user specified exact parameters.  Example:
+      User explicitly sets "transfer $100 to account X".
+
+   low:  Minor defaults applied.  Example: User says "add to cart" and
+      the system defaults quantity to 1 and selects the user's saved
+      shipping address.
+
+   medium:  Significant interpretation of qualitative terms.  Example:
+      User says "buy cheap headphones" and the system maps "cheap" to a
+      price ceiling of $50 and selects a specific product category.
+
+   high:  Substantial expansion from a high-level goal into a multi-step
+      plan.  Example: User says "plan my trip to Tokyo" and the agent
+      derives flight search, hotel booking, and itinerary creation as
+      separate authorized operations.
+
+
+
+
+
+Liu, et al.             Expires 25 December 2026               [Page 11]
+
+Internet-Draft        OAuth Authorization Evidence             June 2026
+
+
+5.  Audit Trail Purposes
+
+   The evidence and audit trail objects serve several important
+   purposes:
+
+   +================+=================================================+
+   | Purpose        | Description                                     |
+   +================+=================================================+
+   | Intent         | Records what the user intended, preventing      |
+   | Provenance     | disputes about authorization scope.             |
+   +----------------+-------------------------------------------------+
+   | Action         | Documents how the system translated intent into |
+   | Interpretation | operations, showing the reasoning process.      |
+   +----------------+-------------------------------------------------+
+   | Semantic       | Reveals any expansions or defaults applied,     |
+   | Transparency   | enabling users to understand what was           |
+   |                | authorized.                                     |
+   +----------------+-------------------------------------------------+
+   | User           | Provides timestamped proof that the user        |
+   | Confirmation   | reviewed and approved the operation.            |
+   +----------------+-------------------------------------------------+
+   | Accountability | Enables post-hoc analysis to determine          |
+   | Support        | responsibility for erroneous transactions.      |
+   +----------------+-------------------------------------------------+
+
+               Table 4: Purposes of Authorization Evidence
+
+6.  Authorization Server Processing
+
+6.1.  Evidence Collection from User Interaction
+
+   The evidence object records the outcome of a user consent
+   interaction.  Before the AS can generate a signed evidence record, it
+   must first present a consent interface to the user and capture the
+   user's response.  This section describes the general consent-to-
+   evidence pattern and provides a concrete example using the JWT Grant
+   Interaction Response flow.
+
+6.1.1.  General Consent-to-Evidence Pattern
+
+   Regardless of the specific OAuth grant type, evidence collection
+   follows a common pattern:
+
+   1.  The AS receives an authorization request from a client (which may
+       be acting on behalf of an AI agent).
+
+
+
+
+
+
+Liu, et al.             Expires 25 December 2026               [Page 12]
+
+Internet-Draft        OAuth Authorization Evidence             June 2026
+
+
+   2.  The AS determines that user consent is required and presents a
+       consent interface to the user.  The consent interface displays a
+       human-readable description of the requested operation (the
+       displayed_content).
+
+   3.  The user reviews the displayed content and performs a
+       confirmation action (e.g., clicking an "Allow" button, providing
+       biometric input, entering a PIN).
+
+   4.  The AS captures the interaction details (what was displayed, what
+       action the user took, when, and in what session context) and
+       constructs the evidence object as defined in Section 3.
+
+   5.  The AS signs the evidence record and includes it in the issued
+       access token.
+
+   The following diagram illustrates this pattern:
+
+   Client/Agent          Authorization Server              User
+       |                         |                          |
+       |-- authorization req --->|                          |
+       |                         |                          |
+       |                         |--- consent UI ---------->|
+       |                         |    (displayed_content)   |
+       |                         |                          |
+       |                         |<-- user action ----------|
+       |                         |    (button_click, etc.)  |
+       |                         |                          |
+       |                         |  [capture evidence]      |
+       |                         |  [sign with as_signature]|
+       |                         |                          |
+       |<-- access token --------|                          |
+       |    (with evidence)      |                          |
+       |                         |                          |
+
+                                  Figure 5
+
+6.1.2.  Consent UI to Evidence Field Mapping
+
+   Each field in the evidence object corresponds to a specific event
+   during the consent interaction:
+
+
+
+
+
+
+
+
+
+
+Liu, et al.             Expires 25 December 2026               [Page 13]
+
+Internet-Draft        OAuth Authorization Evidence             June 2026
+
+
+       +==============+===================+========================+
+       | Consent UI   | Evidence Field    | Description            |
+       | Event        |                   |                        |
+       +==============+===================+========================+
+       | AS renders   | displayed_content | The text shown to the  |
+       | consent page |                   | user describing the    |
+       |              |                   | requested operation    |
+       +--------------+-------------------+------------------------+
+       | User         | user_action       | How the user responded |
+       | confirms or  |                   | (button click,         |
+       | denies       |                   | biometric, PIN, etc.)  |
+       +--------------+-------------------+------------------------+
+       | Confirmation | timestamp         | Server-side time when  |
+       | timestamp    |                   | the user's action was  |
+       |              |                   | received               |
+       +--------------+-------------------+------------------------+
+
+            Table 5: Consent UI Event to Evidence Field Mapping
+
+6.1.3.  Example: JWT Grant Interaction Response Flow
+
+   The JWT Grant Interaction Response
+   ([I-D.parecki-oauth-jwt-grant-interaction-response]) defines a
+   mechanism for AI agents to obtain user consent from an external
+   Authorization Server.  The following sequence shows how evidence is
+   collected during this flow:
+
+   1.  An AI agent sends a token request to the AS using a JWT
+       authorization grant ([RFC7523]), including the requested scope
+       and authorization_details.
+
+   2.  The AS validates the agent's identity and determines that user
+       interaction is required.  It responds with an
+       interaction_required error containing an interaction_uri (a URL
+       hosted by the AS for the consent interface) and a polling
+       interval.
+
+   3.  The agent opens the interaction_uri in the user's browser.  The
+       AS presents a consent page showing the interpreted operation
+       (e.g., "Add items under $50 to cart on your behalf").
+
+   4.  The user reviews the displayed content and clicks "Allow".  The
+       AS captures:
+
+       *  displayed_content: the operation description shown on the
+          consent page;
+
+       *  user_action: button_click;
+
+
+
+Liu, et al.             Expires 25 December 2026               [Page 14]
+
+Internet-Draft        OAuth Authorization Evidence             June 2026
+
+
+       *  timestamp: the server time of the click.
+
+   5.  The AS constructs the evidence object, computes the as_signature
+       per Section 3, and stores the evidence record.
+
+   6.  The agent polls the token endpoint.  Upon detecting that the user
+       has completed interaction, the AS issues an access token
+       containing the signed evidence object.
+
+   AI Agent          External AS                      User
+      |                   |                            |
+      |-- token request ->|                            |
+      |                   |                            |
+      |<- interaction_    |                            |
+      |   required        |                            |
+      |   (interaction_   |                            |
+      |    uri, interval) |                            |
+      |                   |                            |
+      |-- open interaction_uri in browser ------------>|
+      |                   |                            |
+      |                   |--- consent UI ------------>|
+      |                   |    "Add items under $50    |
+      |                   |     to cart on your behalf"|
+      |                   |                            |
+      |                   |<-- user clicks [Allow] ----|
+      |                   |                            |
+      |                   |  [capture evidence fields] |
+      |                   |  [compute as_signature]    |
+      |                   |                            |
+      |-- poll token  --->|                            |
+      |   endpoint        |                            |
+      |                   |                            |
+      |<- access token ---|                            |
+      |   (with evidence) |                            |
+      |                   |                            |
+
+                                  Figure 6
+
+6.1.4.  Applicability to Other Flows
+
+   The consent-to-evidence pattern described above applies to any OAuth
+   flow that involves user interaction.  For example:
+
+   *  *Authorization Code Grant*: The AS presents a consent screen
+      during the /authorize redirect.  Evidence is collected when the
+      user approves or denies the request.
+
+
+
+
+
+Liu, et al.             Expires 25 December 2026               [Page 15]
+
+Internet-Draft        OAuth Authorization Evidence             June 2026
+
+
+   *  *CIBA (Client-Initiated Backchannel Authentication)*: The AS
+      delivers a consent request to the user's authentication device
+      (e.g., push notification).  Evidence captures the user's out-of-
+      band confirmation action.
+
+   *  *Consent-Only Flow*: When the user already holds a valid session
+      and the AS determines that only operation-specific consent is
+      needed (not re-authentication), the AS presents a targeted consent
+      prompt.  Evidence records the scoped approval.
+
+   Flows that do not involve user interaction (e.g., Client Credentials
+   Grant without user context) cannot produce evidence records, since
+   there is no user confirmation to record.  Such flows MAY still use
+   the audit_trail sub-object (Section 4) for semantic traceability
+   without user confirmation evidence.
+
+6.2.  Evidence Generation
+
+   When issuing an access token with evidence, the AS MUST:
+
+   1.  Record the exact content displayed to the user during consent;
+
+   2.  Capture the user's confirmation action and timestamp;
+
+   3.  Generate a unique evidence identifier;
+
+   4.  Sign the evidence fields (id and user_confirmation) with the AS's
+       private key using JCS canonicalization;
+
+   5.  Include the authorization_evidence authorization details in the
+       access token.
+
+7.  Resource Server Processing
+
+7.1.  Evidence Verification
+
+   Resource Servers MAY verify the evidence object by:
+
+   1.  Extracting the as_signature from the evidence;
+
+   2.  Verifying the signature using the AS's public key;
+
+   3.  Confirming that the evidence id and timestamp are consistent with
+       the token's iat claim (i.e., the user confirmation occurred
+       before or at token issuance);
+
+
+
+
+
+
+Liu, et al.             Expires 25 December 2026               [Page 16]
+
+Internet-Draft        OAuth Authorization Evidence             June 2026
+
+
+   Note: The displayed_content field records what was shown to the user
+   during consent.  The RS typically does not have direct knowledge of
+   the consent interaction and therefore cannot independently verify
+   this field.  Instead, the RS relies on the AS signature as proof that
+   the AS witnessed the user's consent to the described operation.
+
+7.2.  Audit Logging
+
+   Resource Servers SHOULD log evidence information for audit purposes,
+   including:
+
+   *  Evidence ID;
+
+   *  User confirmation timestamp;
+
+   *  Displayed content summary;
+
+   *  Operation performed;
+
+   *  Outcome (success/failure).
+
+8.  Security Considerations
+
+   This section discusses security considerations specific to
+   authorization evidence in OAuth 2.0.  General OAuth 2.0 security
+   considerations, including token threats and countermeasures, are
+   described in [RFC6819].
+
+8.1.  Signature Verification
+
+   The AS signature over the evidence fields (id and user_confirmation)
+   is critical for evidence integrity.  Implementations MUST:
+
+   *  Use strong cryptographic algorithms (e.g., RS256, ES256);
+
+   *  Protect AS signing keys appropriately;
+
+   *  Rotate keys periodically with proper key management.
+
+8.2.  Evidence Tampering and Trust in the AS
+
+   The evidence object is protected by the access token's signature.
+   However, the as_signature field provides an additional layer of
+   protection specifically for the user confirmation record.
+
+   It is important to understand the trust boundary of the evidence
+   mechanism: the as_signature provides cryptographic proof that the AS
+   *recorded* a user confirmation.  It does not independently prove that
+
+
+
+Liu, et al.             Expires 25 December 2026               [Page 17]
+
+Internet-Draft        OAuth Authorization Evidence             June 2026
+
+
+   the user *actually* consented.  The AS controls both the consent
+   interaction and the signing key, so a compromised or malicious AS
+   could fabricate evidence records.  Trust in the evidence record
+   therefore depends on trust in the AS and its operational security.
+   Deployments requiring stronger non-repudiation guarantees SHOULD
+   supplement this mechanism with user-side signatures or independent
+   consent auditing.
+
+8.3.  Replay Attacks
+
+   Evidence records are bound to specific access tokens.  The evidence
+   ID and timestamp help detect attempts to reuse evidence across
+   different authorization contexts.
+
+8.4.  Token-Evidence Binding
+
+   The evidence object is embedded in a signed access token ([RFC9068]),
+   which provides integrity protection at the token level.  The inner
+   as_signature provides a second, independent integrity layer
+   specifically over the user confirmation record.  This dual-signature
+   design ensures that:
+
+   *  Evidence cannot be moved from one token to another without
+      detection (the token signature would not cover the new evidence);
+
+   *  Evidence fields cannot be modified within a valid token (the inner
+      AS signature would be invalidated);
+
+   *  Evidence can be independently verified even when extracted from
+      the token (e.g., via introspection) using the as_signature.
+
+   Implementations MUST NOT copy an evidence object from one access
+   token into another without re-validating the as_signature and
+   confirming that the evidence id and timestamp are consistent with the
+   new token's context.
+
+   The dual-signature design described above applies to signed JWT
+   access tokens ([RFC9068]).  When opaque (reference) tokens are used,
+   the evidence object is not embedded in the token itself and MUST be
+   retrieved by the RS via token introspection ([RFC7662]) or a
+   dedicated evidence retrieval endpoint.  In this case, the
+   as_signature provides the sole integrity protection for the evidence
+   record, and implementations MUST ensure that the transport between
+   the RS and the introspection or retrieval endpoint is protected with
+   TLS.
+
+
+
+
+
+
+Liu, et al.             Expires 25 December 2026               [Page 18]
+
+Internet-Draft        OAuth Authorization Evidence             June 2026
+
+
+8.5.  Cross-Domain Evidence Verification
+
+   In cross-domain scenarios where the RS is in a different trust domain
+   than the AS, the RS must be able to verify the as_signature using the
+   AS's public key.  Implementations SHOULD:
+
+   *  Publish the AS's evidence signing keys at a well-known JWKS
+      endpoint ([RFC7517]) accessible to the RS;
+
+   *  Include a kid (Key ID) in the JWS header of the as_signature to
+      enable key selection;
+
+   *  Support key caching at the RS with appropriate cache invalidation
+      to balance performance and key freshness.
+
+   When the AS and RS belong to different administrative domains, trust
+   establishment for the evidence signing key MAY be facilitated through
+   a trust framework, federation agreement, or explicit key distribution
+   mechanism.
+
+8.6.  Privacy Considerations
+
+   Evidence records contain information about user consent interactions,
+   including what was displayed to the user and how they responded.
+   Implementations should consider applicable data protection
+   requirements when storing and processing evidence records.
+
+9.  IANA Considerations
+
+9.1.  OAuth Authorization Details Type Registration
+
+   This specification registers the following authorization details type
+   in the "OAuth Authorization Details Types" registry established by
+   [RFC9396]:
+
+   Type:  authorization_evidence
+
+   Description:  Authorization evidence and audit trail information
+      using the enriched response pattern, providing cryptographic proof
+      of user consent for authorization proof and audit purposes.
+
+   Change Controller:  IETF
+
+   Specification Document:  Section 3 of this document
+
+10.  References
+
+10.1.  Normative References
+
+
+
+Liu, et al.             Expires 25 December 2026               [Page 19]
+
+Internet-Draft        OAuth Authorization Evidence             June 2026
+
+
+   [RFC2119]  Bradner, S., "Key words for use in RFCs to Indicate
+              Requirement Levels", BCP 14, RFC 2119,
+              DOI 10.17487/RFC2119, March 1997,
+              <https://www.rfc-editor.org/info/rfc2119>.
+
+   [RFC8174]  Leiba, B., "Ambiguity of Uppercase vs Lowercase in RFC
+              2119 Key Words", BCP 14, RFC 8174, DOI 10.17487/RFC8174,
+              May 2017, <https://www.rfc-editor.org/info/rfc8174>.
+
+   [RFC6749]  Hardt, D., Ed., "The OAuth 2.0 Authorization Framework",
+              RFC 6749, DOI 10.17487/RFC6749, October 2012,
+              <https://www.rfc-editor.org/info/rfc6749>.
+
+   [RFC7515]  Jones, M., Bradley, J., and N. Sakimura, "JSON Web
+              Signature (JWS)", RFC 7515, DOI 10.17487/RFC7515, May
+              2015, <https://www.rfc-editor.org/info/rfc7515>.
+
+   [RFC7517]  Jones, M., "JSON Web Key (JWK)", RFC 7517,
+              DOI 10.17487/RFC7517, May 2015,
+              <https://www.rfc-editor.org/info/rfc7517>.
+
+   [RFC6819]  Lodderstedt, T., Ed., McGloin, M., and P. Hunt, "OAuth 2.0
+              Threat Model and Security Considerations", RFC 6819,
+              DOI 10.17487/RFC6819, January 2013,
+              <https://www.rfc-editor.org/info/rfc6819>.
+
+   [RFC8785]  Rundgren, A., Jordan, B., and S. Erdtman, "JSON
+              Canonicalization Scheme (JCS)", RFC 8785,
+              DOI 10.17487/RFC8785, June 2020,
+              <https://www.rfc-editor.org/info/rfc8785>.
+
+   [RFC8259]  Bray, T., Ed., "The JavaScript Object Notation (JSON) Data
+              Interchange Format", STD 90, RFC 8259,
+              DOI 10.17487/RFC8259, December 2017,
+              <https://www.rfc-editor.org/info/rfc8259>.
+
+   [RFC9068]  Bertocci, V., "JSON Web Token (JWT) Profile for OAuth 2.0
+              Access Tokens", RFC 9068, DOI 10.17487/RFC9068, October
+              2021, <https://www.rfc-editor.org/info/rfc9068>.
+
+   [RFC9396]  Lodderstedt, T., Richer, J., and B. Campbell, "OAuth 2.0
+              Rich Authorization Requests", RFC 9396,
+              DOI 10.17487/RFC9396, May 2023,
+              <https://www.rfc-editor.org/info/rfc9396>.
+
+10.2.  Informative References
+
+
+
+
+
+Liu, et al.             Expires 25 December 2026               [Page 20]
+
+Internet-Draft        OAuth Authorization Evidence             June 2026
+
+
+   [RFC7662]  Richer, J., Ed., "OAuth 2.0 Token Introspection",
+              RFC 7662, DOI 10.17487/RFC7662, October 2015,
+              <https://www.rfc-editor.org/info/rfc7662>.
+
+   [RFC7523]  Jones, M., Campbell, B., and C. Mortimore, "JSON Web Token
+              (JWT) Profile for OAuth 2.0 Client Authentication and
+              Authorization Grants", RFC 7523, DOI 10.17487/RFC7523, May
+              2015, <https://www.rfc-editor.org/info/rfc7523>.
+
+   [I-D.liu-oauth-rego-policy]
+              Liu, D., "Rego Policy Language for OAuth 2.0", Work in
+              Progress, Internet-Draft, draft-liu-oauth-rego-policy-00,
+              June 2026, <https://datatracker.ietf.org/doc/html/draft-
+              liu-oauth-rego-policy-00>.
+
+   [I-D.parecki-oauth-jwt-grant-interaction-response]
+              Parecki, A., Campbell, B., and D. Liu, "JWT Authorization
+              Grant with Interaction Response", Work in Progress,
+              Internet-Draft, draft-parecki-oauth-jwt-grant-interaction-
+              response-00, June 2026,
+              <https://datatracker.ietf.org/doc/html/draft-parecki-
+              oauth-jwt-grant-interaction-response-00>.
+
+   [I-D.ietf-oauth-identity-assertion-authz-grant]
+              Ying, K. and B. Campbell, "OAuth 2.0 Identity Assertion
+              Authorization Grant", Work in Progress, Internet-Draft,
+              draft-ietf-oauth-identity-assertion-authz-grant, January
+              2026, <https://datatracker.ietf.org/doc/html/draft-ietf-
+              oauth-identity-assertion-authz-grant>.
+
+Appendix A.  Complete Example
+
+   The following shows a complete access token with
+   authorization_details containing both authorization_evidence and
+   rego_policy authorization details types:
+
+   This example illustrates how the authorization_evidence type
+   complements the rego_policy type ([I-D.liu-oauth-rego-policy]).
+   While the Rego policy defines *what operations are permitted* (the
+   behavioral constraint contract), the authorization evidence records
+   *why those operations were authorized* (the user's explicit consent).
+   Together, they enable a Resource Server to enforce fine-grained
+   policy while maintaining a verifiable audit trail linking each
+   authorized action back to user intent.
+
+   The act.sub value uses the wit:// URI scheme to identify the acting
+   agent by its workload identity, as defined in the Identity Assertion
+   Authorization Grant
+
+
+
+Liu, et al.             Expires 25 December 2026               [Page 21]
+
+Internet-Draft        OAuth Authorization Evidence             June 2026
+
+
+   ([I-D.ietf-oauth-identity-assertion-authz-grant]).  The hash suffix
+   provides a collision-resistant binding between the URI and the
+   agent's attestation evidence.
+
+   {
+     "iss": "https://as.example.com",
+     "sub": "user_12345",
+     "aud": "https://api.shop.example",
+     "exp": 1731369540,
+     "iat": 1731320700,
+     "jti": "urn:uuid:token-abc-123",
+
+     "act": {
+       "sub": "wit://myassistant.example/sha256.abc123..."
+     },
+
+     "authorization_details": [
+       {
+         "type": "authorization_evidence",
+         "evidence": {
+           "id": "urn:uuid:f81d4fae-7dec-11d0-a765-00a0c91e6bf6",
+           "user_confirmation": {
+             "displayed_content": "Add items under $50 to cart",
+             "user_action": "confirmed_via_button_click",
+             "timestamp": 1731320595
+           },
+           "as_signature": "eyJhbGciOiJFUzI1NiJ9..MEUCIQDx...",
+           "audit_trail": {
+             "semantic_expansion_level": "medium",
+             "proposal_ref": "urn:uuid:proposal-xyz"
+           }
+         }
+       },
+       {
+         "type": "rego_policy",
+         "policy": {
+           "type": "rego",
+           "uri": "https://as.example.com/policies/policy-cart-50",
+           "entry_point": "allow"
+         }
+       }
+     ]
+   }
+
+                                  Figure 7
+
+
+
+
+
+
+Liu, et al.             Expires 25 December 2026               [Page 22]
+
+Internet-Draft        OAuth Authorization Evidence             June 2026
+
+
+Acknowledgments
+
+   The authors would like to thank Brian Campbell for his valuable
+   feedback and insightful discussions during the development of this
+   specification.  His contributions helped shape key design decisions.
+
+Authors' Addresses
+
+   Dapeng Liu
+   Alibaba Group
+   Email: max.ldp@alibaba-inc.com
+
+
+   Hongru Zhu
+   Alibaba Group
+   Email: hongru.zhr@alibaba-inc.com
+
+
+   Suresh Krishnan
+   Cisco
+   Email: suresh.krishnan@gmail.com
+
+
+   Aaron Parecki
+   Okta
+   Email: aaron@parecki.com
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Liu, et al.             Expires 25 December 2026               [Page 23]
