@@ -251,7 +251,7 @@ The composition contract specifies how a verifier MUST cross-check per-request s
 
 4,326 tests. 8 protocol layers. Framework adapters for CrewAI, LangChain, ADK, A2A, MCP, OpenShell, IBAC, Gonka. Gateway evaluation under 2ms. Zero heavy dependencies. Apache-2.0.
 
-The test count is one number derived from the suite, not three guesses. The badge above, this section, and the `package.json` description all carry the same `4,026`, which is the `tests` total reported by `npm test`. When the suite grows, re-run `npm test`, read the `tests` line, and update all three to match.
+The test count is one number derived from the suite, not three guesses. The badge above, this section, and the `package.json` description all carry the same `4,326`, which is the `tests` total reported by `npm test`. When the suite grows, re-run `npm test`, read the `tests` line, and update all three to match.
 
 ## Papers
 
@@ -263,7 +263,7 @@ The test count is one number derived from the suite, not three guesses. The badg
 - [Governance in the Medium](https://doi.org/10.5281/zenodo.19582550)
 - [Cognitive Attestation](https://doi.org/10.5281/zenodo.19646276)
 - [The Evidence-Safety Gap](https://doi.org/10.5281/zenodo.19914628)
-- IETF Internet-Draft: `draft-pidlisnyi-aps-01`
+- IETF Internet-Draft: `draft-pidlisnyi-aps-03`
 
 ## Security and conformance
 

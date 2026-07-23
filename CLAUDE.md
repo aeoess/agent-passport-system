@@ -8,4 +8,4 @@ The same content applies whether you are Claude Code, another coding agent, or a
 
 ---
 
-**Current SDK version: 3.3.1 (stable, npm latest).** This anchor is maintained manually until the propagation pipeline is rewired (the canonical web repo is `aps-web` per SURFACES.md, and its `project-state.json` is the read-only reference). If you see drift here, update this line by hand and report it; do not run any propagation script.
+**Current SDK version: 4.2.0 (stable, npm latest).** This anchor is maintained manually until the propagation pipeline is rewired (the canonical web repo is `aps-web` per SURFACES.md, and its `project-state.json` is the read-only reference). If you see drift here, update this line by hand and report it; do not run any propagation script.

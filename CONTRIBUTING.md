@@ -19,7 +19,7 @@ The SDK is organized into 8 protocol layers plus 23 v2 constitutional modules. S
 npm test
 ```
 
-All 4,026 tests across 913 suites (3 skipped) must pass before submitting a PR. TypeScript strict mode must compile clean.
+All 4,326 tests across 913 suites (3 skipped) must pass before submitting a PR. TypeScript strict mode must compile clean.
 
 To see line/branch/function coverage, run:
 
