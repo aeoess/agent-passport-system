@@ -13,7 +13,9 @@ const privateKey = '00'.repeat(32)
 const publicKey = publicKeyFromPrivate(privateKey)
 const hex = (c: string) => c.repeat(64)
 const KAT = {
-  decision_ref: '2157809a9a722314ae19dce7a242ea3b54a8948230fab2fab5d5dc15bd663dc2',
+  // Repinned: buildDecisionRefV1 now normalizes before hashing, so the decision output
+  // must be a valid five-member CoreDecisionOutputV1. Was 2157809a9a722314ae19dce7a242ea3b54a8948230fab2fab5d5dc15bd663dc2.
+  decision_ref: 'e474f27bc7e228cd515d4192936cd5525ac8f362fa95173c82eaff02059389e7',
   receipt_id: '89b0b77807e99845aab403f01bcdaa2f02949f6c9db84e1aca6c0a8449e4d023',
   receipt_sig: '83deb713568bbdf0c85e1a6d46345530e84dbe86cdefe1cb608b0f14372c176a9e69e0033db11c4c44ff84be3de3bee5e212707eb84206f6c34455206d37f90b',
   merkle_root: '03700eeba1b453086063612d3df73f711827735c3fe30cf8a8a2a6379a6f6d5f',
@@ -23,25 +25,27 @@ const KAT = {
   proof_left: 'f3bdfcf031dea9da3129ae67bdf7f69caefc41660541d0acb015e1b49ae95470',
 }
 
+const KAT_OUTPUT = { profile: 'aps-core-decision-output-v1' as const, verdict: 'permit' as const, effective_authority_ref: hex('b'), constraints: [] as string[], valid_until: '2026-04-08T12:00:05.000Z' }
+
 test('decision_ref is content-derived and event fields cannot enter it', () => {
   const a = buildDecisionRefV1({
     action_ref: hex('a'),
     authority_state: { scope: ['read'], revoked: false },
     policy_input: { id: 'p1', version: '1' },
     decision_context: { tenant: 't1' },
-    decision_output: { verdict: 'permit', constraints: [] },
+    decision_output: KAT_OUTPUT,
   })
   assert.equal(a.decision_ref, KAT.decision_ref)
   const b = buildDecisionRefV1({
     action_ref: hex('a'), authority_state: { revoked: false, scope: ['read'] },
     policy_input: { version: '1', id: 'p1' }, decision_context: { tenant: 't1' },
-    decision_output: { constraints: [], verdict: 'permit' },
+    decision_output: { valid_until: '2026-04-08T12:00:05.000Z', constraints: [], effective_authority_ref: hex('b'), verdict: 'permit', profile: 'aps-core-decision-output-v1' },
   })
   assert.equal(a.decision_ref, b.decision_ref)
   assert.notEqual(a.decision_ref, buildDecisionRefV1({
     action_ref: hex('a'), authority_state: { scope: ['write'], revoked: false },
     policy_input: { id: 'p1', version: '1' }, decision_context: { tenant: 't1' },
-    decision_output: { verdict: 'permit', constraints: [] },
+    decision_output: KAT_OUTPUT,
   }).decision_ref)
 })
 
@@ -130,4 +134,42 @@ test('core decision output binds valid_until into the hashed preimage', () => {
   const { valid_until: _omitted, ...missing } = permit
   assert.throws(() => normalizeCoreDecisionOutputV1(missing as never), /valid_until/)
   assert.throws(() => normalizeCoreDecisionOutputV1({ ...permit, valid_until: '2026-04-08T12:00:05Z' } as never), /valid_until/)
+})
+
+const BUILDER_PLACEHOLDERS = {
+  action_ref: hex('a'),
+  authority_state: { scope: ['read'], revoked: false } as never,
+  policy_input: { id: 'p1', version: '1' } as never,
+  decision_context: { tenant: 't1' } as never,
+}
+const CASE1_OUTPUT = { profile: 'aps-core-decision-output-v1' as const, verdict: 'permit' as const, effective_authority_ref: '3f2a1c9d8e7b6a5f4e3d2c1b0a9f8e7d6c5b4a39281706f5e4d3c2b1a0987654', constraints: ['commerce:read'], valid_until: '2026-04-08T12:00:05.000Z' }
+
+test('buildDecisionRefV1 end-to-end binds the normalized five-member output', () => {
+  const built = buildDecisionRefV1({ ...BUILDER_PLACEHOLDERS, decision_output: CASE1_OUTPUT })
+  assert.equal(built.input.decision_output_ref, '4226e417c01f4d395db503bfcc00a2e022f5f864568b5fb2b88eefe4fbd0c551')
+  assert.equal(built.decision_ref, '8a9595fd9d7caf15654fca34816e22d02562f9db16dcc7d5958b906541dce8de')
+})
+
+test('buildDecisionRefV1 rejects every malformed decision output', () => {
+  const { valid_until: _dropped, ...missingValidUntil } = CASE1_OUTPUT
+  assert.throws(() => buildDecisionRefV1({ ...BUILDER_PLACEHOLDERS, decision_output: missingValidUntil as never }), /valid_until/)
+  assert.throws(() => buildDecisionRefV1({ ...BUILDER_PLACEHOLDERS, decision_output: { ...CASE1_OUTPUT, valid_until: '2026-04-08T12:00:05Z' } }), /valid_until/)
+  assert.throws(() => buildDecisionRefV1({ ...BUILDER_PLACEHOLDERS, decision_output: { profile: 'aps-core-decision-output-v1', verdict: 'deny', effective_authority_ref: null, constraints: [], valid_until: '2026-04-08T12:00:05.000Z' } }), /valid_until/)
+  assert.throws(() => buildDecisionRefV1({ ...BUILDER_PLACEHOLDERS, decision_output: { ...CASE1_OUTPUT, valid_until: null } as never }), /valid_until/)
+  assert.throws(() => buildDecisionRefV1({ ...BUILDER_PLACEHOLDERS, decision_output: { ...CASE1_OUTPUT, extra: 'nope' } as never }), /unknown field extra/)
+})
+
+test('decision_ref changes when only valid_until changes', () => {
+  const a = buildDecisionRefV1({ ...BUILDER_PLACEHOLDERS, decision_output: CASE1_OUTPUT })
+  const b = buildDecisionRefV1({ ...BUILDER_PLACEHOLDERS, decision_output: { ...CASE1_OUTPUT, valid_until: '2026-04-08T12:00:06.000Z' } })
+  assert.notEqual(a.decision_ref, b.decision_ref)
+  assert.equal(b.decision_ref, '7c45ce5ecfa8f8aa1bd249513c73c81b31eb193b236dfe50530d58b598c388eb')
+})
+
+// Hash primitive test, not a conformance path test. computeDecisionComponentRefV1 is the
+// low-level primitive and takes an already-normalized I-JSON value.
+test('computeDecisionComponentRefV1 hashes an arbitrary I-JSON value', () => {
+  const digest = computeDecisionComponentRefV1('context', { tenant: 't1', nested: [1, 2, 3] } as never)
+  assert.ok(/^[0-9a-f]{64}$/.test(digest))
+  assert.equal(digest, computeDecisionComponentRefV1('context', { nested: [1, 2, 3], tenant: 't1' } as never))
 })
