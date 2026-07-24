@@ -22,7 +22,7 @@ function compareSignatures(a: Pick<ReceiptSignatureV1, 'signer' | 'key_id'>, b: 
   return compareUtf8(a.signer, b.signer) || compareUtf8(a.key_id, b.key_id)
 }
 
-function isExactUtcMilliseconds(value: string): boolean {
+export function isExactUtcMilliseconds(value: string): boolean {
   if (!UTC_MS.test(value)) return false
   const parsed = new Date(value)
   return !Number.isNaN(parsed.valueOf()) && parsed.toISOString() === value

@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { publicKeyFromPrivate } from '../src/crypto/keys.js'
-import { buildDecisionRefV1, normalizeCoreDecisionOutputV1 } from '../src/v2/receipt-core/decision-ref.js'
+import { buildDecisionRefV1, computeDecisionComponentRefV1, normalizeCoreDecisionOutputV1 } from '../src/v2/receipt-core/decision-ref.js'
 import { createReceiptV1, computeReceiptIdV1, verifyReceiptV1 } from '../src/v2/receipt-core/receipt.js'
 import { parseStrictIJson, strictJCS } from '../src/v2/receipt-core/jcs.js'
 import { buildEvidenceBundleBodyV2, buildEvidenceBundleProofV2, classifySupportingRecordFormat, createSupportingRecordV1, verifyEvidenceBundleBodyV2, verifyEvidenceBundleProofV2, verifySupportingRecordV1 } from '../src/v2/receipt-core/supporting-record.js'
@@ -46,7 +46,7 @@ test('decision_ref is content-derived and event fields cannot enter it', () => {
 })
 
 test('core decision output normalizes a set of constraints', () => {
-  const out = normalizeCoreDecisionOutputV1({ profile: 'aps-core-decision-output-v1', verdict: 'narrow', effective_authority_ref: hex('b'), constraints: ['é', 'read', 'e\u0301', 'read'] })
+  const out = normalizeCoreDecisionOutputV1({ profile: 'aps-core-decision-output-v1', verdict: 'narrow', effective_authority_ref: hex('b'), constraints: ['é', 'read', 'e\u0301', 'read'], valid_until: '2026-04-08T12:00:05.000Z' })
   assert.deepEqual(out.constraints, ['read', 'é'])
 })
 
@@ -113,4 +113,21 @@ test('legacy dispatch is explicit and never guesses from canonical bytes', () =>
   assert.throws(() => strictJCS({ integer: 9007199254740992 }), /IEEE 754/)
   assert.throws(() => parseStrictIJson('{"a":1,"\\u0061":2}'), /duplicate object member/)
   assert.equal(strictJCS(parseStrictIJson('{"a":null}')), '{"a":null}')
+})
+
+test('core decision output binds valid_until into the hashed preimage', () => {
+  const permit = { profile: 'aps-core-decision-output-v1' as const, verdict: 'permit' as const, effective_authority_ref: hex('b'), constraints: ['commerce:read'], valid_until: '2026-04-08T12:00:05.000Z' }
+  const first = computeDecisionComponentRefV1('output', normalizeCoreDecisionOutputV1(permit) as never)
+  const later = computeDecisionComponentRefV1('output', normalizeCoreDecisionOutputV1({ ...permit, valid_until: '2026-04-08T12:00:06.000Z' }) as never)
+  assert.notEqual(first, later)
+
+  const deny = normalizeCoreDecisionOutputV1({ profile: 'aps-core-decision-output-v1', verdict: 'deny', effective_authority_ref: null, constraints: [], valid_until: null })
+  assert.equal(deny.valid_until, null)
+  assert.ok(/^[0-9a-f]{64}$/.test(computeDecisionComponentRefV1('output', deny as never)))
+
+  assert.throws(() => normalizeCoreDecisionOutputV1({ ...permit, valid_until: null } as never), /valid_until/)
+  assert.throws(() => normalizeCoreDecisionOutputV1({ profile: 'aps-core-decision-output-v1', verdict: 'deny', effective_authority_ref: null, constraints: [], valid_until: '2026-04-08T12:00:05.000Z' } as never), /valid_until/)
+  const { valid_until: _omitted, ...missing } = permit
+  assert.throws(() => normalizeCoreDecisionOutputV1(missing as never), /valid_until/)
+  assert.throws(() => normalizeCoreDecisionOutputV1({ ...permit, valid_until: '2026-04-08T12:00:05Z' } as never), /valid_until/)
 })

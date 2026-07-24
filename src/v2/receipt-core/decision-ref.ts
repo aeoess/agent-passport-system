@@ -3,6 +3,7 @@
 
 import { createHash } from 'node:crypto'
 import { strictJCS, assertExactKeys } from './jcs.js'
+import { isExactUtcMilliseconds } from './receipt.js'
 import type { CoreDecisionOutputV1, DecisionRefInputV1, JsonValue } from './types.js'
 
 export const DECISION_REF_TAG = 'APS-DECISION-REF-V1' as const
@@ -41,8 +42,8 @@ export function computeDecisionRefV1(input: DecisionRefInputV1): string {
 
 export function normalizeCoreDecisionOutputV1(input: CoreDecisionOutputV1): CoreDecisionOutputV1 {
   assertExactKeys(input as unknown as Record<string, unknown>,
-    ['profile', 'verdict', 'effective_authority_ref', 'constraints'],
-    ['profile', 'verdict', 'effective_authority_ref', 'constraints'], 'CoreDecisionOutputV1')
+    ['profile', 'verdict', 'effective_authority_ref', 'constraints', 'valid_until'],
+    ['profile', 'verdict', 'effective_authority_ref', 'constraints', 'valid_until'], 'CoreDecisionOutputV1')
   strictJCS(input)
   if (input.profile !== 'aps-core-decision-output-v1') throw new TypeError('CoreDecisionOutputV1: profile')
   if (!['permit', 'deny', 'narrow'].includes(input.verdict)) throw new TypeError('CoreDecisionOutputV1: verdict')
@@ -57,6 +58,11 @@ export function normalizeCoreDecisionOutputV1(input: CoreDecisionOutputV1): Core
   }
   if (!Array.isArray(input.constraints) || !input.constraints.every(v => typeof v === 'string')) {
     throw new TypeError('CoreDecisionOutputV1: constraints')
+  }
+  if (input.verdict === 'deny') {
+    if (input.valid_until !== null) throw new TypeError('CoreDecisionOutputV1: deny requires null valid_until')
+  } else if (typeof input.valid_until !== 'string' || !isExactUtcMilliseconds(input.valid_until)) {
+    throw new TypeError('CoreDecisionOutputV1: permit/narrow require valid_until as exact UTC milliseconds')
   }
   const constraints = [...new Set(input.constraints.map(v => v.normalize('NFC')))]
     .sort((a, b) => {
