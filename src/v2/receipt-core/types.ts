@@ -55,6 +55,7 @@ export interface CoreDecisionOutputV1 {
   verdict: 'permit' | 'deny' | 'narrow'
   effective_authority_ref: Hex64 | null
   constraints: string[]
+  valid_until: string | null
 }
 
 export interface SupportingRecordV1 {
