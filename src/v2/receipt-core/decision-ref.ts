@@ -18,6 +18,7 @@ const HEX64 = /^[0-9a-f]{64}$/
 const tagged = (tag: string, canonical: string): string => `${tag}\0${canonical}`
 const sha256Hex = (value: string): string => createHash('sha256').update(value, 'utf8').digest('hex')
 
+// Internal hash primitive: input must already be normalized. Protocol-facing callers use buildDecisionRefV1.
 export function computeDecisionComponentRefV1(tag: keyof typeof DECISION_COMPONENT_TAGS, value: JsonValue): string {
   return sha256Hex(tagged(DECISION_COMPONENT_TAGS[tag], strictJCS(value)))
 }
@@ -79,16 +80,19 @@ export function buildDecisionRefV1(input: {
   authority_state: JsonValue
   policy_input: JsonValue
   decision_context: JsonValue
-  decision_output: JsonValue
+  decision_output: CoreDecisionOutputV1
 }): { input: DecisionRefInputV1; decision_ref: string } {
   if (!HEX64.test(input.action_ref)) throw new TypeError('action_ref must be lowercase sha256 hex')
+  // Normalize before hashing: the normalizer validates the closed five-member shape, so an
+  // unnormalized or malformed decision output cannot reach the digest through this path.
+  const normalizedOutput = normalizeCoreDecisionOutputV1(input.decision_output)
   const refInput: DecisionRefInputV1 = {
     profile: 'aps-decision-ref-v1',
     action_ref: input.action_ref,
     authority_state_ref: computeDecisionComponentRefV1('authority', input.authority_state),
     policy_ref: computeDecisionComponentRefV1('policy', input.policy_input),
     context_ref: computeDecisionComponentRefV1('context', input.decision_context),
-    decision_output_ref: computeDecisionComponentRefV1('output', input.decision_output),
+    decision_output_ref: computeDecisionComponentRefV1('output', normalizedOutput as unknown as JsonValue),
   }
   return { input: refInput, decision_ref: computeDecisionRefV1(refInput) }
 }
