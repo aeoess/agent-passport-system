@@ -6,23 +6,23 @@
 
 *February 20, 2026*
 
-A week ago we shipped Agent Passport v1.0 — cryptographic identity for AI agents. Ed25519 signatures, reputation scoring, delegation with spend limits. The question it answered: *"What is this agent authorized to do?"*
+A week ago we shipped Agent Passport v1.0: cryptographic identity for AI agents. Ed25519 signatures, reputation scoring, delegation with spend limits. The question it answered: *"What is this agent authorized to do?"*
 
-Today we ship v1.1. It answers the harder question: *"What did this agent actually do — and can we stop it?"*
+Today we ship v1.1. It answers the harder question: *"What did this agent actually do, and can we stop it?"*
 
 ---
 
 ## The Gap Nobody Was Talking About
 
-Identity is table stakes. Google's AP2 protocol has 60+ partners — Mastercard, PayPal, Adyen — working on agent-to-agent payments. DeepMind published a paper on authenticated delegation in January. The EU is building agent accountability into its digital wallet architecture.
+Identity is table stakes. Google's AP2 protocol has 60+ partners (Mastercard, PayPal, Adyen) working on agent-to-agent payments. DeepMind published a paper on authenticated delegation in January. The EU is building agent accountability into its digital wallet architecture.
 
 They all converge on the same three missing primitives:
 
-1. **Signed proof of execution** — not just "what can this agent do" but "what did it do, and can you verify that cryptographically"
-2. **Real-time revocation** — if an agent goes rogue, kill its permissions instantly, don't wait for expiry
-3. **Controlled delegation chains** — Agent A delegates to Agent B who delegates to Agent C. How deep can that chain go before accountability dissolves?
+1. **Signed proof of execution**: not just "what can this agent do" but "what did it do, and can you verify that cryptographically"
+2. **Real-time revocation**: if an agent goes rogue, kill its permissions instantly, don't wait for expiry
+3. **Controlled delegation chains**: Agent A delegates to Agent B who delegates to Agent C. How deep can that chain go before accountability dissolves?
 
-The big players are solving this for payments, auth flows, and identity credentials. We're solving it at the infrastructure layer — for every agent action, across any platform.
+The big players are solving this for payments, auth flows, and identity credentials. We're solving it at the infrastructure layer: for every agent action, across any platform.
 
 ---
 
@@ -40,7 +40,7 @@ This is the audit trail that's been missing. Not logging. Not observability dash
 
 In v1.0, if you delegated authority to an agent, you waited for the delegation to expire. In v1.1, you can revoke instantly.
 
-Revocation cascades. If Agent A delegated to Agent B who sub-delegated to Agent C — revoking A→B automatically invalidates B→C. One action, full cascade.
+Revocation cascades. If Agent A delegated to Agent B who sub-delegated to Agent C, revoking A→B automatically invalidates B→C. One action, full cascade.
 
 Two verification modes: lightweight revocation lists (cached, fast) or real-time challenge-response (higher latency, guaranteed accuracy). Both use Ed25519. No certificate authorities. No blockchain.
 
@@ -54,7 +54,7 @@ Every delegation now carries a `max_depth` field. Set it to 0 and the agent can'
 
 This isn't a white paper. We built it, tested it, and pushed it.
 
-The integration test creates real passports for two agents — aeoess and PortalX2 — then runs through the full lifecycle: delegation, execution with signed receipts, sub-delegation with depth enforcement, scope violation blocking, revocation, and post-revocation action blocking.
+The integration test creates real passports for two agents (aeoess and PortalX2), then runs through the full lifecycle: delegation, execution with signed receipts, sub-delegation with depth enforcement, scope violation blocking, revocation, and post-revocation action blocking.
 
 Every action is traceable through the delegation chain. Every receipt is cryptographically verifiable. Every revocation cascades correctly.
 
@@ -64,9 +64,9 @@ Fifteen v1.0 tests still pass. Fully backward compatible.
 
 ## What This Is Not
 
-This is not a smart contract platform. We looked at every serious implementation — Google, DeepMind, the EU, W3C — and none of them use blockchain for agent accountability. Ed25519 signatures provide the same cryptographic guarantees without the latency, cost, and infrastructure dependency.
+This is not a smart contract platform. We looked at every serious implementation (Google, DeepMind, the EU, W3C) and none of them use blockchain for agent accountability. Ed25519 signatures provide the same cryptographic guarantees without the latency, cost, and infrastructure dependency.
 
-This is not a legal framework. The protocol provides the data — signed, verifiable evidence of who authorized what, who did what, and what happened. Courts and contracts interpret that data. We stay in our lane.
+This is not a legal framework. The protocol provides the data: signed, verifiable evidence of who authorized what, who did what, and what happened. Courts and contracts interpret that data. We stay in our lane.
 
 This is not enterprise middleware. It's 266 lines of TypeScript with zero external dependencies beyond Node.js. Import it in one line. Run it anywhere.
 
