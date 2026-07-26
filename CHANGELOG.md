@@ -1,5 +1,18 @@
 # Changelog
 
+## 4.3.0 (2026-07-26)
+
+### Behavior change
+- **`scope_required` now rejects duplicate elements after NFC normalization.** Section 4.1 defines `scope_required` as a duplicate-free array. The canonicalizer normalized and sorted but neither deduplicated nor rejected, so `["a","a"]` and `["a"]` produced different action references while the specification admits one form. The canonicalizer now raises `DuplicateScopeRequiredError`, carrying category `invalid_scope_required` and reason `duplicate_scope_required`, before any identity is computed, so the failure can never present as an identity mismatch. Detection runs after NFC, so two spellings that collide only under normalization also reject. Silent deduplication was rejected as the fix because an equality key must not map distinct inputs onto one value without saying so. Input that previously produced an `action_ref` now raises, and only duplicated input is affected.
+
+### Fixed
+- **`decision_ref` construction now normalizes before hashing.** The decision reference was computed over unnormalized input on one path, so two byte-different encodings of the same decision could produce different references.
+- **`valid_until` is now bound in `CoreDecisionOutputV1`.** The field was carried but not covered by the signed material, so a validity window could be altered without invalidating the signature.
+
+### Docs
+- JCS key-order wording corrected to UTF-16 code units, matching RFC 8785. The action-reference comments are unchanged because scope elements sort by a different rule.
+- PRESS wording moved from proof to evidence.
+
 ## 4.2.0 (2026-07-20)
 
 ### Added
