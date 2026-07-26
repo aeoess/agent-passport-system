@@ -3,7 +3,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { computeActionRef, actionRefsMatch } from '../src/core/action-ref.js'
+import { computeActionRef, actionRefsMatch, DuplicateScopeRequiredError } from '../src/core/action-ref.js'
 import { canonicalHashJCS } from '../src/core/canonical-jcs.js'
 import { createActionIntent, createPolicyReceipt, verifyActionIntent } from '../src/core/policy.js'
 import { generateKeyPair } from '../src/crypto/keys.js'
@@ -181,6 +181,57 @@ describe('action_ref scopeRequired canonicalization (draft-pidlisnyi-aps-03 sect
     assert.equal(computeActionRef(mk([nfd])), computeActionRef(mk([nfc])))
     // the single-string form (current ActionIntent type) is normalized too
     assert.equal(computeActionRef(mk(nfd)), computeActionRef(mk(nfc)))
+  })
+
+  // draft-pidlisnyi-aps-03 §4.1 defines scope_required as a duplicate-free
+  // array. A duplicated array has no canonical form, so it is rejected rather
+  // than deduplicated: a silent dedupe would map ["a","a"] and ["a"] onto one
+  // identity with no error, and would change the identity previously computed
+  // for the duplicated input.
+  const isDuplicateScope = (e: unknown) =>
+    e instanceof DuplicateScopeRequiredError &&
+    e.code === 'ERR_DUPLICATE_SCOPE_REQUIRED' &&
+    e.reason === 'duplicate_scope_required'
+
+  it('rejects a raw duplicate scope with the named error, and does not dedupe', () => {
+    assert.throws(() => computeActionRef(mk(['a', 'a'])), isDuplicateScope)
+    // the rejection is what distinguishes it: ["a","a"] must NOT silently
+    // become ["a"], so the single-element form still computes normally
+    assert.match(computeActionRef(mk(['a'])), /^[0-9a-f]{64}$/)
+  })
+
+  it('rejects duplicates that collide only under NFC normalization', () => {
+    const precomposed = '\u00e9' // U+00E9 precomposed
+    const decomposed = 'e\u0301' // e followed by U+0301 combining acute
+    assert.notEqual(precomposed, decomposed) // distinct before normalization
+    assert.equal(precomposed.normalize('NFC'), decomposed.normalize('NFC'))
+    assert.throws(() => computeActionRef(mk([precomposed, decomposed])), isDuplicateScope)
+  })
+
+  it('valid scope arrays are byte-unchanged: pinned fixture refs still match', () => {
+    // Pinned in tests/fixtures/actionref-canonical-vectors.json and consumed by
+    // the Go port. Asserted against the recorded values, not recomputed ones.
+    const pinned: Array<[readonly string[], string]> = [
+      [['repo:write'], 'c3828feae93209059a038cd3a39c088493a68e1099a6b4dba3cac0223f66c3bf'],
+      [
+        ['repo:write', 'admin:keys', 'commerce:read'],
+        '9f49b6ea908b45f428f554085f57e2f4ec462c87f393d8797d07c29152502c3c',
+      ],
+    ]
+    for (const [scopeRequired, expected] of pinned) {
+      assert.equal(
+        computeActionRef({
+          agentId: 'did:aps:zVectorAgent01',
+          action: {
+            type: scopeRequired.length === 1 ? 'document.sign' : 'commerce_preflight',
+            target: '-',
+            scopeRequired,
+          },
+          createdAt: scopeRequired.length === 1 ? '2026-07-10T00:00:00Z' : '2026-07-10T00:00:01Z',
+        }),
+        expected,
+      )
+    }
   })
 
   it('sorts by code point: astral-plane scope orders AFTER a U+E000..U+FFFF scope', () => {

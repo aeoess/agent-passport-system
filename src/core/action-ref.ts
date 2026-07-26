@@ -35,6 +35,25 @@ export type ActionRefIntent =
     }
   }
 
+/** Raised when scopeRequired carries two elements that are equal after NFC
+ *  normalization. draft-pidlisnyi-aps-03 §4.1 defines scope_required as a
+ *  duplicate-free array, so a duplicated array has no canonical form and is
+ *  rejected rather than deduplicated: an equality key must not map distinct
+ *  inputs onto one value silently. Subclasses the built-in Error so any
+ *  existing handler that catches Error (or `catch (e)`) still catches it and
+ *  fails closed. */
+export class DuplicateScopeRequiredError extends Error {
+  readonly code = 'ERR_DUPLICATE_SCOPE_REQUIRED'
+  /** Stable machine-readable category, shared across the APS SDKs. */
+  readonly category = 'invalid_scope_required'
+  /** Specific failure within the category. */
+  readonly reason = 'duplicate_scope_required'
+  constructor(message: string) {
+    super(message)
+    this.name = 'DuplicateScopeRequiredError'
+  }
+}
+
 /**
  * Compare two strings by Unicode code point, per §4.1's sort requirement.
  * The JS default sort compares UTF-16 code units, which orders astral-plane
@@ -57,17 +76,35 @@ function compareCodePoints(a: string, b: string): number {
 
 /**
  * Canonicalize scopeRequired per draft-pidlisnyi-aps-03 §4.1 before hashing:
- * NFC-normalize each scope string, then sort the array by Unicode code point.
- * Operates on a copy; never mutates the caller's array. The single-string
- * form (the current ActionIntent type) is NFC-normalized; null/undefined and
- * any non-conforming shape (non-string elements) pass through unchanged so
- * the strict-JCS null-preservation contract and legacy behavior for
- * out-of-spec input both hold.
+ * NFC-normalize each scope string, reject duplicates, then sort the array by
+ * Unicode code point. Operates on a copy; never mutates the caller's array.
+ * The single-string form (the current ActionIntent type) is NFC-normalized;
+ * null/undefined and any non-conforming shape (non-string elements) pass
+ * through unchanged so the strict-JCS null-preservation contract and legacy
+ * behavior for out-of-spec input both hold.
+ *
+ * §4.1 defines scope_required as a duplicate-free array. Duplicates are
+ * detected AFTER normalization, so two spellings that collide only under NFC
+ * (U+00E9 and "e" + U+0301) reject as well. Rejection rather than dedupe:
+ * silently collapsing ["a","a"] to ["a"] would map two distinct inputs onto
+ * one identity with no error, and would change the identity previously
+ * computed for the duplicated input. Valid arrays are byte-unchanged.
  */
 function canonicalizeScopeRequired(scope: unknown): unknown {
   if (typeof scope === 'string') return scope.normalize('NFC')
   if (Array.isArray(scope) && scope.every((s) => typeof s === 'string')) {
-    return (scope as string[]).map((s) => s.normalize('NFC')).sort(compareCodePoints)
+    const normalized = (scope as string[]).map((s) => s.normalize('NFC'))
+    const seen = new Set<string>()
+    for (const s of normalized) {
+      if (seen.has(s)) {
+        throw new DuplicateScopeRequiredError(
+          'computeActionRef: scope_required contains duplicate elements after NFC ' +
+            `normalization (duplicate_scope_required): ${JSON.stringify(s)}`,
+        )
+      }
+      seen.add(s)
+    }
+    return normalized.sort(compareCodePoints)
   }
   return scope
 }
@@ -82,6 +119,12 @@ function canonicalizeScopeRequired(scope: unknown): unknown {
  * hashing: each scope string is NFC-normalized and, when scopeRequired is an
  * array, the array is sorted by Unicode code point. No case folding; scopes
  * that differ only in case stay distinct.
+ *
+ * Throws DuplicateScopeRequiredError when an array scopeRequired holds two
+ * elements equal after NFC normalization. The throw happens inside
+ * canonicalization, before the digest is computed, so a duplicated array can
+ * never present as an identity mismatch downstream: there is no action_ref to
+ * compare in the first place.
  *
  * Canonicalization follows RFC 8785 JCS strictly, per draft-pidlisnyi-aps-01
  * §4.1: null/undefined-valued keys are preserved (not stripped) so that two
