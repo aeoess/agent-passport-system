@@ -140,7 +140,7 @@ Two independent layers: Rekor proves WHEN. Issuer proves WHAT.
 
 ### 4.4 Canonicalization
 All hash inputs MUST use JCS (RFC 8785):
-- Sorted keys by Unicode code point
+- Sorted keys as UTF-16 code unit arrays (RFC 8785 3.2.3)
 - Compact separators (`","` and `":"`)
 - Number normalization (`1.0` → `1`, `-0` → `0`)
 - Consistent Unicode escaping

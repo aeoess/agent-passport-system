@@ -26,7 +26,7 @@
   },
   {
     "id": "cv-003",
-    "description": "Keys sorted by Unicode code point",
+    "description": "Keys sorted by UTF-16 code units",
     "input": {
       "zebra": 1,
       "alpha": 2,

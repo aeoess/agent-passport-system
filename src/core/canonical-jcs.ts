@@ -75,7 +75,7 @@ export function canonicalizeJCS(value: unknown): string {
       if (Array.isArray(value)) {
         return '[' + value.map(item => canonicalizeJCS(item)).join(',') + ']'
       }
-      // Object: sort keys by Unicode code point, preserve null values
+      // Object: sort keys as UTF-16 code unit arrays per RFC 8785 3.2.3, preserve null values
       const obj = value as Record<string, unknown>
       const keys = Object.keys(obj).sort()
       const pairs: string[] = []
@@ -165,7 +165,7 @@ export function getTestVectors(): CanonicalizationTestVector[] {
     '{"agentId":"agent-001","scope":"read"}')
 
   // V3: Key ordering
-  addVector('cv-003', 'Keys sorted by Unicode code point',
+  addVector('cv-003', 'Keys sorted by UTF-16 code units',
     { zebra: 1, alpha: 2, middle: 3 },
     '{"alpha":2,"middle":3,"zebra":1}',
     '{"alpha":2,"middle":3,"zebra":1}')
