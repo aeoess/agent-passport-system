@@ -37,6 +37,7 @@
     "uuid": "^14.0.1"
   },
   "devDependencies": {
+    "@grottonetworking/bbs-signatures": "0.1.5",
     "@jazzer.js/core": "^4.0.0",
     "@types/libsodium-wrappers": "^0.8.2",
     "@types/node": "^20.11.0",
