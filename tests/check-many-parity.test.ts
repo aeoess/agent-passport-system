@@ -499,3 +499,51 @@ test('check_many: batched path is not slower than sequential', { skip: nativeBat
     `batched unexpectedly slower: batch=${batchNs}ns seq=${seqNs}ns`,
   );
 });
+
+// The timing test above is a microbenchmark and stays skipped: making suite
+// health depend on machine load buys flakes, not coverage. The property it
+// gestures at is asserted deterministically here instead. Under a pinned
+// ManualClock the batched path must return exactly what running check() over
+// the same actions one at a time returns: same length, same order, same
+// per-element bytes. Nothing below observes time.
+//
+// The three-element ladder is already covered above. This case pins the two
+// boundary shapes the file establishes but never compares across paths, the
+// empty batch and the single-element batch.
+test('check_many determinism: batched equals sequential for empty, single and ladder shapes', { skip: LIVE_SKIP }, () => {
+  const n = nativeFull as NativeBinding;
+  const batch = batchFn(n);
+  assert.ok(batch, 'native binding present but exposes no check_many');
+
+  const tools: ToolEntryInput[] = [
+    { descriptorHashHex: TOOL_DESCRIPTOR_HASH_HEX, localId: 0 },
+  ];
+  const rootHex = n.computeRegistryRoot(tools);
+  const pinnedNs = BigInt(Date.now()) * 1_000_000n;
+  const pinned: ClockConfig = { mode: 'Manual', manualTimeNs: pinnedNs };
+
+  const fresh = () => n.loadPassportUnverified(
+    buildPassport(rootHex), tools, { mode: 'Null' }, pinned,
+  );
+
+  // Each shape is taken as a prefix of the same ladder, so the sequential and
+  // batched runs consume identical inputs in identical order.
+  for (const take of [0, 1, 3]) {
+    const seqHandle = fresh();
+    const seqActions = buildLadder(n, seqHandle).slice(0, take);
+    const seqDecisions = seqActions.map((a) => n.check(seqHandle, a));
+
+    const batchHandle = fresh();
+    const batchActions = buildLadder(n, batchHandle).slice(0, take);
+    const batchDecisions = batch(batchHandle, batchActions);
+
+    assert.equal(batchDecisions.length, take, `take ${take}: one decision per action`);
+    assert.equal(
+      batchDecisions.length, seqDecisions.length,
+      `take ${take}: batched length equals sequential length`,
+    );
+    for (let i = 0; i < seqDecisions.length; i++) {
+      sameDecisionFullByte(seqDecisions[i], batchDecisions[i]);
+    }
+  }
+});
