@@ -32,9 +32,9 @@ The big players are solving this for payments, auth flows, and identity credenti
 
 When an agent executes a delegated task, it signs a receipt. The receipt contains: what was done, under which delegation, what the result was, and the full chain of authority from human principal to executing agent.
 
-The receipt is signed with the agent's Ed25519 key. Anyone holding the agent's public key can verify it. Tamper-proof, non-repudiable, portable.
+The receipt is signed with the agent's Ed25519 key. Anyone holding the agent's public key can verify it. Tamper-evident, non-repudiable, portable.
 
-This is the audit trail that's been missing. Not logging. Not observability dashboards. Cryptographic proof.
+This is the audit trail that's been missing. Not logging. Not observability dashboards. Cryptographic evidence.
 
 ### Delegation Revocation
 
