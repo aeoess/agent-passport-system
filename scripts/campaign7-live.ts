@@ -19,7 +19,11 @@ import {
   sign, canonicalize,
 } from '../src/index.js'
 
-const LIVE_INVITE_TOKEN = 'p2F2AWR0eXBlZmRpcmVjdGVzdWl0ZWVRU1AtMWdjb252X2lkUEOUlHIHKoKbwSwZ2w2PVSVraW52aXRlX3NhbHRYIAZB_kggvJK3kKNdE10iWwOdSAzELDECOBWwSwnDJVJ7bWludml0ZV9zZWNyZXRYINXqIMnk_nZILQF1dvAsFk0Feo1uWfB1hMGBaFm0TQsDbWludml0ZXJfaWtfcGtYIDqR0N-oD166Yo-cvYwm9sjsKUOa1fzvZe-5vqvQR1KY'
+const LIVE_INVITE_TOKEN = process.env.QNTM_INVITE
+if (!LIVE_INVITE_TOKEN) {
+  console.error('QNTM_INVITE is not set. Export a qntm invite token before running this script.')
+  process.exit(1)
+}
 const CORPO_VERIFY_URL = 'https://api.corpo.llc/api/v1/entities/test-entity/verify'
 const RELAY_URL = 'https://inbox.qntm.corpo.llc/v1/send'
 

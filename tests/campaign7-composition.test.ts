@@ -23,7 +23,7 @@ import {
 } from '../src/index.js'
 import type { EntityBinding } from '../src/index.js'
 
-const TEST_INVITE_TOKEN = 'p2F2AWR0eXBlZmRpcmVjdGVzdWl0ZWVRU1AtMWdjb252X2lkUNyoO3DM12Oom1lTss0u5nhraW52aXRlX3NhbHRYIJnHTkpBRQwpSj_7ZHMUHvPKnpf3r7yY_8gPRXk5RN2AbWludml0ZV9zZWNyZXRYIKbYnBf7banlbzaMK1YpeMzUNJAKg1Bi0P37WzHwvaqibWludml0ZXJfaWtfcGtYIIqw_2wL77fyrkF2igHm0SQXKd0hRcnA29phGsQQhAvJ'
+const TEST_INVITE_TOKEN = 'p2F2AWR0eXBlZmRpcmVjdGVzdWl0ZWVRU1AtMWdjb252X2lkUGFwcy1zZWxmdGVzdC3ik_FraW52aXRlX3NhbHRYIE-llgXnGHyYZkXYnOA4qhMM0hrt5vn9zkuk1r_i-EhlbWludml0ZV9zZWNyZXRYIJKCRdT9C9H-uXk7qkL7uOo76r7Qv8iIaCHhNcqZOsVlbWludml0ZXJfaWtfcGtYIAA4dILpwJnnR5Cv22SX54s-3WQRrSaQh2WrECudSkLy'
 
 function mockCorpoVerify(entityId: string) {
   if (entityId === 'test-entity-aps') {

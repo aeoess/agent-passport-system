@@ -10,7 +10,11 @@
 import { encryptForRelay, decodeQntmInvite, deriveQntmKeys, computeKeyId } from '../src/interop/qntm-bridge.js';
 import { generateKeyPair } from '../src/crypto/keys.js';
 
-const TOKEN = 'p2F2AWR0eXBlZmRpcmVjdGVzdWl0ZWVRU1AtMWdjb252X2lkUNyoO3DM12Oom1lTss0u5nhraW52aXRlX3NhbHRYIJnHTkpBRQwpSj_7ZHMUHvPKnpf3r7yY_8gPRXk5RN2AbWludml0ZV9zZWNyZXRYIKbYnBf7banlbzaMK1YpeMzUNJAKg1Bi0P37WzHwvaqibWludml0ZXJfaWtfcGtYIIqw_2wL77fyrkF2igHm0SQXKd0hRcnA29phGsQQhAvJ';
+const TOKEN = process.env.QNTM_INVITE
+if (!TOKEN) {
+  console.error('QNTM_INVITE is not set. Export a qntm invite token before running this script.')
+  process.exit(1)
+}
 const RELAY = 'https://inbox.qntm.corpo.llc/v1/send';
 
 async function main() {
