@@ -226,7 +226,7 @@ Institutional governance: charters, offices, federation, reserves, multi-party a
 npx agent-passport-system-mcp
 ```
 
-20 essential tools by default. Set `APS_PROFILE=full` for all 150 tools. Profiles: essential, identity, governance, coordination, commerce, data, gateway, comms, minimal, full.
+150 tools by default. Set `APS_PROFILE=essential` for a slim profile that presents 26 tools. Profiles: essential, identity, governance, coordination, commerce, data, gateway, comms, minimal, full.
 
 ## Project codebases
 
