@@ -39,8 +39,7 @@ jobs:
             'MUTUAL_MODE'
             'canary watch'
             'UPDATE-PROPAGATION-SPEC'
-            'CONSILIUM-FORENSIC'
-            'CONSILIUM-BRIEFING'
+            'CONSILIUM'
             'ROME-COMPLETE'
           )
 
