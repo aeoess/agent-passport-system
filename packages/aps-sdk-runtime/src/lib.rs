@@ -806,7 +806,7 @@ pub struct EnvSnapshot {
 /// Labels:
 /// - `mac-apple-silicon` (§13.3) on macOS
 /// - `aws-c7i-gp3` (§13.2) on AWS EC2 when IMDSv2 reports c7i.2xlarge
-/// - `aws-other` (§13.2) on any other EC2 instance type
+/// - `aws-other` (no spec section) on any other EC2 instance type
 /// - `bare-metal-linux` (§13.1) on Linux with no hypervisor
 /// - `linux-vm` (no spec section) on Linux with a non-AWS hypervisor
 /// - `unknown` on any other platform
@@ -855,6 +855,29 @@ fn capture_mac() -> EnvSnapshot {
     }
 }
 
+#[cfg(any(target_os = "linux", test))]
+fn classify_aws_instance_type(instance_type: &str) -> (String, String, bool) {
+    if instance_type == "c7i.2xlarge" {
+        ("aws-c7i-gp3".to_string(), "13.2".to_string(), false)
+    } else {
+        ("aws-other".to_string(), String::new(), false)
+    }
+}
+
+#[cfg(test)]
+mod environment_capture_tests {
+    use super::classify_aws_instance_type;
+
+    #[test]
+    fn aws_other_does_not_claim_reference_spec_section() {
+        let (label, spec_section, canonical) = classify_aws_instance_type("t3.micro");
+
+        assert_eq!(label, "aws-other");
+        assert_eq!(spec_section, "");
+        assert!(!canonical);
+    }
+}
+
 #[cfg(target_os = "linux")]
 fn capture_linux() -> EnvSnapshot {
     let sys_vendor = read_trim("/sys/class/dmi/id/sys_vendor");
@@ -862,11 +885,7 @@ fn capture_linux() -> EnvSnapshot {
 
     let (label, spec_section, canonical) = if sys_vendor == "Amazon EC2" {
         let instance_type = imdsv2_instance_type();
-        if instance_type == "c7i.2xlarge" {
-            ("aws-c7i-gp3".to_string(), "13.2".to_string(), false)
-        } else {
-            ("aws-other".to_string(), "13.2".to_string(), false)
-        }
+        classify_aws_instance_type(&instance_type)
     } else if hypervisor.is_empty() || hypervisor == "none" {
         ("bare-metal-linux".to_string(), "13.1".to_string(), true)
     } else {
