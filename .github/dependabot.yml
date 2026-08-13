@@ -5,9 +5,22 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 10
+    ignore:
+      # Type definitions track the lowest supported runtime (engines: node >=18,
+      # CI runs 20), not the newest Node release. Major bumps here would put the
+      # type floor above the runtime floor we publish and test. See PR #90.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 10
+    groups:
+      # init and analyze live in the same workflow and must resolve to the same
+      # version; CodeQL fails with "Loaded a configuration file for version X,
+      # but running version Y" when they split across separate PRs. See #97/#100.
+      codeql-action:
+        patterns:
+          - "github/codeql-action*"
