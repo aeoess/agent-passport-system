@@ -1,5 +1,15 @@
 # Changelog
 
+## 4.3.1 (2026-08-15)
+
+### Behavior change
+- **The `delegate` numeric flags accept canonical decimal only.** `--limit`, `--depth` and `--hours` were parsed with `Number()`, which accepts every literal form JavaScript accepts. `--limit 0x64` therefore signed a spend cap of one hundred while reading as sixty-four to a human and to every base-10 parser, and the same coercion accepted `1e3`, `+5`, `5.`, `.5` and a value padded with spaces. These flags carry authority, so the accepted grammar is now an optional minus, digits, and an optional fractional part. Hexadecimal, octal and binary literals, exponent form, a leading plus, a bare leading or trailing dot, and surrounding whitespace now exit non-zero and write no delegation. Input that previously produced an artifact now fails, and only non-decimal spellings are affected: `500`, `0`, `0.5` and `007` are unchanged. The documented forms in the usage string were already canonical.
+- **A numeric flag supplied without a value is an error rather than a silent default.** `--depth ""`, `--hours ""` and either flag given as the last argument with nothing after it previously fell through to the default and signed it. `getFlag` returns `undefined` both for an absent flag and for one supplied without a value, so the two cases were indistinguishable. Presence is now tested directly and a valueless flag exits non-zero. Omitting a flag entirely still applies its documented default.
+
+### Fixed
+- **`delegate --depth` no longer signs a delegation with no depth ceiling.** `Number('abc')` is `NaN`, `NaN` passed `maxDepth: opts.maxDepth ?? 1` unchanged because `NaN` is not nullish, and `JSON.stringify` emits `null` for `NaN`. The signed artifact carried `maxDepth: null`. Chain verifiers guard the depth rule on the ceiling being present, so a null removed the delegation depth bound instead of tightening it: a typo widened authority. `maxDepth` has no validation in `createDelegation` the way `spendLimit` does, so the command line was the only gate. `--depth` now requires a non-negative integer and rejects `abc`, `1.5` and `-1`.
+- **`delegate --limit 0` no longer signs a delegation with no spend cap.** The flag was coerced with `Number()` and then passed through a trailing truthiness fallback, and both `0` and `NaN` are falsy, so an explicit zero, a non-numeric value, an empty value and a bare `--limit` all resolved to `undefined`, which means unbounded. An operator asking for a budget of nothing received unbounded authority at exit code 0, and the `Limit:` line in the success output was itself guarded by a truthiness check, so the omission was not printed. `--limit 0` now signs `spendLimit: 0`.
+
 ## 4.3.0 (2026-07-26)
 
 ### Behavior change
