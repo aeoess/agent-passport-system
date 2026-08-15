@@ -48,10 +48,10 @@ function delegateWith(extra: string[]) {
   return { exit: r.status, out: (r.stdout || '') + (r.stderr || ''), artifact }
 }
 
-describe('CLI delegate --limit (D1)', () => {
+describe('CLI delegate numeric flags (--limit, --depth, --hours)', () => {
   before(() => {
-    dir = mkdtempSync(join(tmpdir(), 'aps-cli-limit-'))
-    const j = cli(['join', '--name', 'limit-test', '--mission', 'd1 test', '--owner', 'tima'])
+    dir = mkdtempSync(join(tmpdir(), 'aps-cli-numeric-'))
+    const j = cli(['join', '--name', 'numeric-test', '--mission', 'numeric flag test', '--owner', 'tima'])
     assert.equal(j.status, 0, `join failed: ${(j.stdout || '') + (j.stderr || '')}`)
     toKey = JSON.parse(readFileSync(join(dir, '.passport', 'agent.json'), 'utf8')).publicKey
     assert.ok(toKey, 'agent public key missing')
@@ -117,5 +117,101 @@ describe('CLI delegate --limit (D1)', () => {
     assert.equal(preFix(''), undefined, 'pre-fix: an empty value also became uncapped')
     assert.equal(preFix(undefined), undefined, 'pre-fix: absent and valueless were indistinguishable')
     assert.equal(preFix('500'), 500, 'pre-fix: only truthy numbers survived')
+  })
+
+  // ── --depth ──
+  // maxDepth has NO downstream validation in createDelegation, unlike spendLimit, so
+  // the CLI is the only gate.
+
+  // The decisive new case. `Number('abc')` is NaN, NaN reached createDelegation
+  // unvalidated, and JSON.stringify(NaN) emits null. Chain verifiers guard the depth
+  // rule on the ceiling being present, so a signed `maxDepth: null` REMOVED the depth
+  // bound rather than tightening it. A typo widened authority.
+  it('--depth abc exits non-zero and writes no artifact', () => {
+    const { exit, artifact } = delegateWith(['--depth', 'abc'])
+    assert.notEqual(exit, 0, 'a non-numeric depth must exit non-zero')
+    assert.equal(artifact, null, 'no delegation may be written for a rejected depth')
+  })
+
+  it('a valid --depth is carried through to maxDepth', () => {
+    const { exit, artifact } = delegateWith(['--depth', '5'])
+    assert.equal(exit, 0)
+    assert.ok(artifact, 'a delegation artifact must be written')
+    assert.strictEqual(artifact!.maxDepth, 5)
+  })
+
+  it('--depth 0 is a valid ceiling and is carried through', () => {
+    const { exit, artifact } = delegateWith(['--depth', '0'])
+    assert.equal(exit, 0, 'a zero depth ceiling is meaningful: no sub-delegation')
+    assert.strictEqual(artifact!.maxDepth, 0)
+  })
+
+  it('--depth absent keeps the default ceiling', () => {
+    const { exit, artifact } = delegateWith([])
+    assert.equal(exit, 0)
+    assert.strictEqual(artifact!.maxDepth, 1, 'omitting --depth must keep the documented default')
+  })
+
+  it('--depth never signs a null ceiling for any rejected input', () => {
+    for (const bad of ['abc', '1.5', '-1', '0x10', '1e3']) {
+      const { exit, artifact } = delegateWith(['--depth', bad])
+      assert.notEqual(exit, 0, `--depth ${bad} must exit non-zero`)
+      assert.equal(artifact, null, `--depth ${bad} must write no artifact`)
+    }
+  })
+
+  // ── --hours ──
+
+  it('--hours abc exits non-zero and writes no artifact', () => {
+    const { exit, artifact } = delegateWith(['--hours', 'abc'])
+    assert.notEqual(exit, 0, 'a non-numeric hours value must exit non-zero')
+    assert.equal(artifact, null, 'no delegation may be written for a rejected hours value')
+  })
+
+  it('--hours accepts a fractional value, which createDelegation supports exactly', () => {
+    const { exit, artifact } = delegateWith(['--hours', '0.5'])
+    assert.equal(exit, 0, 'fractional hours are deliberately supported downstream')
+    assert.ok(artifact, 'a delegation artifact must be written')
+    assert.ok(typeof artifact!.expiresAt === 'string' && artifact!.expiresAt.length > 0)
+  })
+
+  // ── decimal grammar, shared by all three flags ──
+  // `0x64` reads as sixty-four to a human and to every base-10 parser while Number()
+  // evaluates it to one hundred. On a spend cap that ambiguity is not acceptable.
+
+  it('--limit 0x64 exits non-zero and writes no artifact', () => {
+    const { exit, artifact } = delegateWith(['--limit', '0x64'])
+    assert.notEqual(exit, 0, 'a hexadecimal literal must be rejected, not read as 100')
+    assert.equal(artifact, null, 'no delegation may be written for a rejected limit')
+  })
+
+  it('non-decimal lexical forms are rejected on --limit', () => {
+    for (const bad of ['0x64', '1e3', '+5', '5.', '.5', ' 5 ']) {
+      const { exit, artifact } = delegateWith(['--limit', bad])
+      assert.notEqual(exit, 0, `--limit ${JSON.stringify(bad)} must exit non-zero`)
+      assert.equal(artifact, null, `--limit ${JSON.stringify(bad)} must write no artifact`)
+    }
+  })
+
+  it('canonical decimal values still work on --limit', () => {
+    for (const [raw, want] of [['0', 0], ['500', 500], ['0.5', 0.5], ['007', 7]] as const) {
+      const { exit, artifact } = delegateWith(['--limit', raw])
+      assert.equal(exit, 0, `--limit ${raw} must succeed`)
+      assert.strictEqual(artifact!.spendLimit, want, `--limit ${raw} must sign ${want}`)
+    }
+  })
+
+  // ── CONTROL for the depth defect ──
+  // If this ever stops holding, the description of the depth defect is wrong.
+  it('CONTROL: NaN depth serializes to a null ceiling', () => {
+    assert.ok(Number.isNaN(Number('abc')), "Number('abc') must be NaN")
+    assert.equal(
+      JSON.stringify({ maxDepth: Number('abc') }), '{"maxDepth":null}',
+      'JSON.stringify emits null for NaN, which is how a typo removed the depth ceiling',
+    )
+    // `??` is nullish, so NaN is NOT replaced by the default. This is why the NaN
+    // survived `maxDepth: opts.maxDepth ?? 1` in createDelegation.
+    const viaNullish = Number('abc') ?? 1
+    assert.ok(Number.isNaN(viaNullish), 'NaN survives ?? because NaN is not nullish')
   })
 })

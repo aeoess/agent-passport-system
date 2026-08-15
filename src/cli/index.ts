@@ -128,6 +128,15 @@ function askYesNo(question: string): Promise<boolean> {
 // ── CLI Router ──
 
 const args = process.argv.slice(2)
+
+// Canonical decimal only: an optional minus, digits, and an optional fractional part.
+// This rejects hexadecimal, octal and binary literals, exponent form, a leading plus,
+// surrounding whitespace, and a bare leading or trailing dot. `0x64` reads as
+// sixty-four to a human and to every base-10 parser while Number() evaluates it to one
+// hundred, and these flags carry authority, so an ambiguity that large is not accepted.
+// Declared here, above the command dispatch below, because a `const` is not hoisted and
+// the dispatch calls the command functions during module evaluation.
+const CANONICAL_DECIMAL = /^-?[0-9]+(?:\.[0-9]+)?$/
 const command = args[0]
 
 switch (command) {
@@ -615,30 +624,21 @@ function cmdDelegate(): void {
   const agent = loadAgent()
   const toKey = getFlag('--to')
   const scope = getFlag('--scope')?.split(',')
-  // --limit is authority-bearing, so it resolves to exactly one of three outcomes:
-  // ABSENT (no spend cap), a VALID non-negative finite number, or a TYPED ERROR.
-  // It is never collapsed through a truthiness operator. The previous version coerced
-  // the flag with Number(...) and then discarded every falsy result through a trailing
-  // truthiness fallback, so an explicit zero, a non-numeric value, an empty value and a
-  // bare `--limit` all became undefined and signed a delegation with NO cap at all.
-  // getFlag cannot tell an absent flag from one supplied without a value, so presence
-  // is tested against args directly.
-  let limit: number | undefined
-  if (args.includes('--limit')) {
-    const rawLimit = getFlag('--limit')
-    if (rawLimit === undefined || rawLimit.trim() === '') {
-      console.error('❌ --limit requires a value: a non-negative finite number. Use --limit 0 for a zero spend cap.')
-      process.exit(1)
-    }
-    const parsedLimit = Number(rawLimit)
-    if (!Number.isFinite(parsedLimit) || parsedLimit < 0) {
-      console.error(`❌ --limit must be a non-negative finite number, got "${rawLimit}"`)
-      process.exit(1)
-    }
-    limit = parsedLimit
-  }
-  const hours = Number(getFlag('--hours') || '24')
-  const depth = Number(getFlag('--depth') || '1')
+  const limit = numericFlag('--limit', 'a non-negative number, 0 for a zero spend cap',
+    n => Number.isFinite(n) && n >= 0)
+  // Zero, fractional and negative hours are all accepted: createDelegation documents
+  // them as intended, computing an immediate expiry for 0 and a past expiry for a
+  // negative duration, and it avoids setHours precisely so fractional hours survive.
+  const hoursFlag = numericFlag('--hours', 'a finite number of hours',
+    n => Number.isFinite(n))
+  // maxDepth has NO downstream validation in createDelegation, unlike spendLimit, so
+  // this is the only gate. A non-integer depth is meaningless for a hop count, and a
+  // NaN depth serialized to `"maxDepth": null`, which chain verifiers read as no depth
+  // ceiling at all: a typo REMOVED the limit instead of failing.
+  const depthFlag = numericFlag('--depth', 'a non-negative integer',
+    n => Number.isInteger(n) && n >= 0)
+  const hours = hoursFlag ?? 24
+  const depth = depthFlag ?? 1
 
   if (!toKey || !scope) {
     console.error('Usage: passport delegate --to <publicKey> --scope <scope1,scope2> [--limit 500, 0 for a zero cap] [--hours 24] [--depth 1]')
@@ -1294,4 +1294,32 @@ function getFlag(flag: string): string | undefined {
   const idx = args.indexOf(flag)
   if (idx === -1 || idx + 1 >= args.length) return undefined
   return args[idx + 1]
+}
+
+/**
+ * Read an authority-bearing numeric flag as exactly one of three outcomes: ABSENT
+ * (the caller applies its own default), a VALID number, or a TYPED ERROR that exits
+ * non-zero. It is never collapsed through a truthiness operator and never passes an
+ * unparsed value downstream. `getFlag` cannot distinguish an absent flag from one
+ * supplied without a value, since both yield undefined, so presence is tested against
+ * `args` directly. `valid` carries the caller's domain rule, applied here so the raw
+ * text the operator typed can be quoted back in the error.
+ */
+function numericFlag(flag: string, hint: string, valid: (n: number) => boolean): number | undefined {
+  if (!args.includes(flag)) return undefined
+  const raw = getFlag(flag)
+  if (raw === undefined || raw.trim() === '') {
+    console.error(`❌ ${flag} requires a value: ${hint}`)
+    process.exit(1)
+  }
+  if (!CANONICAL_DECIMAL.test(raw)) {
+    console.error(`❌ ${flag} must be a canonical decimal number (${hint}), got "${raw}"`)
+    process.exit(1)
+  }
+  const parsed = Number(raw)
+  if (!valid(parsed)) {
+    console.error(`❌ ${flag} must be ${hint}, got "${raw}"`)
+    process.exit(1)
+  }
+  return parsed
 }
