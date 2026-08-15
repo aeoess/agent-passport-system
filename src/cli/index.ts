@@ -615,12 +615,33 @@ function cmdDelegate(): void {
   const agent = loadAgent()
   const toKey = getFlag('--to')
   const scope = getFlag('--scope')?.split(',')
-  const limit = Number(getFlag('--limit') || '0') || undefined
+  // --limit is authority-bearing, so it resolves to exactly one of three outcomes:
+  // ABSENT (no spend cap), a VALID non-negative finite number, or a TYPED ERROR.
+  // It is never collapsed through a truthiness operator. The previous version coerced
+  // the flag with Number(...) and then discarded every falsy result through a trailing
+  // truthiness fallback, so an explicit zero, a non-numeric value, an empty value and a
+  // bare `--limit` all became undefined and signed a delegation with NO cap at all.
+  // getFlag cannot tell an absent flag from one supplied without a value, so presence
+  // is tested against args directly.
+  let limit: number | undefined
+  if (args.includes('--limit')) {
+    const rawLimit = getFlag('--limit')
+    if (rawLimit === undefined || rawLimit.trim() === '') {
+      console.error('❌ --limit requires a value: a non-negative finite number. Use --limit 0 for a zero spend cap.')
+      process.exit(1)
+    }
+    const parsedLimit = Number(rawLimit)
+    if (!Number.isFinite(parsedLimit) || parsedLimit < 0) {
+      console.error(`❌ --limit must be a non-negative finite number, got "${rawLimit}"`)
+      process.exit(1)
+    }
+    limit = parsedLimit
+  }
   const hours = Number(getFlag('--hours') || '24')
   const depth = Number(getFlag('--depth') || '1')
 
   if (!toKey || !scope) {
-    console.error('Usage: passport delegate --to <publicKey> --scope <scope1,scope2> [--limit 500] [--hours 24] [--depth 1]')
+    console.error('Usage: passport delegate --to <publicKey> --scope <scope1,scope2> [--limit 500, 0 for a zero cap] [--hours 24] [--depth 1]')
     process.exit(1)
   }
 
@@ -642,7 +663,7 @@ function cmdDelegate(): void {
   console.log(`  From:     ${agent.publicKey.slice(0, 16)}...`)
   console.log(`  To:       ${toKey.slice(0, 16)}...`)
   console.log(`  Scope:    ${scope.join(', ')}`)
-  if (limit) console.log(`  Limit:    $${limit}`)
+  if (limit !== undefined) console.log(`  Limit:    $${limit}`)
   console.log(`  Depth:    max ${depth}`)
   console.log(`  Expires:  ${del.expiresAt}`)
   console.log('')
