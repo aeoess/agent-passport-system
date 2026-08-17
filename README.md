@@ -6,7 +6,7 @@ APS lets a person or company give an AI agent limited authority to act on its be
 
 [![npm version](https://img.shields.io/npm/v/agent-passport-system)](https://www.npmjs.com/package/agent-passport-system)
 [![license](https://img.shields.io/npm/l/agent-passport-system)](https://github.com/aeoess/agent-passport-system/blob/main/LICENSE)
-[![tests](https://img.shields.io/badge/tests-4361%20passing%20%2F%204361-brightgreen)](https://github.com/aeoess/agent-passport-system)
+[![tests](https://img.shields.io/badge/tests-4377%20passing%20%2F%204378-brightgreen)](https://github.com/aeoess/agent-passport-system)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18749779.svg)](https://doi.org/10.5281/zenodo.18749779)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/13536/badge)](https://www.bestpractices.dev/projects/13536)
 [![OpenSSF Baseline](https://www.bestpractices.dev/projects/13536/baseline)](https://www.bestpractices.dev/projects/13536)
@@ -249,7 +249,7 @@ The composition contract specifies how a verifier MUST cross-check per-request s
 
 ## Numbers
 
-4,361 tests. 8 protocol layers. Framework adapters for CrewAI, LangChain, ADK, A2A, MCP, OpenShell, IBAC, Gonka. Gateway evaluation under 2ms. Zero heavy dependencies. Apache-2.0.
+4,378 tests. 8 protocol layers. Framework adapters for CrewAI, LangChain, ADK, A2A, MCP, OpenShell, IBAC, Gonka. Gateway evaluation under 2ms. Zero heavy dependencies. Apache-2.0.
 
 The test count is one number derived from the suite, not three guesses. The badge above, this section, and the `package.json` description all carry the same `4,326`, which is the `tests` total reported by `npm test`. When the suite grows, re-run `npm test`, read the `tests` line, and update all three to match.
 
