@@ -47,9 +47,11 @@ export function buildCertificate(
     not_before: input.not_before,
     not_after: input.not_after,
     binding: input.binding,
-    attestation_grade: input.attestation_grade,
+    // explicit null: keeps the shipped preimage bytes (#101); omission would change signatures
+    attestation_grade: input.attestation_grade ?? null,
     supported_versions: input.supported_versions,
-    capabilities: input.capabilities,
+    // explicit null: keeps the shipped preimage bytes (#101); omission would change signatures
+    capabilities: input.capabilities ?? null,
   }
 }
 

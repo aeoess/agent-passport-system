@@ -127,9 +127,11 @@ function canonicalizeScopeRequired(scope: unknown): unknown {
  * compare in the first place.
  *
  * Canonicalization follows RFC 8785 JCS strictly, per draft-pidlisnyi-aps-01
- * §4.1: null/undefined-valued keys are preserved (not stripped) so that two
- * APS engines independently hashing the same request produce the same
- * action_ref. This is the APS-native form. Cross-ecosystem byte-parity with
+ * §4.1: null-valued keys are preserved (not stripped) so that two APS engines
+ * independently hashing the same request produce the same action_ref. As of
+ * #101 an `undefined` member is rejected rather than coerced to null, because
+ * undefined is not a JSON value; a caller that means the JSON null passes an
+ * explicit null. This is the APS-native form. Cross-ecosystem byte-parity with
  * independent implementations (x402, AgentGraph CTEF, Nobulex) is provided by
  * a separate primitive, computeExternalActionRefV1 in external-action-ref.js,
  * which uses an intentionally different preimage; see that file and

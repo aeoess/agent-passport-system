@@ -186,7 +186,7 @@ export interface MppPaymentReceipt {
  */
 export interface MppApsReceipt extends MppPaymentReceipt {
   /** APS V2Delegation id; required for non-trivial settlements. */
-  delegation_ref?: string
+  delegation_ref?: string | null
   agent_id: string
   /** Hex Ed25519 public key of the signer (typically the agent). */
   signer: string
@@ -237,9 +237,9 @@ export interface MppDenial {
   denial_id: string
   denial_kind: 'mpp.payment_denial'
   mpp_version: typeof MPP_VERSION
-  challenge_id?: string
-  method_type?: MppMethodType
-  delegation_ref?: string
+  challenge_id?: string | null
+  method_type?: MppMethodType | null
+  delegation_ref?: string | null
   agent_id: string
   signer: string
   reason: MppDenialReason

@@ -30,7 +30,8 @@ export function buildBundle(
     issued_at: input.issued_at,
     anchors: input.anchors,
     refresh_after: input.refresh_after,
-    revoked_anchors: input.revoked_anchors,
+    // explicit null: keeps the shipped preimage bytes (#101); omission would change signatures
+    revoked_anchors: input.revoked_anchors ?? null,
     publisher_pubkey_hex,
   }
 }

@@ -28,6 +28,24 @@ import type {
   RevocationReason,
 } from '../types/bilateral-receipt.js'
 
+/**
+ * Signing-preimage profile for this module.
+ *
+ * Profile: core BilateralReceipt v1.0, preimage = canonicalize(body) (legacy:
+ * sorted keys, null and undefined members removed). Not RFC 8785. A JCS profile
+ * would be a new versioned type.
+ *
+ * The distinction matters because the repository also ships an RFC 8785
+ * canonicalizer, canonicalizeJCS(), and a fixture corpus under
+ * fixtures/bilateral-delegation/ that exercises it. That corpus tests the
+ * canonicalizer and the in-toto/DecisionReceipt envelope shapes, not this type,
+ * so passing it establishes nothing about these signatures. The two serializers
+ * differ in the way that matters here: legacy removes null and undefined
+ * members, JCS preserves null and rejects undefined. They also differ on NaN,
+ * Infinity, lone surrogates and circular references, which this type does not
+ * carry.
+ */
+
 function sha256(input: string): string {
   return createHash('sha256').update(input).digest('hex')
 }
@@ -75,20 +93,29 @@ export function createBilateralReceipt(opts: {
   const now = new Date().toISOString()
 
   // Build the receipt body (everything both agents agree on)
+  // Optional members use a conditional spread so an omitted option leaves the
+  // key genuinely absent rather than present holding undefined. The signed
+  // bytes are unchanged either way, because the legacy canonicalize() below
+  // already removed undefined members; this keeps the returned object free of
+  // undefined-valued keys, which is what #101 asks builders to do.
   const body = {
     receiptId: randomUUID(),
     version: '1.0' as const,
     requestingAgentId: opts.requestingAgentId,
     servingAgentId: opts.servingAgentId,
-    delegationId: opts.delegationId,
+    ...(opts.delegationId !== undefined && { delegationId: opts.delegationId }),
     outcome: opts.outcome,
     requestedAt: opts.requestedAt,
     completedAt: opts.completedAt,
     agreedAt: now,
-    evidenceCommitments: opts.evidenceCommitments,
-    aud: opts.aud,
-    action_ref: opts.action_ref,
-    fieldDisclosureProfile: opts.fieldDisclosureProfile,
+    ...(opts.evidenceCommitments !== undefined && {
+      evidenceCommitments: opts.evidenceCommitments,
+    }),
+    ...(opts.aud !== undefined && { aud: opts.aud }),
+    ...(opts.action_ref !== undefined && { action_ref: opts.action_ref }),
+    ...(opts.fieldDisclosureProfile !== undefined && {
+      fieldDisclosureProfile: opts.fieldDisclosureProfile,
+    }),
   }
 
   // Both agents sign the SAME canonical body
@@ -105,7 +132,7 @@ export function createBilateralReceipt(opts: {
     ...body,
     requestingAgentSignature,
     servingAgentSignature,
-    gatewaySignature,
+    ...(gatewaySignature !== undefined && { gatewaySignature }),
   }
 }
 

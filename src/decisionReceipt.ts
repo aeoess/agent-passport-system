@@ -66,7 +66,7 @@ export interface DecisionReceiptPredicate {
     framework: 'aps'
     receiptKind: 'decision_receipt'
     apsVersion: string
-    actionRef?: string
+    actionRef?: string | null
     [key: string]: unknown
   }
 }
@@ -137,7 +137,33 @@ function digestOf(obj: unknown): { sha256: string } {
  *  chain array. Exported so verifiers and cross-repo implementations (e.g. the
  *  Python hermes-aps-delegation emitter) can reproduce it byte-for-byte. */
 export function computeDelegationChainRoot(chain: Delegation[]): string {
-  return sha256Hex(canonicalizeJCS(chain))
+  return sha256Hex(canonicalizeJCS(chainRootPreimage(chain)))
+}
+
+/** Normalize a chain for the chain-root preimage only.
+ *
+ *  createDelegation() assigns `spendLimit` unconditionally, so a delegation
+ *  created without a cap carries the key holding `undefined`. That reached the
+ *  wire as "spendLimit":null, because canonicalizeJCS used to coerce undefined.
+ *  canonicalizeJCS is strict as of #101, so the value is made explicit here.
+ *
+ *  Key PRESENCE is preserved exactly: only a key that is present AND undefined
+ *  becomes null. A delegation whose `spendLimit` key is genuinely absent, which
+ *  is what the CLI writes and what any JSON round trip or cross-language
+ *  emitter produces, is passed through untouched. Converting that one too would
+ *  ADD "spendLimit":null and move the chain root.
+ *
+ *  This is deliberately NOT done in createDelegation(): fourteen call sites read
+ *  `spendLimit !== undefined` to decide budget inheritance and unit narrowing
+ *  (src/core/delegation.ts:178, :179, :195 among them), and storing null would
+ *  silently flip every one of them. */
+function chainRootPreimage(chain: Delegation[]): unknown[] {
+  return chain.map(d =>
+    'spendLimit' in d && d.spendLimit === undefined
+      // explicit null: keeps the shipped preimage bytes (#101); omission would change signatures
+      ? { ...d, spendLimit: null }
+      : d,
+  )
 }
 
 // ── Main primitive ──
@@ -183,7 +209,8 @@ export function emitDecisionReceipt(input: EmitDecisionReceiptInput): DecisionRe
       framework: 'aps',
       receiptKind: 'decision_receipt',
       apsVersion,
-      actionRef: input.intent.actionRef,
+      // explicit null: keeps the shipped preimage bytes (#101); omission would change signatures
+      actionRef: input.intent.actionRef ?? null,
     },
   }
 

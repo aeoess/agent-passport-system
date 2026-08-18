@@ -88,7 +88,7 @@ export interface ActionIntent {
       currency: string
     }
   }
-  context?: string          // optional: why the agent wants to do this
+  context?: string | null   // optional: why the agent wants to do this
   contentHash?: ContentHash // Module 37: content-addressable hash of unsigned intent
   /** Content-addressed request identity (A2A#1672 xsa520/desiorac).
    *  SHA-256(canonical(agentId + action.type + action.scopeRequired + second-precision timestamp)).

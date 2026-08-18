@@ -448,7 +448,8 @@ export function signMppReceipt(
     currency: input.currency,
     paid_at: input.paid_at,
     resource: input.resource,
-    delegation_ref: input.delegation_ref,
+    // explicit null: keeps the shipped preimage bytes (#101); omission would change signatures
+    delegation_ref: input.delegation_ref ?? null,
     agent_id: input.agent_id,
     signer: signerPub,
     issued_at,
@@ -616,9 +617,12 @@ export function signMppDenial(
     denial_id: `mppd_${randomUUID()}`,
     denial_kind: 'mpp.payment_denial',
     mpp_version: MPP_VERSION,
-    challenge_id: input.challenge_id,
-    method_type: input.method_type,
-    delegation_ref: input.delegation_ref,
+    // explicit null: keeps the shipped preimage bytes (#101); omission would change signatures
+    challenge_id: input.challenge_id ?? null,
+    // explicit null: keeps the shipped preimage bytes (#101); omission would change signatures
+    method_type: input.method_type ?? null,
+    // explicit null: keeps the shipped preimage bytes (#101); omission would change signatures
+    delegation_ref: input.delegation_ref ?? null,
     agent_id: input.agent_id,
     signer: signerPub,
     reason: input.reason,

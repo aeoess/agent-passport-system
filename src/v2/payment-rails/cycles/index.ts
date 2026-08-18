@@ -262,7 +262,8 @@ export function mapCyclesDenialToFoundation(
           http_status: e.http_status,
           message: e.response.message,
           request_id: e.response.request_id,
-          trace_id: e.response.trace_id ?? evidence.trace_id,
+          // explicit null: keeps the shipped preimage bytes (#101); omission would change signatures
+          trace_id: e.response.trace_id ?? evidence.trace_id ?? null,
         },
       },
     }
@@ -277,7 +278,8 @@ export function mapCyclesDenialToFoundation(
           layer: 'cycles',
           source: 'DecisionReasonCode',
           code,
-          trace_id: evidence.trace_id,
+          // explicit null: keeps the shipped preimage bytes (#101); omission would change signatures
+          trace_id: evidence.trace_id ?? null,
         },
       },
     }
@@ -292,7 +294,8 @@ export function mapCyclesDenialToFoundation(
           layer: 'cycles',
           source: 'DecisionReasonCode',
           code,
-          trace_id: evidence.trace_id,
+          // explicit null: keeps the shipped preimage bytes (#101); omission would change signatures
+          trace_id: evidence.trace_id ?? null,
         },
       },
     }

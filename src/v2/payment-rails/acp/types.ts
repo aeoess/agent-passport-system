@@ -227,7 +227,7 @@ export interface AcpReceipt {
   session_id: string
 
   /** APS V2Delegation id; required for non-trivial operations. */
-  delegation_ref?: string
+  delegation_ref?: string | null
   agent_id: string
   /** Hex Ed25519 public key of the signer (typically the agent). */
   signer: string
@@ -280,9 +280,9 @@ export interface AcpDenial {
   acp_version: typeof ACP_API_VERSION
 
   op: AcpOp
-  session_id?: string
+  session_id?: string | null
 
-  delegation_ref?: string
+  delegation_ref?: string | null
   agent_id: string
   signer: string
 
@@ -296,7 +296,7 @@ export interface AcpDenial {
   acp_error_code: AcpErrorCode
   acp_error_type: AcpErrorType
   /** JSONPath into the offending field of the original request, when known. */
-  acp_error_param?: string
+  acp_error_param?: string | null
 
   /** sha256 hex of the canonicalized rejected request body. */
   request_digest: string

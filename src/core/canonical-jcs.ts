@@ -53,11 +53,28 @@ function assertNoLoneSurrogate(s: string): void {
 /** RFC 8785 JSON Canonicalization Scheme.
  *  Differences from legacy canonicalize():
  *  - null values ARE preserved (not filtered)
- *  - undefined object values become null
+ *  - undefined is REJECTED at any depth with a TypeError naming its path.
+ *    undefined is not a JSON value and RFC 8785 defines no canonical form for
+ *    it, so coercing it would sign a value the caller never wrote (#101).
+ *    A caller that needs the byte null on the wire passes an explicit null.
  *  - Number serialization follows ES2015 spec
- *  - All other behavior is identical (sorted keys, no whitespace) */
+ *  - All other behavior is identical (sorted keys, no whitespace)
+ *
+ *  The undefined walk runs ONCE here, over the whole value, before any byte is
+ *  emitted. canonicalizeValue() below is the recursive emitter and does not
+ *  re-assert: folding the walk into the recursion would rescan every subtree at
+ *  every depth and make canonicalization O(n * depth). */
 export function canonicalizeJCS(value: unknown): string {
-  if (value === null || value === undefined) return 'null'
+  assertNoUndefined(value, '$')
+  return canonicalizeValue(value)
+}
+
+/** Recursive RFC 8785 emitter. Precondition: the value already passed
+ *  assertNoUndefined(), so undefined cannot appear here. If one appears anyway,
+ *  for instance from a getter that answers differently on a second read, the
+ *  default branch throws rather than silently emitting null. */
+function canonicalizeValue(value: unknown): string {
+  if (value === null) return 'null'
 
   switch (typeof value) {
     case 'boolean':
@@ -73,7 +90,7 @@ export function canonicalizeJCS(value: unknown): string {
     case 'object': {
       if (value instanceof Date) return JSON.stringify(value)
       if (Array.isArray(value)) {
-        return '[' + value.map(item => canonicalizeJCS(item)).join(',') + ']'
+        return '[' + value.map(item => canonicalizeValue(item)).join(',') + ']'
       }
       // Object: sort keys as UTF-16 code unit arrays per RFC 8785 3.2.3, preserve null values
       const obj = value as Record<string, unknown>
@@ -82,15 +99,39 @@ export function canonicalizeJCS(value: unknown): string {
       for (const key of keys) {
         assertNoLoneSurrogate(key)
         const v = obj[key]
-        // RFC 8785: undefined becomes null, null is preserved
-        // Only skip if the key was never set (shouldn't happen with Object.keys)
-        pairs.push(`${JSON.stringify(key)}:${canonicalizeJCS(v)}`)
+        pairs.push(`${JSON.stringify(key)}:${canonicalizeValue(v)}`)
       }
       return '{' + pairs.join(',') + '}'
     }
     default:
       throw new Error(`JCS: unsupported type ${typeof value}`)
   }
+}
+
+/** Path-tracking walk that rejects `undefined` anywhere in the value.
+ *  RFC 8785 canonicalizes JSON data, and `undefined` is not a JSON value, so
+ *  there is no defined canonical form for it. Rather than coerce it, which
+ *  would silently turn one value into a different one before the bytes are
+ *  signed, canonicalizeJCS() names the exact location and refuses. */
+function assertNoUndefined(value: unknown, path: string): void {
+  if (value === undefined) {
+    throw new TypeError(`canonicalizeJCS: undefined at ${path}`)
+  }
+  if (value === null || typeof value !== 'object') return
+  if (value instanceof Date) return
+  if (Array.isArray(value)) {
+    // An array hole and an explicit undefined element both read as undefined
+    // here, which is the intended rejection: neither has a JSON encoding.
+    for (let i = 0; i < value.length; i++) assertNoUndefined(value[i], `${path}[${i}]`)
+    return
+  }
+  const obj = value as Record<string, unknown>
+  for (const key of Object.keys(obj)) assertNoUndefined(obj[key], `${path}.${key}`)
+}
+
+/** @deprecated canonicalizeJCS() is itself strict as of #101; this alias exists only so the name keeps resolving. */
+export function canonicalizeJCSStrict(value: unknown): string {
+  return canonicalizeJCS(value)
 }
 
 /** Detect which canonicalization variant was likely used.
