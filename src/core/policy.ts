@@ -58,7 +58,8 @@ export function createActionIntent(opts: {
     agentPublicKey: opts.agentPublicKey,
     delegationId: opts.delegationId,
     action: opts.action,
-    context: opts.context,
+    // explicit null: keeps the shipped preimage bytes (#101); omission would change signatures
+    context: opts.context ?? null,
     createdAt: new Date().toISOString()
   }
   // Content-addressed request identity (A2A#1672)

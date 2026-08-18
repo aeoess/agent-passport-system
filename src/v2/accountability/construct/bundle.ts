@@ -79,9 +79,11 @@ export function createAPSBundle(
     signature: '',
   }
 
-  const receipt_id = sha256Hex(canonicalizeJCS({ ...skeleton, signature: undefined }))
+  // explicit null: keeps the shipped preimage bytes (#101); omission would change signatures
+  const receipt_id = sha256Hex(canonicalizeJCS({ ...skeleton, signature: null }))
   const withId: APSBundle = { ...skeleton, receipt_id }
-  const signature = sign(canonicalizeJCS({ ...withId, signature: undefined }), bundlerPrivateKey)
+  // explicit null: keeps the shipped preimage bytes (#101); omission would change signatures
+  const signature = sign(canonicalizeJCS({ ...withId, signature: null }), bundlerPrivateKey)
 
   return { ...withId, signature }
 }

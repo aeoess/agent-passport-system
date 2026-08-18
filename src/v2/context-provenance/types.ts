@@ -144,7 +144,7 @@ export interface CpaPartition {
  *     to an external producer attestation; absent on a CPA that does not
  *     carry one, and the absent form is byte-identical to the pre-slot
  *     shape (the builder adds the key by conditional spread, never as an
- *     explicitly-undefined key, which strict JCS would render as null).
+ *     explicitly-undefined key, which the canonicalizer rejects as of #101).
  *   - signature: 128-hex Ed25519; '' in the unsigned/canonical shape.
  */
 export interface ContextProvenanceAttestation {

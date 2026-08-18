@@ -48,13 +48,13 @@ export interface MutualAuthCertificate {
    *  (e.g. "api.bank.example.com"). */
   binding: string
   /** Optional APS attestation grade for an agent cert (0..3). */
-  attestation_grade?: 0 | 1 | 2 | 3
+  attestation_grade?: 0 | 1 | 2 | 3 | null
   /** Protocol versions the subject supports, highest first. Used for
    *  downgrade-attack detection during handshake. */
   supported_versions: string[]
   /** Optional list of session-level capabilities this cert grants.
    *  Treated as a set; absence means no capabilities. */
-  capabilities?: string[]
+  capabilities?: string[] | null
   /** Ed25519 signature over the canonical form of this object with
    *  `signature_b64` omitted. */
   signature_b64: string
@@ -87,7 +87,7 @@ export interface TrustAnchorBundle {
   refresh_after: number
   /** Optional: short-form revocation of specific anchor_ids that were
    *  valid in a prior bundle snapshot. */
-  revoked_anchors?: string[]
+  revoked_anchors?: string[] | null
   /** Signature over the canonical form with `signature_b64` omitted,
    *  by the bundle publisher's Ed25519 key. Verifiers MAY additionally
    *  require the bundle to be signed by a configured root key. */

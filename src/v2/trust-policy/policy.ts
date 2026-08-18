@@ -63,11 +63,58 @@ export function buildTrustRootPolicy(
   }
 }
 
+/** Build the canonicalization preimage for a trust root policy body.
+ *
+ *  A TrustedIssuer element may carry `stale_behavior` as a present-and-undefined
+ *  member, because buildTrustRootPolicy passes the caller's issuer array through
+ *  by reference and normalizes only top-level optionals. canonicalizeJCS() used
+ *  to coerce that to null, so the shipped preimage carries "stale_behavior":null.
+ *  canonicalizeJCS is strict as of #101, so the value is made explicit here.
+ *
+ *  Key PRESENCE is preserved exactly: only a key that is present AND undefined
+ *  becomes null. An issuer whose `stale_behavior` key is genuinely absent, which
+ *  is what every JSON round trip and most callers produce, is left untouched.
+ *  Converting that one too would ADD "stale_behavior":null and move the bytes.
+ *
+ *  Applied on BOTH the sign side and the verify side. Applying it to one only
+ *  would make the two preimages disagree and every signature would fail. */
+function policyPreimage(body: Omit<TrustRootPolicy, 'signature_b64'>): unknown {
+  // explicit null: keeps the shipped preimage bytes (#101); omission would change signatures
+  return nullNormalize(body)
+}
+
+/** Depth-first rewrite of every present-and-undefined member to an explicit
+ *  null, returning a copy. Covers every optional a caller can hand us, not just
+ *  stale_behavior: TrustedIssuer.anchor and .binding_constraints,
+ *  ResolverRule.failure_policy and .timeout_ms, and RotationRule.superseded are
+ *  all optional and all reach the canonicalizer through caller-supplied arrays
+ *  that buildTrustRootPolicy passes by reference.
+ *
+ *  Key presence is preserved exactly: an absent member stays absent, so no byte
+ *  is added. Only the preimage copy is normalized; the caller's policy object is
+ *  untouched, which matters because verdict.ts reads sibling members such as
+ *  pinned_keys[].not_before and not_after and must keep seeing them unchanged. */
+function nullNormalize<T>(value: T): T {
+  if (value === undefined) return null as unknown as T
+  if (value === null || typeof value !== 'object') return value
+  if (value instanceof Date) return value
+  if (Array.isArray(value)) {
+    return value.map(v => (v === undefined ? null : nullNormalize(v))) as unknown as T
+  }
+  const src = value as Record<string, unknown>
+  const out: Record<string, unknown> = {}
+  for (const key of Object.keys(src)) {
+    const v = src[key]
+    out[key] = v === undefined ? null : nullNormalize(v)
+  }
+  return out as T
+}
+
 export function signTrustRootPolicy(
   unsigned: TrustRootPolicyBody,
   publisher_sk_hex: string,
 ): TrustRootPolicy {
-  const canonical = canonicalizeJCS(unsigned)
+  const canonical = canonicalizeJCS(policyPreimage(unsigned))
   const sig_hex = edSignHex(canonical, publisher_sk_hex)
   const sig_b64 = Buffer.from(sig_hex, 'hex').toString('base64')
   return { ...unsigned, signature_b64: sig_b64 }
@@ -109,7 +156,7 @@ export function verifyTrustRootPolicy(
   }
 
   const { signature_b64, ...rest } = policy
-  const canonical = canonicalizeJCS(rest)
+  const canonical = canonicalizeJCS(policyPreimage(rest))
   const sig_hex = Buffer.from(signature_b64, 'base64').toString('hex')
   const sigOk = edVerifyHex(canonical, sig_hex, policy.publisher_pubkey_hex)
   if (!sigOk) return { ok: false, reason: 'signature_invalid' }

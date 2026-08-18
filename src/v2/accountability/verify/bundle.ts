@@ -42,12 +42,14 @@ export function verifyAPSBundle(bundle: APSBundle): APSBundleVerifyResult {
     return { valid: false, reason: 'INVALID_RECEIPT_COUNT' }
   }
 
-  const idCheck = sha256Hex(canonicalizeJCS({ ...bundle, receipt_id: '', signature: undefined }))
+  // explicit null: keeps the shipped preimage bytes (#101); omission would change signatures
+  const idCheck = sha256Hex(canonicalizeJCS({ ...bundle, receipt_id: '', signature: null }))
   if (idCheck !== bundle.receipt_id) {
     return { valid: false, reason: 'RECEIPT_ID_MISMATCH' }
   }
 
-  const sigPayload = canonicalizeJCS({ ...bundle, signature: undefined })
+  // explicit null: keeps the shipped preimage bytes (#101); omission would change signatures
+  const sigPayload = canonicalizeJCS({ ...bundle, signature: null })
   if (!edVerifyHex(sigPayload, bundle.signature, bundle.signer_did)) {
     return { valid: false, reason: 'SIGNATURE_INVALID' }
   }

@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Behavior change
+- **`canonicalizeJCS()` rejects `undefined`; existing builders emit explicit `null` (bytes unchanged); `BilateralReceipt` profile documented; fixture READMEs scoped (#101).** `undefined` is not a JSON value and RFC 8785 defines no canonical form for it, but the helper coerced an `undefined` object member into the JSON value `null`, so code could sign a value the caller never wrote while claiming strict RFC 8785 output. It now throws a `TypeError` naming the path, for example `canonicalizeJCS: undefined at $.trusted_issuers[0].stale_behavior`. Eleven builders relied on the coercion because they assigned optional members unconditionally, so an omitted input became a key holding `undefined`; each now writes the `null` explicitly and the emitted bytes are unchanged. Verified by tracing every top-level canonicalization in the suite before and after: all 514 null-carrying outputs are identical, and the pinned mutual-auth conformance vectors and accountability fixture pass untouched. `canonicalizeJCSStrict` remains exported as a deprecated alias. Key presence is preserved exactly: only a member that was present and `undefined` becomes `null`, never one that was absent, since adding a member would move the bytes.
+
+### Fixed
+- **Signatures over receipts with an omitted optional member now verify after a JSON round trip.** The coercion put `"member":null` in the signing preimage, but `JSON.stringify` drops an `undefined`-valued member, so the object that travelled did not carry it and a receiver re-canonicalized different bytes. Such artifacts verified in the emitting process and failed for every remote peer. Mutual-auth certificates and trust bundles, ACP and MPP receipts and denials, and trust root policies were all affected. Writing the `null` explicitly makes it survive serialization, so the two sides agree.
+
 ## 4.3.1 (2026-08-15)
 
 ### Behavior change

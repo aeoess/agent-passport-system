@@ -12,7 +12,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { canonicalize } from '../src/core/canonical.js'
 import {
-  canonicalizeJCS, detectCanonicalVariant, getTestVectors,
+  canonicalizeJCS, canonicalizeJCSStrict, detectCanonicalVariant, getTestVectors,
 } from '../src/core/canonical-jcs.js'
 import { createHash } from 'crypto'
 
@@ -36,9 +36,16 @@ describe('JCS Canonicalization — RFC 8785 Compliance', () => {
     assert.strictEqual(result, '{"a":1,"c":3}')
   })
 
-  it('handles undefined as null in JCS', () => {
-    const result = canonicalizeJCS({ a: 1, b: undefined })
-    assert.strictEqual(result, '{"a":1,"b":null}')
+  it('rejects undefined in JCS rather than coercing it to null (#101)', () => {
+    // Behavior change in #101. This previously returned '{"a":1,"b":null}',
+    // which signed a JSON value the caller never wrote. A caller that wants
+    // the byte null on the wire now passes an explicit null.
+    assert.throws(
+      () => canonicalizeJCS({ a: 1, b: undefined }),
+      (e: unknown) =>
+        e instanceof TypeError && e.message === 'canonicalizeJCS: undefined at $.b',
+    )
+    assert.strictEqual(canonicalizeJCS({ a: 1, b: null }), '{"a":1,"b":null}')
   })
 
   it('handles nested objects recursively', () => {
@@ -262,6 +269,85 @@ describe('JCS — Agreement with Legacy', () => {
         canonicalizeJCS(tc), canonicalize(tc),
         `Mismatch on ${JSON.stringify(tc)}`,
       )
+    }
+  })
+})
+
+describe('canonicalizeJCS and its deprecated alias reject undefined at any depth', () => {
+  it('throws TypeError for top-level undefined and names the root path', () => {
+    assert.throws(
+      () => canonicalizeJCSStrict(undefined),
+      (e: unknown) => e instanceof TypeError
+        && (e as Error).message === 'canonicalizeJCS: undefined at $',
+    )
+    // As of #101 canonicalizeJCS is itself strict, and canonicalizeJCSStrict is
+    // a deprecated alias for it, so the two now agree on rejection.
+    assert.throws(
+      () => canonicalizeJCS(undefined),
+      (e: unknown) => e instanceof TypeError
+        && (e as Error).message === 'canonicalizeJCS: undefined at $',
+    )
+  })
+
+  it('throws for an undefined object member and names the member path', () => {
+    assert.throws(
+      () => canonicalizeJCSStrict({ a: 1, b: undefined }),
+      (e: unknown) => e instanceof TypeError
+        && (e as Error).message === 'canonicalizeJCS: undefined at $.b',
+    )
+  })
+
+  it('throws for an undefined member nested at depth', () => {
+    assert.throws(
+      () => canonicalizeJCSStrict({ a: { b: { c: undefined } } }),
+      (e: unknown) => e instanceof TypeError
+        && (e as Error).message === 'canonicalizeJCS: undefined at $.a.b.c',
+    )
+  })
+
+  it('throws for an undefined array element and names the index', () => {
+    assert.throws(
+      () => canonicalizeJCSStrict({ a: [1, undefined, 3] }),
+      (e: unknown) => e instanceof TypeError
+        && (e as Error).message === 'canonicalizeJCS: undefined at $.a[1]',
+    )
+    assert.throws(
+      () => canonicalizeJCSStrict([[{ x: undefined }]]),
+      (e: unknown) => e instanceof TypeError
+        && (e as Error).message === 'canonicalizeJCS: undefined at $[0][0].x',
+    )
+  })
+
+  it('preserves explicit null exactly as canonicalizeJCS does', () => {
+    assert.strictEqual(canonicalizeJCSStrict({ a: null }), '{"a":null}')
+    assert.strictEqual(canonicalizeJCSStrict({ a: 1, b: null, c: [1, null, 2] }),
+      '{"a":1,"b":null,"c":[1,null,2]}')
+    assert.strictEqual(canonicalizeJCSStrict(null), 'null')
+  })
+
+  it('is byte-identical to canonicalizeJCS for every input without undefined', () => {
+    const cases: unknown[] = [
+      { z: 1, a: 2, m: 3 },
+      { a: 1, b: null, c: 3 },
+      { outer: { inner: null, value: 42 }, top: 'ok' },
+      { items: [1, null, 3] },
+      { emptyArr: [], emptyObj: {} },
+      { name: 'Тимофій', emoji: '🔐' },
+      'simple string',
+      [1, 2, 3],
+      true,
+      42,
+      null,
+    ]
+    for (const tc of cases) {
+      assert.strictEqual(
+        canonicalizeJCSStrict(tc), canonicalizeJCS(tc),
+        `Mismatch on ${JSON.stringify(tc)}`,
+      )
+    }
+    // The published cross-language vectors must also round-trip unchanged.
+    for (const v of getTestVectors()) {
+      assert.strictEqual(canonicalizeJCSStrict(v.input), v.expected_jcs, v.id)
     }
   })
 })

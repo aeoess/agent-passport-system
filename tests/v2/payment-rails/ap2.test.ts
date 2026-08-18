@@ -397,7 +397,13 @@ describe('signAp2Mandate + verifyAp2Mandate', () => {
       payment_amount: { currency: 'USD', value: 100 },
       transaction_id: 'tx',
     })
-    const bad: AP2PaymentMandate = { ...m, payment_instrument: undefined as unknown as AP2PaymentMandate['payment_instrument'] }
+    // Omit the key rather than setting it to undefined. "Missing" is what this
+    // test means, absence is the only form JSON can carry, and verifyAp2Mandate
+    // reads `=== undefined`, which an absent property satisfies. Setting the key
+    // to undefined would now be rejected by the strict canonicalizer (#101)
+    // before the verifier could ever see it.
+    const { payment_instrument: _omitted, ...rest } = m
+    const bad = rest as unknown as AP2PaymentMandate
     const signed = signAp2Mandate(bad, SIGNER_PRIV)
     const v = verifyAp2Mandate(signed, { now: NOW })
     assert.equal(v.valid, false)

@@ -1,8 +1,18 @@
 # Bilateral Delegation — Canonicalization Fixtures (v1)
 
 Cross-implementation test vectors for JCS canonical JSON
-([RFC 8785](https://www.rfc-editor.org/rfc/rfc8785)) as used in bilateral
-delegation receipts.
+([RFC 8785](https://www.rfc-editor.org/rfc/rfc8785)).
+
+**Scope.** This corpus tests the RFC 8785 canonicalizer itself and the
+in-toto/DecisionReceipt envelope shapes signed with it. It contains no vector
+for the core `BilateralReceipt` type declared in
+`src/types/bilateral-receipt.ts`; the vector named `bilateral-receipt-shape` is
+an in-toto Statement wrapping a delegation-receipt predicate, which is a
+different shape with a different field vocabulary. The core `BilateralReceipt`
+v1.0 signing preimage is `canonicalize()`, the legacy serializer, which sorts
+keys and removes null and undefined members. It is not RFC 8785. Passing this
+corpus therefore says nothing about compatibility with core `BilateralReceipt`
+signatures.
 
 The APS SDK, SINT migrationAttestation, and the in-toto Decision Receipt
 predicate all sign canonical JSON. Signatures only verify across
@@ -44,7 +54,7 @@ Each entry in `vectors[]`:
   "name": "kebab-case-id",
   "description": "what this vector exercises",
   "input": { },
-  "canonical_bytes_hex": "hex(utf8(canonicalize(input)))",
+  "canonical_bytes_hex": "hex(utf8(canonicalize_jcs(input)))",
   "canonical_sha256": "hex(sha256(canonical_bytes))",
   "ed25519_pubkey_hex": "pubkey, same for all vectors",
   "ed25519_signature_over_canonical_hex": "Ed25519(canonical_bytes)",

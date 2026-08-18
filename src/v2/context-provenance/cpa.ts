@@ -168,8 +168,9 @@ export function buildCPA(input: BuildCpaInput): ContextProvenanceAttestation {
     mode,
     partitions,
     root,
-    // Conditional spread, not an undefined-valued key: strict JCS renders
-    // an explicitly-set undefined as null, which would change the bytes.
+    // Conditional spread, not an undefined-valued key. An explicitly-set
+    // undefined is rejected by the canonicalizer as of #101, and before that it
+    // was rendered as null; either way it would not be the intended bytes.
     ...(input.producer_attestation !== undefined
       ? { producer_attestation: input.producer_attestation }
       : {}),

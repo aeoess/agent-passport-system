@@ -245,7 +245,7 @@ export interface CyclesDenialDetail {
   /** Request correlation id (only present when source=ErrorCode). */
   request_id?: string
   /** W3C Trace Context trace-id (32-hex), when populated. */
-  trace_id?: string
+  trace_id?: string | null
 }
 
 /** Signed denial — emitted on live 4xx, on /v1/decide DENY, or on

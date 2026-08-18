@@ -4,10 +4,32 @@ Reference test vectors for implementations of APS Mutual Authentication v1.
 
 ## Purpose
 
-Any downstream implementation (Python, Go, Rust) claiming conformance to
-APS Mutual Auth v1 MUST produce identical byte sequences for the canonical
-forms of certificates, bundles, and handshake attests given the same
-inputs. This directory provides the inputs and the expected outputs.
+These vectors pin the canonical byte sequences for certificates, trust anchor
+bundles, and handshake attests. An implementation that produces the same bytes
+for the same inputs will interoperate; this directory provides the inputs and
+the expected outputs so that can be checked.
+
+No cross-language comparison is executed against THESE vectors. Nothing in
+this repository runs a Python, Go, or Rust implementation over them, so they are
+a published reference rather than an enforced multi-language gate. A separate
+cross-implementation check does exist for the canonicalizer itself, at
+.github/workflows/cross-impl-jcs.yml; it does not cover mutual authentication.
+
+The canonical form is stated in terms of JSON, not in terms of any one
+language's absent-value convention. Three certificate and bundle members are
+present as JSON `null` when the caller supplies no value:
+
+- `attestation_grade`
+- `capabilities`
+- `revoked_anchors`
+
+They are members carrying the JSON value null, not omitted members. An
+implementation reproducing these bytes constructs that null explicitly. This
+matters because the reference implementation is TypeScript, where a member left
+unset used to reach the canonicalizer as the JavaScript value `undefined` and be
+coerced; as of #101 the canonicalizer rejects `undefined` and the builders write
+the null themselves, so the canonical form no longer depends on a coercion that
+only one language has.
 
 ## Vector shape
 

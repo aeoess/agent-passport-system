@@ -93,6 +93,37 @@ function canonicalDigest(obj: unknown): string {
   return sha256Hex(canonicalizeJCS(obj))
 }
 
+/** Rewrite every present-and-undefined member of a caller-supplied value as an
+ *  explicit null, at any depth, returning a copy. canonicalizeJCS() used to
+ *  coerce those members to null itself, so the canonical bytes are unchanged;
+ *  this exists so the strict canonicalizer of #101 sees the same preimage
+ *  instead of throwing on a value the SDK receives rather than builds.
+ *
+ *  Key presence is preserved exactly: a member that is genuinely absent stays
+ *  absent. Rewriting an absent member would ADD "member":null and move bytes.
+ *
+ *  A top-level undefined is mapped to null too, because the old canonicalizer
+ *  returned the four bytes null for it and request_body is typed unknown, so a
+ *  caller can pass one. An ARRAY HOLE is deliberately NOT covered: the old
+ *  canonicalizer emitted [,1] for a sparse array, which is not valid JSON, so a
+ *  hole is now a rejection rather than a preserved byte sequence. */
+function _acpNullNormalize<T>(value: T): T {
+  if (value === undefined) return null as unknown as T
+  if (value === null || typeof value !== 'object') return value
+  if (value instanceof Date) return value
+  if (Array.isArray(value)) {
+    return value.map(v => (v === undefined ? null : _acpNullNormalize(v))) as unknown as T
+  }
+  const src = value as Record<string, unknown>
+  const out: Record<string, unknown> = {}
+  for (const key of Object.keys(src)) {
+    const v = src[key]
+    out[key] = v === undefined ? null : _acpNullNormalize(v)
+  }
+  return out as T
+}
+
+
 function nowIso(): string {
   return new Date().toISOString()
 }
@@ -458,7 +489,8 @@ export function signAcpReceipt(
     input.issuer_agent_id,
     input.issuer_key_ref,
   )
-  const requestDigest = canonicalDigest(input.request_body)
+  // explicit null: keeps the shipped preimage bytes (#101); omission would change signatures
+  const requestDigest = canonicalDigest(_acpNullNormalize(input.request_body))
   const issued_at = nowIso()
   const useAccountabilityShape =
     input.accountability_shape === true || input.scope_of_claim !== undefined
@@ -469,10 +501,14 @@ export function signAcpReceipt(
     acp_version: ACP_API_VERSION,
     op: input.op,
     session_id: input.session_id,
-    delegation_ref: input.delegation_ref,
+    // explicit null: keeps the shipped preimage bytes (#101); omission would change signatures
+    delegation_ref: input.delegation_ref ?? null,
     agent_id: input.agent_id,
     signer: signerPub,
-    session_state: input.session_state,
+    // explicit null: keeps the shipped preimage bytes (#101); omission would change signatures
+    // Returns a rebuilt plain object, so the receipt no longer aliases the
+    // caller's session_state. The signed preimage is byte-identical.
+    session_state: _acpNullNormalize(input.session_state),
     request_digest: requestDigest,
     issued_at,
   }
@@ -648,7 +684,8 @@ export function signAcpDenial(
     input.issuer_agent_id,
     input.issuer_key_ref,
   )
-  const requestDigest = canonicalDigest(input.request_body)
+  // explicit null: keeps the shipped preimage bytes (#101); omission would change signatures
+  const requestDigest = canonicalDigest(_acpNullNormalize(input.request_body))
   const mapped = apsToAcpError(input.reason)
 
   const unsigned: Omit<AcpDenial, 'signature'> = {
@@ -656,14 +693,17 @@ export function signAcpDenial(
     denial_kind: 'acp.checkout_session_denial',
     acp_version: ACP_API_VERSION,
     op: input.op,
-    session_id: input.session_id,
-    delegation_ref: input.delegation_ref,
+    // explicit null: keeps the shipped preimage bytes (#101); omission would change signatures
+    session_id: input.session_id ?? null,
+    // explicit null: keeps the shipped preimage bytes (#101); omission would change signatures
+    delegation_ref: input.delegation_ref ?? null,
     agent_id: input.agent_id,
     signer: signerPub,
     reason: input.reason,
     acp_error_code: mapped.code,
     acp_error_type: mapped.type,
-    acp_error_param: mapped.param,
+    // explicit null: keeps the shipped preimage bytes (#101); omission would change signatures
+    acp_error_param: mapped.param ?? null,
     request_digest: requestDigest,
     issued_at: nowIso(),
   }
