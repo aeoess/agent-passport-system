@@ -9,7 +9,7 @@
 
 import { randomBytes, createHash } from 'node:crypto'
 import { sign, verify } from '../crypto/keys.js'
-import { canonicalize } from './canonical.js'
+import { canonicalize, canonicalizeForWrite } from './canonical.js'
 import type {
   TransformClass, LineageConfidence, DerivationReceipt, ParentArtifact,
   PostRevocationObligation, RevocationObligation, AffectedArtifact,
@@ -73,7 +73,7 @@ export function createDerivationReceipt(opts: {
     agentId: opts.agentId,
     delegationId: opts.delegationId,
   }
-  const sig = sign(canonicalize(receipt), opts.privateKey)
+  const sig = sign(canonicalizeForWrite(receipt), opts.privateKey)
   return { ...receipt, signature: sig }
 }
 
@@ -166,7 +166,7 @@ export function evaluateRevocationImpact(opts: {
     totalAffected: affected.length,
     obligationsByType,
   }
-  const sig = sign(canonicalize(obligation), opts.privateKey)
+  const sig = sign(canonicalizeForWrite(obligation), opts.privateKey)
   return { ...obligation, signature: sig }
 }
 
@@ -204,7 +204,7 @@ export function createDecisionLineageReceipt(opts: {
     jurisdictionContext: opts.jurisdictionContext,
     explanation: opts.explanation,
   }
-  const sig = sign(canonicalize(receipt), opts.privateKey)
+  const sig = sign(canonicalizeForWrite(receipt), opts.privateKey)
   return { ...receipt, signature: sig }
 }
 
@@ -471,7 +471,7 @@ export function fileDispute(opts: {
     filedAt: new Date().toISOString(),
     evidence: opts.evidence,
   }
-  const sig = sign(canonicalize(record), opts.privateKey)
+  const sig = sign(canonicalizeForWrite(record), opts.privateKey)
   return { ...record, signature: sig }
 }
 
@@ -521,7 +521,7 @@ export function createAccessSnapshot(opts: {
   privateKey: string
 }): AccessSnapshot {
   const termsHash = createHash('sha256')
-    .update(canonicalize(opts.pinnedTerms))
+    .update(canonicalizeForWrite(opts.pinnedTerms))
     .digest('hex')
 
   const snapshot: Omit<AccessSnapshot, 'signature'> = {
@@ -534,7 +534,7 @@ export function createAccessSnapshot(opts: {
     combinationConstraints: opts.combinationConstraints,
     timestamp: new Date().toISOString(),
   }
-  const sig = sign(canonicalize(snapshot), opts.privateKey)
+  const sig = sign(canonicalizeForWrite(snapshot), opts.privateKey)
   return { ...snapshot, signature: sig }
 }
 

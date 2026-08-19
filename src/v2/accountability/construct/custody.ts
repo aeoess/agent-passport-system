@@ -10,7 +10,7 @@
 // ══════════════════════════════════════════════════════════════════
 
 import { createHash } from 'node:crypto'
-import { canonicalizeJCS } from '../../../core/canonical-jcs.js'
+import { canonicalizeJCS, canonicalizeJCSForWrite } from '../../../core/canonical-jcs.js'
 import { sign, publicKeyFromPrivate } from '../../../crypto/keys.js'
 import type { CustodyReceipt } from '../types/custody.js'
 
@@ -49,11 +49,11 @@ export function createCustodyReceipt(
   }
 
   const receipt_id = createHash('sha256')
-    .update(canonicalizeJCS(draft), 'utf8')
+    .update(canonicalizeJCSForWrite(draft), 'utf8')
     .digest('hex')
 
   const signed: CustodyReceipt = { ...draft, receipt_id }
-  const signature = sign(canonicalizeJCS(signed), custodianPrivateKey)
+  const signature = sign(canonicalizeJCSForWrite(signed), custodianPrivateKey)
 
   return { ...signed, signature }
 }

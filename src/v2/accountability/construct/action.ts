@@ -10,7 +10,7 @@
 // ══════════════════════════════════════════════════════════════════
 
 import { createHash } from 'node:crypto'
-import { canonicalizeJCS } from '../../../core/canonical-jcs.js'
+import { canonicalizeJCS, canonicalizeJCSForWrite } from '../../../core/canonical-jcs.js'
 import { sign, publicKeyFromPrivate } from '../../../crypto/keys.js'
 import type { ActionReceipt } from '../types/action.js'
 
@@ -52,12 +52,12 @@ export function createActionReceipt(
   }
 
   // receipt_id = sha256(JCS(draft with empty receipt_id and empty signature))
-  const receiptIdBytes = canonicalizeJCS(draft)
+  const receiptIdBytes = canonicalizeJCSForWrite(draft)
   const receipt_id = createHash('sha256').update(receiptIdBytes, 'utf8').digest('hex')
 
   // signature = Ed25519(JCS(draft with computed receipt_id and empty signature))
   const signed: ActionReceipt = { ...draft, receipt_id }
-  const signatureInput = canonicalizeJCS(signed)
+  const signatureInput = canonicalizeJCSForWrite(signed)
   const signature = sign(signatureInput, signerPrivateKey)
 
   return { ...signed, signature }

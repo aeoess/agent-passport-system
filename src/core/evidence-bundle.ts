@@ -17,7 +17,7 @@
 
 import { createHash } from 'node:crypto'
 import { sign, verify } from '../crypto/keys.js'
-import { canonicalize } from './canonical.js'
+import { canonicalize, canonicalizeForWrite } from './canonical.js'
 import { buildMerkleRoot } from './attribution.js'
 import { proveInclusion, verifyInclusion } from './receipt-ledger.js'
 import type { ReceiptBatch, ReceiptInclusionProof } from './receipt-ledger.js'
@@ -47,6 +47,16 @@ import type {
  */
 export function computeMemberDigest(payload: unknown): string {
   return createHash('sha256').update(canonicalize(payload)).digest('hex')
+}
+/** Write-boundary twin of computeMemberDigest().
+ *
+ *  Emits the same bytes as computeMemberDigest() for every value it accepts. The only difference
+ *  is that an integer-valued number outside the interoperable IEEE 754 range is
+ *  refused instead of serialized. Use at signing and new-write boundaries ONLY:
+ *  computeMemberDigest() stays unrestricted so an artifact signed before this rule keeps
+ *  verifying. */
+export function computeMemberDigestForWrite(payload: unknown): string {
+  return createHash('sha256').update(canonicalizeForWrite(payload)).digest('hex')
 }
 
 // ══════════════════════════════════════
@@ -87,7 +97,7 @@ export function createEvidenceBundle(opts: CreateEvidenceBundleOptions): Evidenc
   const manifestMembers = opts.members.map(m => ({
     member_id: m.member_id,
     member_type: m.member_type,
-    digest: computeMemberDigest(m.payload),
+    digest: computeMemberDigestForWrite(m.payload),
   }))
 
   const signable = {
@@ -96,7 +106,7 @@ export function createEvidenceBundle(opts: CreateEvidenceBundleOptions): Evidenc
     members: manifestMembers,
     merkle_root: buildMerkleRoot(manifestMembers.map(m => m.digest)),
   }
-  const signature = sign(canonicalize(signable), opts.signerPrivateKey)
+  const signature = sign(canonicalizeForWrite(signable), opts.signerPrivateKey)
 
   return {
     manifest: { ...signable, signature },

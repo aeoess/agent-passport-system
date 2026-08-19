@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { createHash } from 'node:crypto'
-import { canonicalizeJCS } from '../../core/canonical-jcs.js'
+import { canonicalizeJCS, canonicalizeJCSForWrite } from '../../core/canonical-jcs.js'
 import { sign, verify } from '../../crypto/keys.js'
 import type { HistoricalKeyResolver } from '../../v2/identity-binding/types.js'
 import {
@@ -89,7 +89,7 @@ export function createIdJagActorBindingSignatureV1(
 ): string {
   assertHex(grantRef, 64, 'grant_ref')
   const body = { agent_id: agentId, grant_ref: grantRef, verification_method: verificationMethod }
-  return sign(ACTOR_BINDING_DOMAIN + canonicalizeJCS(body), agentPrivateKeyHex)
+  return sign(ACTOR_BINDING_DOMAIN + canonicalizeJCSForWrite(body), agentPrivateKeyHex)
 }
 
 export async function createIdJagImportV1(input: {
@@ -124,7 +124,7 @@ export async function createIdJagImportV1(input: {
     input.delegation_chain_root,
     audiences,
   )
-  const grantDecisionRef = digest(DECISION_DOMAIN + canonicalizeJCS(decisionInput))
+  const grantDecisionRef = digest(DECISION_DOMAIN + canonicalizeJCSForWrite(decisionInput))
   const unsigned: Omit<IdJagImportV1, 'signature'> = {
     profile: 'aps-id-jag-import-v1',
     draft: IDJAG_DRAFT,
@@ -146,7 +146,7 @@ export async function createIdJagImportV1(input: {
   validateImportUnsigned(unsigned)
   return {
     ...unsigned,
-    signature: sign(IMPORT_SIGNATURE_DOMAIN + canonicalizeJCS(unsigned), input.importer_private_key_hex),
+    signature: sign(IMPORT_SIGNATURE_DOMAIN + canonicalizeJCSForWrite(unsigned), input.importer_private_key_hex),
   }
 }
 

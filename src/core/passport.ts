@@ -3,7 +3,7 @@
 // Core Passport Operations — create, sign, update, expire
 
 import { generateKeyPair, sign, verify, publicKeyFromPrivate } from '../crypto/keys.js'
-import { canonicalize } from './canonical.js'
+import { canonicalize, canonicalizeForWrite } from './canonical.js'
 import type {
   AgentPassport, SignedPassport, KeyPair,
   CreatePassportOptions, ReputationScore, IssuerSignature
@@ -86,7 +86,7 @@ export function createPassport(options: CreatePassportOptions): {
 }
 
 export function signPassport(passport: AgentPassport, privateKey: string): SignedPassport {
-  const canonical = canonicalize(passport)
+  const canonical = canonicalizeForWrite(passport)
   const signature = sign(canonical, privateKey)
   return {
     passport,
@@ -138,7 +138,7 @@ export function countersignPassport(
   issuerPrivateKey: string,
   issuerId: string = 'aeoess'
 ): SignedPassport {
-  const payload = canonicalize({
+  const payload = canonicalizeForWrite({
     passport: signedPassport.passport,
     signature: signedPassport.signature,
     signedAt: signedPassport.signedAt,

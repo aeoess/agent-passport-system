@@ -13,7 +13,7 @@
 // - Evidence: prove what happened in a dispute
 // ══════════════════════════════════════════════════════════════════
 
-import { canonicalize } from '../core/canonical.js'
+import { canonicalize, canonicalizeForWrite } from '../core/canonical.js'
 import { sign, verify } from '../crypto/keys.js'
 import type { ActionReceipt } from '../types/passport.js'
 import type { ReceiptFilter } from './types.js'
@@ -56,8 +56,8 @@ export interface BundleVerificationResult {
 
 // ── Hash a receipt for chain continuity ──
 
-function hashReceipt(receipt: ActionReceipt): string {
-  const payload = canonicalize({
+function hashReceiptImpl(receipt: ActionReceipt, canon: (v: unknown) => string): string {
+  const payload = canon({
     receiptId: receipt.receiptId,
     agentId: receipt.agentId,
     delegationId: receipt.delegationId,
@@ -76,6 +76,11 @@ function hashReceipt(receipt: ActionReceipt): string {
   }
   return Math.abs(hash).toString(16).padStart(8, '0')
 }
+
+function hashReceipt(receipt: ActionReceipt): string {
+  return hashReceiptImpl(receipt, canonicalize)
+}
+
 
 // ── Verify chain integrity within a set of receipts ──
 
@@ -112,12 +117,17 @@ export function createReceiptBundle(opts: {
   })
 
   const chain = verifyChain(stamped)
+  // These two RECOMPUTE over receipts that already exist and are already signed, and
+  // verifyReceiptBundle() recomputes the identical values with the unrestricted
+  // hashReceipt(). Guarding them here made the producer refuse an archive that its own
+  // verifier accepts, for artifacts signed before the rule existed. The bundle METADATA
+  // below is new state and stays on the write canonicalizer.
   const startHash = stamped.length > 0 ? hashReceipt(stamped[0]) : '0'
   const endHash = stamped.length > 0 ? hashReceipt(stamped[stamped.length - 1]) : '0'
 
   // Sign the bundle metadata (not the receipts — they're already signed individually)
   const exportedAt = new Date().toISOString()
-  const metadata = canonicalize({
+  const metadata = canonicalizeForWrite({
     version: BUNDLE_VERSION,
     gatewayId,
     count: stamped.length,

@@ -23,7 +23,7 @@
 
 import { createHash, randomUUID } from 'node:crypto'
 import { sign, verify } from '../crypto/keys.js'
-import { canonicalize } from './canonical.js'
+import { canonicalize, canonicalizeForWrite } from './canonical.js'
 import type {
   ExecutionAttestation,
   ExecutionAttestationVerification,
@@ -60,11 +60,11 @@ export function createExecutionAttestation(
   const context = opts?.executionContext ?? input.executionContext ?? '*'
 
   // Hash what actually executed
-  const parameterHash = sha256(canonicalize(input.actualParameters))
-  const resultHash = sha256(canonicalize(input.actualResult))
+  const parameterHash = sha256(canonicalizeForWrite(input.actualParameters))
+  const resultHash = sha256(canonicalizeForWrite(input.actualResult))
 
   // Hash what was declared at intent time
-  const intentParameterHash = sha256(canonicalize(input.intentParameters))
+  const intentParameterHash = sha256(canonicalizeForWrite(input.intentParameters))
 
   // Detect drift — always return explicit object, never null
   const match = parameterHash === intentParameterHash
@@ -95,7 +95,7 @@ export function createExecutionAttestation(
   }
 
   // Sign the entire body with the attestor's key
-  const canonical = canonicalize(body)
+  const canonical = canonicalizeForWrite(body)
   const signature = sign(canonical, attestorPrivateKey)
 
   return { ...body, signature }
@@ -196,8 +196,8 @@ function classifyDrift(
   for (const key of allKeys) {
     const intentVal = intentParams[key]
     const actualVal = actualParams[key]
-    const intentHash = sha256(canonicalize(intentVal ?? null))
-    const actualHash = sha256(canonicalize(actualVal ?? null))
+    const intentHash = sha256(canonicalizeForWrite(intentVal ?? null))
+    const actualHash = sha256(canonicalizeForWrite(actualVal ?? null))
 
     if (intentHash !== actualHash) {
       driftFields.push({

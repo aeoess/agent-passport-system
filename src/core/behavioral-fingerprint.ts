@@ -32,7 +32,7 @@
 // ══════════════════════════════════════════════════════════════════
 
 import { sign, verify } from '../crypto/keys.js'
-import { canonicalize } from './canonical.js'
+import { canonicalize, canonicalizeForWrite } from './canonical.js'
 import { verifyFidelityAttestation } from './fidelity-probe.js'
 import type { FidelityAttestation } from '../types/gateway.js'
 
@@ -208,7 +208,7 @@ export function createBehavioralFingerprint(
     signedAt,
   }
 
-  const payload = canonicalize(unsigned)
+  const payload = canonicalizeForWrite(unsigned)
   const signature = sign(payload, opts.signingKey)
 
   return {

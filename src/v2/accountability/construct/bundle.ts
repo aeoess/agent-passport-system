@@ -9,7 +9,7 @@
 // ══════════════════════════════════════════════════════════════════
 
 import { createHash } from 'node:crypto'
-import { canonicalizeJCS } from '../../../core/canonical-jcs.js'
+import { canonicalizeJCS, canonicalizeJCSForWrite } from '../../../core/canonical-jcs.js'
 import { sign, publicKeyFromPrivate } from '../../../crypto/keys.js'
 import type { APSBundle, BundledReceiptRef } from '../types/bundle.js'
 import type { ScopeOfClaim } from '../types/base.js'
@@ -80,10 +80,10 @@ export function createAPSBundle(
   }
 
   // explicit null: keeps the shipped preimage bytes (#101); omission would change signatures
-  const receipt_id = sha256Hex(canonicalizeJCS({ ...skeleton, signature: null }))
+  const receipt_id = sha256Hex(canonicalizeJCSForWrite({ ...skeleton, signature: null }))
   const withId: APSBundle = { ...skeleton, receipt_id }
   // explicit null: keeps the shipped preimage bytes (#101); omission would change signatures
-  const signature = sign(canonicalizeJCS({ ...withId, signature: null }), bundlerPrivateKey)
+  const signature = sign(canonicalizeJCSForWrite({ ...withId, signature: null }), bundlerPrivateKey)
 
   return { ...withId, signature }
 }

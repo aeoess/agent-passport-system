@@ -7,7 +7,7 @@
 // Every operation is Ed25519 signed. Every handoff is verifiable.
 
 import { randomBytes } from 'node:crypto'
-import { canonicalize } from './canonical.js'
+import { canonicalize, canonicalizeForWrite } from './canonical.js'
 import { sign, verify } from '../crypto/keys.js'
 import type {
   TaskBrief, TaskRoleSpec, DeliverableSpec,
@@ -58,7 +58,7 @@ export function createTaskBrief(opts: {
     status: 'draft' as TaskStatus,
   }
 
-  const signature = sign(canonicalize(brief), opts.operatorPrivateKey)
+  const signature = sign(canonicalizeForWrite(brief), opts.operatorPrivateKey)
   return { ...brief, signature }
 }
 
@@ -122,7 +122,7 @@ export function assignTask(opts: {
     assignedAt: new Date().toISOString(),
   }
 
-  const operatorSignature = sign(canonicalize(assignmentContent), opts.operatorPrivateKey)
+  const operatorSignature = sign(canonicalizeForWrite(assignmentContent), opts.operatorPrivateKey)
 
   const assignment: TaskAssignment = {
     ...assignmentContent,
@@ -143,7 +143,7 @@ export function assignTask(opts: {
     roles: updatedRoles,
     status: (allAssigned ? 'assigned' : 'draft') as TaskStatus,
   }
-  const newSig = sign(canonicalize(updatedBriefContent), opts.operatorPrivateKey)
+  const newSig = sign(canonicalizeForWrite(updatedBriefContent), opts.operatorPrivateKey)
   const updatedBrief: TaskBrief = { ...updatedBriefContent, signature: newSig }
 
   return { assignment, updatedBrief }
@@ -155,7 +155,7 @@ export function acceptTask(
 ): TaskAssignment {
   const acceptedAt = new Date().toISOString()
   const toSign = { assignmentId: assignment.assignmentId, taskId: assignment.taskId, acceptedAt }
-  const agentSignature = sign(canonicalize(toSign), agentPrivateKey)
+  const agentSignature = sign(canonicalizeForWrite(toSign), agentPrivateKey)
   return { ...assignment, acceptedAt, agentSignature }
 }
 
@@ -197,7 +197,7 @@ export function submitEvidence(opts: {
     },
   }
 
-  const signature = sign(canonicalize(packetContent), opts.submitterPrivateKey)
+  const signature = sign(canonicalizeForWrite(packetContent), opts.submitterPrivateKey)
   return { ...packetContent, signature }
 }
 
@@ -261,7 +261,7 @@ export function reviewEvidence(opts: {
     issues: opts.issues,
   }
 
-  const signature = sign(canonicalize(decisionContent), opts.reviewerPrivateKey)
+  const signature = sign(canonicalizeForWrite(decisionContent), opts.reviewerPrivateKey)
   return { ...decisionContent, signature }
 }
 
@@ -313,7 +313,7 @@ export function handoffEvidence(opts: {
     handoffAt: new Date().toISOString(),
   }
 
-  const operatorSignature = sign(canonicalize(handoffContent), opts.operatorPrivateKey)
+  const operatorSignature = sign(canonicalizeForWrite(handoffContent), opts.operatorPrivateKey)
   return { ...handoffContent, operatorSignature }
 }
 
@@ -363,7 +363,7 @@ export function submitDeliverable(opts: {
     gapsFlagged: opts.gapsFlagged,
   }
 
-  const signature = sign(canonicalize(delivContent), opts.submitterPrivateKey)
+  const signature = sign(canonicalizeForWrite(delivContent), opts.submitterPrivateKey)
   return { ...delivContent, signature }
 }
 
@@ -441,7 +441,7 @@ export function completeTask(opts: {
     retrospective: opts.retrospective,
   }
 
-  const signature = sign(canonicalize(completionContent), opts.operatorPrivateKey)
+  const signature = sign(canonicalizeForWrite(completionContent), opts.operatorPrivateKey)
   return { ...completionContent, signature }
 }
 

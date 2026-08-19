@@ -8,7 +8,7 @@
 
 import { v4 as uuidv4 } from 'uuid'
 import { sign, verify, publicKeyFromPrivate } from '../crypto/keys.js'
-import { canonicalize } from './canonical.js'
+import { canonicalize, canonicalizeForWrite } from './canonical.js'
 import type {
   IdentityDocument, KeyRotationEntry, RotationVerification,
 } from '../types/identity.js'
@@ -47,7 +47,7 @@ export function rotateKey(opts: {
   const now = new Date().toISOString()
   const rotationId = 'rot_' + uuidv4().slice(0, 12)
 
-  const continuityPayload = canonicalize({
+  const continuityPayload = canonicalizeForWrite({
     rotationId,
     oldPublicKey: identity.currentPublicKey,
     newPublicKey: newKeyPair.publicKey,
@@ -55,7 +55,7 @@ export function rotateKey(opts: {
     rotatedAt: now,
   })
 
-  const possessionPayload = canonicalize({
+  const possessionPayload = canonicalizeForWrite({
     rotationId,
     newPublicKey: newKeyPair.publicKey,
   })
@@ -103,7 +103,7 @@ export function emergencyRotate(opts: {
     throw new Error('Recovery key is not in the identity\'s pre-committed recovery key list')
   }
 
-  const continuityPayload = canonicalize({
+  const continuityPayload = canonicalizeForWrite({
     rotationId,
     oldPublicKey: identity.currentPublicKey,
     newPublicKey: newKeyPair.publicKey,
@@ -111,7 +111,7 @@ export function emergencyRotate(opts: {
     rotatedAt: now,
   })
 
-  const possessionPayload = canonicalize({
+  const possessionPayload = canonicalizeForWrite({
     rotationId,
     newPublicKey: newKeyPair.publicKey,
   })

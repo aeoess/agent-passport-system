@@ -20,9 +20,9 @@
 import { v4 as uuidv4 } from 'uuid'
 import { createHash } from 'crypto'
 import { sign, verify } from '../crypto/keys.js'
-import { canonicalize } from './canonical.js'
+import { canonicalize, canonicalizeForWrite } from './canonical.js'
 import { scopeAuthorizes } from './delegation.js'
-import { computeActionRef } from './action-ref.js'
+import { computeActionRefForWrite } from './action-ref.js'
 import type { EnforcementMode } from '../types/passport.js'
 import type {
   ActionIntent, PolicyDecision, PolicyReceipt,
@@ -32,7 +32,7 @@ import type {
 import type { ActionReceipt, Delegation } from '../types/passport.js'
 import {
   emitDecisionReceipt,
-  computeDelegationChainRoot,
+  computeDelegationChainRootForWrite,
   type DecisionReceiptEnvelope,
 } from '../decisionReceipt.js'
 
@@ -63,9 +63,9 @@ export function createActionIntent(opts: {
     createdAt: new Date().toISOString()
   }
   // Content-addressed request identity (A2A#1672)
-  intent.actionRef = computeActionRef(intent)
+  intent.actionRef = computeActionRefForWrite(intent)
 
-  const signature = sign(canonicalize(intent), opts.privateKey)
+  const signature = sign(canonicalizeForWrite(intent), opts.privateKey)
   return { ...intent, signature }
 }
 
@@ -131,7 +131,7 @@ export function evaluateIntent(opts: {
     expiresAt: expires.toISOString()
   }
 
-  const signature = sign(canonicalize(decision), opts.evaluatorPrivateKey)
+  const signature = sign(canonicalizeForWrite(decision), opts.evaluatorPrivateKey)
   return { ...decision, signature }
 }
 
@@ -195,19 +195,19 @@ export function createPolicyReceipt(opts: {
     },
     verifiedAt: new Date().toISOString(),
     // Request identity copied from intent (A2A#1672)
-    actionRef: opts.intent.actionRef ?? computeActionRef(opts.intent)
+    actionRef: opts.intent.actionRef ?? computeActionRefForWrite(opts.intent)
   }
 
   // v2.3 — bilateral receipt fields (optional, backward-compatible)
   if (opts.delegationChain && opts.delegationChain.length > 0) {
-    pr.delegation_chain_root = computeDelegationChainRoot(opts.delegationChain)
+    pr.delegation_chain_root = computeDelegationChainRootForWrite(opts.delegationChain)
     pr.delegation_depth = opts.delegationChain.length
   }
   if (opts.epistemicClaims) {
     pr.epistemic_claims = opts.epistemicClaims
   }
 
-  const signature = sign(canonicalize(pr), opts.verifierPrivateKey)
+  const signature = sign(canonicalizeForWrite(pr), opts.verifierPrivateKey)
   return { ...pr, signature }
 }
 
@@ -754,7 +754,7 @@ export function appendPolicyChainEntry(
 ): PolicyChainEntry {
   const previousHash = chain.currentHash
   const hashInput = JSON.stringify({
-    constraints: canonicalize(constraints),
+    constraints: canonicalizeForWrite(constraints),
     previousPolicyHash: previousHash,
   })
   const policyHash = sha256(hashInput)

@@ -25,7 +25,7 @@
 //   derived reporting vocabulary and are never part of the signed bytes.
 // ════════════════════════════════════════════════════════════════════
 
-import { canonicalize } from '../../core/canonical.js'
+import { canonicalize, canonicalizeForWrite } from '../../core/canonical.js'
 import { verify } from '../../crypto/keys.js'
 import { defaultKeyId } from '../../adapters/remote-signer/types.js'
 import type { Signer } from '../../adapters/remote-signer/types.js'
@@ -123,7 +123,7 @@ export async function buildRevocationObservation(
     observer_key,
     observer_key_id,
   }
-  const signature = await signer.sign(canonicalize(signable))
+  const signature = await signer.sign(canonicalizeForWrite(signable))
   return { ...signable, signature }
 }
 

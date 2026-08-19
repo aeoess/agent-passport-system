@@ -10,7 +10,7 @@
 
 import { v4 as uuidv4 } from 'uuid'
 import { sign, verify, publicKeyFromPrivate } from '../crypto/keys.js'
-import { canonicalize } from './canonical.js'
+import { canonicalize, canonicalizeForWrite } from './canonical.js'
 import { buildMerkleRoot, generateMerkleProof, verifyMerkleProof } from './attribution.js'
 import type { MerkleProof } from '../types/passport.js'
 import type {
@@ -54,7 +54,7 @@ export function registerSelfAttestedSource(opts: {
     issuedAt: now,
     issuedBy: opts.ownerPublicKey,
   }
-  const canonical = canonicalize(receipt)
+  const canonical = canonicalizeForWrite(receipt)
   const signature = sign(canonical, opts.ownerPrivateKey)
   return { ...receipt, signature }
 }
@@ -82,7 +82,7 @@ export function registerCustodianAttestedSource(opts: {
     issuedAt: now,
     issuedBy: opts.custodianPublicKey,
   }
-  const canonical = canonicalize(receipt)
+  const canonical = canonicalizeForWrite(receipt)
   const signature = sign(canonical, opts.custodianPrivateKey)
   return { ...receipt, signature }
 }
@@ -108,7 +108,7 @@ export function registerGatewayObservedSource(opts: {
     issuedAt: now,
     issuedBy: opts.gatewayPublicKey,
   }
-  const canonical = canonicalize(receipt)
+  const canonical = canonicalizeForWrite(receipt)
   const signature = sign(canonical, opts.gatewayPrivateKey)
   return { ...receipt, signature }
 }
@@ -221,7 +221,7 @@ export function recordDataAccess(opts: {
     gatewayId: opts.gatewayId,
     gatewayPublicKey: opts.gatewayPublicKey,
   }
-  const canonical = canonicalize(receipt)
+  const canonical = canonicalizeForWrite(receipt)
   const gatewaySignature = sign(canonical, opts.gatewayPrivateKey)
   return { ...receipt, gatewaySignature }
 }

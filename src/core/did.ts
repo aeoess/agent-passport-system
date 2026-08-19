@@ -6,7 +6,7 @@
 // Maps Agent Passports to W3C DID Documents without
 // changing the core protocol. Pure translation layer.
 
-import { canonicalize } from './canonical.js'
+import { canonicalize, canonicalizeForWrite } from './canonical.js'
 import { sign, verify } from '../crypto/keys.js'
 import type { AgentPassport } from '../types/passport.js'
 import type {
@@ -169,7 +169,7 @@ export async function signWithDID(
   privateKey: string,
   did: string
 ): Promise<string> {
-  const canonical = canonicalize(data)
+  const canonical = canonicalizeForWrite(data)
   const sig = await sign(canonical, privateKey)
   return hexToBase64url(sig)
 }

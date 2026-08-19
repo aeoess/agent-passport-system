@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { createHash } from 'node:crypto'
-import { canonicalizeJCS } from '../../core/canonical-jcs.js'
+import { canonicalizeJCS, canonicalizeJCSForWrite } from '../../core/canonical-jcs.js'
 import { sign, verify } from '../../crypto/keys.js'
 import type { HistoricalKeyResolver } from '../../v2/identity-binding/types.js'
 import {
@@ -81,7 +81,7 @@ export function signA2AAgentCardV1(
   assertIJson(unsigned)
   const extension = getApsIdentityParamsV1(unsigned)
   if (!kid.startsWith(`${extension.agent_id}#`)) throw new Error('A2A signature kid is not controlled by agent_id')
-  const protectedHeader = canonicalizeJCS({ alg: 'EdDSA', kid, typ: 'JOSE' })
+  const protectedHeader = canonicalizeJCSForWrite({ alg: 'EdDSA', kid, typ: 'JOSE' })
   const protectedB64 = base64url(Buffer.from(protectedHeader, 'utf8'))
   const payloadB64 = base64url(Buffer.from(canonicalizeJCS(unsigned), 'utf8'))
   const signatureHex = sign(`${protectedB64}.${payloadB64}`, privateKeyHex)

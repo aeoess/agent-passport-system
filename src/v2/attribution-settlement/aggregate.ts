@@ -29,7 +29,7 @@
 // ══════════════════════════════════════════════════════════════════
 
 import { createHash } from 'node:crypto'
-import { canonicalize } from '../../core/canonical.js'
+import { canonicalize, canonicalizeForWrite } from '../../core/canonical.js'
 import {
   assertCanonicalTimestamp,
 } from '../attribution-primitive/canonical.js'
@@ -45,7 +45,7 @@ import type {
   ProtocolAxisItem,
   ResidualBucket,
 } from '../attribution-primitive/types.js'
-import { buildMerkleRoot, emptyAxisMerkleRoot, leafHash } from './merkle.js'
+import { buildMerkleRoot, emptyAxisMerkleRoot, leafHashForWrite } from './merkle.js'
 import type {
   SettlementAxisIndex,
   SettlementContributor,
@@ -93,6 +93,16 @@ export function contributorLeafHashHex(c: SettlementContributor): string {
  *  full bucket object. */
 export function residualLeafHashHex(r: SettlementResidualBucket): string {
   return createHash('sha256').update(canonicalize(r)).digest('hex')
+}
+/** Write-boundary twin of residualLeafHashHex().
+ *
+ *  Emits the same bytes as residualLeafHashHex() for every value it accepts. The only difference
+ *  is that an integer-valued number outside the interoperable IEEE 754 range is
+ *  refused instead of serialized. Use at signing and new-write boundaries ONLY:
+ *  residualLeafHashHex() stays unrestricted so an artifact signed before this rule keeps
+ *  verifying. */
+export function residualLeafHashHexForWrite(r: SettlementResidualBucket): string {
+  return createHash('sha256').update(canonicalizeForWrite(r)).digest('hex')
 }
 
 interface AxisAccum {
@@ -231,7 +241,7 @@ function finalizeAxis(
       contribution_count: count,
     }
     const merkle_leaf_hash = createHash('sha256')
-      .update(canonicalize(leafBody))
+      .update(canonicalizeForWrite(leafBody))
       .digest('hex')
     return {
       contributor_did: did,
@@ -248,7 +258,7 @@ function finalizeAxis(
     }
     const sortedPerReceiptHashes = [...accum.perReceiptResidualHashes].sort()
     const pooled_contributors_hash = createHash('sha256')
-      .update(canonicalize(sortedPerReceiptHashes))
+      .update(canonicalizeForWrite(sortedPerReceiptHashes))
       .digest('hex')
     const residual_id = (`residual:${axis}` as SettlementResidualBucket['residual_id'])
     residual_bucket = {
@@ -261,7 +271,7 @@ function finalizeAxis(
 
   const leafHashes: Buffer[] = contributors.map((c) => Buffer.from(c.merkle_leaf_hash, 'hex'))
   if (residual_bucket) {
-    leafHashes.push(Buffer.from(residualLeafHashHex(residual_bucket), 'hex'))
+    leafHashes.push(Buffer.from(residualLeafHashHexForWrite(residual_bucket), 'hex'))
   }
   const axis_merkle_root =
     leafHashes.length === 0 ? emptyAxisMerkleRoot() : buildMerkleRoot(leafHashes).toString('hex')
@@ -368,7 +378,7 @@ export function aggregateAttributionPrimitives(
   }
 
   const sortedActionRefs = inPeriod.map((r) => r.action_ref).sort()
-  const actionRefLeaves = sortedActionRefs.map((ref) => leafHash(ref))
+  const actionRefLeaves = sortedActionRefs.map((ref) => leafHashForWrite(ref))
   const input_receipts_hash =
     actionRefLeaves.length === 0
       ? emptyAxisMerkleRoot()

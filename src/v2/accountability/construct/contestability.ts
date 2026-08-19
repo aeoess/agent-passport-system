@@ -16,7 +16,7 @@
 // ══════════════════════════════════════════════════════════════════
 
 import { createHash } from 'node:crypto'
-import { canonicalizeJCS } from '../../../core/canonical-jcs.js'
+import { canonicalizeJCS, canonicalizeJCSForWrite } from '../../../core/canonical-jcs.js'
 import { sign, publicKeyFromPrivate } from '../../../crypto/keys.js'
 import type {
   ContestabilityReceipt,
@@ -72,11 +72,11 @@ export function createContestabilityReceipt(
   }
 
   const receipt_id = createHash('sha256')
-    .update(canonicalizeJCS(draft), 'utf8')
+    .update(canonicalizeJCSForWrite(draft), 'utf8')
     .digest('hex')
 
   const signed: ContestabilityReceipt = { ...draft, receipt_id }
-  const signature = sign(canonicalizeJCS(signed), contestantPrivateKey)
+  const signature = sign(canonicalizeJCSForWrite(signed), contestantPrivateKey)
 
   return { ...signed, signature }
 }
@@ -101,7 +101,7 @@ export function attachControllerResponse(
     ...receipt,
     controller_response: responseDraft,
   }
-  const response_signature = sign(canonicalizeJCS(receiptDraft), controllerPrivateKey)
+  const response_signature = sign(canonicalizeJCSForWrite(receiptDraft), controllerPrivateKey)
 
   return {
     ...receipt,

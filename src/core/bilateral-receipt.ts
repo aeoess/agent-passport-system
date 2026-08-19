@@ -17,7 +17,7 @@
 
 import { createHash, randomUUID } from 'node:crypto'
 import { sign, verify } from '../crypto/keys.js'
-import { canonicalize } from './canonical.js'
+import { canonicalize, canonicalizeForWrite } from './canonical.js'
 import { isRecord } from './is-record.js'
 import type {
   BilateralReceipt,
@@ -119,7 +119,7 @@ export function createBilateralReceipt(opts: {
   }
 
   // Both agents sign the SAME canonical body
-  const canonical = canonicalize(body)
+  const canonical = canonicalizeForWrite(body)
   const requestingAgentSignature = sign(canonical, opts.requestingAgentPrivateKey)
   const servingAgentSignature = sign(canonical, opts.servingAgentPrivateKey)
 

@@ -11,7 +11,7 @@
 
 import { randomBytes } from 'node:crypto'
 import { sign, verify } from '../crypto/keys.js'
-import { canonicalize } from './canonical.js'
+import { canonicalize, canonicalizeForWrite } from './canonical.js'
 import { scopeCovers } from './delegation.js'
 import type { Delegation } from '../types/passport.js'
 import type {
@@ -139,7 +139,7 @@ export function createTaskRequest(opts: {
     publicKey: opts.publicKey,
   }
 
-  const signature = sign(canonicalize(request), opts.privateKey)
+  const signature = sign(canonicalizeForWrite(request), opts.privateKey)
   return { ...request, signature }
 }
 
@@ -175,7 +175,7 @@ export function advertiseCapabilities(opts: {
     publicKey: opts.publicKey,
   }
 
-  const signature = sign(canonicalize(ad), opts.privateKey)
+  const signature = sign(canonicalizeForWrite(ad), opts.privateKey)
   return { ...ad, signature }
 }
 
@@ -207,7 +207,7 @@ export function claimTask(opts: {
     publicKey: opts.publicKey,
   }
 
-  const signature = sign(canonicalize(claim), opts.privateKey)
+  const signature = sign(canonicalizeForWrite(claim), opts.privateKey)
   return { ...claim, signature }
 }
 
@@ -237,7 +237,7 @@ export function declineTask(opts: {
     publicKey: opts.publicKey,
   }
 
-  const signature = sign(canonicalize(decline), opts.privateKey)
+  const signature = sign(canonicalizeForWrite(decline), opts.privateKey)
   return { ...decline, signature }
 }
 
@@ -397,7 +397,7 @@ export function routeTask(opts: {
     publicKey: opts.routerPublicKey,
   }
 
-  const signature = sign(canonicalize(decision), opts.routerPrivateKey)
+  const signature = sign(canonicalizeForWrite(decision), opts.routerPrivateKey)
 
   return {
     decision: { ...decision, signature },

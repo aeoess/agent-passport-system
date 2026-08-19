@@ -9,9 +9,9 @@
 
 import { createPrivateKey, sign as cryptoSign } from 'node:crypto'
 import {
-  canonicalizeEnvelope,
+  canonicalizeEnvelopeForWrite,
   canonicalizePath,
-  computeContextRoot,
+  computeContextRootForWrite,
   sha256Hex,
   sortInstructionFiles,
 } from './canonicalize.js'
@@ -94,7 +94,7 @@ export function createInstructionProvenanceReceipt(
   }
 
   const sortedFiles = sortInstructionFiles(canonicalFiles)
-  const contextRoot = computeContextRoot(sortedFiles)
+  const contextRoot = computeContextRootForWrite(sortedFiles)
   const issuedAt = input.issued_at ?? new Date().toISOString()
   const signingKeyId = `ed25519:${input.publicKeyHex.slice(0, 16)}`
 
@@ -115,7 +115,7 @@ export function createInstructionProvenanceReceipt(
     signing_key_id: signingKeyId,
   }
 
-  const canonicalBytes = canonicalizeEnvelope(unsigned)
+  const canonicalBytes = canonicalizeEnvelopeForWrite(unsigned)
   const receiptId = sha256Hex(canonicalBytes)
   const signatureHex = signEd25519(canonicalBytes, input.privateKeyHex)
 

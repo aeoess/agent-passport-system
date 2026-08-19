@@ -19,7 +19,7 @@
 // and scoring model. The actual LLM interaction is external.
 // ══════════════════════════════════════════════════════════════════
 
-import { canonicalize } from './canonical.js'
+import { canonicalize, canonicalizeForWrite } from './canonical.js'
 import { sign, verify } from '../crypto/keys.js'
 import type { SubstrateFidelity, FidelityAttestation } from '../types/gateway.js'
 
@@ -296,7 +296,7 @@ export function createFidelityAttestation(
   measuringSystem: { id: string; privateKey: string },
 ): FidelityAttestation {
   const attestationId = `fa_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
-  const payload = canonicalize({ attestationId, agentId, fidelity })
+  const payload = canonicalizeForWrite({ attestationId, agentId, fidelity })
   const signature = sign(payload, measuringSystem.privateKey)
 
   return {

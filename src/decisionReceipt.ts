@@ -23,7 +23,7 @@
 
 import { createHash } from 'node:crypto'
 import { sign } from './crypto/keys.js'
-import { canonicalizeJCS } from './core/canonical-jcs.js'
+import { canonicalizeJCS, canonicalizeJCSForWrite } from './core/canonical-jcs.js'
 import type { ActionIntent, PolicyDecision, EpistemicClaims } from './types/policy.js'
 import type { Delegation, ActionReceipt } from './types/passport.js'
 
@@ -129,7 +129,7 @@ function sha256Hex(input: string | Buffer): string {
 }
 
 function digestOf(obj: unknown): { sha256: string } {
-  return { sha256: sha256Hex(canonicalizeJCS(obj)) }
+  return { sha256: sha256Hex(canonicalizeJCSForWrite(obj)) }
 }
 
 /** Compute the delegation chain root digest used by v2.3 bilateral receipts.
@@ -138,6 +138,16 @@ function digestOf(obj: unknown): { sha256: string } {
  *  Python hermes-aps-delegation emitter) can reproduce it byte-for-byte. */
 export function computeDelegationChainRoot(chain: Delegation[]): string {
   return sha256Hex(canonicalizeJCS(chainRootPreimage(chain)))
+}
+/** Write-boundary twin of computeDelegationChainRoot().
+ *
+ *  Emits the same bytes as computeDelegationChainRoot() for every value it accepts. The only difference
+ *  is that an integer-valued number outside the interoperable IEEE 754 range is
+ *  refused instead of serialized. Use at signing and new-write boundaries ONLY:
+ *  computeDelegationChainRoot() stays unrestricted so an artifact signed before this rule keeps
+ *  verifying. */
+export function computeDelegationChainRootForWrite(chain: Delegation[]): string {
+  return sha256Hex(canonicalizeJCSForWrite(chainRootPreimage(chain)))
 }
 
 /** Normalize a chain for the chain-root preimage only.
@@ -197,7 +207,7 @@ export function emitDecisionReceipt(input: EmitDecisionReceiptInput): DecisionRe
     policyId: input.policyId,
     policyDigest: digestOf({ version: input.decision.floorVersion, policyId: input.policyId }),
     delegationChainRoot: {
-      sha256: computeDelegationChainRoot(input.delegationChain),
+      sha256: computeDelegationChainRootForWrite(input.delegationChain),
     },
     delegationDepth: input.delegationChain.length,
     epistemicClaims: input.epistemicClaims,
@@ -221,7 +231,7 @@ export function emitDecisionReceipt(input: EmitDecisionReceiptInput): DecisionRe
     predicate,
   }
 
-  const payload = canonicalizeJCS(statement)
+  const payload = canonicalizeJCSForWrite(statement)
   const signature = sign(payload, input.signerPrivateKey)
 
   return {

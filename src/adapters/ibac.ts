@@ -11,7 +11,7 @@
 
 import { createDelegation, scopeAuthorizes } from '../core/delegation.js'
 import { sign } from '../crypto/keys.js'
-import { canonicalize } from '../core/canonical.js'
+import { canonicalizeForWrite } from '../core/canonical.js'
 import type { Delegation, ActionReceipt, SignedPassport } from '../types/passport.js'
 
 // ── Types ──
@@ -177,7 +177,7 @@ export function governIBACIntent(
     delegationChain: [],
   }
 
-  const canonical = canonicalize(receiptData)
+  const canonical = canonicalizeForWrite(receiptData)
   const signature = sign(canonical, config.privateKey)
   const receipt = { ...receiptData, signature } as ActionReceipt
 

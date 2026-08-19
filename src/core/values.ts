@@ -12,7 +12,7 @@
 import { v4 as uuidv4 } from 'uuid'
 import { readFileSync } from 'node:fs'
 import { sign, verify } from '../crypto/keys.js'
-import { canonicalize } from './canonical.js'
+import { canonicalize, canonicalizeForWrite } from './canonical.js'
 import { scopeAuthorizes } from './delegation.js'
 import { ENFORCEMENT_ESCALATION_ORDER } from '../types/passport.js'
 import type {
@@ -229,7 +229,7 @@ export function attestFloor(
     commitment: `floor:${floorVersion}|ext:${extensions.sort().join(',') || 'none'}|ts:${now.toISOString()}`
   }
 
-  const canonical = canonicalize(attestation)
+  const canonical = canonicalizeForWrite(attestation)
   const signature = sign(canonical, privateKey)
 
   return { ...attestation, signature }
@@ -310,7 +310,7 @@ export function evaluateCompliance(
     generatedAt: new Date().toISOString()
   }
 
-  const canonical = canonicalize(report)
+  const canonical = canonicalizeForWrite(report)
   const signature = sign(canonical, verifierPrivateKey)
   return { ...report, signature }
 }

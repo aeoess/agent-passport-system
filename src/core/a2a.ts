@@ -4,7 +4,7 @@
 // Maps Agent Passports to A2A Agent Cards and vice versa.
 // Positions AEOESS as the trust/identity layer underneath A2A.
 
-import { canonicalize } from './canonical.js'
+import { canonicalize, canonicalizeForWrite } from './canonical.js'
 import { sign } from '../crypto/keys.js'
 import { createDID, publicKeyFromDID } from './did.js'
 import type { AgentPassport } from '../types/passport.js'
@@ -43,7 +43,7 @@ export async function passportToAgentCard(
     capabilities: passport.capabilities,
     url: options.url, timestamp: new Date().toISOString()
   }
-  const signature = await sign(canonicalize(cardContent), privateKey)
+  const signature = await sign(canonicalizeForWrite(cardContent), privateKey)
 
   const card: A2AAgentCard = {
     name: passport.agentName,

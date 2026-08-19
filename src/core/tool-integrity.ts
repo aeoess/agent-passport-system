@@ -15,7 +15,7 @@
 
 import { createHash } from 'node:crypto'
 import { sign, verify } from '../crypto/keys.js'
-import { canonicalize } from './canonical.js'
+import { canonicalize, canonicalizeForWrite } from './canonical.js'
 
 /** Registry entry for a verified tool */
 export interface ToolRegistryEntry {
@@ -84,7 +84,7 @@ export function createToolRegistryEntry(input: {
     attestorId: input.attestorId,
     verifiedAt: now,
   }
-  const signature = sign(canonicalize(body), input.attestorPrivateKey)
+  const signature = sign(canonicalizeForWrite(body), input.attestorPrivateKey)
 
   return { ...body, signature }
 }
@@ -301,6 +301,16 @@ function hashImplementation(impl: string | Buffer): string {
 function hashMetadata(meta: ToolMetadata): string {
   return SHA256(canonicalize(meta))
 }
+/** Write-boundary twin of hashMetadata().
+ *
+ *  Emits the same bytes as hashMetadata() for every value it accepts. The only difference
+ *  is that an integer-valued number outside the interoperable IEEE 754 range is
+ *  refused instead of serialized. Use at signing and new-write boundaries ONLY:
+ *  hashMetadata() stays unrestricted so an artifact signed before this rule keeps
+ *  verifying. */
+function hashMetadataForWrite(meta: ToolMetadata): string {
+  return SHA256(canonicalizeForWrite(meta))
+}
 
 /** Canonical signing body — the manifest minus BOTH signatures. The attestor
  *  and the publisher sign exactly this string. */
@@ -430,7 +440,7 @@ export function createToolManifest(input: {
     toolName: input.toolName,
     namespace: input.namespace,
     implementationHash: hashImplementation(input.implementation),
-    metadataHash: hashMetadata(input.metadata),
+    metadataHash: hashMetadataForWrite(input.metadata),
     publisherDid: input.publisherDid,
     trustRoot: input.trustRoot,
     attestorDid: input.attestorDid,
@@ -439,7 +449,7 @@ export function createToolManifest(input: {
     approvalState: input.approvalState ?? 'approved',
     verifiedAt: input.verifiedAt ?? new Date().toISOString(),
   }
-  const canon = canonicalize(body)
+  const canon = canonicalizeForWrite(body)
   const signature = sign(canon, input.attestorPrivateKey)
   const publisherSignature = input.publisherPrivateKey
     ? sign(canon, input.publisherPrivateKey)
@@ -585,7 +595,7 @@ export function createNamespaceClaim(input: {
   trustRoot: ToolTrustRoot
   ownerPrivateKey: string
 }): NamespaceClaim {
-  const canon = canonicalize({ namespace: input.namespace, ownerDid: input.ownerDid })
+  const canon = canonicalizeForWrite({ namespace: input.namespace, ownerDid: input.ownerDid })
   return {
     namespace: input.namespace,
     ownerDid: input.ownerDid,
@@ -647,7 +657,7 @@ export function reviseToolManifest(
     ? hashImplementation(changes.implementation)
     : prevManifest.implementationHash
   const metadataHash = changes.metadata !== undefined
-    ? hashMetadata(changes.metadata)
+    ? hashMetadataForWrite(changes.metadata)
     : prevManifest.metadataHash
 
   const substantive =
@@ -667,7 +677,7 @@ export function reviseToolManifest(
     approvalState: substantive ? 'pending-reapproval' : prevManifest.approvalState,
     verifiedAt: opts?.verifiedAt ?? new Date().toISOString(),
   }
-  const canon = canonicalize(body)
+  const canon = canonicalizeForWrite(body)
   const publisherSignature = prevManifest.publisherDid !== undefined
     ? sign(canon, opts!.publisherPrivateKey!)
     : undefined
@@ -716,7 +726,7 @@ export function reapproveToolManifest(
     approvalState: 'approved',
     verifiedAt: opts.verifiedAt ?? new Date().toISOString(),
   }
-  const canon = canonicalize(body)
+  const canon = canonicalizeForWrite(body)
   const publisherSignature = manifest.publisherDid !== undefined
     ? sign(canon, opts.publisherPrivateKey!)
     : undefined

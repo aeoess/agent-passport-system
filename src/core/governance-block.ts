@@ -17,6 +17,9 @@
 
 import { createHash } from 'node:crypto'
 import { sign, verify, canonicalize, createDID } from '../index.js'
+// Write-policy canonicalizer imported directly: it is an internal helper and is
+// deliberately NOT re-exported from the public barrel above.
+import { canonicalizeForWrite } from './canonical.js'
 
 // ═══════════════════════════════════════
 // Types
@@ -136,7 +139,7 @@ export function generateGovernanceBlock(input: GenerateGovernanceBlockInput): Go
     ...(input.skillContent ? { skill_hash: `sha256:${createHash('sha256').update(input.skillContent).digest('hex')}` } : {}),
   }
 
-  const payload = canonicalize(block)
+  const payload = canonicalizeForWrite(block)
   const signature = sign(payload, input.privateKey)
 
   return { ...block, signature }
@@ -353,7 +356,7 @@ export function bindGovernanceToImplementation(input: {
   // Hash the governance block
   const { signature: _sig, ...blockWithoutSig } = governanceBlock
   const governanceBlockHash = `sha256:${createHash('sha256')
-    .update(canonicalize(blockWithoutSig))
+    .update(canonicalizeForWrite(blockWithoutSig))
     .digest('hex')}`
 
   // Create the binding hash — ties block to implementation
@@ -365,7 +368,7 @@ export function bindGovernanceToImplementation(input: {
   const now = new Date().toISOString()
 
   // Sign the binding
-  const bindingPayload = canonicalize({
+  const bindingPayload = canonicalizeForWrite({
     governanceBlockHash,
     implementationHash,
     bindingHash,
@@ -494,7 +497,7 @@ export function createVerifiedGovernanceCredential(input: {
   // Hash the block (excluding signature for consistency with verification)
   const { signature: _sig, ...blockWithoutSig } = block
   const blockHash = `sha256:${createHash('sha256')
-    .update(canonicalize(blockWithoutSig))
+    .update(canonicalizeForWrite(blockWithoutSig))
     .digest('hex')}`
 
   const now = new Date().toISOString()
@@ -513,7 +516,7 @@ export function createVerifiedGovernanceCredential(input: {
     },
   }
 
-  const proofPayload = canonicalize(credential)
+  const proofPayload = canonicalizeForWrite(credential)
   const proofValue = sign(proofPayload, privateKey)
 
   return {

@@ -23,7 +23,7 @@
 // ══════════════════════════════════════════════════════════════════
 
 import { createHash } from 'node:crypto'
-import { canonicalize } from '../../core/canonical.js'
+import { canonicalize, canonicalizeForWrite } from '../../core/canonical.js'
 
 const LEAF_TAG = Buffer.from([0x00])
 const NODE_TAG = Buffer.from([0x01])
@@ -46,6 +46,16 @@ function hashInternalNode(left: Buffer, right: Buffer): Buffer {
 /** sha256(canonicalize(obj)) as raw 32 bytes. */
 export function leafHash(obj: unknown): Buffer {
   return createHash('sha256').update(canonicalize(obj)).digest()
+}
+/** Write-boundary twin of leafHash().
+ *
+ *  Emits the same bytes as leafHash() for every value it accepts. The only difference
+ *  is that an integer-valued number outside the interoperable IEEE 754 range is
+ *  refused instead of serialized. Use at signing and new-write boundaries ONLY:
+ *  leafHash() stays unrestricted so an artifact signed before this rule keeps
+ *  verifying. */
+export function leafHashForWrite(obj: unknown): Buffer {
+  return createHash('sha256').update(canonicalizeForWrite(obj)).digest()
 }
 
 /** Build a balanced binary Merkle tree over arbitrary leaf hashes and

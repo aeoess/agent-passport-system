@@ -7,7 +7,7 @@
 import { v4 as uuidv4 } from 'uuid'
 import { createHash } from 'node:crypto'
 import { generateKeyPair, sign, verify } from '../crypto/keys.js'
-import { canonicalize } from './canonical.js'
+import { canonicalize, canonicalizeForWrite } from './canonical.js'
 import { createDID, publicKeyFromDID } from './did.js'
 import type { KeyPair, SignedPassport } from '../types/passport.js'
 import type {
@@ -77,7 +77,7 @@ export function endorseAgent(options: {
     expiresAt: expiry.toISOString()
   }
 
-  const canonical = canonicalize(payload)
+  const canonical = canonicalizeForWrite(payload)
   const signature = sign(canonical, options.principalPrivateKey)
 
   return {
@@ -192,7 +192,7 @@ export function createDisclosure(
       break
   }
 
-  const canonical = canonicalize(revealedFields)
+  const canonical = canonicalizeForWrite(revealedFields)
   const proof = sign(canonical, principalPrivateKey)
 
   return {

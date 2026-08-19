@@ -18,6 +18,7 @@
 import { v4 as uuidv4 } from 'uuid'
 import { sha256, signObject, verifyObject } from './bridge.js'
 import { validateV2Delegation } from './delegation-v2.js'
+import { assertWriteSafeNumbers } from '../core/write-policy.js'
 import type {
   V2Delegation, EscalationRequirement, ConfirmationRequest,
   OwnerConfirmation, ConfirmationScope,
@@ -38,6 +39,20 @@ export interface EscalationCheck {
 
 // ── Hash the content that the confirmation binds to ──
 export function hashActionDetails(details: Record<string, unknown>): string {
+  return sha256(JSON.stringify(details))
+}
+
+/** Write-boundary twin of hashActionDetails().
+ *
+ *  This commitment is minted by requestOwnerConfirmation and recomputed by
+ *  isConfirmationValid and by the payment-rails hook, so the helper is shared and
+ *  cannot be guarded in place.
+ *
+ *  Note it does NOT canonicalize: it hashes JSON.stringify output, so no canonicalizer
+ *  census could see it. The guard therefore VALIDATES ONLY and still hashes the exact
+ *  same JSON.stringify bytes, which keeps every existing commitment reproducible. */
+export function hashActionDetailsForWrite(details: Record<string, unknown>): string {
+  assertWriteSafeNumbers(details)
   return sha256(JSON.stringify(details))
 }
 
@@ -88,7 +103,7 @@ export function requestOwnerConfirmation(
     id: uuidv4(),
     delegation_id: delegation.id,
     action_class: action.action_class,
-    action_details_hash: hashActionDetails(action.action_details),
+    action_details_hash: hashActionDetailsForWrite(action.action_details),
     confirmation_scope: requirement.confirmation_scope,
     session_id: action.session_id ?? null,
     confirmation_ttl_ms: requirement.confirmation_ttl_ms,

@@ -28,7 +28,7 @@
 // ══════════════════════════════════════════════════════════════════
 
 import { randomUUID } from 'node:crypto'
-import { canonicalizeJCS } from '../../../core/canonical-jcs.js'
+import { canonicalizeJCS, canonicalizeJCSForWrite } from '../../../core/canonical-jcs.js'
 import { publicKeyFromPrivate, sign, verify as edVerify } from '../../../crypto/keys.js'
 import {
   parseDidUri,
@@ -466,7 +466,7 @@ export function signMppReceipt(
     unsigned.settlement_record_id = input.settlement_record_id
   }
 
-  const sigBytes = canonicalizeJCS(unsigned)
+  const sigBytes = canonicalizeJCSForWrite(unsigned)
   const signature = sign(sigBytes, signerPrivateKeyHex)
   return { ...unsigned, signature }
 }
@@ -631,7 +631,7 @@ export function signMppDenial(
     issued_at: nowIso(),
   }
 
-  const sigBytes = canonicalizeJCS(unsigned)
+  const sigBytes = canonicalizeJCSForWrite(unsigned)
   const signature = sign(sigBytes, signerPrivateKeyHex)
   return { ...unsigned, signature }
 }

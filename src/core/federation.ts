@@ -5,7 +5,7 @@
 // ══════════════════════════════════════════════════════════════════
 
 import { sign, verify } from '../crypto/keys.js'
-import { canonicalize } from './canonical.js'
+import { canonicalize, canonicalizeForWrite } from './canonical.js'
 import { createHash } from 'crypto'
 import type { ForeignReceiptEnvelope, VouchedReputation } from '../types/federation.js'
 import type { GatewayImportPolicy } from '../types/gateway.js'
@@ -47,7 +47,7 @@ export function importReceipt(opts: ImportReceiptOptions): ForeignReceiptEnvelop
     importedAt: now,
   }
 
-  const canonical = canonicalize(envelope)
+  const canonical = canonicalizeForWrite(envelope)
   const importingGatewaySignature = sign(canonical, opts.importerPrivateKey)
   return { ...envelope, importingGatewaySignature }
 }
@@ -90,7 +90,7 @@ export function vouchReputation(opts: VouchReputationOptions): VouchedReputation
     expiresAt,
   }
 
-  const canonical = canonicalize(rep)
+  const canonical = canonicalizeForWrite(rep)
   const originGatewaySignature = sign(canonical, opts.gatewayPrivateKey)
   return { ...rep, originGatewaySignature }
 }

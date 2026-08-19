@@ -19,7 +19,7 @@
 // ══════════════════════════════════════════════════════════════════
 
 import { createHash } from 'node:crypto'
-import { canonicalizeJCS } from '../../core/canonical-jcs.js'
+import { canonicalizeJCS, canonicalizeJCSForWrite } from '../../core/canonical-jcs.js'
 import type { ContextItem, ContextChannel } from './types.js'
 
 // ── Domain tags (frozen byte values; trailing newline is intentional) ──
@@ -80,6 +80,16 @@ export function leafPreimage(leaf: ContextItem): LeafPreimage {
 export function leafHash(leaf: ContextItem): Uint8Array {
   return sha256(utf8(LEAF_TAG), utf8(canonicalizeJCS(leafPreimage(leaf))))
 }
+/** Write-boundary twin of leafHash().
+ *
+ *  Emits the same bytes as leafHash() for every value it accepts. The only difference
+ *  is that an integer-valued number outside the interoperable IEEE 754 range is
+ *  refused instead of serialized. Use at signing and new-write boundaries ONLY:
+ *  leafHash() stays unrestricted so an artifact signed before this rule keeps
+ *  verifying. */
+export function leafHashForWrite(leaf: ContextItem): Uint8Array {
+  return sha256(utf8(LEAF_TAG), utf8(canonicalizeJCSForWrite(leafPreimage(leaf))))
+}
 
 /** node_hash = sha256( utf8(NODE_TAG) || left32 || right32 ) over RAW
  *  32-byte digests. Returns the raw 32-byte digest. */
@@ -122,7 +132,10 @@ function reduce(level: Uint8Array[]): Uint8Array {
  * Single leaf => partition_root = that leaf digest (no node hashing).
  * Throws on an empty leaf list (empty partitions are omitted upstream).
  */
-export function buildPartitionRootBytes(leaves: ContextItem[]): Uint8Array {
+function buildPartitionRootBytesImpl(
+  leaves: ContextItem[],
+  leaf: (l: ContextItem) => Uint8Array,
+): Uint8Array {
   if (leaves.length === 0) {
     throw new Error('CPA merkle: a present partition must have at least one leaf')
   }
@@ -134,8 +147,22 @@ export function buildPartitionRootBytes(leaves: ContextItem[]): Uint8Array {
       throw new Error(`CPA merkle: duplicate ctx_id "${sorted[i].ctx_id}" within partition`)
     }
   }
-  const digests = sorted.map(leafHash)
+  const digests = sorted.map(leaf)
   return reduce(digests)
+}
+
+export function buildPartitionRootBytes(leaves: ContextItem[]): Uint8Array {
+  return buildPartitionRootBytesImpl(leaves, leafHash)
+}
+
+/** Write-boundary twin of buildPartitionRootBytes().
+ *
+ *  Reaches a canonicalizer only indirectly, through leafHash, so a call-site census
+ *  over canonicalizer usage cannot see it. Use when BUILDING a CPA; the recompute path
+ *  in verify.ts keeps calling buildPartitionRootBytes() so a CPA signed before this
+ *  rule still verifies. */
+export function buildPartitionRootBytesForWrite(leaves: ContextItem[]): Uint8Array {
+  return buildPartitionRootBytesImpl(leaves, leafHashForWrite)
 }
 
 /** Hex convenience wrapper around buildPartitionRootBytes. */
@@ -227,7 +254,11 @@ export interface InclusionProof {
  * Throws on an empty partition, a duplicate ctx_id, or a ctx_id not found
  * (these are producer-side invariants; the verifier never calls this).
  */
-export function buildInclusionProof(leaves: ContextItem[], ctx_id: string): InclusionProof {
+function buildInclusionProofImpl(
+  leaves: ContextItem[],
+  ctx_id: string,
+  leaf: (l: ContextItem) => Uint8Array,
+): InclusionProof {
   if (leaves.length === 0) {
     throw new Error('CPA merkle: cannot build an inclusion proof over an empty partition')
   }
@@ -244,7 +275,7 @@ export function buildInclusionProof(leaves: ContextItem[], ctx_id: string): Incl
     throw new Error(`CPA merkle: ctx_id "${ctx_id}" not found in partition`)
   }
 
-  let current = sorted.map(leafHash)
+  let current = sorted.map(leaf)
   const path: InclusionStep[] = []
 
   while (current.length > 1) {
@@ -274,6 +305,19 @@ export function buildInclusionProof(leaves: ContextItem[], ctx_id: string): Incl
   }
 
   return { ctx_id, path }
+}
+
+export function buildInclusionProof(leaves: ContextItem[], ctx_id: string): InclusionProof {
+  return buildInclusionProofImpl(leaves, ctx_id, leafHash)
+}
+
+/** Write-boundary twin of buildInclusionProof().
+ *
+ *  Reaches a canonicalizer only indirectly, through leafHash, so a call-site census over
+ *  canonicalizer usage cannot see it. Use when BUILDING a CPA; verifyInclusionProof keeps
+ *  calling leafHash() unrestricted so a proof emitted before this rule still checks. */
+export function buildInclusionProofForWrite(leaves: ContextItem[], ctx_id: string): InclusionProof {
+  return buildInclusionProofImpl(leaves, ctx_id, leafHashForWrite)
 }
 
 /**

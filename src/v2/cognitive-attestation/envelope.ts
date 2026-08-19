@@ -14,7 +14,7 @@
 // ══════════════════════════════════════════════════════════════════
 
 import { createHash } from 'node:crypto'
-import { canonicalizeJCS } from '../../core/canonical-jcs.js'
+import { canonicalizeJCS, canonicalizeJCSForWrite } from '../../core/canonical-jcs.js'
 import { sign as edSignHex } from '../../crypto/keys.js'
 import type {
   CognitiveAttestation,
@@ -102,14 +102,33 @@ export function buildAttestation(input: BuildAttestationInput): CognitiveAttesta
  *
  * Returns UTF-8 bytes. To obtain the canonical string, decode with TextDecoder.
  */
-export function canonicalizeAttestation(att: CognitiveAttestation): Uint8Array {
+function canonicalizeAttestationImpl(
+  att: CognitiveAttestation,
+  canon: (v: unknown) => string,
+): Uint8Array {
   const view: CognitiveAttestation = {
     ...att,
     feature_activations: sortFeatureActivations(att.feature_activations),
     signatures: [],
   }
-  const s = canonicalizeJCS(view)
+  const s = canon(view)
   return new TextEncoder().encode(s)
+}
+
+export function canonicalizeAttestation(att: CognitiveAttestation): Uint8Array {
+  return canonicalizeAttestationImpl(att, canonicalizeJCS)
+}
+
+/** Write-boundary twin of canonicalizeAttestation().
+ *
+ *  Shares one implementation body with canonicalizeAttestation() so the two can never drift apart
+ *  on the field list. Emits the same bytes for every value it accepts; the only
+ *  difference is that an integer-valued number outside the interoperable IEEE 754
+ *  range is refused instead of serialized. Use at signing and new-write boundaries
+ *  ONLY: canonicalizeAttestation() stays unrestricted so an artifact signed before this rule keeps
+ *  verifying. */
+export function canonicalizeAttestationForWrite(att: CognitiveAttestation): Uint8Array {
+  return canonicalizeAttestationImpl(att, canonicalizeJCSForWrite)
 }
 
 /**
@@ -133,7 +152,7 @@ export function signAttestation(
     throw new Error('signAttestation: signerDid must be a non-empty string')
   }
 
-  const canonicalBytes = canonicalizeAttestation(att)
+  const canonicalBytes = canonicalizeAttestationForWrite(att)
   const canonicalString = new TextDecoder().decode(canonicalBytes)
   const privateKeyHex = bytesToHex(privateKey)
   const sigHex = edSignHex(canonicalString, privateKeyHex)

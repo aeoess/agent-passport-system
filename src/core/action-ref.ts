@@ -18,7 +18,7 @@
 // ══════════════════════════════════════════════════════════════════
 
 import { normalizeTimestamp } from './canonical.js'
-import { canonicalHashJCS } from './canonical-jcs.js'
+import { canonicalHashJCS, canonicalHashJCSForWrite } from './canonical-jcs.js'
 import type { ActionIntent } from '../types/policy.js'
 
 /**
@@ -139,14 +139,31 @@ function canonicalizeScopeRequired(scope: unknown): unknown {
  *
  * Returns: lowercase hex SHA-256 digest.
  */
-export function computeActionRef(intent: ActionRefIntent): string {
+function computeActionRefImpl(
+  intent: ActionRefIntent,
+  hash: (obj: Record<string, unknown>) => string,
+): string {
   const ts = intent.createdAt ?? new Date().toISOString()
-  return canonicalHashJCS({
+  return hash({
     agentId: intent.agentId,
     actionType: intent.action.type,
     scopeRequired: canonicalizeScopeRequired(intent.action.scopeRequired),
     timestamp: normalizeTimestamp(ts),
   })
+}
+
+export function computeActionRef(intent: ActionRefIntent): string {
+  return computeActionRefImpl(intent, canonicalHashJCS)
+}
+
+/** Write-boundary twin of computeActionRef().
+ *
+ *  Module-internal on purpose: absent from every barrel, so this adds no public API.
+ *  The exported computeActionRef() stays unrestricted, because a verifier re-deriving
+ *  the action_ref of an intent signed before this rule must still get the same value.
+ *  Mirrors the Python SDK's treatment of the sibling attribution primitive. */
+export function computeActionRefForWrite(intent: ActionRefIntent): string {
+  return computeActionRefImpl(intent, canonicalHashJCSForWrite)
 }
 
 /**
