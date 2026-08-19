@@ -22,7 +22,7 @@ import { createHash } from 'crypto'
 import { sign, verify } from '../crypto/keys.js'
 import { canonicalize, canonicalizeForWrite } from './canonical.js'
 import { scopeAuthorizes } from './delegation.js'
-import { computeActionRef } from './action-ref.js'
+import { computeActionRefForWrite } from './action-ref.js'
 import type { EnforcementMode } from '../types/passport.js'
 import type {
   ActionIntent, PolicyDecision, PolicyReceipt,
@@ -63,7 +63,7 @@ export function createActionIntent(opts: {
     createdAt: new Date().toISOString()
   }
   // Content-addressed request identity (A2A#1672)
-  intent.actionRef = computeActionRef(intent)
+  intent.actionRef = computeActionRefForWrite(intent)
 
   const signature = sign(canonicalizeForWrite(intent), opts.privateKey)
   return { ...intent, signature }
@@ -195,7 +195,7 @@ export function createPolicyReceipt(opts: {
     },
     verifiedAt: new Date().toISOString(),
     // Request identity copied from intent (A2A#1672)
-    actionRef: opts.intent.actionRef ?? computeActionRef(opts.intent)
+    actionRef: opts.intent.actionRef ?? computeActionRefForWrite(opts.intent)
   }
 
   // v2.3 — bilateral receipt fields (optional, backward-compatible)

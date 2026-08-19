@@ -16,7 +16,7 @@
 // ══════════════════════════════════════════════════════════════════
 
 import { createHash } from 'node:crypto'
-import { canonicalize } from '../../core/canonical.js'
+import { canonicalize, canonicalizeForWrite } from '../../core/canonical.js'
 import { toWeightString } from './canonical.js'
 import type {
   ComputeAxisEntry,
@@ -55,7 +55,7 @@ function weightNumber(w: string): number {
  *  For the reference implementation we commit to the canonicalized list. */
 function pooledContributorsHash(entries: ReadonlyArray<{ did: string; weight: string }>): string {
   const sorted = [...entries].sort((a, b) => (a.did < b.did ? -1 : a.did > b.did ? 1 : 0))
-  return createHash('sha256').update(canonicalize(sorted)).digest('hex')
+  return createHash('sha256').update(canonicalizeForWrite(sorted)).digest('hex')
 }
 
 export interface AggregateOptions {

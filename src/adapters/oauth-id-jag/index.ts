@@ -24,7 +24,7 @@
 //   relying party. Soundness here is by accountability (a keyed caller on the
 //   hook), not by construction.
 
-import { canonicalHashJCS } from '../../core/canonical-jcs.js'
+import { canonicalHashJCSForWrite } from '../../core/canonical-jcs.js'
 import { computeDelegationChainRootForWrite } from '../../decisionReceipt.js'
 import { createDelegationRef } from '../../core/reanchor.js'
 import { sign, publicKeyFromPrivate } from '../../crypto/keys.js'
@@ -180,7 +180,7 @@ export function bindIdJagGrant(
   }
 
   const preimage = sourceGrantRefPreimage(claims)
-  const sourceGrantRef = canonicalHashJCS(preimage as unknown as Record<string, unknown>)
+  const sourceGrantRef = canonicalHashJCSForWrite(preimage as unknown as Record<string, unknown>)
 
   const message = `verified grant ${sourceGrantRef} at ${verifiedAt}`
   const signature = sign(message, callerPrivateKey)

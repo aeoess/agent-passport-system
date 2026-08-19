@@ -43,7 +43,7 @@
 import { createHash } from 'node:crypto'
 import { sign, verify } from '../../crypto/keys.js'
 import { createDID } from '../../core/did.js'
-import { canonicalizeJCS, canonicalHashJCS } from '../../core/canonical-jcs.js'
+import { canonicalizeJCS, canonicalizeJCSForWrite, canonicalHashJCS } from '../../core/canonical-jcs.js'
 import { resolveTermsForPath } from '../../core/aps-txt.js'
 import type { ApsTxt } from '../../core/aps-txt.js'
 import type { GovernanceTerms } from '../../core/governance-block.js'
@@ -181,8 +181,10 @@ export function createPolicyBundle(input: CreatePolicyBundleInput): PolicyBundle
     scopeOfClaim: input.scopeOfClaim ?? defaultPolicyBundleScope(),
   }
 
-  // Detached signature over the JCS-canonical manifest.
-  const canonical = canonicalizeJCS(manifest as unknown as Record<string, unknown>)
+  // Detached signature over the JCS-canonical manifest. This is a NEW bundle, so the
+  // write canonicalizer applies; verifyPolicyBundle rebuilds the same string with the
+  // unrestricted form so a bundle signed before the rule still verifies.
+  const canonical = canonicalizeJCSForWrite(manifest as unknown as Record<string, unknown>)
   const signature = sign(canonical, input.signerPrivateKey)
 
   return { manifest, signature, tarHex: bytesToHex(tarBytes) }

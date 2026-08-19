@@ -48,11 +48,22 @@ export function authorityDelegationSignatureInput(
   return AUTHORITY_DELEGATION_SIGNATURE_DOMAIN + canonicalizeJCS(delegation)
 }
 
+/** Write-boundary twin of authorityDelegationSignatureInput().
+ *
+ *  signAuthorityDelegation() mints a signature over this string while
+ *  verifyAuthorityDelegationSignature() rebuilds the identical string to check an
+ *  existing one, so the helper is shared and cannot be guarded in place. */
+function authorityDelegationSignatureInputForWrite(
+  delegation: Omit<AuthorityDelegationV1, 'signature'>,
+): string {
+  return AUTHORITY_DELEGATION_SIGNATURE_DOMAIN + canonicalizeJCSForWrite(delegation)
+}
+
 export function signAuthorityDelegation(
   delegation: Omit<AuthorityDelegationV1, 'signature'>,
   privateKey: string,
 ): string {
-  return sign(authorityDelegationSignatureInput(delegation), privateKey)
+  return sign(authorityDelegationSignatureInputForWrite(delegation), privateKey)
 }
 
 export function verifyAuthorityDelegationSignature(

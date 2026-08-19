@@ -5,7 +5,7 @@
 // ══════════════════════════════════════════════════════════════════
 
 import { sign, verify } from '../../crypto/keys.js'
-import { canonicalize } from '../../core/canonical.js'
+import { canonicalize, canonicalizeForWrite } from '../../core/canonical.js'
 import type { SignedPassport } from '../../types/passport.js'
 import type {
   BoundWallet,
@@ -36,13 +36,15 @@ function validateSolanaAddress(address: string): void {
   }
 }
 
-function bindingPayload(opts: {
+interface BindingPayloadInput {
   passport_id: string
   chain: WalletChain
   address: string
   bound_at: string
-}): string {
-  return canonicalize({
+}
+
+function bindingPayloadImpl(opts: BindingPayloadInput, canon: (v: unknown) => string): string {
+  return canon({
     passport_id: opts.passport_id,
     chain: opts.chain,
     address: opts.address,
@@ -50,19 +52,45 @@ function bindingPayload(opts: {
   })
 }
 
-function unbindPayload(opts: {
+function bindingPayload(opts: BindingPayloadInput): string {
+  return bindingPayloadImpl(opts, canonicalize)
+}
+
+/** Write-boundary twin of bindingPayload().
+ *
+ *  bindWallet() signs this payload and verifyBoundWallet() rebuilds it, so the helper is
+ *  shared and cannot be guarded in place. Every member is currently a string, so the rule
+ *  cannot fire through this preimage today; the twin exists so a future numeric member is
+ *  covered by construction rather than by remembering. */
+function bindingPayloadForWrite(opts: BindingPayloadInput): string {
+  return bindingPayloadImpl(opts, canonicalizeForWrite)
+}
+
+interface UnbindPayloadInput {
   passport_id: string
   chain: WalletChain
   address: string
   unbound_at: string
-}): string {
-  return canonicalize({
+}
+
+function unbindPayloadImpl(opts: UnbindPayloadInput, canon: (v: unknown) => string): string {
+  return canon({
     passport_id: opts.passport_id,
     chain: opts.chain,
     address: opts.address,
     unbound_at: opts.unbound_at,
     event: 'unbind',
   })
+}
+
+function unbindPayload(opts: UnbindPayloadInput): string {
+  return unbindPayloadImpl(opts, canonicalize)
+}
+
+/** Write-boundary twin of unbindPayload(). See bindingPayloadForWrite() for why this is
+ *  a split rather than a guard: unbindWallet() signs and verifyUnbindEvent() rebuilds. */
+function unbindPayloadForWrite(opts: UnbindPayloadInput): string {
+  return unbindPayloadImpl(opts, canonicalizeForWrite)
 }
 
 /**
@@ -95,7 +123,7 @@ export function bindWallet(opts: {
   }
 
   const bound_at = opts.boundAt ?? new Date().toISOString()
-  const payload = bindingPayload({
+  const payload = bindingPayloadForWrite({
     passport_id: opts.passport.passport.agentId,
     chain: opts.chain,
     address: opts.address,
@@ -135,7 +163,7 @@ export function bindWallet(opts: {
   // Re-sign the entire passport so verifyPassport() still passes for the new
   // shape. The binding_signature alone is enough to prove the binding to an
   // external verifier; the re-sign keeps the passport itself self-consistent.
-  const passportSignature = sign(canonicalize(updatedPassport), opts.privateKey)
+  const passportSignature = sign(canonicalizeForWrite(updatedPassport), opts.privateKey)
 
   return {
     ...opts.passport,
@@ -172,7 +200,7 @@ export function unbindWallet(opts: {
   }
 
   const unbound_at = opts.unboundAt ?? new Date().toISOString()
-  const payload = unbindPayload({
+  const payload = unbindPayloadForWrite({
     passport_id: opts.passport.passport.agentId,
     chain: opts.chain,
     address: opts.address,
@@ -199,7 +227,7 @@ export function unbindWallet(opts: {
     ...opts.passport.passport,
     bound_wallets: updatedWallets,
   }
-  const passportSignature = sign(canonicalize(updatedPassport), opts.privateKey)
+  const passportSignature = sign(canonicalizeForWrite(updatedPassport), opts.privateKey)
 
   const unbindEvent: UnbindEvent = {
     passport_id: opts.passport.passport.agentId,

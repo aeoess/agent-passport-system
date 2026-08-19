@@ -29,7 +29,7 @@
 // This file is solver-free, service-free, and does not fetch any URI.
 // ══════════════════════════════════════════════════════════════════════
 
-import { canonicalize, canonicalHash } from '../../core/canonical.js'
+import { canonicalize, canonicalHash, canonicalHashForWrite } from '../../core/canonical.js'
 import type {
   BuildFieldDisclosureProfileInput,
   DisclosedField,
@@ -46,6 +46,15 @@ import { REDACTED_SENTINEL } from './types.js'
  *  path. */
 function hashFieldValue(value: unknown): string {
   return canonicalHash({ v: value })
+}
+
+/** Write-boundary twin of hashFieldValue().
+ *
+ *  buildFieldDisclosureProfile() commits field hashes into a NEW profile while
+ *  verifyFieldDisclosureProfile() recomputes the identical hashes to check an existing
+ *  one, so the helper is shared and cannot be guarded in place. */
+function hashFieldValueForWrite(value: unknown): string {
+  return canonicalHashForWrite({ v: value })
 }
 
 const VALID_POLICIES: ReadonlySet<FieldDisclosurePolicy> = new Set([
@@ -102,7 +111,7 @@ export function buildFieldDisclosureProfile(
   for (const name of Object.keys(input.payload)) {
     const policy: FieldDisclosurePolicy = input.policies[name] ?? 'public'
     const rawValue = input.payload[name]
-    const hash = hashFieldValue(rawValue)
+    const hash = hashFieldValueForWrite(rawValue)
 
     const field: DisclosedField = { name, policy, hash }
 
@@ -140,7 +149,7 @@ export function buildFieldDisclosureProfile(
   if (input.uri !== undefined) {
     payload = {
       algorithm: 'sha256',
-      payload_sha256: canonicalHash(input.payload),
+      payload_sha256: canonicalHashForWrite(input.payload),
       uri: input.uri,
       content_type: input.content_type,
       committed_at: new Date().toISOString(),

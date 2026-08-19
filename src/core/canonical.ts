@@ -106,6 +106,18 @@ export function canonicalHash(obj: Record<string, unknown>): string {
   return createHash('sha256').update(canonicalJson(obj)).digest('hex')
 }
 
+/** Write-boundary twin of canonicalHash().
+ *
+ *  Reaches a canonicalizer indirectly through canonicalJson(), so a census over direct
+ *  canonicalizer calls cannot see it. Same digest as canonicalHash() for every value it
+ *  accepts; the only difference is that an integer-valued number outside the
+ *  interoperable IEEE 754 range is refused instead of hashed. Use at signing and
+ *  new-write boundaries ONLY: canonicalHash() stays unrestricted because verifiers
+ *  recompute commitments with it over artifacts committed before this rule. */
+export function canonicalHashForWrite(obj: Record<string, unknown>): string {
+  return createHash('sha256').update(canonicalizeForWrite(obj)).digest('hex')
+}
+
 // normalizeTimestamp — force ISO 8601 second-precision UTC.
 // Accepts any parseable timestamp; returns format: YYYY-MM-DDTHH:mm:ssZ
 // Strips fractional seconds and normalizes timezone offsets to UTC.

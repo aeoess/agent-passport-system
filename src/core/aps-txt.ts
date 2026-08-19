@@ -309,7 +309,7 @@ export function createChainedGovernanceBlock(input: {
 }): ChainedGovernanceBlock {
   const contentHash = `sha256:${createHash('sha256').update(input.content).digest('hex')}`
   const derivativeDid = createDID(input.publicKey)
-  const parentBlockHash = `sha256:${createHash('sha256').update(canonicalize(input.parentBlock)).digest('hex')}`
+  const parentBlockHash = `sha256:${createHash('sha256').update(canonicalizeForWrite(input.parentBlock)).digest('hex')}`
   const now = new Date().toISOString()
 
   const block: Omit<ChainedGovernanceBlock, 'signature'> = {

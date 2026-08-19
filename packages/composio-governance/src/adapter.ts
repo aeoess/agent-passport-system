@@ -22,6 +22,8 @@ import {
   type ActionReceipt,
 } from 'agent-passport-system'
 
+import { assertWriteSafeNumbers } from './write-policy.js'
+
 import type {
   ComposioAction,
   ToolGovernanceConfig,
@@ -67,6 +69,9 @@ function buildReceipt(
     result: { status: result.success ? 'success' as const : 'failure' as const, summary: JSON.stringify(result) },
     delegationChain: [],
   }
+  // New-write boundary: refuse an out-of-range integer before signing. Validation only,
+  // so the canonical bytes below are unchanged for anything the rule accepts.
+  assertWriteSafeNumbers(receipt)
   const canonical = canonicalize(receipt)
   const signature = sign(canonical, privateKey)
   return { ...receipt, signature } as ActionReceipt
@@ -197,6 +202,7 @@ function emitDenial(
     result: { status: 'failure', summary: reason },
     delegationChain: [],
   }
+  assertWriteSafeNumbers(receipt)
   const canonical = canonicalize(receipt)
   const signature = sign(canonical, opts.privateKey)
   const denialReceipt = { ...receipt, signature } as ActionReceipt

@@ -146,7 +146,7 @@ export async function createIdJagImportV1(input: {
   validateImportUnsigned(unsigned)
   return {
     ...unsigned,
-    signature: sign(IMPORT_SIGNATURE_DOMAIN + canonicalizeJCS(unsigned), input.importer_private_key_hex),
+    signature: sign(IMPORT_SIGNATURE_DOMAIN + canonicalizeJCSForWrite(unsigned), input.importer_private_key_hex),
   }
 }
 

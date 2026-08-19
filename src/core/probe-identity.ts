@@ -33,7 +33,7 @@
 // ══════════════════════════════════════════════════════════════════
 
 import { createHash } from 'node:crypto'
-import { canonicalize } from './canonical.js'
+import { canonicalize, canonicalizeForWrite } from './canonical.js'
 
 /** A content-addressable identifier for an evaluation probe. The hash
  *  is the canonical JSON of the probe digested with the named algorithm.
@@ -89,7 +89,7 @@ export function computeProbeIdentity(
   opts?: { algorithm?: 'sha256' | 'md5' },
 ): ProbeIdentity {
   const algorithm = opts?.algorithm ?? 'sha256'
-  const canonical = canonicalize(probe)
+  const canonical = canonicalizeForWrite(probe)
   const hash = createHash(algorithm).update(canonical).digest('hex')
   return {
     hash,

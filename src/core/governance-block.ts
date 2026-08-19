@@ -356,7 +356,7 @@ export function bindGovernanceToImplementation(input: {
   // Hash the governance block
   const { signature: _sig, ...blockWithoutSig } = governanceBlock
   const governanceBlockHash = `sha256:${createHash('sha256')
-    .update(canonicalize(blockWithoutSig))
+    .update(canonicalizeForWrite(blockWithoutSig))
     .digest('hex')}`
 
   // Create the binding hash — ties block to implementation
@@ -497,7 +497,7 @@ export function createVerifiedGovernanceCredential(input: {
   // Hash the block (excluding signature for consistency with verification)
   const { signature: _sig, ...blockWithoutSig } = block
   const blockHash = `sha256:${createHash('sha256')
-    .update(canonicalize(blockWithoutSig))
+    .update(canonicalizeForWrite(blockWithoutSig))
     .digest('hex')}`
 
   const now = new Date().toISOString()
