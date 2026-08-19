@@ -11,7 +11,7 @@
 import { scopeAuthorizes, verifyDelegation } from '../core/delegation.js'
 import { verifyPassport } from '../verification/verify.js'
 import { sign } from '../crypto/keys.js'
-import { canonicalize, canonicalizeForWrite } from '../core/canonical.js'
+import { canonicalizeForWrite } from '../core/canonical.js'
 import type { Delegation, ActionReceipt, SignedPassport } from '../types/passport.js'
 
 export interface CrewTask {

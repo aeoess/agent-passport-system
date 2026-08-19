@@ -1,5 +1,4 @@
 // Copyright (c) 2026 Tymofii Pidlisnyi
-import { canonicalizeJCSForWrite } from './canonical-jcs.js'
 // SPDX-License-Identifier: Apache-2.0
 //
 // APS write policy: admissibility rules applied at signing and new-write boundaries.

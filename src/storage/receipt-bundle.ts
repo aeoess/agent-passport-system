@@ -81,17 +81,6 @@ function hashReceipt(receipt: ActionReceipt): string {
   return hashReceiptImpl(receipt, canonicalize)
 }
 
-/** Write-boundary twin of hashReceipt().
- *
- *  Shares one implementation body with hashReceipt() so the two can never drift apart
- *  on the field list. Emits the same bytes for every value it accepts; the only
- *  difference is that an integer-valued number outside the interoperable IEEE 754
- *  range is refused instead of serialized. Use at signing and new-write boundaries
- *  ONLY: hashReceipt() stays unrestricted so an artifact signed before this rule keeps
- *  verifying. */
-function hashReceiptForWrite(receipt: ActionReceipt): string {
-  return hashReceiptImpl(receipt, canonicalizeForWrite)
-}
 
 // ── Verify chain integrity within a set of receipts ──
 

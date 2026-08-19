@@ -11,7 +11,7 @@
 
 import { createDelegation, scopeAuthorizes } from '../core/delegation.js'
 import { sign } from '../crypto/keys.js'
-import { canonicalize, canonicalizeForWrite } from '../core/canonical.js'
+import { canonicalizeForWrite } from '../core/canonical.js'
 import type { Delegation, ActionReceipt, SignedPassport } from '../types/passport.js'
 
 // ── Types ──
