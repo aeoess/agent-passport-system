@@ -13,7 +13,7 @@ APS lets a person or company give an AI agent limited authority to act on its be
 [![REUSE status](https://api.reuse.software/badge/github.com/aeoess/agent-passport-system)](https://api.reuse.software/info/github.com/aeoess/agent-passport-system)
 [![coverage](https://img.shields.io/badge/coverage-97%25%20lines%20%7C%2089%25%20branches-brightgreen)](https://github.com/aeoess/agent-passport-system/blob/main/CONTRIBUTING.md#running-tests)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/aeoess/agent-passport-system/badge)](https://scorecard.dev/viewer/?uri=github.com/aeoess/agent-passport-system)
-[![APS conformance](https://img.shields.io/endpoint?url=https%3A%2F%2Fgateway.aeoess.com%2Fapi%2Fv1%2Fpublic%2Fconformance%2Fbadge)](https://github.com/aeoess/aps-conformance-suite)
+[![APS conformance](https://img.shields.io/endpoint?url=https%3A%2F%2Fgateway.aeoess.com%2Fapi%2Fv1%2Fpublic%2Fconformance%2Fbadge)](https://github.com/Agent-Authority-Conformance/aps-conformance-suite)
 [![OpenChain ISO/IEC 5230:2020 conformant (self-certified)](https://img.shields.io/badge/OpenChain-5230%20self--certified-2e7d32)](https://openchainproject.org/community-of-conformance)
 [![OpenChain ISO/IEC 18974:2023 conformant (self-certified)](https://img.shields.io/badge/OpenChain-18974%20self--certified-2e7d32)](https://openchainproject.org/community-of-conformance)
 
@@ -235,7 +235,7 @@ The Agent Passport System spans these repositories:
 - [agent-passport-system](https://github.com/aeoess/agent-passport-system): protocol and TypeScript reference implementation (this repo)
 - [agent-passport-python](https://github.com/aeoess/agent-passport-python): Python SDK
 - [agent-passport-mcp](https://github.com/aeoess/agent-passport-mcp): MCP server binding
-- [aps-conformance-suite](https://github.com/aeoess/aps-conformance-suite): cross-implementation conformance fixtures
+- [aps-conformance-suite](https://github.com/Agent-Authority-Conformance/aps-conformance-suite): cross-implementation conformance fixtures
 - [agent-governance-vocabulary](https://github.com/aeoess/agent-governance-vocabulary): open vocabulary registry and crosswalks
 - [aps-web](https://github.com/agent-passport-system/aps-web): the agent-passport.org website
 
