@@ -10,7 +10,7 @@
 // ══════════════════════════════════════════════════════════════════
 
 import { createHash } from 'node:crypto'
-import { canonicalizeJCS } from '../../core/canonical-jcs.js'
+import { canonicalizeJCS, canonicalizeJCSForWrite } from '../../core/canonical-jcs.js'
 import type { FilesystemMode, InstructionFile, InstructionProvenanceReceipt } from './types.js'
 
 /** Typed error for path-canonicalization rejections (spec §5.1). */
@@ -117,6 +117,17 @@ export function computeContextRoot(files: InstructionFile[]): string {
   const sorted = sortInstructionFiles(files)
   return sha256Hex(canonicalizeJCS(sorted))
 }
+/** Write-boundary twin of computeContextRoot().
+ *
+ *  Emits the same bytes as computeContextRoot() for every value it accepts. The only difference
+ *  is that an integer-valued number outside the interoperable IEEE 754 range is
+ *  refused instead of serialized. Use at signing and new-write boundaries ONLY:
+ *  computeContextRoot() stays unrestricted so an artifact signed before this rule keeps
+ *  verifying. */
+export function computeContextRootForWrite(files: InstructionFile[]): string {
+  const sorted = sortInstructionFiles(files)
+  return sha256Hex(canonicalizeJCSForWrite(sorted))
+}
 
 /**
  * Canonical sort order for `instruction_files`: lexicographic by `path`
@@ -131,8 +142,9 @@ export function sortInstructionFiles(files: InstructionFile[]): InstructionFile[
  * canonical bytes used for both `receipt_id` derivation and Ed25519 signing.
  * Spec §5.2.
  */
-export function canonicalizeEnvelope(
+function canonicalizeEnvelopeImpl(
   envelope: Omit<InstructionProvenanceReceipt, 'signature' | 'receipt_id'>,
+  canon: (v: unknown) => string,
 ): string {
   // Defensive shallow clone that strips signature/receipt_id even when the
   // caller passes a fully-formed envelope at runtime (TS narrows on Omit at
@@ -143,5 +155,25 @@ export function canonicalizeEnvelope(
     if (k === 'signature' || k === 'receipt_id') continue
     clone[k] = src[k]
   }
-  return canonicalizeJCS(clone)
+  return canon(clone)
+}
+
+export function canonicalizeEnvelope(
+  envelope: Omit<InstructionProvenanceReceipt, 'signature' | 'receipt_id'>,
+): string {
+  return canonicalizeEnvelopeImpl(envelope, canonicalizeJCS)
+}
+
+/** Write-boundary twin of canonicalizeEnvelope().
+ *
+ *  Shares one implementation body with canonicalizeEnvelope() so the two can never drift apart
+ *  on the field list. Emits the same bytes for every value it accepts; the only
+ *  difference is that an integer-valued number outside the interoperable IEEE 754
+ *  range is refused instead of serialized. Use at signing and new-write boundaries
+ *  ONLY: canonicalizeEnvelope() stays unrestricted so an artifact signed before this rule keeps
+ *  verifying. */
+export function canonicalizeEnvelopeForWrite(
+  envelope: Omit<InstructionProvenanceReceipt, 'signature' | 'receipt_id'>,
+): string {
+  return canonicalizeEnvelopeImpl(envelope, canonicalizeJCSForWrite)
 }

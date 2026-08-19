@@ -43,7 +43,7 @@
 //   that emit an accountability receipt over the oversight check.
 // ════════════════════════════════════════════════════════════════════
 
-import { canonicalize } from '../../core/canonical.js'
+import { canonicalize, canonicalizeForWrite } from '../../core/canonical.js'
 import { sign, verify } from '../../crypto/keys.js'
 import type { ConstraintStatus } from '../../types/gateway.js'
 import type { ScopeOfClaim } from '../accountability/types/base.js'
@@ -81,14 +81,33 @@ export * from './descriptor.js'
  * declare); only co_signer and the version marker are removed so the
  * signatures do not sign over each other.
  */
-export function canonicalCoSignBody(receipt: Record<string, unknown>): string {
+function canonicalCoSignBodyImpl(
+  receipt: Record<string, unknown>,
+  canon: (v: unknown) => string,
+): string {
   const { co_signer, human_oversight_version, ...body } = receipt as Record<
     string,
     unknown
   > & Partial<HumanOversightSlots>
   void co_signer
   void human_oversight_version
-  return canonicalize(body)
+  return canon(body)
+}
+
+export function canonicalCoSignBody(receipt: Record<string, unknown>): string {
+  return canonicalCoSignBodyImpl(receipt, canonicalize)
+}
+
+/** Write-boundary twin of canonicalCoSignBody().
+ *
+ *  Shares one implementation body with canonicalCoSignBody() so the two can never drift apart
+ *  on the field list. Emits the same bytes for every value it accepts; the only
+ *  difference is that an integer-valued number outside the interoperable IEEE 754
+ *  range is refused instead of serialized. Use at signing and new-write boundaries
+ *  ONLY: canonicalCoSignBody() stays unrestricted so an artifact signed before this rule keeps
+ *  verifying. */
+export function canonicalCoSignBodyForWrite(receipt: Record<string, unknown>): string {
+  return canonicalCoSignBodyImpl(receipt, canonicalizeForWrite)
 }
 
 /**
@@ -107,7 +126,7 @@ export function signAsCoSigner(opts: {
   did?: string
   signedAt?: string
 }): CoSignerEntry {
-  const canonical = canonicalCoSignBody(opts.receipt)
+  const canonical = canonicalCoSignBodyForWrite(opts.receipt)
   return {
     publicKey: opts.publicKey,
     role: opts.role,

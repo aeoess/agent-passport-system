@@ -8,7 +8,7 @@
 import crypto from 'node:crypto'
 import { v4 as uuidv4 } from 'uuid'
 import { sign, verify } from '../crypto/keys.js'
-import { canonicalize } from '../core/canonical.js'
+import { canonicalize, canonicalizeForWrite } from '../core/canonical.js'
 
 import type { Delegation } from '../types/passport.js'
 import type {
@@ -32,9 +32,20 @@ export function hashObject(obj: Record<string, unknown>): string {
   const canonical = canonicalize(obj)
   return sha256(canonical)
 }
+/** Write-boundary twin of hashObject().
+ *
+ *  Emits the same bytes as hashObject() for every value it accepts. The only difference
+ *  is that an integer-valued number outside the interoperable IEEE 754 range is
+ *  refused instead of serialized. Use at signing and new-write boundaries ONLY:
+ *  hashObject() stays unrestricted so an artifact signed before this rule keeps
+ *  verifying. */
+export function hashObjectForWrite(obj: Record<string, unknown>): string {
+  const canonical = canonicalizeForWrite(obj)
+  return sha256(canonical)
+}
 
 export function signObject(obj: Record<string, unknown>, privateKey: string): string {
-  const hash = hashObject(obj)
+  const hash = hashObjectForWrite(obj)
   return sign(hash, privateKey)
 }
 

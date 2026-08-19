@@ -14,7 +14,7 @@
 // ══════════════════════════════════════════════════════════════════
 
 import { createHash } from 'node:crypto'
-import { canonicalizeJCS } from '../../core/canonical-jcs.js'
+import { canonicalizeJCS, canonicalizeJCSForWrite } from '../../core/canonical-jcs.js'
 import { sign, publicKeyFromPrivate } from '../../crypto/keys.js'
 
 import {
@@ -29,8 +29,8 @@ import {
 
 import {
   SIGN_TAG,
-  buildPartitionRootBytes,
-  buildInclusionProof,
+  buildPartitionRootBytesForWrite,
+  buildInclusionProofForWrite,
   buildTopRootBytes,
   bytesToHex,
   utf8Bytes,
@@ -111,7 +111,7 @@ export function buildCPA(input: BuildCpaInput): ContextProvenanceAttestation {
     if (!leaves || leaves.length === 0) continue // empty partitions omitted
 
     // partition_root is over ALL leaves, unchanged in either mode.
-    const rootBytes = buildPartitionRootBytes(leaves)
+    const rootBytes = buildPartitionRootBytesForWrite(leaves)
     partitionRootBytes.push(rootBytes)
     const partition_root = bytesToHex(rootBytes)
     const leaf_count = leaves.length
@@ -128,7 +128,7 @@ export function buildCPA(input: BuildCpaInput): ContextProvenanceAttestation {
       for (const leaf of leaves) {
         if (disclose.has(leaf.ctx_id)) {
           disclosedLeaves.push({ ...leaf })
-          inclusion_proofs.push(buildInclusionProof(leaves, leaf.ctx_id))
+          inclusion_proofs.push(buildInclusionProofForWrite(leaves, leaf.ctx_id))
         }
       }
       const disclosedCount = disclosedLeaves.length
@@ -194,6 +194,19 @@ export function computeCpaRef(signedCpa: ContextProvenanceAttestation): string {
   h.update(utf8Bytes(canonicalizeJCS(signedCpa)))
   return h.digest('hex')
 }
+/** Write-boundary twin of computeCpaRef().
+ *
+ *  Emits the same bytes as computeCpaRef() for every value it accepts. The only difference
+ *  is that an integer-valued number outside the interoperable IEEE 754 range is
+ *  refused instead of serialized. Use at signing and new-write boundaries ONLY:
+ *  computeCpaRef() stays unrestricted so an artifact signed before this rule keeps
+ *  verifying. */
+export function computeCpaRefForWrite(signedCpa: ContextProvenanceAttestation): string {
+  const h = createHash('sha256')
+  h.update(utf8Bytes(SIGN_TAG))
+  h.update(utf8Bytes(canonicalizeJCSForWrite(signedCpa)))
+  return h.digest('hex')
+}
 
 // ══════════════════════════════════════════════════════════════════
 // Mutual binding helpers (lean, module-local; see BINDING.md)
@@ -211,7 +224,7 @@ export function computeCpaRef(signedCpa: ContextProvenanceAttestation): string {
  * receipt's cpa_ref (the receipt -> CPA binding direction).
  */
 export function carryCpaRef(cpa: ContextProvenanceAttestation): { cpa_ref: string } {
-  return { cpa_ref: computeCpaRef(cpa) }
+  return { cpa_ref: computeCpaRefForWrite(cpa) }
 }
 
 /**

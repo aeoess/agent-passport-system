@@ -13,7 +13,7 @@
 
 import { createHash } from 'node:crypto'
 import { sign, verify } from '../crypto/keys.js'
-import { canonicalizeJCS } from './canonical-jcs.js'
+import { canonicalizeJCS, canonicalizeJCSForWrite } from './canonical-jcs.js'
 
 // ══════════════════════════════════════
 // STEP 1 - Two-axis output (spec section 0)
@@ -623,6 +623,16 @@ export interface ReconciliationStageReceipt {
 export function hashExecutionReceipt(receipt: ExecutionStageReceipt): string {
   return 'sha256:' + createHash('sha256').update(canonicalizeJCS(receipt)).digest('hex')
 }
+/** Write-boundary twin of hashExecutionReceipt().
+ *
+ *  Emits the same bytes as hashExecutionReceipt() for every value it accepts. The only difference
+ *  is that an integer-valued number outside the interoperable IEEE 754 range is
+ *  refused instead of serialized. Use at signing and new-write boundaries ONLY:
+ *  hashExecutionReceipt() stays unrestricted so an artifact signed before this rule keeps
+ *  verifying. */
+export function hashExecutionReceiptForWrite(receipt: ExecutionStageReceipt): string {
+  return 'sha256:' + createHash('sha256').update(canonicalizeJCSForWrite(receipt)).digest('hex')
+}
 
 export interface CreateReconciliationInput {
   realized_class: RealizedClass
@@ -640,7 +650,7 @@ export function createReconciliationReceipt(
 ): ReconciliationStageReceipt {
   const body = {
     stage: 'reconciliation' as const,
-    execution_receipt_hash: hashExecutionReceipt(execution),
+    execution_receipt_hash: hashExecutionReceiptForWrite(execution),
     action_ref: execution.action_ref,
     realized_class: input.realized_class,
     evidence_status: input.evidence_status,

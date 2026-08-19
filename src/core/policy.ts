@@ -32,7 +32,7 @@ import type {
 import type { ActionReceipt, Delegation } from '../types/passport.js'
 import {
   emitDecisionReceipt,
-  computeDelegationChainRoot,
+  computeDelegationChainRootForWrite,
   type DecisionReceiptEnvelope,
 } from '../decisionReceipt.js'
 
@@ -200,7 +200,7 @@ export function createPolicyReceipt(opts: {
 
   // v2.3 — bilateral receipt fields (optional, backward-compatible)
   if (opts.delegationChain && opts.delegationChain.length > 0) {
-    pr.delegation_chain_root = computeDelegationChainRoot(opts.delegationChain)
+    pr.delegation_chain_root = computeDelegationChainRootForWrite(opts.delegationChain)
     pr.delegation_depth = opts.delegationChain.length
   }
   if (opts.epistemicClaims) {

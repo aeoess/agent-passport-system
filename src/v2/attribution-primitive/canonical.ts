@@ -9,7 +9,7 @@
 // ══════════════════════════════════════════════════════════════════
 
 import { createHash } from 'node:crypto'
-import { canonicalize } from '../../core/canonical.js'
+import { canonicalize, canonicalizeForWrite } from '../../core/canonical.js'
 import type {
   AttributionAxes,
   AttributionAxisTag,
@@ -150,6 +150,16 @@ export function normalizeAxes(axes: AttributionAxes): AttributionAxes {
 export function hashAxisLeaf(axis: unknown): Buffer {
   return createHash('sha256').update(canonicalize(axis)).digest()
 }
+/** Write-boundary twin of hashAxisLeaf().
+ *
+ *  Emits the same bytes as hashAxisLeaf() for every value it accepts. The only difference
+ *  is that an integer-valued number outside the interoperable IEEE 754 range is
+ *  refused instead of serialized. Use at signing and new-write boundaries ONLY:
+ *  hashAxisLeaf() stays unrestricted so an artifact signed before this rule keeps
+ *  verifying. */
+export function hashAxisLeafForWrite(axis: unknown): Buffer {
+  return createHash('sha256').update(canonicalizeForWrite(axis)).digest()
+}
 
 /** Internal Merkle node: SHA-256(left_bytes || right_bytes). §2.1. */
 export function hashNode(left: Buffer, right: Buffer): Buffer {
@@ -164,14 +174,30 @@ export function canonicalHashHex(obj: unknown): string {
 
 /** The canonical envelope §2.3 that Ed25519 signs. Returned as a string so
  *  Python and TypeScript sign/verify exactly the same bytes. */
-export function envelopeBytes(env: AttributionEnvelope): string {
+function envelopeBytesImpl(env: AttributionEnvelope, canon: (v: unknown) => string): string {
   assertCanonicalTimestamp(env.timestamp)
-  return canonicalize({
+  return canon({
     action_ref: env.action_ref,
     merkle_root: env.merkle_root,
     issuer: env.issuer,
     timestamp: env.timestamp,
   })
+}
+
+export function envelopeBytes(env: AttributionEnvelope): string {
+  return envelopeBytesImpl(env, canonicalize)
+}
+
+/** Write-boundary twin of envelopeBytes().
+ *
+ *  Shares one implementation body with envelopeBytes() so the two can never drift apart
+ *  on the field list. Emits the same bytes for every value it accepts; the only
+ *  difference is that an integer-valued number outside the interoperable IEEE 754
+ *  range is refused instead of serialized. Use at signing and new-write boundaries
+ *  ONLY: envelopeBytes() stays unrestricted so an artifact signed before this rule keeps
+ *  verifying. */
+export function envelopeBytesForWrite(env: AttributionEnvelope): string {
+  return envelopeBytesImpl(env, canonicalizeForWrite)
 }
 
 /** Type-safe enumeration of axis tags, for iteration. */

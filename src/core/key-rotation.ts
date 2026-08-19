@@ -10,7 +10,7 @@
 //   - SDK computes, Gateway MUST enforce (isKeyActive is convenience only)
 // ══════════════════════════════════════════════════════════════════
 
-import { canonicalize } from './canonical.js'
+import { canonicalize, canonicalizeForWrite } from './canonical.js'
 import { sign, verify, publicKeyFromPrivate } from '../crypto/keys.js'
 import { createDID, hexToMultibase, multibaseToHex } from './did.js'
 import type { AgentPassport, KeyPair, CascadeRevocationResult } from '../types/passport.js'
@@ -75,6 +75,16 @@ function nextKeyIndex(doc: RotatableDIDDocument): number {
 function canonicalRotationPayload(previousKey: string, newKey: string, mode: RotationMode, activationTime: string): string {
   return canonicalize({ previousKey, newKey, mode, activationTime })
 }
+/** Write-boundary twin of canonicalRotationPayload().
+ *
+ *  Emits the same bytes as canonicalRotationPayload() for every value it accepts. The only difference
+ *  is that an integer-valued number outside the interoperable IEEE 754 range is
+ *  refused instead of serialized. Use at signing and new-write boundaries ONLY:
+ *  canonicalRotationPayload() stays unrestricted so an artifact signed before this rule keeps
+ *  verifying. */
+function canonicalRotationPayloadForWrite(previousKey: string, newKey: string, mode: RotationMode, activationTime: string): string {
+  return canonicalizeForWrite({ previousKey, newKey, mode, activationTime })
+}
 
 /**
  * Announce a key rotation. Old key signs the rotation entry.
@@ -115,7 +125,7 @@ export function announceKeyRotation(
   }
 
   // Sign rotation entry
-  const rotationPayload = canonicalRotationPayload(oldPublicKey, newKeyPair.publicKey, mode, activationTime)
+  const rotationPayload = canonicalRotationPayloadForWrite(oldPublicKey, newKeyPair.publicKey, mode, activationTime)
   const rotationSignature = sign(rotationPayload, oldPrivateKey)
 
   // Add new key to verificationMethod

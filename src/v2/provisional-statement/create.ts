@@ -6,7 +6,7 @@
 
 import crypto from 'node:crypto'
 import { sign, verify } from '../../crypto/keys.js'
-import { canonicalize } from '../../core/canonical.js'
+import { canonicalize, canonicalizeForWrite } from '../../core/canonical.js'
 import { createHybridTimestamp } from '../../core/time.js'
 import type { HybridTimestamp } from '../../types/time.js'
 import type {
@@ -18,7 +18,7 @@ import type {
 
 /** Canonical payload an author signs to attest a provisional statement.
  *  Verifiers reconstruct this exact payload to check author_signature. */
-export function statementSigningPayload(s: {
+interface StatementSigningInput {
   id: string
   version: '1.0'
   author: AgentDID
@@ -26,8 +26,13 @@ export function statementSigningPayload(s: {
   content: string
   created_at: HybridTimestamp
   dead_man_expires_at?: HybridTimestamp
-}): string {
-  return canonicalize({
+}
+
+function statementSigningPayloadImpl(
+  s: StatementSigningInput,
+  canon: (v: unknown) => string,
+): string {
+  return canon({
     id: s.id,
     version: s.version,
     author: s.author,
@@ -36,6 +41,22 @@ export function statementSigningPayload(s: {
     created_at: s.created_at,
     ...(s.dead_man_expires_at ? { dead_man_expires_at: s.dead_man_expires_at } : {}),
   })
+}
+
+export function statementSigningPayload(s: StatementSigningInput): string {
+  return statementSigningPayloadImpl(s, canonicalize)
+}
+
+/** Write-boundary twin of statementSigningPayload().
+ *
+ *  Shares one implementation body with statementSigningPayload() so the two can never drift apart
+ *  on the field list. Emits the same bytes for every value it accepts; the only
+ *  difference is that an integer-valued number outside the interoperable IEEE 754
+ *  range is refused instead of serialized. Use at signing and new-write boundaries
+ *  ONLY: statementSigningPayload() stays unrestricted so an artifact signed before this rule keeps
+ *  verifying. */
+export function statementSigningPayloadForWrite(s: StatementSigningInput): string {
+  return statementSigningPayloadImpl(s, canonicalizeForWrite)
 }
 
 export interface CreateProvisionalParams {
@@ -66,7 +87,7 @@ export function createProvisional(params: CreateProvisionalParams): ProvisionalS
     ...(params.dead_man_expires_at ? { dead_man_expires_at: params.dead_man_expires_at } : {}),
   }
 
-  const author_signature = sign(statementSigningPayload(base), params.authorPrivateKey)
+  const author_signature = sign(statementSigningPayloadForWrite(base), params.authorPrivateKey)
 
   return {
     ...base,

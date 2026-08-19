@@ -5,7 +5,7 @@
 
 import { createHash, randomBytes } from 'crypto'
 import { sign, verify, publicKeyFromPrivate } from '../crypto/keys.js'
-import { canonicalize } from './canonical.js'
+import { canonicalize, canonicalizeForWrite } from './canonical.js'
 import type {
   PassportGrade, AttestationFlag, EvidenceQuality,
   IssuanceChallenge, IssuanceChallengeResponse,
@@ -265,6 +265,16 @@ export function computeAttestationFlags(
 export function computeAttestationBundleHash(evidence: IssuanceEvidenceRecord): string {
   return sha256Hex(canonicalize(evidence))
 }
+/** Write-boundary twin of computeAttestationBundleHash().
+ *
+ *  Emits the same bytes as computeAttestationBundleHash() for every value it accepts. The only difference
+ *  is that an integer-valued number outside the interoperable IEEE 754 range is
+ *  refused instead of serialized. Use at signing and new-write boundaries ONLY:
+ *  computeAttestationBundleHash() stays unrestricted so an artifact signed before this rule keeps
+ *  verifying. */
+export function computeAttestationBundleHashForWrite(evidence: IssuanceEvidenceRecord): string {
+  return sha256Hex(canonicalizeForWrite(evidence))
+}
 
 // ── createIssuanceContext ──
 // Combine evidence + assessment into a complete issuance record.
@@ -281,7 +291,7 @@ export function createIssuanceContext(
 ): IssuanceContext {
   const grade = computePassportGrade(evidence, options)
   const flags = computeAttestationFlags(grade, evidence)
-  const bundleHash = computeAttestationBundleHash(evidence)
+  const bundleHash = computeAttestationBundleHashForWrite(evidence)
 
   return {
     evidence,

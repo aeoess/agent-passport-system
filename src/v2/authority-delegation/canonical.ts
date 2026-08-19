@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { createHash } from 'node:crypto'
-import { canonicalizeJCS } from '../../core/canonical-jcs.js'
+import { canonicalizeJCS, canonicalizeJCSForWrite } from '../../core/canonical-jcs.js'
 import { sign, verify } from '../../crypto/keys.js'
 import type { AuthorityDelegationBodyV1, AuthorityDelegationV1 } from './types.js'
 
@@ -17,9 +17,28 @@ function sha256Hex(value: string): string {
 export function authorityDelegationIdInput(body: AuthorityDelegationBodyV1): string {
   return AUTHORITY_DELEGATION_ID_DOMAIN + canonicalizeJCS(body)
 }
+/** Write-boundary twin of authorityDelegationIdInput().
+ *
+ *  Emits the same bytes as authorityDelegationIdInput() for every value it accepts. The only difference
+ *  is that an integer-valued number outside the interoperable IEEE 754 range is
+ *  refused instead of serialized. Use at signing and new-write boundaries ONLY:
+ *  authorityDelegationIdInput() stays unrestricted so an artifact signed before this rule keeps
+ *  verifying. */
+export function authorityDelegationIdInputForWrite(body: AuthorityDelegationBodyV1): string {
+  return AUTHORITY_DELEGATION_ID_DOMAIN + canonicalizeJCSForWrite(body)
+}
 
 export function computeAuthorityDelegationId(body: AuthorityDelegationBodyV1): string {
   return `sha256:${sha256Hex(authorityDelegationIdInput(body))}`
+}
+
+/** Write-boundary twin of computeAuthorityDelegationId().
+ *
+ *  Reaches a canonicalizer only indirectly, through authorityDelegationIdInput. Use when
+ *  ISSUING a delegation; verify.ts and the budget ledger keep calling the unrestricted
+ *  form so a delegation issued before this rule still re-derives its id. */
+export function computeAuthorityDelegationIdForWrite(body: AuthorityDelegationBodyV1): string {
+  return `sha256:${sha256Hex(authorityDelegationIdInputForWrite(body))}`
 }
 
 /** Exact Ed25519 input: domain plus JCS(record without signature). */

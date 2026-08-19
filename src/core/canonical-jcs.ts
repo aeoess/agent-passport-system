@@ -69,18 +69,47 @@ export function canonicalizeJCS(value: unknown): string {
   return canonicalizeValue(value)
 }
 
+/** RFC 8785 canonicalization for a NEW WRITE, with the APS unsafe-integer rule applied.
+ *
+ *  Byte-identical to canonicalizeJCS() for every value it accepts. The only difference
+ *  is that an integer-valued number outside the interoperable IEEE 754 range is refused
+ *  rather than emitted. See core/write-policy.ts for the rule and its rationale.
+ *
+ *  Use this at signing and new-write boundaries only. A verifier rebuilding the preimage
+ *  of an artifact signed before this rule existed must keep calling canonicalizeJCS(),
+ *  or it would refuse bytes it accepted before.
+ *
+ *  The number check runs INSIDE the emitting walk, on the same read that produces the
+ *  byte, so a getter or Proxy that answers differently on a second read cannot slip an
+ *  unsafe integer past it. Note the pre-existing assertNoUndefined() walk is still a
+ *  separate traversal; that exposure predates this change and is not addressed here. */
+export function canonicalizeJCSForWrite(value: unknown): string {
+  return canonicalizeValue(value, '$')
+}
+
 /** Recursive RFC 8785 emitter. Precondition: the value already passed
  *  assertNoUndefined(), so undefined cannot appear here. If one appears anyway,
  *  for instance from a getter that answers differently on a second read, the
  *  default branch throws rather than silently emitting null. */
-function canonicalizeValue(value: unknown): string {
+function canonicalizeValue(value: unknown, writePath?: string): string {
   if (value === null) return 'null'
+  // Write path only: reject undefined here rather than in a separate pre-pass, so the
+  // whole traversal reads each property exactly once. Same message and path format as
+  // assertNoUndefined(), which still guards the ordinary read path above.
+  if (writePath !== undefined && value === undefined) {
+    throw new TypeError(`canonicalizeJCS: undefined at ${writePath}`)
+  }
 
   switch (typeof value) {
     case 'boolean':
       return value ? 'true' : 'false'
     case 'number': {
       if (!isFinite(value)) throw new Error('JCS does not support Infinity or NaN')
+      // Write-policy check, threaded from canonicalizeJCSForWrite(). Undefined on the
+      // ordinary canonicalizeJCS() path, which stays byte-identical and unrestricted.
+      if (writePath !== undefined && isUnsafeWriteInteger(value)) {
+        throw new UnsafeIntegerError(writePath)
+      }
       // ES2015 number serialization — JSON.stringify handles this correctly
       return JSON.stringify(value)
     }
@@ -90,6 +119,13 @@ function canonicalizeValue(value: unknown): string {
     case 'object': {
       if (value instanceof Date) return JSON.stringify(value)
       if (Array.isArray(value)) {
+        if (writePath !== undefined) {
+          const parts: string[] = []
+          for (let i = 0; i < value.length; i++) {
+            parts.push(canonicalizeValue(value[i], `${writePath}[${i}]`))
+          }
+          return '[' + parts.join(',') + ']'
+        }
         return '[' + value.map(item => canonicalizeValue(item)).join(',') + ']'
       }
       // Object: sort keys as UTF-16 code unit arrays per RFC 8785 3.2.3, preserve null values
@@ -99,7 +135,9 @@ function canonicalizeValue(value: unknown): string {
       for (const key of keys) {
         assertNoLoneSurrogate(key)
         const v = obj[key]
-        pairs.push(`${JSON.stringify(key)}:${canonicalizeValue(v)}`)
+        pairs.push(`${JSON.stringify(key)}:${canonicalizeValue(
+          v, writePath === undefined ? undefined : `${writePath}.${key}`,
+        )}`)
       }
       return '{' + pairs.join(',') + '}'
     }
@@ -156,6 +194,7 @@ function hasNullValues(obj: unknown): boolean {
 }
 
 import { createHash } from 'crypto'
+import { isUnsafeWriteInteger, UnsafeIntegerError } from './write-policy.js'
 
 /** Cross-language test vector for canonicalization verification */
 export interface CanonicalizationTestVector {

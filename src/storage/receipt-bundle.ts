@@ -13,7 +13,7 @@
 // - Evidence: prove what happened in a dispute
 // ══════════════════════════════════════════════════════════════════
 
-import { canonicalize } from '../core/canonical.js'
+import { canonicalize, canonicalizeForWrite } from '../core/canonical.js'
 import { sign, verify } from '../crypto/keys.js'
 import type { ActionReceipt } from '../types/passport.js'
 import type { ReceiptFilter } from './types.js'
@@ -56,8 +56,8 @@ export interface BundleVerificationResult {
 
 // ── Hash a receipt for chain continuity ──
 
-function hashReceipt(receipt: ActionReceipt): string {
-  const payload = canonicalize({
+function hashReceiptImpl(receipt: ActionReceipt, canon: (v: unknown) => string): string {
+  const payload = canon({
     receiptId: receipt.receiptId,
     agentId: receipt.agentId,
     delegationId: receipt.delegationId,
@@ -75,6 +75,22 @@ function hashReceipt(receipt: ActionReceipt): string {
     hash |= 0
   }
   return Math.abs(hash).toString(16).padStart(8, '0')
+}
+
+function hashReceipt(receipt: ActionReceipt): string {
+  return hashReceiptImpl(receipt, canonicalize)
+}
+
+/** Write-boundary twin of hashReceipt().
+ *
+ *  Shares one implementation body with hashReceipt() so the two can never drift apart
+ *  on the field list. Emits the same bytes for every value it accepts; the only
+ *  difference is that an integer-valued number outside the interoperable IEEE 754
+ *  range is refused instead of serialized. Use at signing and new-write boundaries
+ *  ONLY: hashReceipt() stays unrestricted so an artifact signed before this rule keeps
+ *  verifying. */
+function hashReceiptForWrite(receipt: ActionReceipt): string {
+  return hashReceiptImpl(receipt, canonicalizeForWrite)
 }
 
 // ── Verify chain integrity within a set of receipts ──
@@ -108,12 +124,12 @@ export function createReceiptBundle(opts: {
   // Stamp chain hashes if not already present
   const stamped = receipts.map((r, i) => {
     if (i === 0 || r.previousReceiptHash) return r
-    return { ...r, previousReceiptHash: hashReceipt(receipts[i - 1]) }
+    return { ...r, previousReceiptHash: hashReceiptForWrite(receipts[i - 1]) }
   })
 
   const chain = verifyChain(stamped)
-  const startHash = stamped.length > 0 ? hashReceipt(stamped[0]) : '0'
-  const endHash = stamped.length > 0 ? hashReceipt(stamped[stamped.length - 1]) : '0'
+  const startHash = stamped.length > 0 ? hashReceiptForWrite(stamped[0]) : '0'
+  const endHash = stamped.length > 0 ? hashReceiptForWrite(stamped[stamped.length - 1]) : '0'
 
   // Sign the bundle metadata (not the receipts — they're already signed individually)
   const exportedAt = new Date().toISOString()

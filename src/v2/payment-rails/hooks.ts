@@ -26,9 +26,13 @@ import {
 import type { RotatableDIDDocument } from '../../types/passport.js'
 import {
   canonicalizeDenialForId,
+  canonicalizeDenialForIdForWrite,
   canonicalizeDenialForSig,
+  canonicalizeDenialForSigForWrite,
   canonicalizeReceiptForId,
+  canonicalizeReceiptForIdForWrite,
   canonicalizeReceiptForSig,
+  canonicalizeReceiptForSigForWrite,
   sha256Hex,
 } from './canonicalize.js'
 import type {
@@ -376,9 +380,9 @@ export function emitReceipt(
     draft.settlement_record_id = input.settlement_record_id
   }
 
-  const receipt_id = sha256Hex(canonicalizeReceiptForId(draft))
+  const receipt_id = sha256Hex(canonicalizeReceiptForIdForWrite(draft))
   const withId: PaymentReceipt = { ...draft, receipt_id }
-  const signature = sign(canonicalizeReceiptForSig(withId), issuerPrivateKeyHex)
+  const signature = sign(canonicalizeReceiptForSigForWrite(withId), issuerPrivateKeyHex)
   return { ...withId, signature }
 }
 
@@ -426,9 +430,9 @@ export function emitDenial(
     draft.reason_detail = input.reason_detail
   }
 
-  const receipt_id = sha256Hex(canonicalizeDenialForId(draft))
+  const receipt_id = sha256Hex(canonicalizeDenialForIdForWrite(draft))
   const withId: PaymentDenial = { ...draft, receipt_id }
-  const signature = sign(canonicalizeDenialForSig(withId), issuerPrivateKeyHex)
+  const signature = sign(canonicalizeDenialForSigForWrite(withId), issuerPrivateKeyHex)
   return { ...withId, signature }
 }
 

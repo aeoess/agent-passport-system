@@ -10,7 +10,7 @@
 
 import { v4 as uuidv4 } from 'uuid'
 import { sign, verify } from '../crypto/keys.js'
-import { canonicalize } from './canonical.js'
+import { canonicalize, canonicalizeForWrite } from './canonical.js'
 import { createHash } from 'crypto'
 import type {
   CharterCore, CharterStatus, CharterSignature,
@@ -351,20 +351,38 @@ export interface CreateAmendmentOptions {
  *  onto a different proposedCharter with the same charterId and description
  *  (qntm#7 / re-audit finding). The mutable signatures/status fields are
  *  excluded so every co-signer signs identical bytes. */
-function amendmentSignContent(a: {
+interface AmendmentSignInput {
   charterId: string
   fromVersion: string
   toVersion: string
   description: string
   proposedCharter: CharterCore
-}): string {
-  return canonicalize({
+}
+
+function amendmentSignContentImpl(a: AmendmentSignInput, canon: (v: unknown) => string): string {
+  return canon({
     charterId: a.charterId,
     fromVersion: a.fromVersion,
     toVersion: a.toVersion,
     description: a.description,
     proposedCharter: a.proposedCharter,
   })
+}
+
+function amendmentSignContent(a: AmendmentSignInput): string {
+  return amendmentSignContentImpl(a, canonicalize)
+}
+
+/** Write-boundary twin of amendmentSignContent().
+ *
+ *  Shares one implementation body with amendmentSignContent() so the two can never drift apart
+ *  on the field list. Emits the same bytes for every value it accepts; the only
+ *  difference is that an integer-valued number outside the interoperable IEEE 754
+ *  range is refused instead of serialized. Use at signing and new-write boundaries
+ *  ONLY: amendmentSignContent() stays unrestricted so an artifact signed before this rule keeps
+ *  verifying. */
+function amendmentSignContentForWrite(a: AmendmentSignInput): string {
+  return amendmentSignContentImpl(a, canonicalizeForWrite)
 }
 
 /** Create a charter amendment proposal. Does NOT apply it —
@@ -385,7 +403,7 @@ export function createAmendment(opts: CreateAmendmentOptions): CharterAmendment 
     publicKey: opts.proposerPublicKey,
     role: 'proposer',
     signedAt: now,
-    signature: sign(amendmentSignContent({
+    signature: sign(amendmentSignContentForWrite({
       charterId: opts.charter.charterId,
       fromVersion: opts.charter.version,
       toVersion: opts.proposedCharter.version,
@@ -424,7 +442,7 @@ export function signAmendment(
     publicKey: signerPublicKey,
     role: signerRole,
     signedAt: new Date().toISOString(),
-    signature: sign(amendmentSignContent(amendment), signerPrivateKey),
+    signature: sign(amendmentSignContentForWrite(amendment), signerPrivateKey),
   }
 
   return { ...amendment, signatures: [...amendment.signatures, sig] }

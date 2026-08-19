@@ -18,7 +18,7 @@ import {
   canonicalTimestamp,
   envelopeBytes,
 } from './canonical.js'
-import { buildMerkleFrame } from './merkle.js'
+import { buildMerkleFrameForWrite } from './merkle.js'
 import type {
   AttributionAction,
   AttributionAxes,
@@ -79,7 +79,7 @@ export function constructAttributionPrimitive(
   if (!params.issuerPrivateKey) throw new Error('attribution-primitive: issuerPrivateKey required')
 
   const action_ref = computeAttributionActionRef(params.action)
-  const frame = buildMerkleFrame(params.axes)
+  const frame = buildMerkleFrameForWrite(params.axes)
   const merkle_root = frame.root.toString('hex')
   const timestamp = params.timestamp ?? canonicalTimestamp()
   assertCanonicalTimestamp(timestamp)
@@ -115,7 +115,7 @@ export function resignAttributionPrimitive(
   const action_ref = opts?.action
     ? computeAttributionActionRef(opts.action)
     : primitive.action_ref
-  const frame = buildMerkleFrame(axes)
+  const frame = buildMerkleFrameForWrite(axes)
   const merkle_root = frame.root.toString('hex')
   const timestamp = opts?.timestamp ?? canonicalTimestamp()
   assertCanonicalTimestamp(timestamp)

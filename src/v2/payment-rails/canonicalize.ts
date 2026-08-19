@@ -15,7 +15,7 @@
 // ══════════════════════════════════════════════════════════════════
 
 import { createHash } from 'node:crypto'
-import { canonicalizeJCS } from '../../core/canonical-jcs.js'
+import { canonicalizeJCS, canonicalizeJCSForWrite } from '../../core/canonical-jcs.js'
 import type { PaymentDenial, PaymentInvoice, PaymentReceipt } from './types.js'
 
 /** sha256 hex of a UTF-8 canonical string. */
@@ -33,17 +33,57 @@ export function sha256Hex(s: string): string {
 export function canonicalizeReceiptForId(receipt: PaymentReceipt): string {
   return canonicalizeJCS({ ...receipt, receipt_id: '', signature: '' })
 }
+/** Write-boundary twin of canonicalizeReceiptForId().
+ *
+ *  Emits the same bytes as canonicalizeReceiptForId() for every value it accepts. The only difference
+ *  is that an integer-valued number outside the interoperable IEEE 754 range is
+ *  refused instead of serialized. Use at signing and new-write boundaries ONLY:
+ *  canonicalizeReceiptForId() stays unrestricted so an artifact signed before this rule keeps
+ *  verifying. */
+export function canonicalizeReceiptForIdForWrite(receipt: PaymentReceipt): string {
+  return canonicalizeJCSForWrite({ ...receipt, receipt_id: '', signature: '' })
+}
 
 export function canonicalizeReceiptForSig(receipt: PaymentReceipt): string {
   return canonicalizeJCS({ ...receipt, signature: '' })
+}
+/** Write-boundary twin of canonicalizeReceiptForSig().
+ *
+ *  Emits the same bytes as canonicalizeReceiptForSig() for every value it accepts. The only difference
+ *  is that an integer-valued number outside the interoperable IEEE 754 range is
+ *  refused instead of serialized. Use at signing and new-write boundaries ONLY:
+ *  canonicalizeReceiptForSig() stays unrestricted so an artifact signed before this rule keeps
+ *  verifying. */
+export function canonicalizeReceiptForSigForWrite(receipt: PaymentReceipt): string {
+  return canonicalizeJCSForWrite({ ...receipt, signature: '' })
 }
 
 export function canonicalizeDenialForId(denial: PaymentDenial): string {
   return canonicalizeJCS({ ...denial, receipt_id: '', signature: '' })
 }
+/** Write-boundary twin of canonicalizeDenialForId().
+ *
+ *  Emits the same bytes as canonicalizeDenialForId() for every value it accepts. The only difference
+ *  is that an integer-valued number outside the interoperable IEEE 754 range is
+ *  refused instead of serialized. Use at signing and new-write boundaries ONLY:
+ *  canonicalizeDenialForId() stays unrestricted so an artifact signed before this rule keeps
+ *  verifying. */
+export function canonicalizeDenialForIdForWrite(denial: PaymentDenial): string {
+  return canonicalizeJCSForWrite({ ...denial, receipt_id: '', signature: '' })
+}
 
 export function canonicalizeDenialForSig(denial: PaymentDenial): string {
   return canonicalizeJCS({ ...denial, signature: '' })
+}
+/** Write-boundary twin of canonicalizeDenialForSig().
+ *
+ *  Emits the same bytes as canonicalizeDenialForSig() for every value it accepts. The only difference
+ *  is that an integer-valued number outside the interoperable IEEE 754 range is
+ *  refused instead of serialized. Use at signing and new-write boundaries ONLY:
+ *  canonicalizeDenialForSig() stays unrestricted so an artifact signed before this rule keeps
+ *  verifying. */
+export function canonicalizeDenialForSigForWrite(denial: PaymentDenial): string {
+  return canonicalizeJCSForWrite({ ...denial, signature: '' })
 }
 
 /**

@@ -15,7 +15,7 @@
 
 import { createHash } from 'node:crypto'
 
-import { canonicalizeJCS } from '../../core/canonical-jcs.js'
+import { canonicalizeJCS, canonicalizeJCSForWrite } from '../../core/canonical-jcs.js'
 import { sign, verify as edVerify, publicKeyFromPrivate } from '../../crypto/keys.js'
 
 import { commitSpans, deriveSeed, sampleSpans, scoreResponses } from './sampler.js'
@@ -46,6 +46,17 @@ function sha256hex(input: string): string {
 export function canonicalNoSig(record: object): string {
   const { sig: _sig, ...rest } = record as Record<string, unknown>
   return canonicalizeJCS(rest)
+}
+/** Write-boundary twin of canonicalNoSig().
+ *
+ *  Emits the same bytes as canonicalNoSig() for every value it accepts. The only difference
+ *  is that an integer-valued number outside the interoperable IEEE 754 range is
+ *  refused instead of serialized. Use at signing and new-write boundaries ONLY:
+ *  canonicalNoSig() stays unrestricted so an artifact signed before this rule keeps
+ *  verifying. */
+export function canonicalNoSigForWrite(record: object): string {
+  const { sig: _sig, ...rest } = record as Record<string, unknown>
+  return canonicalizeJCSForWrite(rest)
 }
 
 /**
@@ -233,7 +244,7 @@ export function createReadFidelityReceipt(
     )
   }
 
-  const sig = sign(canonicalNoSig(draft), privateKeyHex)
+  const sig = sign(canonicalNoSigForWrite(draft), privateKeyHex)
   return { ...draft, sig }
 }
 

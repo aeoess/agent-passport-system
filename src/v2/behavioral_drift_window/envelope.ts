@@ -15,7 +15,7 @@
 // against observer_id. For self-attestation the two coincide.
 // ══════════════════════════════════════════════════════════════════
 
-import { canonicalizeJCS } from '../../core/canonical-jcs.js'
+import { canonicalizeJCS, canonicalizeJCSForWrite } from '../../core/canonical-jcs.js'
 import { sign, publicKeyFromPrivate } from '../../crypto/keys.js'
 
 import type {
@@ -34,6 +34,20 @@ export function canonicalizeForSignature(
 ): string {
   const draft = { ...envelope, signature: '' }
   return canonicalizeJCS(draft)
+}
+
+/** Write-boundary twin of canonicalizeForSignature().
+ *
+ *  Emits the same bytes as canonicalizeForSignature() for every value it accepts. The only difference
+ *  is that an integer-valued number outside the interoperable IEEE 754 range is
+ *  refused instead of serialized. Use at signing and new-write boundaries ONLY:
+ *  canonicalizeForSignature() stays unrestricted so an artifact signed before this rule keeps
+ *  verifying. */
+export function canonicalizeForSignatureForWrite(
+  envelope: UnsignedBehavioralDriftWindowEnvelope | BehavioralDriftWindowEnvelope,
+): string {
+  const draft = { ...envelope, signature: '' }
+  return canonicalizeJCSForWrite(draft)
 }
 
 /**
@@ -56,7 +70,7 @@ export function signBehavioralDriftWindow(
 ): BehavioralDriftWindowEnvelope {
   const observer_id = publicKeyFromPrivate(privateKeyHex)
   const withDerivedKey: UnsignedBehavioralDriftWindowEnvelope = { ...unsigned, observer_id }
-  const bytes = canonicalizeForSignature(withDerivedKey)
+  const bytes = canonicalizeForSignatureForWrite(withDerivedKey)
   const signature = sign(bytes, privateKeyHex)
   return { ...withDerivedKey, signature }
 }

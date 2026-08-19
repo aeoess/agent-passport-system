@@ -13,7 +13,7 @@
 
 import { v4 as uuidv4 } from 'uuid'
 import { sign, verify } from '../crypto/keys.js'
-import { canonicalize } from './canonical.js'
+import { canonicalize, canonicalizeForWrite } from './canonical.js'
 import { verifyActionIntent, verifyPolicyDecision } from './policy.js'
 import type { ActionIntent, PolicyDecision, PolicyVerdict } from '../types/policy.js'
 import type {
@@ -44,14 +44,15 @@ export const MINIMUM_IDENTITY_FIELDS: Record<string, string[]> = {
  * making the artifact self-describing: any engine can verify which fields
  * define identity without depending on external projection rules.
  */
-export async function computeContentHash(
-  intent: Omit<ActionIntent, 'signature' | 'contentHash'>
+async function computeContentHashImpl(
+  intent: Omit<ActionIntent, 'signature' | 'contentHash'>,
+  canon: (v: unknown) => string
 ): Promise<ContentHash> {
   // Extract sorted top-level field names — this IS the identity boundary
   const identityBoundary = Object.keys(intent).sort()
   // Hash includes both the content AND the boundary declaration
   const hashInput = { _identityBoundary: identityBoundary, ...intent }
-  const canonical = canonicalize(hashInput)
+  const canonical = canon(hashInput)
   const hash = await sha256Hex(canonical)
   return {
     algorithm: 'sha256' as ContentHashAlgorithm,
@@ -59,6 +60,26 @@ export async function computeContentHash(
     canonicalForm: 'canonical_json_sorted_keys',
     identityBoundary
   }
+}
+
+export async function computeContentHash(
+  intent: Omit<ActionIntent, 'signature' | 'contentHash'>
+): Promise<ContentHash> {
+  return computeContentHashImpl(intent, canonicalize)
+}
+
+/** Write-boundary twin of computeContentHash().
+ *
+ *  Shares one implementation body with computeContentHash() so the two can never drift apart
+ *  on the field list. Emits the same bytes for every value it accepts; the only
+ *  difference is that an integer-valued number outside the interoperable IEEE 754
+ *  range is refused instead of serialized. Use at signing and new-write boundaries
+ *  ONLY: computeContentHash() stays unrestricted so an artifact signed before this rule keeps
+ *  verifying. */
+export async function computeContentHashForWrite(
+  intent: Omit<ActionIntent, 'signature' | 'contentHash'>
+): Promise<ContentHash> {
+  return computeContentHashImpl(intent, canonicalizeForWrite)
 }
 
 /**
@@ -128,7 +149,7 @@ export async function createContentAddressableIntent(opts: {
   }
 
   // Compute content hash over unsigned fields
-  const contentHash = await computeContentHash(unsigned)
+  const contentHash = await computeContentHashForWrite(unsigned)
 
   // Now sign the intent INCLUDING the content hash
   const withHash = { ...unsigned, contentHash }

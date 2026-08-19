@@ -11,22 +11,43 @@
 // ══════════════════════════════════════════════════════════════════
 
 import { createHash } from 'node:crypto'
-import { canonicalize } from '../../core/canonical.js'
+import { canonicalize, canonicalizeForWrite } from '../../core/canonical.js'
 import { sign as ed25519Sign, verify as ed25519Verify } from '../../crypto/keys.js'
 import type { SettlementRecord } from './types.js'
 
 /** Produce the canonical byte string a verifier signs/recomputes. The
  *  `signature` field is omitted (the canonicalizer already drops
  *  undefined keys, but we strip explicitly for clarity across ports). */
-export function settlementSigningPayload(
+function settlementSigningPayloadImpl(
   record: Omit<SettlementRecord, 'signature'>,
+  canon: (v: unknown) => string,
 ): string {
   const { ...body } = record as Record<string, unknown>
   // Ensure no `signature` bleeds through if the caller hands us a full
   // record and asks for the body. Canonicalize is stable under key
   // removal, so the order of removal doesn't matter.
   delete body.signature
-  return canonicalize(body)
+  return canon(body)
+}
+
+export function settlementSigningPayload(
+  record: Omit<SettlementRecord, 'signature'>,
+): string {
+  return settlementSigningPayloadImpl(record, canonicalize)
+}
+
+/** Write-boundary twin of settlementSigningPayload().
+ *
+ *  Shares one implementation body with settlementSigningPayload() so the two can never drift apart
+ *  on the field list. Emits the same bytes for every value it accepts; the only
+ *  difference is that an integer-valued number outside the interoperable IEEE 754
+ *  range is refused instead of serialized. Use at signing and new-write boundaries
+ *  ONLY: settlementSigningPayload() stays unrestricted so an artifact signed before this rule keeps
+ *  verifying. */
+export function settlementSigningPayloadForWrite(
+  record: Omit<SettlementRecord, 'signature'>,
+): string {
+  return settlementSigningPayloadImpl(record, canonicalizeForWrite)
 }
 
 /** Canonical settlement_record_hash — hex sha256 of the signing payload.
@@ -47,7 +68,7 @@ export function signSettlementRecord(
   if (!gatewayPrivateKeyHex || typeof gatewayPrivateKeyHex !== 'string') {
     throw new Error('attribution-settlement: gatewayPrivateKeyHex required')
   }
-  return ed25519Sign(settlementSigningPayload(record), gatewayPrivateKeyHex)
+  return ed25519Sign(settlementSigningPayloadForWrite(record), gatewayPrivateKeyHex)
 }
 
 /** Verify just the Ed25519 signature on a settlement record. Returns a

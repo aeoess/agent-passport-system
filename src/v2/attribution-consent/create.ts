@@ -4,7 +4,7 @@
 
 import { createHash } from 'node:crypto'
 import { sign } from '../../crypto/keys.js'
-import { canonicalize } from '../../core/canonical.js'
+import { canonicalize, canonicalizeForWrite } from '../../core/canonical.js'
 import type { HybridTimestamp } from '../../types/time.js'
 import type {
   AgentDID,
@@ -15,9 +15,11 @@ import type {
 
 /** The canonical unsigned core of a receipt. Both citer and cited principal
  *  sign exactly this payload, and the receipt id is sha256(core). */
-export function receiptCore(receipt: AttributionReceipt | Omit<AttributionReceipt,
-  'id' | 'citer_signature' | 'cited_principal_signature'>): string {
-  return canonicalize({
+type ReceiptCoreInput = AttributionReceipt | Omit<AttributionReceipt,
+  'id' | 'citer_signature' | 'cited_principal_signature'>
+
+function receiptCoreImpl(receipt: ReceiptCoreInput, canon: (v: unknown) => string): string {
+  return canon({
     version: receipt.version,
     citer: receipt.citer,
     citer_public_key: receipt.citer_public_key,
@@ -28,6 +30,22 @@ export function receiptCore(receipt: AttributionReceipt | Omit<AttributionReceip
     created_at: receipt.created_at,
     expires_at: receipt.expires_at,
   })
+}
+
+export function receiptCore(receipt: ReceiptCoreInput): string {
+  return receiptCoreImpl(receipt, canonicalize)
+}
+
+/** Write-boundary twin of receiptCore().
+ *
+ *  Shares one implementation body with receiptCore() so the two can never drift apart
+ *  on the field list. Emits the same bytes for every value it accepts; the only
+ *  difference is that an integer-valued number outside the interoperable IEEE 754
+ *  range is refused instead of serialized. Use at signing and new-write boundaries
+ *  ONLY: receiptCore() stays unrestricted so an artifact signed before this rule keeps
+ *  verifying. */
+export function receiptCoreForWrite(receipt: ReceiptCoreInput): string {
+  return receiptCoreImpl(receipt, canonicalizeForWrite)
 }
 
 export interface CreateAttributionReceiptParams {
@@ -67,7 +85,7 @@ export function createAttributionReceipt(
     expires_at: params.expires_at,
   }
 
-  const core = receiptCore(unsigned)
+  const core = receiptCoreForWrite(unsigned)
   const id = createHash('sha256').update(core).digest('hex')
   const citer_signature = sign(core, params.citer_private_key)
 

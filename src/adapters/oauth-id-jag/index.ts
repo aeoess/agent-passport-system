@@ -25,7 +25,7 @@
 //   hook), not by construction.
 
 import { canonicalHashJCS } from '../../core/canonical-jcs.js'
-import { computeDelegationChainRoot } from '../../decisionReceipt.js'
+import { computeDelegationChainRootForWrite } from '../../decisionReceipt.js'
 import { createDelegationRef } from '../../core/reanchor.js'
 import { sign, publicKeyFromPrivate } from '../../crypto/keys.js'
 import type { Delegation } from '../../types/passport.js'
@@ -196,7 +196,7 @@ export function bindIdJagGrant(
     draft: IDJAG_DRAFT,
     sourceGrantRef,
     sourceGrantRefPreimage: preimage,
-    delegationChainRoot: computeDelegationChainRoot(chain),
+    delegationChainRoot: computeDelegationChainRootForWrite(chain),
     chain,
     rootRef: createDelegationRef({ did: claims.sub }),
     externalRoot: { type: 'external_identity_assertion', protocol: 'id-jag', verifiedBy: 'caller' },

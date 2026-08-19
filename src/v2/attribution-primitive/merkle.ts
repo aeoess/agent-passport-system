@@ -8,7 +8,7 @@
 // All projections share a path length of two.
 // ══════════════════════════════════════════════════════════════════
 
-import { hashAxisLeaf, hashNode, normalizeAxes } from './canonical.js'
+import { hashAxisLeaf, hashAxisLeafForWrite, hashNode, normalizeAxes } from './canonical.js'
 import type { AttributionAxes, AttributionAxisTag } from './types.js'
 
 export interface MerkleFrame {
@@ -22,12 +22,15 @@ export interface MerkleFrame {
 /** Build the full tree for a set of axes. Callers pass the raw (possibly
  *  unsorted) axes; we normalize before hashing so the caller can't produce
  *  two different canonical representations of the same logical content. */
-export function buildMerkleFrame(rawAxes: AttributionAxes): MerkleFrame {
+function buildMerkleFrameImpl(
+  rawAxes: AttributionAxes,
+  leaf: (axis: unknown) => Buffer,
+): MerkleFrame {
   const axes = normalizeAxes(rawAxes)
-  const leafD = hashAxisLeaf(axes.D)
-  const leafP = hashAxisLeaf(axes.P)
-  const leafG = hashAxisLeaf(axes.G)
-  const leafC = hashAxisLeaf(axes.C)
+  const leafD = leaf(axes.D)
+  const leafP = leaf(axes.P)
+  const leafG = leaf(axes.G)
+  const leafC = leaf(axes.C)
   const nContent = hashNode(leafD, leafP)
   const nAuthInfra = hashNode(leafG, leafC)
   const root = hashNode(nContent, nAuthInfra)
@@ -37,6 +40,20 @@ export function buildMerkleFrame(rawAxes: AttributionAxes): MerkleFrame {
     nodes: { N_content: nContent, N_auth_infra: nAuthInfra },
     root,
   }
+}
+
+export function buildMerkleFrame(rawAxes: AttributionAxes): MerkleFrame {
+  return buildMerkleFrameImpl(rawAxes, hashAxisLeaf)
+}
+
+/** Write-boundary twin of buildMerkleFrame().
+ *
+ *  Reaches a canonicalizer only indirectly, through hashAxisLeaf, so a call-site
+ *  census over canonicalizer usage cannot see it. Use when CONSTRUCTING a primitive;
+ *  projection and verification keep calling buildMerkleFrame() so a primitive built
+ *  before this rule still reconstructs. */
+export function buildMerkleFrameForWrite(rawAxes: AttributionAxes): MerkleFrame {
+  return buildMerkleFrameImpl(rawAxes, hashAxisLeafForWrite)
 }
 
 /** The sibling path for a projection, in the order §2.2 specifies:

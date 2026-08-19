@@ -3,7 +3,7 @@
 // Attribution Consent — cited-principal consent signing
 
 import { sign, verify } from '../../crypto/keys.js'
-import { receiptCore } from './create.js'
+import { receiptCoreForWrite } from './create.js'
 import type { AttributionReceipt } from './types.js'
 
 /** Add the cited principal's consent signature. The private key must match
@@ -13,7 +13,7 @@ export function signAttributionConsent(
   receipt: AttributionReceipt,
   cited_principal_private_key: string,
 ): AttributionReceipt {
-  const core = receiptCore(receipt)
+  const core = receiptCoreForWrite(receipt)
   const cited_principal_signature = sign(core, cited_principal_private_key)
 
   if (!verify(core, cited_principal_signature, receipt.cited_principal_public_key)) {

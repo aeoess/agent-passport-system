@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import {
-  computeAuthorityDelegationId,
+  computeAuthorityDelegationIdForWrite,
   signAuthorityDelegation,
 } from './canonical.js'
 import { compareAuthority } from './compare.js'
@@ -27,7 +27,7 @@ export function issueAuthorityDelegation(
   privateKey: string,
 ): AuthorityDelegationV1 {
   assertBody(body)
-  const delegation_id = computeAuthorityDelegationId(body)
+  const delegation_id = computeAuthorityDelegationIdForWrite(body)
   const unsigned: Omit<AuthorityDelegationV1, 'signature'> = { ...body, delegation_id }
   return { ...unsigned, signature: signAuthorityDelegation(unsigned, privateKey) }
 }

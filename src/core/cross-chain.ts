@@ -16,7 +16,7 @@
 
 import { createHash, randomBytes } from 'node:crypto'
 import { sign, verify } from '../crypto/keys.js'
-import { canonicalize } from './canonical.js'
+import { canonicalize, canonicalizeForWrite } from './canonical.js'
 import type {
   TaintLabel, TaintUsage, TaintSet,
   SignedAuthorityObject, CrossChainPermit,
@@ -161,6 +161,20 @@ export function computeStepHash(previousStepHash: string, taint: TaintLabel, ste
     .update(String(stepIndex))
     .digest('hex')
 }
+/** Write-boundary twin of computeStepHash().
+ *
+ *  Emits the same bytes as computeStepHash() for every value it accepts. The only difference
+ *  is that an integer-valued number outside the interoperable IEEE 754 range is
+ *  refused instead of serialized. Use at signing and new-write boundaries ONLY:
+ *  computeStepHash() stays unrestricted so an artifact signed before this rule keeps
+ *  verifying. */
+export function computeStepHashForWrite(previousStepHash: string, taint: TaintLabel, stepIndex: number): string {
+  return createHash('sha256')
+    .update(previousStepHash)
+    .update(canonicalizeForWrite(taint))
+    .update(String(stepIndex))
+    .digest('hex')
+}
 
 /**
  * Record a data access in the execution frame with causal hash chaining.
@@ -174,7 +188,7 @@ export function recordAccess(frame: ExecutionFrame, taint: TaintLabel): Executio
 
   const stepIndex = frame.stepCount
   const previousStepHash = frame.chainHead || ''
-  const stepHash = computeStepHash(previousStepHash, taint, stepIndex)
+  const stepHash = computeStepHashForWrite(previousStepHash, taint, stepIndex)
 
   const accessedContexts = [...frame.accessedContexts, taint]
   return {

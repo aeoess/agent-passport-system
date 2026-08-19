@@ -14,7 +14,7 @@
 // the memory, not by the original source issuer.
 // ══════════════════════════════════════════════════════════════════
 
-import { canonicalizeJCS } from '../../core/canonical-jcs.js'
+import { canonicalizeJCS, canonicalizeJCSForWrite } from '../../core/canonical-jcs.js'
 import { sign, publicKeyFromPrivate } from '../../crypto/keys.js'
 
 import type {
@@ -35,6 +35,20 @@ export function canonicalizeForSignature(
   return canonicalizeJCS(draft)
 }
 
+/** Write-boundary twin of canonicalizeForSignature().
+ *
+ *  Emits the same bytes as canonicalizeForSignature() for every value it accepts. The only difference
+ *  is that an integer-valued number outside the interoperable IEEE 754 range is
+ *  refused instead of serialized. Use at signing and new-write boundaries ONLY:
+ *  canonicalizeForSignature() stays unrestricted so an artifact signed before this rule keeps
+ *  verifying. */
+export function canonicalizeForSignatureForWrite(
+  envelope: UnsignedMemoryProvenanceEnvelope | MemoryProvenanceEnvelope,
+): string {
+  const draft = { ...envelope, signature: '' }
+  return canonicalizeJCSForWrite(draft)
+}
+
 /**
  * Sign an unsigned envelope with an Ed25519 private key (hex). Derives
  * the public key from the private key and writes it into ingester_id on
@@ -52,7 +66,7 @@ export function signMemoryProvenance(
 ): MemoryProvenanceEnvelope {
   const ingester_id = publicKeyFromPrivate(privateKeyHex)
   const withDerivedKey: UnsignedMemoryProvenanceEnvelope = { ...unsigned, ingester_id }
-  const bytes = canonicalizeForSignature(withDerivedKey)
+  const bytes = canonicalizeForSignatureForWrite(withDerivedKey)
   const signature = sign(bytes, privateKeyHex)
   return { ...withDerivedKey, signature }
 }
