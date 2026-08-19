@@ -28,7 +28,7 @@
 // ══════════════════════════════════════════════════════════════════
 
 import { createHash, randomBytes } from 'node:crypto'
-import { canonicalizeJCS } from '../../core/canonical-jcs.js'
+import { canonicalizeJCS, canonicalizeJCSForWrite } from '../../core/canonical-jcs.js'
 import { sign as edSignHex, verify as edVerifyHex } from '../../crypto/keys.js'
 import {
   certificateId,
@@ -111,7 +111,7 @@ export function buildAttest(
     certificate: input.certificate,
     timestamp: input.now_ms,
   }
-  const canonical = canonicalizeJCS(unsigned)
+  const canonical = canonicalizeJCSForWrite(unsigned)
   const sig_hex = edSignHex(canonical, own_sk_hex)
   return {
     ...unsigned,
@@ -278,7 +278,7 @@ export function deriveSession(
   const agent_cert_id = certificateId(agent_attest.certificate)
   const is_cert_id = certificateId(is_attest.certificate)
 
-  const sessionMaterial = canonicalizeJCS({
+  const sessionMaterial = canonicalizeJCSForWrite({
     spec_version: SPEC_VERSION,
     chosen_version: agent_attest.chosen_version,
     agent_cert_id,

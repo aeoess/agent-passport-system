@@ -27,7 +27,7 @@
 // ══════════════════════════════════════════════════════════════════
 
 import { createHash, randomUUID } from 'node:crypto'
-import { canonicalizeJCS } from '../../../core/canonical-jcs.js'
+import { canonicalizeJCS, canonicalizeJCSForWrite } from '../../../core/canonical-jcs.js'
 import { publicKeyFromPrivate, sign, verify as edVerify } from '../../../crypto/keys.js'
 import {
   parseDidUri,
@@ -90,7 +90,7 @@ function sha256Hex(bytes: Uint8Array | string): string {
 }
 
 function canonicalDigest(obj: unknown): string {
-  return sha256Hex(canonicalizeJCS(obj))
+  return sha256Hex(canonicalizeJCSForWrite(obj))
 }
 
 /** Rewrite every present-and-undefined member of a caller-supplied value as an
@@ -524,7 +524,7 @@ export function signAcpReceipt(
     unsigned.settlement_record_id = input.settlement_record_id
   }
 
-  const sigBytes = canonicalizeJCS(unsigned)
+  const sigBytes = canonicalizeJCSForWrite(unsigned)
   const signature = sign(sigBytes, signerPrivateKeyHex)
   return { ...unsigned, signature }
 }
@@ -708,7 +708,7 @@ export function signAcpDenial(
     issued_at: nowIso(),
   }
 
-  const sigBytes = canonicalizeJCS(unsigned)
+  const sigBytes = canonicalizeJCSForWrite(unsigned)
   const signature = sign(sigBytes, signerPrivateKeyHex)
   return { ...unsigned, signature }
 }

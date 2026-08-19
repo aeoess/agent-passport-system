@@ -106,7 +106,7 @@ export function createEvidenceBundle(opts: CreateEvidenceBundleOptions): Evidenc
     members: manifestMembers,
     merkle_root: buildMerkleRoot(manifestMembers.map(m => m.digest)),
   }
-  const signature = sign(canonicalize(signable), opts.signerPrivateKey)
+  const signature = sign(canonicalizeForWrite(signable), opts.signerPrivateKey)
 
   return {
     manifest: { ...signable, signature },

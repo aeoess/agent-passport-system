@@ -4,7 +4,7 @@
 
 import { v4 as uuidv4 } from 'uuid'
 import { sign, verify } from '../crypto/keys.js'
-import { canonicalize } from './canonical.js'
+import { canonicalize, canonicalizeForWrite } from './canonical.js'
 import type { BMOReceipt } from '../types/behavioral-memory.js'
 
 export function createBMOReceipt(opts: {
@@ -22,7 +22,7 @@ export function createBMOReceipt(opts: {
     actor_id: opts.actor_id,
     timestamp: new Date().toISOString(),
   }
-  const canonical = canonicalize(receipt)
+  const canonical = canonicalizeForWrite(receipt)
   const signature = sign(canonical, opts.private_key)
   return { ...receipt, signature } as BMOReceipt
 }

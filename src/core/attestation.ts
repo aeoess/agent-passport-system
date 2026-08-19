@@ -347,7 +347,7 @@ export function createWorkspaceManifest(
     .sort((a, b) => a.pathHash.localeCompare(b.pathHash))
 
   const totalSize = manifestEntries.reduce((sum, e) => sum + e.sizeBytes, 0)
-  const manifestHash = sha256Hex(canonicalize(manifestEntries))
+  const manifestHash = sha256Hex(canonicalizeForWrite(manifestEntries))
 
   return {
     entries: manifestEntries,

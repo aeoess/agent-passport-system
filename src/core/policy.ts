@@ -20,7 +20,7 @@
 import { v4 as uuidv4 } from 'uuid'
 import { createHash } from 'crypto'
 import { sign, verify } from '../crypto/keys.js'
-import { canonicalize } from './canonical.js'
+import { canonicalize, canonicalizeForWrite } from './canonical.js'
 import { scopeAuthorizes } from './delegation.js'
 import { computeActionRef } from './action-ref.js'
 import type { EnforcementMode } from '../types/passport.js'
@@ -65,7 +65,7 @@ export function createActionIntent(opts: {
   // Content-addressed request identity (A2A#1672)
   intent.actionRef = computeActionRef(intent)
 
-  const signature = sign(canonicalize(intent), opts.privateKey)
+  const signature = sign(canonicalizeForWrite(intent), opts.privateKey)
   return { ...intent, signature }
 }
 
@@ -131,7 +131,7 @@ export function evaluateIntent(opts: {
     expiresAt: expires.toISOString()
   }
 
-  const signature = sign(canonicalize(decision), opts.evaluatorPrivateKey)
+  const signature = sign(canonicalizeForWrite(decision), opts.evaluatorPrivateKey)
   return { ...decision, signature }
 }
 
@@ -207,7 +207,7 @@ export function createPolicyReceipt(opts: {
     pr.epistemic_claims = opts.epistemicClaims
   }
 
-  const signature = sign(canonicalize(pr), opts.verifierPrivateKey)
+  const signature = sign(canonicalizeForWrite(pr), opts.verifierPrivateKey)
   return { ...pr, signature }
 }
 
@@ -754,7 +754,7 @@ export function appendPolicyChainEntry(
 ): PolicyChainEntry {
   const previousHash = chain.currentHash
   const hashInput = JSON.stringify({
-    constraints: canonicalize(constraints),
+    constraints: canonicalizeForWrite(constraints),
     previousPolicyHash: previousHash,
   })
   const policyHash = sha256(hashInput)

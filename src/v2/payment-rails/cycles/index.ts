@@ -74,7 +74,7 @@
 // ══════════════════════════════════════════════════════════════════
 
 import { randomUUID } from 'node:crypto'
-import { canonicalizeJCS } from '../../../core/canonical-jcs.js'
+import { canonicalizeJCS, canonicalizeJCSForWrite } from '../../../core/canonical-jcs.js'
 import { sha256Hex } from '../canonicalize.js'
 import { publicKeyFromPrivate, sign, verify as edVerify } from '../../../crypto/keys.js'
 import {
@@ -337,7 +337,7 @@ export function signCyclesPermitReceipt(
   if (input.trust_policy_ref !== undefined) {
     unsigned.trust_policy_ref = input.trust_policy_ref
   }
-  const sigBytes = canonicalizeJCS(unsigned)
+  const sigBytes = canonicalizeJCSForWrite(unsigned)
   const signature = sign(sigBytes, signerPrivateKeyHex)
   return { ...unsigned, signature }
 }
@@ -394,7 +394,7 @@ export function signCyclesReleaseReceipt(
   if (input.reason !== undefined) {
     unsigned.reason = input.reason
   }
-  const sigBytes = canonicalizeJCS(unsigned)
+  const sigBytes = canonicalizeJCSForWrite(unsigned)
   const signature = sign(sigBytes, signerPrivateKeyHex)
   return { ...unsigned, signature }
 }
@@ -448,7 +448,7 @@ export function signCyclesDenial(
     timestamp: issued_at,
     scope_of_claim: input.scope_of_claim ?? defaultCyclesDenialScope(),
   }
-  const sigBytes = canonicalizeJCS(unsigned)
+  const sigBytes = canonicalizeJCSForWrite(unsigned)
   const signature = sign(sigBytes, signerPrivateKeyHex)
   return { ...unsigned, signature }
 }

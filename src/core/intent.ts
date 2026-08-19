@@ -12,7 +12,7 @@
 
 import { randomBytes } from 'node:crypto'
 import { sign } from '../crypto/keys.js'
-import { canonicalize } from './canonical.js'
+import { canonicalize, canonicalizeForWrite } from './canonical.js'
 import { verifyPassport } from '../verification/verify.js'
 import type { SignedPassport } from '../types/passport.js'
 import type {
@@ -52,7 +52,7 @@ export function assignRole(opts: {
     scope: opts.scope,
   }
 
-  const signature = sign(canonicalize(assignment), opts.assignerPrivateKey)
+  const signature = sign(canonicalizeForWrite(assignment), opts.assignerPrivateKey)
 
   return { ...assignment, signature }
 }
@@ -127,7 +127,7 @@ export function createIntentDocument(opts: {
     expiresAt: opts.expiresAt,
   }
 
-  const signature = sign(canonicalize(doc), opts.authorPrivateKey)
+  const signature = sign(canonicalizeForWrite(doc), opts.authorPrivateKey)
   return { ...doc, signature }
 }
 
@@ -202,7 +202,7 @@ export function submitConsensusRound(
     positionDelta,
   }
 
-  const signature = sign(canonicalize(roundContent), opts.privateKey)
+  const signature = sign(canonicalizeForWrite(roundContent), opts.privateKey)
   const round: ConsensusRound = { ...roundContent, signature }
 
   const updatedDeliberation: Deliberation = {
@@ -306,7 +306,7 @@ export function resolveDeliberation(
     resolvedAt: new Date().toISOString(),
   }
 
-  const outcomeSignature = sign(canonicalize(outcomeContent), opts.resolverPrivateKey)
+  const outcomeSignature = sign(canonicalizeForWrite(outcomeContent), opts.resolverPrivateKey)
   const outcome: DeliberationOutcome = {
     ...outcomeContent,
     precedentId: `prec-${randomBytes(4).toString('hex')}`,

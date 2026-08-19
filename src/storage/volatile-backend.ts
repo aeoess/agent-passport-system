@@ -16,7 +16,7 @@ import type {
 import type { Delegation, RevocationRecord, ActionReceipt } from '../types/passport.js'
 import type { ScopedReputation, DemotionEvent } from '../types/reputation-authority.js'
 import type { KeyRotationEntry } from '../types/identity.js'
-import { canonicalize } from '../core/canonical.js'
+import { canonicalize, canonicalizeForWrite } from '../core/canonical.js'
 import { sign } from '../crypto/keys.js'
 
 interface NonceEntry { requestId: string; expiresAt: number }
@@ -230,8 +230,8 @@ export class VolatileBackend implements StorageBackend {
     const prev = this.checkpoints.length > 0 ? this.checkpoints[this.checkpoints.length - 1] : null
     const sequence = (prev?.sequence ?? 0) + 1
     const receiptHead = this.receipts.length > 0 ? this.receipts[this.receipts.length - 1].receiptId : '0'
-    const stateRoot = canonicalize({ d: this.delegations.size, r: this.revocations.size, rc: this.receipts.length })
-    const previousHash = prev ? canonicalize(prev) : '0'.repeat(64)
+    const stateRoot = canonicalizeForWrite({ d: this.delegations.size, r: this.revocations.size, rc: this.receipts.length })
+    const previousHash = prev ? canonicalizeForWrite(prev) : '0'.repeat(64)
     const checkpoint: GatewayCheckpoint = {
       checkpointId: `chk_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       gatewayId, sequence,
@@ -243,7 +243,7 @@ export class VolatileBackend implements StorageBackend {
       protocolVersion: '1.0',
       createdAt: new Date().toISOString(),
       previousCheckpointHash: previousHash,
-      signature: sign(canonicalize({ sequence, stateRoot, previousHash }), gatewayPrivateKey)
+      signature: sign(canonicalizeForWrite({ sequence, stateRoot, previousHash }), gatewayPrivateKey)
     }
     this.checkpoints.push(checkpoint)
     // Emit to external anchoring callbacks

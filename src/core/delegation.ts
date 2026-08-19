@@ -35,6 +35,7 @@ import type {
   CascadeRevocationResult, DelegationChainValidation,
   RevocationEvent,
 } from '../types/passport.js'
+import { canonicalizeForWrite } from './canonical.js'
 
 const MOVED =
   'This function has moved to DelegationStore in @aeoess/gateway. ' +
@@ -109,7 +110,7 @@ export function createDelegation(opts: CreateDelegationOptions): Delegation {
     ...(opts.credentialCheckPolicy && { credentialCheckPolicy: opts.credentialCheckPolicy }),
   }
 
-  const canonical = canonicalize(delegation)
+  const canonical = canonicalizeForWrite(delegation)
   const signature = sign(canonical, opts.privateKey)
 
   const signed = { ...delegation, signature }
@@ -409,7 +410,7 @@ export function createReceipt(opts: CreateReceiptOptions): ActionReceipt {
     delegationChain: opts.delegationChain,
   }
 
-  const canonical = canonicalize(receipt)
+  const canonical = canonicalizeForWrite(receipt)
   const signature = sign(canonical, opts.privateKey)
   return { ...receipt, signature }
 }

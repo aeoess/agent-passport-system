@@ -12,7 +12,7 @@
 
 import { randomUUID } from 'node:crypto'
 import { sign, verify } from '../crypto/keys.js'
-import { canonicalize } from './canonical.js'
+import { canonicalize, canonicalizeForWrite } from './canonical.js'
 import type {
   WitnessAttestation, WitnessPool, WitnessPoolConfig,
   DiversityScore, WitnessConsensusResult,
@@ -51,7 +51,7 @@ export function createAttestation(params: {
     throw new Error('Confidence must be between 0 and 1')
   }
   const timestamp = new Date().toISOString()
-  const payload = canonicalize({
+  const payload = canonicalizeForWrite({
     witnessId: params.witnessId,
     observation: params.observation,
     confidence: params.confidence,

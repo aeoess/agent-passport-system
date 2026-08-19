@@ -4,7 +4,7 @@
 // Wraps protocol artifacts as W3C VC Data Model 2.0 credentials.
 // Pure translation layer: no changes to core protocol.
 
-import { canonicalize } from './canonical.js'
+import { canonicalize, canonicalizeForWrite } from './canonical.js'
 import { sign, verify, publicKeyFromPrivate } from '../crypto/keys.js'
 import { createDID, publicKeyFromDID } from './did.js'
 import type { AgentPassport, Delegation, ActionReceipt } from '../types/passport.js'
@@ -292,7 +292,7 @@ async function createProof(
   did: string,
   purpose: LinkedDataProof['proofPurpose']
 ): Promise<LinkedDataProof> {
-  const canonical = canonicalize(data as Record<string, unknown>)
+  const canonical = canonicalizeForWrite(data as Record<string, unknown>)
   const sig = await sign(canonical, privateKey)
 
   return {

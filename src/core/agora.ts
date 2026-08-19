@@ -6,7 +6,7 @@
 
 import { randomBytes } from 'node:crypto'
 import { sign, verify } from '../crypto/keys.js'
-import { canonicalize } from './canonical.js'
+import { canonicalize, canonicalizeForWrite } from './canonical.js'
 import type {
   AgoraMessage, AgoraMessageContent, AgoraVerification,
   AgoraFeed, AgoraAgent, AgoraRegistry
@@ -48,7 +48,7 @@ export function createAgoraMessage(opts: {
   }
 
   // Sign the canonical form of the message content
-  const canonical = canonicalize(messageContent)
+  const canonical = canonicalizeForWrite(messageContent)
   const signature = sign(canonical, opts.privateKey)
 
   return {

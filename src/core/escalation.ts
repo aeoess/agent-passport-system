@@ -7,7 +7,7 @@
 
 import { v4 as uuidv4 } from 'uuid'
 import { sign, verify } from '../crypto/keys.js'
-import { canonicalize } from './canonical.js'
+import { canonicalize, canonicalizeForWrite } from './canonical.js'
 import { scopeAuthorizes } from './delegation.js'
 
 // ══════════════════════════════════════
@@ -106,7 +106,7 @@ export function createEscalationGrant(opts: {
     throw new Error('Escalation grant ceiling maxDurationMs must be positive')
   }
 
-  const signable = canonicalize({
+  const signable = canonicalizeForWrite({
     grantId, delegationId, grantedTo, grantedBy,
     ceiling, allowedTriggers: allowedTriggers ?? ['human_authorized'],
     allowedActionClasses: allowedActionClasses ?? ['tentative'],
@@ -193,7 +193,7 @@ export function requestEscalation(opts: {
     throw new Error('Agent is not the grantee of this escalation grant')
   }
 
-  const signable = canonicalize({
+  const signable = canonicalizeForWrite({
     requestId, grantId: grant.grantId, agentPublicKey,
     trigger, requestedAt: now,
   })
@@ -251,7 +251,7 @@ export function activateEscalation(opts: {
 
   const expiresAt = new Date(Date.now() + grant.ceiling.maxDurationMs).toISOString()
 
-  const signable = canonicalize({
+  const signable = canonicalizeForWrite({
     escalationId, grantId: grant.grantId, requestId: request.requestId,
     agentPublicKey: request.agentPublicKey,
     effectiveScope: grant.ceiling.scope,

@@ -4,7 +4,7 @@
 // Separates evaluation input conditions from evaluation output results.
 
 import { createHash } from 'crypto'
-import { canonicalize } from './canonical.js'
+import { canonicalize, canonicalizeForWrite } from './canonical.js'
 import type { EvaluationContext, BehavioralAttestationResult } from '../types/attestation.js'
 
 function sha256Hex(input: string): string {
@@ -25,7 +25,7 @@ export function createEvaluationContext(opts: EvaluationContext): {
     sampleSize: opts.sampleSize,
     evaluatedAt: opts.evaluatedAt,
   }
-  const hash = sha256Hex(canonicalize(context))
+  const hash = sha256Hex(canonicalizeForWrite(context))
   return { context, hash }
 }
 
@@ -37,7 +37,7 @@ export function createBehavioralAttestationResult(opts: {
   confidence: number
   formatArtifactCorrected: boolean
 }): BehavioralAttestationResult {
-  const evaluationContextHash = sha256Hex(canonicalize(opts.context))
+  const evaluationContextHash = sha256Hex(canonicalizeForWrite(opts.context))
 
   // Auto-compute aggregate from weighted dimensions
   let weightedSum = 0

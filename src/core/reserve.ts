@@ -6,7 +6,7 @@
 
 import { v4 as uuidv4 } from 'uuid'
 import { sign, verify } from '../crypto/keys.js'
-import { canonicalize } from './canonical.js'
+import { canonicalize, canonicalizeForWrite } from './canonical.js'
 import type {
   ReserveAttestation, ReserveAssuranceClass,
   ReserveAttestationLiability,
@@ -48,7 +48,7 @@ export function createReserveAttestation(opts: CreateReserveAttestationOptions):
     expiresAt,
   }
 
-  const canonical = canonicalize(attestation)
+  const canonical = canonicalizeForWrite(attestation)
   const signature = sign(canonical, opts.attesterPrivateKey)
   return { ...attestation, signature }
 }

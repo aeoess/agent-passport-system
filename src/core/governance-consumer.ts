@@ -14,6 +14,9 @@
 
 import { createHash } from 'node:crypto'
 import { sign, verify, canonicalize, createDID } from '../index.js'
+// Write-policy canonicalizer imported directly: it is an internal helper and is
+// deliberately NOT re-exported from the public barrel above.
+import { canonicalizeForWrite } from './canonical.js'
 import { parseGovernanceBlockFromHTML, verifyGovernanceBlock, isUsagePermitted, isGovernanceBlockExpired } from './governance-block.js'
 import type { GovernanceBlock, UsagePermission } from './governance-block.js'
 import { parseApsTxt, resolveTermsForPath } from './aps-txt.js'
@@ -149,7 +152,7 @@ export function createAccessReceipt(input: {
     accessed_at: now,
   }
 
-  const payload = canonicalize(receipt)
+  const payload = canonicalizeForWrite(receipt)
   const signature = sign(payload, input.agentPrivateKey)
   return { ...receipt, signature }
 }

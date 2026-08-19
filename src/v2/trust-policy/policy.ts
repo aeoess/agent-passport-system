@@ -11,7 +11,7 @@
 // anti-rollback version gate.
 // ══════════════════════════════════════════════════════════════════
 
-import { canonicalizeJCS } from '../../core/canonical-jcs.js'
+import { canonicalizeJCS, canonicalizeJCSForWrite } from '../../core/canonical-jcs.js'
 import { sign as edSignHex, verify as edVerifyHex } from '../../crypto/keys.js'
 import {
   TRUST_ROOT_POLICY_SPEC_VERSION,
@@ -114,7 +114,7 @@ export function signTrustRootPolicy(
   unsigned: TrustRootPolicyBody,
   publisher_sk_hex: string,
 ): TrustRootPolicy {
-  const canonical = canonicalizeJCS(policyPreimage(unsigned))
+  const canonical = canonicalizeJCSForWrite(policyPreimage(unsigned))
   const sig_hex = edSignHex(canonical, publisher_sk_hex)
   const sig_b64 = Buffer.from(sig_hex, 'hex').toString('base64')
   return { ...unsigned, signature_b64: sig_b64 }

@@ -6,7 +6,7 @@
 
 import { v4 as uuidv4 } from 'uuid'
 import { sign, verify } from '../crypto/keys.js'
-import { canonicalize } from './canonical.js'
+import { canonicalize, canonicalizeForWrite } from './canonical.js'
 import { createHash } from 'node:crypto'
 import { checkArtifactCitations } from '../v2/attribution-consent/index.js'
 import type { AttributionReceipt, ArtifactCitation } from '../v2/attribution-consent/index.js'
@@ -58,7 +58,7 @@ export function createCompletionReceipt(opts: CompletionReceiptOptions): Complet
     ...(opts.citations ? { citations: opts.citations } : {}),
   }
 
-  const canonical = canonicalize(body)
+  const canonical = canonicalizeForWrite(body)
   const signature = sign(canonical, opts.privateKey)
 
   return { ...body, signature }

@@ -10,7 +10,7 @@
 
 import { createHash } from 'node:crypto'
 import { sign, verify } from '../crypto/keys.js'
-import { canonicalize } from './canonical.js'
+import { canonicalize, canonicalizeForWrite } from './canonical.js'
 import type { FinalityState } from '../types/finality.js'
 import type { EscrowHold, EscrowFulfillmentCondition } from '../types/escrow.js'
 import type { DisputeArtifact, DisputeBond, DisputeOverlay,
@@ -52,7 +52,7 @@ export function createEscrowHold(input: {
     gatewayId: input.gatewayId,
   }
 
-  const payload = canonicalize(holdData)
+  const payload = canonicalizeForWrite(holdData)
   const initiatorSignature = sign(payload, input.initiatorPrivateKey)
   const gatewaySignature = sign(payload, input.gatewayPrivateKey)
 
@@ -137,7 +137,7 @@ export function createDisputeArtifact(input: {
     gatewayId: input.gatewayId,
   }
 
-  const payload = canonicalize(disputeData)
+  const payload = canonicalizeForWrite(disputeData)
   const claimantSignature = sign(payload, input.claimantPrivateKey)
   const gatewaySignature = sign(payload, input.gatewayPrivateKey)
 
@@ -188,7 +188,7 @@ export function createWitnessAttestation(input: {
     observationBasis: input.observationBasis,
     ...(input.predictionError ? { predictionError: input.predictionError } : {}),
   }
-  const payload = canonicalize(attData)
+  const payload = canonicalizeForWrite(attData)
   const signature = sign(payload, input.witnessPrivateKey)
   return { ...attData, signature }
 }

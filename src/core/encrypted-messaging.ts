@@ -11,7 +11,7 @@
 import sodium from 'libsodium-wrappers'
 import { createHash, randomBytes } from 'node:crypto'
 import { sign, verify } from '../crypto/keys.js'
-import { canonicalize } from './canonical.js'
+import { canonicalize, canonicalizeForWrite } from './canonical.js'
 import type {
   EncryptionKeyAnnouncement, EncryptionKeypair,
   EncryptedAgoraMessage, DecryptedPayload
@@ -75,7 +75,7 @@ export function createKeyAnnouncement(
   identityPublicKey: string,
   identityPrivateKey: string
 ): EncryptionKeyAnnouncement {
-  const payload = canonicalize({ agentId, encryptionPublicKey })
+  const payload = canonicalizeForWrite({ agentId, encryptionPublicKey })
   const signature = sign(payload, identityPrivateKey)
   return {
     agentId,
@@ -230,7 +230,7 @@ export async function createEncryptedAgoraMessage(opts: {
   // Step 2: Create inner signature over plaintext + recipient + nonce
   // (This will be encrypted inside the payload)
   const tempNonce = randomBytes(24).toString('base64')
-  const innerPayload = canonicalize({
+  const innerPayload = canonicalizeForWrite({
     subject: opts.subject,
     content: opts.content,
     recipientAgentId: opts.recipientAgentId,
@@ -250,7 +250,7 @@ export async function createEncryptedAgoraMessage(opts: {
   }
 
   // Step 4: Encrypt the entire plaintext bundle
-  const plaintextStr = canonicalize(decryptedPayload)
+  const plaintextStr = canonicalizeForWrite(decryptedPayload)
   const encrypted = await encryptPayload(plaintextStr, opts.recipientEncryptionPublicKey)
 
   // Step 5: Build the cleartext envelope
@@ -279,7 +279,7 @@ export async function createEncryptedAgoraMessage(opts: {
   }
 
   // Step 6: Outer signature over the entire envelope (public verifiability)
-  const outerPayload = canonicalize(message)
+  const outerPayload = canonicalizeForWrite(message)
   const outerSignature = sign(outerPayload, opts.senderIdentityPrivateKey)
 
   return { message, outerSignature }

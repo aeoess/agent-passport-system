@@ -23,7 +23,7 @@
 // ══════════════════════════════════════════════════════════════════
 
 import { createHash } from 'node:crypto'
-import { canonicalizeJCS } from '../../../core/canonical-jcs.js'
+import { canonicalizeJCS, canonicalizeJCSForWrite } from '../../../core/canonical-jcs.js'
 import { publicKeyFromPrivate, sign, verify as edVerify } from '../../../crypto/keys.js'
 import {
   parseDidUri,
@@ -683,7 +683,7 @@ export function signAp2Mandate<T extends AP2Mandate>(
     options.issuer_agent_id,
     options.issuer_key_ref,
   )
-  const canonical = canonicalizeJCS(mandate)
+  const canonical = canonicalizeJCSForWrite(mandate)
   const signature = sign(canonical, signerPrivateKeyHex)
   const useAccountabilityShape =
     options.accountability_shape === true || options.scope_of_claim !== undefined

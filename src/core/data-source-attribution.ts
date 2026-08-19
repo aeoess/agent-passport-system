@@ -24,7 +24,7 @@
 
 import crypto from 'crypto'
 import { sign, verify } from '../crypto/keys.js'
-import { canonicalize } from './canonical.js'
+import { canonicalize, canonicalizeForWrite } from './canonical.js'
 import type { DataAccessReceipt } from '../types/data-source.js'
 import type {
   DataAttributionModel,
@@ -183,7 +183,7 @@ export function computeDataSourceAttribution(opts: {
 
   allReceiptIds.sort()
   const merkleRoot = buildMerkleRoot(allReceiptIds)
-  const entriesHash = sha256(canonicalize(sources))
+  const entriesHash = sha256(canonicalizeForWrite(sources))
 
   const report: Omit<DataSourceAttributionReport, 'signature'> = {
     reportId: 'dsar_' + crypto.randomUUID(),
@@ -201,7 +201,7 @@ export function computeDataSourceAttribution(opts: {
     generatedBy: opts.generatorPublicKey,
   }
 
-  const signature = sign(canonicalize(report), opts.generatorPrivateKey)
+  const signature = sign(canonicalizeForWrite(report), opts.generatorPrivateKey)
   return { ...report, signature }
 }
 

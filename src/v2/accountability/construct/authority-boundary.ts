@@ -8,7 +8,7 @@
 // ══════════════════════════════════════════════════════════════════
 
 import { createHash } from 'node:crypto'
-import { canonicalizeJCS } from '../../../core/canonical-jcs.js'
+import { canonicalizeJCS, canonicalizeJCSForWrite } from '../../../core/canonical-jcs.js'
 import { sign, publicKeyFromPrivate } from '../../../crypto/keys.js'
 import type { AuthorityBoundaryReceipt } from '../types/authority-boundary.js'
 
@@ -41,11 +41,11 @@ export function createAuthorityBoundaryReceipt(
     signature: '',
   }
 
-  const receiptIdBytes = canonicalizeJCS(draft)
+  const receiptIdBytes = canonicalizeJCSForWrite(draft)
   const receipt_id = createHash('sha256').update(receiptIdBytes, 'utf8').digest('hex')
 
   const signed: AuthorityBoundaryReceipt = { ...draft, receipt_id }
-  const signatureInput = canonicalizeJCS(signed)
+  const signatureInput = canonicalizeJCSForWrite(signed)
   const signature = sign(signatureInput, evaluatorPrivateKey)
 
   return { ...signed, signature }

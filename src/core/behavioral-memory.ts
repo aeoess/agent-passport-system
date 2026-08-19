@@ -4,7 +4,7 @@
 
 import { v4 as uuidv4 } from 'uuid'
 import { sign, verify } from '../crypto/keys.js'
-import { canonicalize } from './canonical.js'
+import { canonicalize, canonicalizeForWrite } from './canonical.js'
 import type { BehavioralMemoryObject, BMOExportBundle } from '../types/behavioral-memory.js'
 
 export function createBehavioralMemoryObject(opts: {
@@ -32,7 +32,7 @@ export function createBehavioralMemoryObject(opts: {
     portable: opts.portable,
     format_version: '1.0',
   }
-  const canonical = canonicalize(bmo)
+  const canonical = canonicalizeForWrite(bmo)
   const issuer_signature = sign(canonical, opts.issuer_private_key)
   return { ...bmo, issuer_signature } as BehavioralMemoryObject
 }
@@ -62,7 +62,7 @@ export function exportBehavioralMemory(
     bmos,
     exporter_id: exporterId,
   }
-  const canonical = canonicalize(bundle)
+  const canonical = canonicalizeForWrite(bundle)
   const signature = sign(canonical, privateKey)
   return { ...bundle, signature } as BMOExportBundle
 }

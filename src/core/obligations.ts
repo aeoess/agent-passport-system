@@ -5,7 +5,7 @@
 // ══════════════════════════════════════════════════════════════════
 import { randomBytes } from 'node:crypto'
 import { sign } from '../crypto/keys.js'
-import { canonicalize } from './canonical.js'
+import { canonicalize, canonicalizeForWrite } from './canonical.js'
 import { scopeAuthorizes } from './delegation.js'
 import type {
   Obligation, ObligationAction, EvidenceRequirement,
@@ -51,7 +51,7 @@ export function createObligation(opts: {
     createdAt: new Date().toISOString(),
     createdBy: opts.principalPublicKey
   }
-  const canonical = canonicalize(obligation)
+  const canonical = canonicalizeForWrite(obligation)
   const signature = sign(canonical, opts.principalPrivateKey)
   return { ...obligation, signature }
 }
@@ -62,7 +62,7 @@ export function createObligationBundle(opts: {
   principalPublicKey: string
   principalPrivateKey: string
 }): ObligationBundle {
-  const payload = canonicalize({
+  const payload = canonicalizeForWrite({
     delegationId: opts.delegationId,
     obligationIds: opts.obligations.map(o => o.obligationId)
   })
@@ -81,7 +81,7 @@ export function acceptObligationBundle(opts: {
   agentPrivateKey: string
   agentPublicKey: string
 }): { accepted: boolean; acceptanceSignature: string; obligations: Obligation[] } {
-  const payload = canonicalize({
+  const payload = canonicalizeForWrite({
     delegationId: opts.bundle.delegationId,
     obligationIds: opts.bundle.obligations.map(o => o.obligationId),
     agentId: opts.agentId,
@@ -220,7 +220,7 @@ export function resolveObligation(opts: {
     penaltyExecuted,
     gatewayId: opts.gatewayId
   }
-  const canonical = canonicalize(resolution)
+  const canonical = canonicalizeForWrite(resolution)
   const gatewaySignature = sign(canonical, opts.gatewayPrivateKey)
   return { ...resolution, gatewaySignature }
 }
@@ -240,7 +240,7 @@ export function createFulfillmentReceipt(opts: {
     evidence: { actionReceiptId: opts.matchingReceiptId },
     gatewayId: opts.gatewayId
   }
-  const canonical = canonicalize(fr)
+  const canonical = canonicalizeForWrite(fr)
   const gatewaySignature = sign(canonical, opts.gatewayPrivateKey)
   return { ...fr, gatewaySignature }
 }

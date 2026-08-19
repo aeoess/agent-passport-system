@@ -4,7 +4,7 @@
 // Mutual Authentication v1 — trust anchor bundle build, sign, verify
 // ══════════════════════════════════════════════════════════════════
 
-import { canonicalizeJCS } from '../../core/canonical-jcs.js'
+import { canonicalizeJCS, canonicalizeJCSForWrite } from '../../core/canonical-jcs.js'
 import { sign as edSignHex, verify as edVerifyHex } from '../../crypto/keys.js'
 import type { TrustAnchorBundle, TrustAnchor } from './types.js'
 
@@ -40,7 +40,7 @@ export function signBundle(
   unsigned: Omit<TrustAnchorBundle, 'signature_b64'>,
   publisher_sk_hex: string,
 ): TrustAnchorBundle {
-  const canonical = canonicalizeJCS(unsigned)
+  const canonical = canonicalizeJCSForWrite(unsigned)
   const sig_hex = edSignHex(canonical, publisher_sk_hex)
   const sig_b64 = Buffer.from(sig_hex, 'hex').toString('base64')
   return { ...unsigned, signature_b64: sig_b64 }

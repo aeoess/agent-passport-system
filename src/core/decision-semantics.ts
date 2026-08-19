@@ -153,7 +153,7 @@ export async function createContentAddressableIntent(opts: {
 
   // Now sign the intent INCLUDING the content hash
   const withHash = { ...unsigned, contentHash }
-  const signature = sign(canonicalize(withHash), opts.privateKey)
+  const signature = sign(canonicalizeForWrite(withHash), opts.privateKey)
 
   return { ...withHash, signature }
 }
@@ -297,7 +297,7 @@ export async function createDecisionArtifact(opts: {
   }
 
   // Sign the entire artifact
-  const artifactSignature = sign(canonicalize(artifact), opts.signerPrivateKey)
+  const artifactSignature = sign(canonicalizeForWrite(artifact), opts.signerPrivateKey)
 
   return {
     ...artifact,

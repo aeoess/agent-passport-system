@@ -7,7 +7,7 @@
 // F-006, F-007: advisory layer with precedent library and structured verdicts.
 
 import { sign, verify } from '../crypto/keys.js'
-import { canonicalize } from './canonical.js'
+import { canonicalize, canonicalizeForWrite } from './canonical.js'
 import type { Precedent } from '../types/intent.js'
 
 // ══════════════════════════════════════
@@ -70,7 +70,7 @@ export function markAsNormative(opts: {
   const { precedent, approverPrivateKey, approverPublicKey, category } = opts
   const now = new Date().toISOString()
 
-  const signable = canonicalize({
+  const signable = canonicalizeForWrite({
     precedentId: precedent.precedentId,
     subject: precedent.subject,
     decision: precedent.decision,

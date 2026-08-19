@@ -177,7 +177,7 @@ export function buildCPA(input: BuildCpaInput): ContextProvenanceAttestation {
     signature: '',
   }
 
-  const bytes = canonicalizeJCS(unsigned)
+  const bytes = canonicalizeJCSForWrite(unsigned)
   const signature = sign(bytes, privateKey)
 
   return { ...unsigned, signature }

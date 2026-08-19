@@ -86,7 +86,7 @@ export function createCharter(opts: CreateCharterOptions): CharterCore {
   }
 
   // Hash the charter content
-  const contentHash = charterHash(canonicalize(charter))
+  const contentHash = charterHash(canonicalizeForWrite(charter))
 
   // Founder signs the content hash
   const founderSig: CharterSignature = {
@@ -98,7 +98,7 @@ export function createCharter(opts: CreateCharterOptions): CharterCore {
 
   // Sign the full charter (content hash + founding signatures)
   const withSigs = { ...charter, contentHash, foundingSignatures: [founderSig] }
-  const canonical = canonicalize(withSigs)
+  const canonical = canonicalizeForWrite(withSigs)
   const signature = sign(canonical, opts.founderPrivateKey)
 
   return { ...withSigs, signature }
@@ -132,7 +132,7 @@ export function signCharter(
   const updatedSigs = [...charter.foundingSignatures, newSig]
   const withSigs = { ...charter, foundingSignatures: updatedSigs }
   const { signature: _old, ...signable } = withSigs
-  const canonical = canonicalize(signable)
+  const canonical = canonicalizeForWrite(signable)
   const signature = sign(canonical, resignerPrivateKey)
 
   return { ...withSigs, signature }
@@ -541,8 +541,8 @@ export function createOfficeRegistry(
     quorumFailurePolicies,
     updatedAt: new Date().toISOString(),
   }
-  const contentHash = charterHash(canonicalize(registry))
-  const signature = sign(canonicalize({ ...registry, contentHash }), signerPrivateKey)
+  const contentHash = charterHash(canonicalizeForWrite(registry))
+  const signature = sign(canonicalizeForWrite({ ...registry, contentHash }), signerPrivateKey)
 
   return { ...registry, contentHash, signature }
 }
@@ -580,7 +580,7 @@ export function createOfficeTransfer(opts: CreateOfficeTransferOptions): OfficeT
     approvalSignatures: opts.approvalSignatures,
   }
 
-  const signature = sign(canonicalize(transfer), opts.signerPrivateKey)
+  const signature = sign(canonicalizeForWrite(transfer), opts.signerPrivateKey)
   return { ...transfer, signature }
 }
 

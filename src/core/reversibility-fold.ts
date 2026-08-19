@@ -656,7 +656,7 @@ export function createReconciliationReceipt(
     evidence_status: input.evidence_status,
     reconciled_at: input.reconciled_at,
   }
-  const value = sign(canonicalizeJCS(body), input.signerPrivateKey)
+  const value = sign(canonicalizeJCSForWrite(body), input.signerPrivateKey)
   return { ...body, signature: { algorithm: 'Ed25519', public_key: input.signerPublicKey, value } }
 }
 

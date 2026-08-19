@@ -4,7 +4,7 @@
 // Selective disclosure: verifier requests specific claims,
 // agent presents a VC containing only those claims.
 
-import { canonicalize } from './canonical.js'
+import { canonicalize, canonicalizeForWrite } from './canonical.js'
 import { sign, verify, publicKeyFromPrivate } from '../crypto/keys.js'
 import { toDIDKey, fromDIDKey } from './did-interop.js'
 import { hexToMultibase } from './did.js'
@@ -293,7 +293,7 @@ async function createProof(
   purpose: LinkedDataProof['proofPurpose'],
   options?: { challenge?: string; domain?: string },
 ): Promise<LinkedDataProof> {
-  const canonical = canonicalize(data as Record<string, unknown>)
+  const canonical = canonicalizeForWrite(data as Record<string, unknown>)
   const sig = sign(canonical, privateKey)
 
   const proof: LinkedDataProof & { challenge?: string; domain?: string } = {

@@ -241,7 +241,7 @@ function finalizeAxis(
       contribution_count: count,
     }
     const merkle_leaf_hash = createHash('sha256')
-      .update(canonicalize(leafBody))
+      .update(canonicalizeForWrite(leafBody))
       .digest('hex')
     return {
       contributor_did: did,
@@ -258,7 +258,7 @@ function finalizeAxis(
     }
     const sortedPerReceiptHashes = [...accum.perReceiptResidualHashes].sort()
     const pooled_contributors_hash = createHash('sha256')
-      .update(canonicalize(sortedPerReceiptHashes))
+      .update(canonicalizeForWrite(sortedPerReceiptHashes))
       .digest('hex')
     const residual_id = (`residual:${axis}` as SettlementResidualBucket['residual_id'])
     residual_bucket = {

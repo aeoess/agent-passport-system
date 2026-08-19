@@ -84,7 +84,7 @@ export function createToolRegistryEntry(input: {
     attestorId: input.attestorId,
     verifiedAt: now,
   }
-  const signature = sign(canonicalize(body), input.attestorPrivateKey)
+  const signature = sign(canonicalizeForWrite(body), input.attestorPrivateKey)
 
   return { ...body, signature }
 }
@@ -449,7 +449,7 @@ export function createToolManifest(input: {
     approvalState: input.approvalState ?? 'approved',
     verifiedAt: input.verifiedAt ?? new Date().toISOString(),
   }
-  const canon = canonicalize(body)
+  const canon = canonicalizeForWrite(body)
   const signature = sign(canon, input.attestorPrivateKey)
   const publisherSignature = input.publisherPrivateKey
     ? sign(canon, input.publisherPrivateKey)
@@ -595,7 +595,7 @@ export function createNamespaceClaim(input: {
   trustRoot: ToolTrustRoot
   ownerPrivateKey: string
 }): NamespaceClaim {
-  const canon = canonicalize({ namespace: input.namespace, ownerDid: input.ownerDid })
+  const canon = canonicalizeForWrite({ namespace: input.namespace, ownerDid: input.ownerDid })
   return {
     namespace: input.namespace,
     ownerDid: input.ownerDid,
@@ -677,7 +677,7 @@ export function reviseToolManifest(
     approvalState: substantive ? 'pending-reapproval' : prevManifest.approvalState,
     verifiedAt: opts?.verifiedAt ?? new Date().toISOString(),
   }
-  const canon = canonicalize(body)
+  const canon = canonicalizeForWrite(body)
   const publisherSignature = prevManifest.publisherDid !== undefined
     ? sign(canon, opts!.publisherPrivateKey!)
     : undefined
@@ -726,7 +726,7 @@ export function reapproveToolManifest(
     approvalState: 'approved',
     verifiedAt: opts.verifiedAt ?? new Date().toISOString(),
   }
-  const canon = canonicalize(body)
+  const canon = canonicalizeForWrite(body)
   const publisherSignature = manifest.publisherDid !== undefined
     ? sign(canon, opts.publisherPrivateKey!)
     : undefined

@@ -19,7 +19,7 @@
 
 import { randomBytes } from 'node:crypto'
 import { sign, verify as ed25519Verify } from '../crypto/keys.js'
-import { canonicalize } from './canonical.js'
+import { canonicalize, canonicalizeForWrite } from './canonical.js'
 import { verifyPassport } from '../verification/verify.js'
 import { scopeAuthorizes } from './delegation.js'
 import { verifyBoundWallet } from '../v2/wallet-binding/bind.js'
@@ -291,7 +291,7 @@ export function signCommerceReceipt(opts: {
     beneficiary: opts.beneficiary,
   }
 
-  const payload = canonicalize(receipt)
+  const payload = canonicalizeForWrite(receipt)
   const signature = sign(payload, opts.privateKey)
 
   return { ...receipt, signature }

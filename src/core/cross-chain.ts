@@ -80,7 +80,7 @@ export function createSAO(
   const dataHash = createHash('sha256').update(dataStr).digest('hex')
   const now = new Date()
 
-  const payload = canonicalize({
+  const payload = canonicalizeForWrite({
     dataHash,
     taint,
     monitorPublicKey,
@@ -341,7 +341,7 @@ export function createCrossChainPermit(opts: {
     expiresAt,
   }
 
-  const payload = canonicalize(permitBody)
+  const payload = canonicalizeForWrite(permitBody)
   const sourceSignature = sign(payload, opts.sourcePrivateKey)
 
   return {
@@ -369,7 +369,7 @@ export function countersignPermit(
     createdAt: permit.createdAt,
     expiresAt: permit.expiresAt,
   }
-  const payload = canonicalize(permitBody)
+  const payload = canonicalizeForWrite(permitBody)
   const destinationSignature = sign(payload, destPrivateKey)
 
   return { ...permit, destinationSignature }
@@ -568,7 +568,7 @@ export function deriveSAO(
   const dataHash = createHash('sha256').update(dataStr).digest('hex')
   const now = new Date()
 
-  const payload = canonicalize({
+  const payload = canonicalizeForWrite({
     dataHash,
     taint: derivedLabel,
     monitorPublicKey,
@@ -610,7 +610,7 @@ export function createExecutionReceipt(opts: {
 }): ExecutionReceipt {
   const now = new Date()
   const expiry = new Date(now.getTime() + (opts.expiresInMinutes ?? 60) * 60000)
-  const paramsHash = createHash('sha256').update(canonicalize(opts.params)).digest('hex')
+  const paramsHash = createHash('sha256').update(canonicalizeForWrite(opts.params)).digest('hex')
   const principals = opts.frame.frameTaint.principals
   const taintSetHash = createHash('sha256').update(principals.sort().join(',')).digest('hex')
 
@@ -633,7 +633,7 @@ export function createExecutionReceipt(opts: {
     gatewayId: opts.gatewayId
   }
 
-  const canonical = canonicalize(receipt)
+  const canonical = canonicalizeForWrite(receipt)
   const gatewaySignature = sign(canonical, opts.gatewayPrivateKey)
   return { ...receipt, gatewaySignature }
 }
@@ -678,7 +678,7 @@ export function createCrossChainViolation(opts: {
     timestamp: new Date().toISOString()
   }
 
-  const canonical = canonicalize(violation)
+  const canonical = canonicalizeForWrite(violation)
   const gatewaySignature = sign(canonical, opts.gatewayPrivateKey)
   return { ...violation, gatewaySignature }
 }

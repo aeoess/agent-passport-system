@@ -12,7 +12,7 @@
 
 import { createHash } from 'node:crypto'
 import { sign, verify } from '../crypto/keys.js'
-import { canonicalize } from './canonical.js'
+import { canonicalize, canonicalizeForWrite } from './canonical.js'
 import type { ActionIntent, PolicyDecision, PolicyReceipt } from '../types/policy.js'
 import type { Delegation } from '../types/passport.js'
 import type {
@@ -54,17 +54,17 @@ export function createExecutionEnvelope(opts: {
 
   // Hash the delegation scope as capability manifest
   const manifestHash = createHash('sha256')
-    .update(canonicalize(opts.delegation.scope))
+    .update(canonicalizeForWrite(opts.delegation.scope))
     .digest('hex')
 
   // Hash the full policy decision
   const decisionHash = createHash('sha256')
-    .update(canonicalize(opts.decision))
+    .update(canonicalizeForWrite(opts.decision))
     .digest('hex')
 
   // Hash the execution receipt
   const receiptHash = createHash('sha256')
-    .update(canonicalize(opts.receipt))
+    .update(canonicalizeForWrite(opts.receipt))
     .digest('hex')
 
   // Determine narrowing from decision
@@ -112,7 +112,7 @@ export function createExecutionEnvelope(opts: {
   }
 
   // Sign the entire envelope body
-  const canonical = canonicalize(envelopeBody)
+  const canonical = canonicalizeForWrite(envelopeBody)
   const signatureValue = sign(canonical, opts.signerPrivateKey)
 
   return {
@@ -224,7 +224,7 @@ export function createMinimalEnvelope(opts: {
     run_id: opts.runId,
     action_id: opts.actionId,
     capability_ref: {
-      manifest_hash: createHash('sha256').update(canonicalize(opts.scope)).digest('hex'),
+      manifest_hash: createHash('sha256').update(canonicalizeForWrite(opts.scope)).digest('hex'),
       scope: opts.scope,
       delegation_chain_depth: 1,
       revocation_status: opts.revocationStatus
@@ -246,7 +246,7 @@ export function createMinimalEnvelope(opts: {
     timestamp: new Date().toISOString()
   }
 
-  const canonical = canonicalize(envelopeBody)
+  const canonical = canonicalizeForWrite(envelopeBody)
   const signatureValue = sign(canonical, opts.signerPrivateKey)
 
   return {

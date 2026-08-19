@@ -14,7 +14,7 @@ import { createHash } from 'node:crypto'
 import { scopeAuthorizes, verifyDelegation } from '../core/delegation.js'
 import { verifyPassport } from '../verification/verify.js'
 import { sign } from '../crypto/keys.js'
-import { canonicalize } from '../core/canonical.js'
+import { canonicalize, canonicalizeForWrite } from '../core/canonical.js'
 import type { Delegation, ActionReceipt, SignedPassport } from '../types/passport.js'
 
 // ── Types ──
@@ -73,7 +73,7 @@ function buildReceipt(
     result: { status, summary },
     delegationChain: [],
   }
-  const sig = sign(canonicalize(data), privateKey)
+  const sig = sign(canonicalizeForWrite(data), privateKey)
   return { ...data, signature: sig } as ActionReceipt
 }
 
@@ -151,7 +151,7 @@ export async function governGonkaInference(
   const result = await execute(request)
 
   // Compute inference hash for devshard verification
-  const inferenceHash = sha256(canonicalize({ prompt: request.prompt, response: result.response }))
+  const inferenceHash = sha256(canonicalizeForWrite({ prompt: request.prompt, response: result.response }))
 
   const receipt = buildReceipt(
     config.passport.passport.agentId, config.delegation.delegationId, config.privateKey,
@@ -191,7 +191,7 @@ export function createDevshardReceipt(
     },
     delegationChain: participants,
   }
-  const sig = sign(canonicalize(data), config.privateKey)
+  const sig = sign(canonicalizeForWrite(data), config.privateKey)
   return { ...data, signature: sig } as ActionReceipt
 }
 
@@ -248,6 +248,6 @@ export function verifyPoCParticipation(
     },
     delegationChain: [],
   }
-  const sig = sign(canonicalize(data), config.privateKey)
+  const sig = sign(canonicalizeForWrite(data), config.privateKey)
   return { ...data, signature: sig } as ActionReceipt
 }

@@ -133,7 +133,7 @@ export function createReceiptBundle(opts: {
 
   // Sign the bundle metadata (not the receipts — they're already signed individually)
   const exportedAt = new Date().toISOString()
-  const metadata = canonicalize({
+  const metadata = canonicalizeForWrite({
     version: BUNDLE_VERSION,
     gatewayId,
     count: stamped.length,

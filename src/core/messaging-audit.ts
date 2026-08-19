@@ -18,7 +18,7 @@
 import { createHash } from 'node:crypto'
 import { randomUUID } from 'node:crypto'
 import { sign, verify } from '../crypto/keys.js'
-import { canonicalize } from './canonical.js'
+import { canonicalize, canonicalizeForWrite } from './canonical.js'
 import type { EncryptedAgoraMessage } from '../types/encrypted-messaging.js'
 
 // ── Types ──
@@ -115,7 +115,7 @@ export function createAuditRecord(
     gatewayPublicKey,
   }
 
-  const payload = canonicalize(record)
+  const payload = canonicalizeForWrite(record)
   const gatewaySignature = sign(payload, gatewayPrivateKey)
 
   return { ...record, gatewaySignature } as MessageAuditRecord

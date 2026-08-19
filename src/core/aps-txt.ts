@@ -94,7 +94,7 @@ export function generateApsTxt(input: GenerateApsTxtInput): ApsTxt {
     ...(input.pathOverrides?.length && { path_overrides: input.pathOverrides }),
   }
 
-  const payload = canonicalize(doc)
+  const payload = canonicalizeForWrite(doc)
   const signature = sign(payload, input.privateKey)
   return { ...doc, signature }
 }
@@ -247,6 +247,7 @@ export function parseApsTxt(content: string): ApsTxt | null {
 // ═══════════════════════════════════════
 
 import type { GovernanceBlock } from './governance-block.js'
+import { canonicalizeForWrite } from './canonical.js'
 
 /**
  * Generate HTTP response headers for governance.
@@ -326,7 +327,7 @@ export function createChainedGovernanceBlock(input: {
     derivative_agent_did: derivativeDid,
   }
 
-  const payload = canonicalize(block)
+  const payload = canonicalizeForWrite(block)
   const signature = sign(payload, input.privateKey)
   return { ...block, signature }
 }

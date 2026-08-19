@@ -7,7 +7,7 @@
 
 import { v4 as uuidv4 } from 'uuid'
 import { sign, verify } from '../crypto/keys.js'
-import { canonicalize } from './canonical.js'
+import { canonicalize, canonicalizeForWrite } from './canonical.js'
 import { createHash } from 'crypto'
 import type {
   GovernanceArtifact, GovernanceApproval, GovernanceVerification,
@@ -80,7 +80,7 @@ export function createGovernanceArtifact(opts: CreateArtifactOptions): Governanc
   // Content is verified via contentHash — keeps signatures stable for large artifacts
   const signable = { ...artifact } as Record<string, unknown>
   delete signable.content
-  const canonical = canonicalize(signable)
+  const canonical = canonicalizeForWrite(signable)
   const signature = sign(canonical, opts.issuerPrivateKey)
 
   return { ...artifact, signature }
@@ -158,7 +158,7 @@ export function approveArtifact(
     artifactId: artifact.artifactId,
     contentHash: artifact.contentHash,
   }
-  const canonical = canonicalize(payload)
+  const canonical = canonicalizeForWrite(payload)
   const signature = sign(canonical, approverPrivateKey)
 
   return { ...payload, signature }

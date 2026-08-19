@@ -11,7 +11,7 @@
 import { scopeAuthorizes, verifyDelegation } from '../core/delegation.js'
 import { verifyPassport } from '../verification/verify.js'
 import { sign } from '../crypto/keys.js'
-import { canonicalize } from '../core/canonical.js'
+import { canonicalize, canonicalizeForWrite } from '../core/canonical.js'
 import type { Delegation, ActionReceipt, SignedPassport } from '../types/passport.js'
 
 export interface LangChainToolCall {
@@ -53,7 +53,7 @@ function buildLCReceipt(
     result: { status, summary },
     delegationChain: [],
   }
-  const sig = sign(canonicalize(data), privateKey)
+  const sig = sign(canonicalizeForWrite(data), privateKey)
   return { ...data, signature: sig } as ActionReceipt
 }
 

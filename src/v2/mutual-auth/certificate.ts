@@ -5,7 +5,7 @@
 // ══════════════════════════════════════════════════════════════════
 
 import { createHash } from 'node:crypto'
-import { canonicalizeJCS } from '../../core/canonical-jcs.js'
+import { canonicalizeJCS, canonicalizeJCSForWrite } from '../../core/canonical-jcs.js'
 import { sign as edSignHex, verify as edVerifyHex } from '../../crypto/keys.js'
 import type {
   MutualAuthCertificate,
@@ -60,7 +60,7 @@ export function signCertificate(
   unsigned: Omit<MutualAuthCertificate, 'signature_b64'>,
   issuer_sk_hex: string,
 ): MutualAuthCertificate {
-  const canonical = canonicalizeJCS(unsigned)
+  const canonical = canonicalizeJCSForWrite(unsigned)
   const sig_hex = edSignHex(canonical, issuer_sk_hex)
   const sig_b64 = Buffer.from(sig_hex, 'hex').toString('base64')
   return { ...unsigned, signature_b64: sig_b64 }

@@ -129,7 +129,7 @@ function sha256Hex(input: string | Buffer): string {
 }
 
 function digestOf(obj: unknown): { sha256: string } {
-  return { sha256: sha256Hex(canonicalizeJCS(obj)) }
+  return { sha256: sha256Hex(canonicalizeJCSForWrite(obj)) }
 }
 
 /** Compute the delegation chain root digest used by v2.3 bilateral receipts.
@@ -231,7 +231,7 @@ export function emitDecisionReceipt(input: EmitDecisionReceiptInput): DecisionRe
     predicate,
   }
 
-  const payload = canonicalizeJCS(statement)
+  const payload = canonicalizeJCSForWrite(statement)
   const signature = sign(payload, input.signerPrivateKey)
 
   return {

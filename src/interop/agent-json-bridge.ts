@@ -16,7 +16,7 @@
 
 import { randomBytes } from 'node:crypto'
 import { sign } from '../crypto/keys.js'
-import { canonicalize } from '../core/canonical.js'
+import { canonicalize, canonicalizeForWrite } from '../core/canonical.js'
 import { scopeAuthorizes } from '../core/delegation.js'
 import type { CommerceDelegation, CommercePreflightResult, CommercePreflightCheck } from '../types/commerce.js'
 
@@ -377,6 +377,6 @@ export function generateCommerceReceiptFromManifest(opts: {
     bountyEarned: bounty ? { amount: bounty.rate, currency: bounty.currency } : undefined,
   }
 
-  const sig = sign(canonicalize(receipt), privateKey)
+  const sig = sign(canonicalizeForWrite(receipt), privateKey)
   return { ...receipt, signature: sig }
 }
