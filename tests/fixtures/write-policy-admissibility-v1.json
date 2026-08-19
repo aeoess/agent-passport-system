@@ -1,0 +1,42 @@
+{
+  "version": "aps-write-policy-admissibility-v1",
+  "rule": "At signing and new-write boundaries only, APS refuses an integer-valued JSON number whose absolute value exceeds 9007199254740991, which is 2**53 minus 1. RFC 7493 section 2.2 states a sender cannot expect a receiver to treat integers outside that range exactly, and RECOMMENDS a JSON string where exact interchange is required.",
+  "scope": "This corpus states ADMISSIBILITY only. It is deliberately separate from the RFC 8785 canonical-bytes corpus, because one vector must never mean two things.",
+  "cases": [
+    {
+      "name": "max_safe_integer",
+      "description": "2**53-1 is the largest integer that survives a binary64 round trip exactly.",
+      "value": 9007199254740991,
+      "verdict": "ACCEPT",
+      "path": null
+    },
+    {
+      "name": "max_safe_integer_plus_one",
+      "description": "2**53 is the first integer that no longer round trips exactly.",
+      "value": 9007199254740992,
+      "verdict": "REJECT",
+      "path": "$"
+    },
+    {
+      "name": "negative_max_safe_integer_minus_one",
+      "description": "The bound is on absolute value, so the negative twin is refused too.",
+      "value": -9007199254740992,
+      "verdict": "REJECT",
+      "path": "$"
+    },
+    {
+      "name": "nested_unsafe_integer",
+      "description": "The rule applies at any depth and must name the offending member.",
+      "value": { "a": { "b": [ { "c": 9007199254740992 } ] } },
+      "verdict": "REJECT",
+      "path": "$.a.b[0].c"
+    },
+    {
+      "name": "large_quantity_as_decimal_string",
+      "description": "The RFC 7493 remedy: an exact large quantity is carried as a decimal string, which is what draft-pidlisnyi-aps-03 already does with per_action.",
+      "value": "1152921504606846976",
+      "verdict": "ACCEPT",
+      "path": null
+    }
+  ]
+}
