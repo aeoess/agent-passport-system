@@ -12,11 +12,11 @@
 // ══════════════════════════════════════════════════════════════════
 
 import { sign } from '../../crypto/keys.js'
-import { canonicalHashJCS } from '../../core/canonical-jcs.js'
+import { canonicalHashJCS, canonicalHashJCSForWrite } from '../../core/canonical-jcs.js'
 import {
   assertCanonicalTimestamp,
   canonicalTimestamp,
-  envelopeBytes,
+  envelopeBytesForWrite,
 } from './canonical.js'
 import { buildMerkleFrameForWrite } from './merkle.js'
 import type {
@@ -40,19 +40,37 @@ import type {
  *  (canonicalization injectivity) requires that semantically distinct
  *  action tuples produce distinct canonical bytes — which null-stripping
  *  would violate ({k:null, v:1} and {v:1} would collide). */
-export function computeAttributionActionRef(action: AttributionAction): string {
+function computeAttributionActionRefImpl(
+  action: AttributionAction,
+  hash: (obj: Record<string, unknown>) => string,
+): string {
   if (!action.agentId) throw new Error('attribution-primitive: action.agentId required')
   if (!action.actionType) throw new Error('attribution-primitive: action.actionType required')
   if (!action.nonce) throw new Error('attribution-primitive: action.nonce required')
   if (typeof action.params !== 'object' || action.params === null) {
     throw new Error('attribution-primitive: action.params must be an object')
   }
-  return canonicalHashJCS({
+  return hash({
     agentId: action.agentId,
     actionType: action.actionType,
     params: action.params,
     nonce: action.nonce,
   })
+}
+
+export function computeAttributionActionRef(action: AttributionAction): string {
+  return computeAttributionActionRefImpl(action, canonicalHashJCS)
+}
+
+/** Write-boundary twin of computeAttributionActionRef().
+ *
+ *  Module-internal on purpose: it is deliberately absent from the package barrel, so
+ *  this adds no public API. The exported computeAttributionActionRef() stays
+ *  unrestricted, because an external verifier re-deriving the action_ref of a primitive
+ *  signed before this rule must still get the same value. Mirrors the Python SDK's
+ *  _compute_attribution_action_ref_for_write. */
+function computeAttributionActionRefForWrite(action: AttributionAction): string {
+  return computeAttributionActionRefImpl(action, canonicalHashJCSForWrite)
 }
 
 export interface ConstructAttributionParams {
@@ -78,13 +96,13 @@ export function constructAttributionPrimitive(
   if (!params.issuer) throw new Error('attribution-primitive: issuer required')
   if (!params.issuerPrivateKey) throw new Error('attribution-primitive: issuerPrivateKey required')
 
-  const action_ref = computeAttributionActionRef(params.action)
+  const action_ref = computeAttributionActionRefForWrite(params.action)
   const frame = buildMerkleFrameForWrite(params.axes)
   const merkle_root = frame.root.toString('hex')
   const timestamp = params.timestamp ?? canonicalTimestamp()
   assertCanonicalTimestamp(timestamp)
 
-  const envelope = envelopeBytes({
+  const envelope = envelopeBytesForWrite({
     action_ref,
     merkle_root,
     issuer: params.issuer,
@@ -113,13 +131,13 @@ export function resignAttributionPrimitive(
 ): AttributionPrimitive {
   const axes = opts?.axes ?? primitive.axes
   const action_ref = opts?.action
-    ? computeAttributionActionRef(opts.action)
+    ? computeAttributionActionRefForWrite(opts.action)
     : primitive.action_ref
   const frame = buildMerkleFrameForWrite(axes)
   const merkle_root = frame.root.toString('hex')
   const timestamp = opts?.timestamp ?? canonicalTimestamp()
   assertCanonicalTimestamp(timestamp)
-  const envelope = envelopeBytes({
+  const envelope = envelopeBytesForWrite({
     action_ref,
     merkle_root,
     issuer: primitive.issuer,

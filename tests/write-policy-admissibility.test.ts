@@ -105,7 +105,7 @@ describe('APS write-policy admissibility corpus', () => {
 // have broken every endorsement and disclosure already published.
 
 import { createPrincipalIdentity, endorseAgent, verifyEndorsement } from '../src/core/principal.js'
-import { generateKeyPair, sign } from '../src/crypto/keys.js'
+import { generateKeyPair, publicKeyFromPrivate, sign } from '../src/crypto/keys.js'
 import type { PrincipalEndorsement } from '../src/types/principal.js'
 
 const UNSAFE = 9007199254740992
@@ -158,5 +158,52 @@ describe('Verification regression: pre-rule artifacts keep verifying', () => {
       scope: ['read', UNSAFE] as unknown as string[],
       relationship: 'employee',
     }), UnsafeIntegerError)
+  })
+})
+
+// ── Producer/verifier symmetry on archives, regression fixed 2026-08-19 ────
+//
+// createReceiptBundle briefly hashed the chain start/end and the stamped
+// previousReceiptHash through the WRITE twin. Those three values recompute over
+// receipts that already exist and are already signed, and verifyReceiptBundle
+// recomputes the identical values with the unrestricted hashReceipt. The result was a
+// producer that refused to export an archive its own verifier accepts, for artifacts
+// signed before the rule existed. The bundle METADATA is new state and stays guarded.
+
+import { createReceiptBundle, verifyReceiptBundle } from '../src/storage/receipt-bundle.js'
+import type { ActionReceipt } from '../src/types/passport.js'
+
+describe('Archive export stays symmetric with archive verification', () => {
+  const legacyReceipt = {
+    receiptId: 'rcpt_legacy',
+    agentId: 'did:aps:agent',
+    delegationId: 'del_legacy',
+    // An amount of the shape the SDK signed before the rule existed.
+    action: { type: 'transfer', spend: { amount: UNSAFE, currency: 'wei' } },
+    result: 'success',
+    timestamp: '2026-01-01T00:00:00.000Z',
+    signature: 'ab'.repeat(32),
+  } as unknown as ActionReceipt
+
+  it('a bundle of pre-rule receipts can still be exported', () => {
+    assert.doesNotThrow(() => createReceiptBundle({
+      receipts: [legacyReceipt],
+      gatewayId: 'gw',
+      gatewayPrivateKey: '11'.repeat(32),
+    } as Parameters<typeof createReceiptBundle>[0]))
+  })
+
+  it('and the exported bundle verifies, so producer and verifier agree', () => {
+    const bundle = createReceiptBundle({
+      receipts: [legacyReceipt],
+      gatewayId: 'gw',
+      gatewayPrivateKey: '11'.repeat(32),
+    } as Parameters<typeof createReceiptBundle>[0])
+    const gatewayPublicKey = publicKeyFromPrivate('11'.repeat(32))
+    const result = verifyReceiptBundle(bundle, gatewayPublicKey)
+    assert.strictEqual(
+      result.bundleSignatureValid, true,
+      'the producer and the verifier must agree on the admissibility of the same bytes',
+    )
   })
 })

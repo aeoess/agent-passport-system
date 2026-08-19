@@ -220,6 +220,18 @@ export function canonicalHashJCS(obj: Record<string, unknown>): string {
   return sha256hex(canonicalizeJCS(obj))
 }
 
+/** Write-boundary twin of canonicalHashJCS().
+ *
+ *  Reaches a canonicalizer only indirectly, so a call-site census over canonicalizer
+ *  usage cannot see it. Emits the same digest as canonicalHashJCS() for every value it
+ *  accepts; the only difference is that an integer-valued number outside the
+ *  interoperable IEEE 754 range is refused instead of hashed. Use at signing and
+ *  new-write boundaries ONLY: canonicalHashJCS() stays unrestricted because verifiers
+ *  re-derive references with it over artifacts signed before this rule. */
+export function canonicalHashJCSForWrite(obj: Record<string, unknown>): string {
+  return sha256hex(canonicalizeJCSForWrite(obj))
+}
+
 /** Built-in test vectors for cross-language verification */
 export function getTestVectors(): CanonicalizationTestVector[] {
   const vectors: CanonicalizationTestVector[] = []

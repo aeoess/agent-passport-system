@@ -124,12 +124,17 @@ export function createReceiptBundle(opts: {
   // Stamp chain hashes if not already present
   const stamped = receipts.map((r, i) => {
     if (i === 0 || r.previousReceiptHash) return r
-    return { ...r, previousReceiptHash: hashReceiptForWrite(receipts[i - 1]) }
+    return { ...r, previousReceiptHash: hashReceipt(receipts[i - 1]) }
   })
 
   const chain = verifyChain(stamped)
-  const startHash = stamped.length > 0 ? hashReceiptForWrite(stamped[0]) : '0'
-  const endHash = stamped.length > 0 ? hashReceiptForWrite(stamped[stamped.length - 1]) : '0'
+  // These two RECOMPUTE over receipts that already exist and are already signed, and
+  // verifyReceiptBundle() recomputes the identical values with the unrestricted
+  // hashReceipt(). Guarding them here made the producer refuse an archive that its own
+  // verifier accepts, for artifacts signed before the rule existed. The bundle METADATA
+  // below is new state and stays on the write canonicalizer.
+  const startHash = stamped.length > 0 ? hashReceipt(stamped[0]) : '0'
+  const endHash = stamped.length > 0 ? hashReceipt(stamped[stamped.length - 1]) : '0'
 
   // Sign the bundle metadata (not the receipts — they're already signed individually)
   const exportedAt = new Date().toISOString()
