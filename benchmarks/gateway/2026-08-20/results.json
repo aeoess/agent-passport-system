@@ -1,0 +1,106 @@
+{
+  "benchmark": "gateway policy evaluation, full enforcement path",
+  "harness": "tests/benchmark-gateway.ts",
+  "iterations_per_scenario": 500,
+  "warmup": 10,
+  "concurrency": "single process, sequential",
+  "runs": [
+    {
+      "run": 1,
+      "minimal": {
+        "p50_ms": 0.135,
+        "p95_ms": 0.152,
+        "p99_ms": 0.17
+      },
+      "standard": {
+        "p50_ms": 0.139,
+        "p95_ms": 0.143,
+        "p99_ms": 0.16
+      },
+      "full_enforcement": {
+        "p50_ms": 0.132,
+        "p95_ms": 0.143,
+        "p99_ms": 0.161
+      },
+      "burst": {
+        "p50_ms": 0.139,
+        "p95_ms": 0.141,
+        "p99_ms": 0.152
+      },
+      "denied": {
+        "p50_ms": 0.08,
+        "p95_ms": 0.081,
+        "p99_ms": 0.087
+      },
+      "burst_throughput_ops_sec": 7167
+    },
+    {
+      "run": 2,
+      "minimal": {
+        "p50_ms": 0.141,
+        "p95_ms": 0.157,
+        "p99_ms": 0.172
+      },
+      "standard": {
+        "p50_ms": 0.132,
+        "p95_ms": 0.142,
+        "p99_ms": 0.16
+      },
+      "full_enforcement": {
+        "p50_ms": 0.14,
+        "p95_ms": 0.142,
+        "p99_ms": 0.156
+      },
+      "burst": {
+        "p50_ms": 0.139,
+        "p95_ms": 0.142,
+        "p99_ms": 0.154
+      },
+      "denied": {
+        "p50_ms": 0.08,
+        "p95_ms": 0.082,
+        "p99_ms": 0.087
+      },
+      "burst_throughput_ops_sec": 7275
+    },
+    {
+      "run": 3,
+      "minimal": {
+        "p50_ms": 0.142,
+        "p95_ms": 0.157,
+        "p99_ms": 0.175
+      },
+      "standard": {
+        "p50_ms": 0.139,
+        "p95_ms": 0.144,
+        "p99_ms": 0.159
+      },
+      "full_enforcement": {
+        "p50_ms": 0.14,
+        "p95_ms": 0.143,
+        "p99_ms": 0.156
+      },
+      "burst": {
+        "p50_ms": 0.139,
+        "p95_ms": 0.146,
+        "p99_ms": 0.152
+      },
+      "denied": {
+        "p50_ms": 0.08,
+        "p95_ms": 0.082,
+        "p99_ms": 0.086
+      },
+      "burst_throughput_ops_sec": 7147
+    }
+  ],
+  "headline": {
+    "policy_eval_p50_ms": 0.14,
+    "burst_throughput_ops_sec": 7147,
+    "rule": "Published values take the CONSERVATIVE end of the observed range: the slowest p50 and the lowest throughput across three runs, never the best sample."
+  },
+  "supersedes": {
+    "claim": "403 ops/sec",
+    "note": "Published for months in .well-known/mcp.json and llms-full.txt with no environment record. The harness that produced it now reports an order of magnitude more on the same code path."
+  },
+  "generated_at": "2026-08-20T20:06:09.335662Z"
+}

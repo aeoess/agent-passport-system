@@ -1,0 +1,16 @@
+{
+  "environment_tag": "mac-apple-silicon-dev",
+  "canonical": false,
+  "spec_section": null,
+  "note": "Developer machine, NOT one of the three canonical environments in spec sections 13.1, 13.2 and 13.3. Any claim derived from this file must name the machine.",
+  "cpu_model": "Apple M3",
+  "cpu_cores": "8",
+  "ram_bytes": "17179869184",
+  "os": "Darwin 25.5.0",
+  "os_product_version": "26.5",
+  "node_version": "v24.11.1",
+  "npm_version": "11.6.2",
+  "sdk_commit": "1f79817504a394d5e6cedb546451357c188a2236",
+  "sdk_version": "4.4.0",
+  "captured_at": "2026-08-20T20:05:44.366100Z"
+}
