@@ -263,6 +263,7 @@ The test count is one number derived from the suite, not three guesses. The badg
 - [Governance in the Medium](https://doi.org/10.5281/zenodo.19582550)
 - [Cognitive Attestation](https://doi.org/10.5281/zenodo.19646276)
 - [The Evidence-Safety Gap](https://doi.org/10.5281/zenodo.19914628)
+- [Plausibly Wrong](https://doi.org/10.5281/zenodo.21208555)
 - IETF Internet-Draft: `draft-pidlisnyi-aps-03`
 
 ## Security and conformance
