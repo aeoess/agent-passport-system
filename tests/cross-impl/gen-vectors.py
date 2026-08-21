@@ -3,7 +3,7 @@
 """Generate pinned expected canonical bytes + SHA-256 from rfc8785@0.1.4.
 
 This produces a JSON manifest that the SDK's cross-impl test asserts against
-in BOTH TypeScript and Python. The Node-side reference (canonicalize@3.0.0)
+in BOTH TypeScript and Python. The Node-side reference (canonicalize@4.0.0)
 must produce byte-identical output; the SDK's strict-JCS impl
 (canonicalHashJCS in TS, canonicalize_jcs in Python) must too.
 """
