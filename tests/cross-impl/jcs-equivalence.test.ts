@@ -11,10 +11,19 @@
 //   2. SHA-256(canonicalizeJCS(input))      — what computeActionRef and
 //      computeAttributionActionRef hash through — matches the pinned
 //      SHA-256.
-//   3. canonicalize@3.0.0(input)            — erdtman's reference impl
+//   3. canonicalize@4.0.0(input)            — erdtman's reference impl
 //      (one of the RFC 8785 authors) — matches the pinned canonical
 //      bytes byte-for-byte.
-//   4. SHA-256(canonicalize@3.0.0(input))   — matches the pinned SHA-256.
+//   4. SHA-256(canonicalize@4.0.0(input))   — matches the pinned SHA-256.
+//
+// Oracle pin moved 3.0.0 -> 4.0.0 on 2026-08-20. Verified before taking it:
+// all 12 pinned vectors are byte-identical under both versions and both match
+// the pinned bytes. An 18-case adversarial probe found exactly one behavioural
+// difference: 3.0.0 emitted a lone UTF-16 surrogate silently as \ud800, and
+// 4.0.0 rejects it. canonicalizeJCS already rejected lone surrogates with a
+// `lone_surrogate` reason, so that divergence existed under 3.0.0 and was
+// untested in both directions. 4.0.0 closes it. The pin stays exact, never a
+// caret: an oracle that can move under you is not an oracle.
 //
 // If any vector fails, either the SDK has drifted from strict RFC 8785,
 // or the external reference has drifted, or the pinned vectors are stale.
@@ -24,7 +33,7 @@
 //
 // CI runs both this test and a parallel Python step that exercises
 // rfc8785@0.1.4 against the same vectors. Three-way byte-match across
-// SDK + canonicalize@3.0.0 + rfc8785@0.1.4 is the actual conformance
+// SDK + canonicalize@4.0.0 + rfc8785@0.1.4 is the actual conformance
 // signal.
 
 import { describe, it } from 'node:test'
@@ -83,14 +92,14 @@ describe('cross-impl JCS byte-match: SDK canonicalizeJCS', () => {
   }
 })
 
-describe('cross-impl JCS byte-match: canonicalize@3.0.0 reference (erdtman)', () => {
+describe('cross-impl JCS byte-match: canonicalize@4.0.0 reference (erdtman)', () => {
   for (const v of manifest.vectors) {
     it(`${v.id} — reference canonical bytes match pin`, () => {
       const bytes = canonicalize(v.input)
       assert.equal(
         bytes,
         v.expected_canonical_bytes,
-        `${v.id}: canonicalize@3.0.0 output diverged from pinned bytes`,
+        `${v.id}: canonicalize@4.0.0 output diverged from pinned bytes`,
       )
     })
 
@@ -100,7 +109,7 @@ describe('cross-impl JCS byte-match: canonicalize@3.0.0 reference (erdtman)', ()
       assert.equal(
         hash,
         v.expected_sha256,
-        `${v.id}: canonicalize@3.0.0 SHA-256 diverged from pinned hash`,
+        `${v.id}: canonicalize@4.0.0 SHA-256 diverged from pinned hash`,
       )
     })
   }
@@ -114,7 +123,7 @@ describe('cross-impl JCS byte-match: SDK vs reference direct equality', () => {
       assert.equal(
         sdkBytes,
         refBytes,
-        `${v.id}: SDK canonicalizeJCS and canonicalize@3.0.0 disagree`,
+        `${v.id}: SDK canonicalizeJCS and canonicalize@4.0.0 disagree`,
       )
     })
   }
