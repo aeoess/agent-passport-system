@@ -2,3 +2,4 @@
 // SPDX-License-Identifier: Apache-2.0
 
 export * from './authorization-v1.js'
+export * from './mcp-use-adapter-v1.js'

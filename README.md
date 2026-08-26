@@ -271,6 +271,7 @@ The test count is one number derived from the suite, not three guesses. The badg
 - [Threat model](/THREAT_MODEL.md) -- actors, assets, trust boundaries, what APS prevents and what it does not, verifier responsibilities.
 - [Conformance fixtures](tests/conformance/README.md) -- golden valid and negative receipt fixtures every verifier must agree on.
 - [Payment Safety Profile](docs/PAYMENT-SAFETY-PROFILE.md) -- the mandatory profile for agent-initiated payments.
+- [MCP Authorization Profile](docs/MCP-AUTHORIZATION-PROFILE.md) -- aps-mcp-1 pre-dispatch authorization for `tools/call`, including the mcp-use adapter.
 
 ## Contributing
 

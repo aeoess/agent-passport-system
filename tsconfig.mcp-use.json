@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    // mcp-use ships transitive .d.ts files that do not compile under
+    // moduleResolution node16. Skipping lib checks keeps this gate about our
+    // assertion, which is a .ts file and is still fully checked.
+    "skipLibCheck": true
+  },
+  "include": ["src/**/*", "tests/typecheck-fixtures/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

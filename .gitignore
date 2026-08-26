@@ -67,3 +67,6 @@ packages/*/index.d.ts
 # Python bytecode
 __pycache__/
 *.pyc
+
+# Written by mcp-use when a test server starts. Never source.
+.mcp-use/
