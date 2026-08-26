@@ -3,16 +3,21 @@
 // ══════════════════════════════════════════════════════════════════
 // Cross-object revocation verification
 // ══════════════════════════════════════════════════════════════════
+// INVARIANT for both kinds: verify the artifact INTRINSICALLY first, then
+// verify it against the supplied subject and authority context. A record whose
+// own signature does not hold is not evidence of anything, so nothing is
+// reported about what it names or who signed it.
+//
 // DELEGATION PATH, first failure wins:
-//   1. delegation lookup by delegationId      miss  -> invalid_reference
-//   2. revocation.revokedBy == delegation.delegatedBy
+//   1. verifyRevocation(record)               false -> invalid_signature
+//   2. delegation lookup by delegationId      miss  -> invalid_reference
+//   3. revocation.revokedBy == delegation.delegatedBy
 //                                             else  -> unauthorized_revoker
-//   3. verifyRevocation(record)               false -> invalid_signature
-// Step 2 is the whole point. verifyRevocation checks the signature under
+// Step 3 is still the whole point. verifyRevocation checks the signature under
 // revocation.revokedBy, a field of the record itself, so anyone can mint a
 // record that verifies. Only the delegation says who was allowed to revoke.
 //
-// BINDING PATH:
+// BINDING PATH, same invariant, first failure wins:
 //   1. verifyPrincipalBindingRevocationV1(record, resolver)
 //      any non-valid state -> 'invalid', reason = that verifier's own code,
 //      verbatim. It already resolves verification_method historically at
@@ -106,15 +111,15 @@ function checkDelegationArtifact(
   record: RevocationRecord,
   delegations: Map<string, Delegation>,
 ): Failure | null {
+  if (!verifyRevocation(record)) {
+    return { outcome: 'invalid_signature', reason: 'verifyRevocation rejected the record signature' }
+  }
   const delegation = delegations.get(record.delegationId)
   if (!delegation || delegation.delegationId !== record.delegationId) {
     return { outcome: 'invalid_reference', reason: 'no supplied delegation matches delegationId' }
   }
   if (record.revokedBy !== delegation.delegatedBy) {
     return { outcome: 'unauthorized_revoker', reason: 'revokedBy is not the delegation delegatedBy key' }
-  }
-  if (!verifyRevocation(record)) {
-    return { outcome: 'invalid_signature', reason: 'verifyRevocation rejected the record signature' }
   }
   return null
 }

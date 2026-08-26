@@ -84,6 +84,7 @@ const BINDING_NONCE = 'c3'.repeat(16)
 const OTHER_BINDING_NONCE = 'd4'.repeat(16)
 const NONCE_A = 'a1'.repeat(16)
 const NONCE_B = 'b2'.repeat(16)
+const NONCE_C = 'e7'.repeat(16)
 
 const ISSUED_AT = '2026-01-01T00:00:00.000Z'
 const EXPIRES_AT = '2027-01-01T00:00:00.000Z'
@@ -186,6 +187,25 @@ const R_CORRUPT_SIGNATURE: RevocationRecord = {
   signature: flipFirstHexDigit(R_VALID.signature),
 }
 
+/** Forged AND corrupted: revokedBy is the forger, the record was signed by the
+ *  forger, then one signature byte was flipped. Under intrinsic-first the
+ *  signature is judged before the authority, so this is invalid_signature and
+ *  nothing is said about who signed it. Checking authority first would call it
+ *  unauthorized_revoker, so V17 pins the order. */
+const R_FORGED_CORRUPT: RevocationRecord = {
+  ...R_FORGED,
+  signature: flipFirstHexDigit(R_FORGED.signature),
+}
+
+/** Dangling AND corrupted: the delegationId names no supplied delegation and
+ *  the signature is corrupted. Under intrinsic-first this is invalid_signature.
+ *  Looking the subject up first would call it invalid_reference, so V19 pins
+ *  the order. */
+const R_DANGLING_CORRUPT: RevocationRecord = {
+  ...R_WRONG_SUBJECT,
+  signature: flipFirstHexDigit(R_WRONG_SUBJECT.signature),
+}
+
 function issueBindingRevocation(input: {
   binding_id: string
   revoked_at: string
@@ -239,6 +259,24 @@ const B_UNSUPPLIED_BINDING = issueBindingRevocation({
   nonce: NONCE_A,
   seed: PRINCIPAL_CURRENT_SEED,
 })
+
+/** A structurally valid revocation for the SECOND binding, on its own nonce,
+ *  then one signature byte flipped. Evaluated with binding A supplied as the
+ *  subject: the existing verifier runs before the binding_id match, so the
+ *  discard carries that verifier's own signature-failure code rather than
+ *  invalid_reference. revocation_id is a digest of the draft, which omits the
+ *  signature, so the tamper does not trip the ID recompute. */
+const B_CROSS_BINDING = issueBindingRevocation({
+  binding_id: UNSUPPLIED_BINDING.binding_id,
+  revoked_at: REVOKED_AT_CURRENT,
+  nonce: NONCE_C,
+  seed: PRINCIPAL_CURRENT_SEED,
+})
+
+const B_CROSS_BINDING_CORRUPT: PrincipalBindingRevocationV1 = {
+  ...B_CROSS_BINDING,
+  signature: flipFirstHexDigit(B_CROSS_BINDING.signature),
+}
 
 const SHAPELESS_ARTIFACT = {
   note: 'this object names no delegation and no binding',
@@ -481,6 +519,21 @@ const specs: CaseSpec[] = [
     name: 'V16',
     description: 'mixed subjects, one delegation revocation and one binding revocation: two independent per-subject results',
     artifacts: [R_VALID, B_VALID],
+  },
+  {
+    name: 'V17',
+    description: 'delegation revocation that is BOTH forged and corrupted: invalid_signature, not unauthorized_revoker. Pins signature-before-authority',
+    artifacts: [R_FORGED_CORRUPT],
+  },
+  {
+    name: 'V18',
+    description: 'binding revocation for a second binding, corrupted, evaluated against binding A: the existing verifier reason, not invalid_reference. Pins the existing verifier before the binding_id match',
+    artifacts: [B_CROSS_BINDING_CORRUPT],
+  },
+  {
+    name: 'V19',
+    description: 'delegation revocation that is BOTH dangling and corrupted: invalid_signature, not invalid_reference. Pins signature-before-lookup',
+    artifacts: [R_DANGLING_CORRUPT],
   },
 ]
 

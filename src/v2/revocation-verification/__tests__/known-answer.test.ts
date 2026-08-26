@@ -144,6 +144,16 @@ const SEED_NAMES = ['delegator', 'delegate', 'forger', 'principal_current', 'pri
 const TAMPERED: Record<string, 'signature' | 'revocation_id'> = {
   V05: 'signature',
   V07: 'revocation_id',
+  V17: 'signature',
+  V18: 'signature',
+  V19: 'signature',
+}
+
+/** The seed that signed the artifact BEFORE the corpus corrupted it. Only the
+ *  cases whose signer is not their path's default appear here: V17 is signed by
+ *  the forger, which is the whole point of it. */
+const TAMPER_SIGNER: Record<string, string> = {
+  V17: 'forger',
 }
 
 /** Deliberately reimplemented rather than imported from the generator, so
@@ -193,7 +203,8 @@ test('fixture: version and case list are the pinned corpus', () => {
   assert.deepEqual(
     fixture.cases.map(entry => entry.name),
     ['V01', 'V02', 'V03', 'V04', 'V05', 'V06', 'V07', 'V08',
-      'V09', 'V10', 'V11', 'V12', 'V13', 'V14', 'V15', 'V16'],
+      'V09', 'V10', 'V11', 'V12', 'V13', 'V14', 'V15', 'V16',
+      'V17', 'V18', 'V19'],
   )
 })
 
@@ -259,7 +270,7 @@ test('every delegation revocation artifact is re-derived from exactly one pinned
         // The corrupted record must be reproducible by NO seed, and must
         // differ from the honest one in exactly the first hex digit.
         assert.deepEqual(matches, [], `${entry.name}: tampered signature reproduces from a seed`)
-        const honest = sign(canonical, fixture.fixed_inputs.seeds.delegator)
+        const honest = sign(canonical, fixture.fixed_inputs.seeds[TAMPER_SIGNER[entry.name] ?? 'delegator'])
         assert.equal(signature.slice(1), honest.slice(1), `${entry.name}: tamper is wider than one digit`)
         assert.notEqual(signature[0], honest[0], `${entry.name}: tamper changed nothing`)
         continue
@@ -297,6 +308,27 @@ test('every binding revocation artifact is re-derived from exactly one pinned se
           principal_private_key_hex: fixture.fixed_inputs.seeds[name],
         }),
       }))
+      if (TAMPERED[entry.name] === 'signature') {
+        // The corrupted record reproduces from NO seed, while its
+        // revocation_id still recomputes from every one of them: the digest
+        // omits the signature, so the tamper is provably confined to the
+        // signature and the discard cannot be an ID mismatch in disguise.
+        const bySignature = reissued.filter(candidate => candidate.record.signature === artifact.signature)
+        assert.deepEqual(bySignature.map(candidate => candidate.name), [],
+          `${entry.name}: tampered signature reproduces from a seed`)
+        for (const candidate of reissued) {
+          assert.equal(candidate.record.revocation_id, artifact.revocation_id,
+            `${entry.name}: revocation_id no longer recomputes, the tamper is wider than the signature`)
+        }
+        const honestName = TAMPER_SIGNER[entry.name] ?? 'principal_current'
+        const honest = reissued.find(candidate => candidate.name === honestName)
+        assert.ok(honest, `${entry.name}: no reissue for seed ${honestName}`)
+        assert.equal(artifact.signature.slice(1), honest!.record.signature.slice(1),
+          `${entry.name}: tamper is wider than one digit`)
+        assert.notEqual(artifact.signature[0], honest!.record.signature[0],
+          `${entry.name}: tamper changed nothing`)
+        continue
+      }
       if (TAMPERED[entry.name] === 'revocation_id') {
         // revocation_id is a digest of the draft, so every re-issue agrees on
         // it and every one of them disagrees with the tampered record.
