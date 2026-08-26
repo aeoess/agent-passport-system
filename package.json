@@ -35,7 +35,7 @@
   },
   "dependencies": {
     "libsodium-wrappers": "^0.8.4",
-    "uuid": "^14.0.1"
+    "uuid": "^14.0.2"
   },
   "devDependencies": {
     "@grottonetworking/bbs-signatures": "0.1.5",
