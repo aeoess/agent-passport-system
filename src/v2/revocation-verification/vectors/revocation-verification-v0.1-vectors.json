@@ -1,0 +1,1933 @@
+{
+  "_layering": "Every seed, identifier, timestamp and nonce in fixed_inputs is pinned; nothing here depends on the clock, on uuid, or on key generation. Signatures and digests are REFERENCE-IMPLEMENTATION-DERIVED, produced by the real sign(), issuePrincipalBindingRevocationV1() and revocationArtifactDigest(); the known-answer test re-derives all of them from the seeds with node:crypto directly, so this file is pinned rather than merely self-consistent. jcs_kats pin the canonical bytes for one record of each kind and anchor RFC 8785 key order and escaping. expected[] results are reference-implementation-derived, computed by running verifyRevocationEvidence() on the case inputs. Each case carries its own resolver_table so the file is closed: a second implementation rebuilds the historical key resolver from the table alone.",
+  "version": "revocation-verification/0.1",
+  "fixed_inputs": {
+    "seeds": {
+      "delegator": "1111111111111111111111111111111111111111111111111111111111111111",
+      "delegate": "2222222222222222222222222222222222222222222222222222222222222222",
+      "forger": "3333333333333333333333333333333333333333333333333333333333333333",
+      "principal_current": "4444444444444444444444444444444444444444444444444444444444444444",
+      "principal_former": "5555555555555555555555555555555555555555555555555555555555555555"
+    },
+    "pubkeys": {
+      "delegator": "d04ab232742bb4ab3a1368bd4615e4e6d0224ab71a016baf8520a332c9778737",
+      "delegate": "a09aa5f47a6759802ff955f8dc2d2a14a5c99d23be97f864127ff9383455a4f0",
+      "forger": "17cb79fb2b4120f2b1ec65e4198d6e08b28e813feb01e4a400839b85e18080ce",
+      "principal_current": "d759793bbc13a2819a827c76adb6fba8a49aee007f49f2d0992d99b825ad2c48",
+      "principal_former": "c6822637c7d310ec57627be00ba259d253749f4aaf644470cffbe53a35f73242"
+    },
+    "delegation_id": "del_revocation_corpus_01",
+    "absent_delegation_id": "del_revocation_corpus_absent",
+    "revocation_id": "rev_revocation_corpus_01",
+    "forged_revocation_id": "rev_revocation_corpus_forged",
+    "agent_id": "did:aps:agent-revocation-corpus",
+    "principal_id": "did:aps:principal-revocation-corpus",
+    "verification_method": "did:aps:principal-revocation-corpus#key-1",
+    "status_uri": "https://status.example/aps/revocation-corpus",
+    "binding_nonce": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+    "other_binding_nonce": "d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4",
+    "binding_revocation_nonces": {
+      "a": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+      "b": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2"
+    },
+    "issued_at": "2026-01-01T00:00:00.000Z",
+    "expires_at": "2027-01-01T00:00:00.000Z",
+    "rotation_at": "2026-06-01T00:00:00.000Z",
+    "revoked_at_current": "2026-08-26T00:00:00.000Z",
+    "revoked_at_former": "2026-03-01T00:00:00.000Z",
+    "delegation_revoked_at": "2026-08-26T00:00:00.000Z",
+    "revocation_reason": "revocation verification corpus",
+    "reason_code": "corpus_fixture",
+    "delegation": {
+      "delegationId": "del_revocation_corpus_01",
+      "delegatedTo": "a09aa5f47a6759802ff955f8dc2d2a14a5c99d23be97f864127ff9383455a4f0",
+      "delegatedBy": "d04ab232742bb4ab3a1368bd4615e4e6d0224ab71a016baf8520a332c9778737",
+      "scope": [
+        "data:read"
+      ],
+      "expiresAt": "2027-01-01T00:00:00.000Z",
+      "spentAmount": 0,
+      "maxDepth": 1,
+      "currentDepth": 0,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "notBefore": "2026-01-01T00:00:00.000Z",
+      "signature": "62976742337fda3c6b2e107fb5656c90517f954eb930c561aaac605743cb50fd4c3f2aaf556198fdddf38ed91787a11e89cac85bd6e606941c1696fb81f19305"
+    },
+    "binding": {
+      "record_type": "aps.principal-binding",
+      "version": "1.0",
+      "agent_id": "did:aps:agent-revocation-corpus",
+      "principal_id": "did:aps:principal-revocation-corpus",
+      "verification_method": "did:aps:principal-revocation-corpus#key-1",
+      "audiences": [
+        "https://gateway.example/aps"
+      ],
+      "authority_profiles": [
+        "aps.principal-binding.v1"
+      ],
+      "status_uri": "https://status.example/aps/revocation-corpus",
+      "issued_at": "2026-01-01T00:00:00.000Z",
+      "expires_at": "2027-01-01T00:00:00.000Z",
+      "nonce": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+      "binding_id": "e8ddda0af142cdbe64d47247e6261e1aead9355401df4984cbaa76b3d55fc726",
+      "signature": "71fe729d065023dee022780a39eeb40537866dc22e55f26c6544bf60ff629b08fef8c6c3c37f3f84827bd33278fd508d782654bd47c4e4f3a2e9102b0974120e"
+    },
+    "unsupplied_binding": {
+      "record_type": "aps.principal-binding",
+      "version": "1.0",
+      "agent_id": "did:aps:agent-revocation-corpus",
+      "principal_id": "did:aps:principal-revocation-corpus",
+      "verification_method": "did:aps:principal-revocation-corpus#key-1",
+      "audiences": [
+        "https://gateway.example/aps"
+      ],
+      "authority_profiles": [
+        "aps.principal-binding.v1"
+      ],
+      "status_uri": "https://status.example/aps/revocation-corpus",
+      "issued_at": "2026-01-01T00:00:00.000Z",
+      "expires_at": "2027-01-01T00:00:00.000Z",
+      "nonce": "d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4",
+      "binding_id": "648af5afaf354969fe57b6982e10a35af0afa1a3936f93ec815871f54e0df7fa",
+      "signature": "7ed509c269720c7dc36e7027008ed2676585851121a3f93051be1b1d1f6914fb06a0d2c9cb432687640c8a500941948e2569fd82165877d48abdb4c7a1299407"
+    }
+  },
+  "jcs_kats": [
+    {
+      "name": "KAT-REVOCATION-RECORD",
+      "kind": "RevocationRecord",
+      "input": {
+        "revocationId": "rev_revocation_corpus_01",
+        "delegationId": "del_revocation_corpus_01",
+        "revokedBy": "d04ab232742bb4ab3a1368bd4615e4e6d0224ab71a016baf8520a332c9778737",
+        "revokedAt": "2026-08-26T00:00:00.000Z",
+        "reason": "revocation verification corpus",
+        "signature": "844e76d1f516c1692e9a88cb23bee35b12553410874f5cba72a78a1b7aea415b76d4ed93f73993e6c302fbf0fee1d6805de0959ffa7aa8074e9eaab22e1bce0d"
+      },
+      "expected": "{\"delegationId\":\"del_revocation_corpus_01\",\"reason\":\"revocation verification corpus\",\"revocationId\":\"rev_revocation_corpus_01\",\"revokedAt\":\"2026-08-26T00:00:00.000Z\",\"revokedBy\":\"d04ab232742bb4ab3a1368bd4615e4e6d0224ab71a016baf8520a332c9778737\",\"signature\":\"844e76d1f516c1692e9a88cb23bee35b12553410874f5cba72a78a1b7aea415b76d4ed93f73993e6c302fbf0fee1d6805de0959ffa7aa8074e9eaab22e1bce0d\"}",
+      "sha256": "d975c4cca390f0d82dfaef828c0107758cc6483b8aaedfdfaa551de624cb698f",
+      "revocation_artifact_digest": "sha256:96767ec727925dcddc50c873c4cfe2e11076f4f1bfc9dfb3c5a9e396d5cfbde7"
+    },
+    {
+      "name": "KAT-PRINCIPAL-BINDING-REVOCATION",
+      "kind": "PrincipalBindingRevocationV1",
+      "input": {
+        "record_type": "aps.principal-binding-revocation",
+        "version": "1.0",
+        "binding_id": "e8ddda0af142cdbe64d47247e6261e1aead9355401df4984cbaa76b3d55fc726",
+        "principal_id": "did:aps:principal-revocation-corpus",
+        "verification_method": "did:aps:principal-revocation-corpus#key-1",
+        "revoked_at": "2026-08-26T00:00:00.000Z",
+        "reason_code": "corpus_fixture",
+        "nonce": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+        "revocation_id": "217e7b94a4d23d8b596981a0b9f882569d54fc508000ce34d9ab05929d38b94a",
+        "signature": "0f3cb4339502a123d1ef8596e92ec2cbc25edd1dbd20e7317af5e5d514c419118ef6ef90a4437036ba4ef6608034fb833ba2b56588bc10b5fdd22a031ea74b0e"
+      },
+      "expected": "{\"binding_id\":\"e8ddda0af142cdbe64d47247e6261e1aead9355401df4984cbaa76b3d55fc726\",\"nonce\":\"a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1\",\"principal_id\":\"did:aps:principal-revocation-corpus\",\"reason_code\":\"corpus_fixture\",\"record_type\":\"aps.principal-binding-revocation\",\"revocation_id\":\"217e7b94a4d23d8b596981a0b9f882569d54fc508000ce34d9ab05929d38b94a\",\"revoked_at\":\"2026-08-26T00:00:00.000Z\",\"signature\":\"0f3cb4339502a123d1ef8596e92ec2cbc25edd1dbd20e7317af5e5d514c419118ef6ef90a4437036ba4ef6608034fb833ba2b56588bc10b5fdd22a031ea74b0e\",\"verification_method\":\"did:aps:principal-revocation-corpus#key-1\",\"version\":\"1.0\"}",
+      "sha256": "cdf61caf4059a695c767df37798a572aeddede9afea7cae847f782f62004874f",
+      "revocation_artifact_digest": "sha256:73f8834a0f3cff067697e3bc0213888a8a9ae3c0e5d5d6142c98302ce5910e34"
+    }
+  ],
+  "ed25519": {
+    "seed": "1111111111111111111111111111111111111111111111111111111111111111",
+    "pubkey": "d04ab232742bb4ab3a1368bd4615e4e6d0224ab71a016baf8520a332c9778737",
+    "msg": "{\"hello\":\"revocation-verification\"}",
+    "msg_utf8_hex": "7b2268656c6c6f223a227265766f636174696f6e2d766572696669636174696f6e227d",
+    "signature": "968924fab1878e1faeb228656b00d301a1b92e6f77d023c2de720ca0c9e4567c5ecb35b77685068f45919199737f3bbd42b41a1973f577af19873261d67b630f"
+  },
+  "cases": [
+    {
+      "name": "V01",
+      "description": "no artifacts: every supplied subject reports no_revocation_evidence_observed, which is not a claim that the subject is unrevoked",
+      "inputs": {
+        "artifacts": [],
+        "delegation": {
+          "delegationId": "del_revocation_corpus_01",
+          "delegatedTo": "a09aa5f47a6759802ff955f8dc2d2a14a5c99d23be97f864127ff9383455a4f0",
+          "delegatedBy": "d04ab232742bb4ab3a1368bd4615e4e6d0224ab71a016baf8520a332c9778737",
+          "scope": [
+            "data:read"
+          ],
+          "expiresAt": "2027-01-01T00:00:00.000Z",
+          "spentAmount": 0,
+          "maxDepth": 1,
+          "currentDepth": 0,
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "notBefore": "2026-01-01T00:00:00.000Z",
+          "signature": "62976742337fda3c6b2e107fb5656c90517f954eb930c561aaac605743cb50fd4c3f2aaf556198fdddf38ed91787a11e89cac85bd6e606941c1696fb81f19305"
+        },
+        "binding": {
+          "record_type": "aps.principal-binding",
+          "version": "1.0",
+          "agent_id": "did:aps:agent-revocation-corpus",
+          "principal_id": "did:aps:principal-revocation-corpus",
+          "verification_method": "did:aps:principal-revocation-corpus#key-1",
+          "audiences": [
+            "https://gateway.example/aps"
+          ],
+          "authority_profiles": [
+            "aps.principal-binding.v1"
+          ],
+          "status_uri": "https://status.example/aps/revocation-corpus",
+          "issued_at": "2026-01-01T00:00:00.000Z",
+          "expires_at": "2027-01-01T00:00:00.000Z",
+          "nonce": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+          "binding_id": "e8ddda0af142cdbe64d47247e6261e1aead9355401df4984cbaa76b3d55fc726",
+          "signature": "71fe729d065023dee022780a39eeb40537866dc22e55f26c6544bf60ff629b08fef8c6c3c37f3f84827bd33278fd508d782654bd47c4e4f3a2e9102b0974120e"
+        },
+        "resolver_table": {
+          "segments": [
+            {
+              "controller": "did:aps:principal-revocation-corpus",
+              "verification_method": "did:aps:principal-revocation-corpus#key-1",
+              "from": "0000-01-01T00:00:00.000Z",
+              "until": "2026-06-01T00:00:00.000Z",
+              "state": "resolved",
+              "public_key_hex": "c6822637c7d310ec57627be00ba259d253749f4aaf644470cffbe53a35f73242"
+            },
+            {
+              "controller": "did:aps:principal-revocation-corpus",
+              "verification_method": "did:aps:principal-revocation-corpus#key-1",
+              "from": "2026-06-01T00:00:00.000Z",
+              "until": "9999-12-31T23:59:59.999Z",
+              "state": "resolved",
+              "public_key_hex": "d759793bbc13a2819a827c76adb6fba8a49aee007f49f2d0992d99b825ad2c48"
+            }
+          ],
+          "fallback": "not_found"
+        }
+      },
+      "artifact_digests": [],
+      "expected": {
+        "subjects": [
+          {
+            "subject_kind": "delegation",
+            "subject_id": "del_revocation_corpus_01",
+            "outcome": "no_revocation_evidence_observed",
+            "artifacts": [],
+            "duplicate_count": 0,
+            "discards": []
+          },
+          {
+            "subject_kind": "principal_binding",
+            "subject_id": "e8ddda0af142cdbe64d47247e6261e1aead9355401df4984cbaa76b3d55fc726",
+            "outcome": "no_revocation_evidence_observed",
+            "artifacts": [],
+            "duplicate_count": 0,
+            "discards": []
+          }
+        ],
+        "unclassifiable": []
+      }
+    },
+    {
+      "name": "V02",
+      "description": "valid delegation revocation against the matching delegation: REVOKED, artifacts 1",
+      "inputs": {
+        "artifacts": [
+          {
+            "revocationId": "rev_revocation_corpus_01",
+            "delegationId": "del_revocation_corpus_01",
+            "revokedBy": "d04ab232742bb4ab3a1368bd4615e4e6d0224ab71a016baf8520a332c9778737",
+            "revokedAt": "2026-08-26T00:00:00.000Z",
+            "reason": "revocation verification corpus",
+            "signature": "844e76d1f516c1692e9a88cb23bee35b12553410874f5cba72a78a1b7aea415b76d4ed93f73993e6c302fbf0fee1d6805de0959ffa7aa8074e9eaab22e1bce0d"
+          }
+        ],
+        "delegation": {
+          "delegationId": "del_revocation_corpus_01",
+          "delegatedTo": "a09aa5f47a6759802ff955f8dc2d2a14a5c99d23be97f864127ff9383455a4f0",
+          "delegatedBy": "d04ab232742bb4ab3a1368bd4615e4e6d0224ab71a016baf8520a332c9778737",
+          "scope": [
+            "data:read"
+          ],
+          "expiresAt": "2027-01-01T00:00:00.000Z",
+          "spentAmount": 0,
+          "maxDepth": 1,
+          "currentDepth": 0,
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "notBefore": "2026-01-01T00:00:00.000Z",
+          "signature": "62976742337fda3c6b2e107fb5656c90517f954eb930c561aaac605743cb50fd4c3f2aaf556198fdddf38ed91787a11e89cac85bd6e606941c1696fb81f19305"
+        },
+        "binding": {
+          "record_type": "aps.principal-binding",
+          "version": "1.0",
+          "agent_id": "did:aps:agent-revocation-corpus",
+          "principal_id": "did:aps:principal-revocation-corpus",
+          "verification_method": "did:aps:principal-revocation-corpus#key-1",
+          "audiences": [
+            "https://gateway.example/aps"
+          ],
+          "authority_profiles": [
+            "aps.principal-binding.v1"
+          ],
+          "status_uri": "https://status.example/aps/revocation-corpus",
+          "issued_at": "2026-01-01T00:00:00.000Z",
+          "expires_at": "2027-01-01T00:00:00.000Z",
+          "nonce": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+          "binding_id": "e8ddda0af142cdbe64d47247e6261e1aead9355401df4984cbaa76b3d55fc726",
+          "signature": "71fe729d065023dee022780a39eeb40537866dc22e55f26c6544bf60ff629b08fef8c6c3c37f3f84827bd33278fd508d782654bd47c4e4f3a2e9102b0974120e"
+        },
+        "resolver_table": {
+          "segments": [
+            {
+              "controller": "did:aps:principal-revocation-corpus",
+              "verification_method": "did:aps:principal-revocation-corpus#key-1",
+              "from": "0000-01-01T00:00:00.000Z",
+              "until": "2026-06-01T00:00:00.000Z",
+              "state": "resolved",
+              "public_key_hex": "c6822637c7d310ec57627be00ba259d253749f4aaf644470cffbe53a35f73242"
+            },
+            {
+              "controller": "did:aps:principal-revocation-corpus",
+              "verification_method": "did:aps:principal-revocation-corpus#key-1",
+              "from": "2026-06-01T00:00:00.000Z",
+              "until": "9999-12-31T23:59:59.999Z",
+              "state": "resolved",
+              "public_key_hex": "d759793bbc13a2819a827c76adb6fba8a49aee007f49f2d0992d99b825ad2c48"
+            }
+          ],
+          "fallback": "not_found"
+        }
+      },
+      "artifact_digests": [
+        {
+          "index": 0,
+          "canonical": "{\"delegationId\":\"del_revocation_corpus_01\",\"reason\":\"revocation verification corpus\",\"revocationId\":\"rev_revocation_corpus_01\",\"revokedAt\":\"2026-08-26T00:00:00.000Z\",\"revokedBy\":\"d04ab232742bb4ab3a1368bd4615e4e6d0224ab71a016baf8520a332c9778737\",\"signature\":\"844e76d1f516c1692e9a88cb23bee35b12553410874f5cba72a78a1b7aea415b76d4ed93f73993e6c302fbf0fee1d6805de0959ffa7aa8074e9eaab22e1bce0d\"}",
+          "revocation_artifact_digest": "sha256:96767ec727925dcddc50c873c4cfe2e11076f4f1bfc9dfb3c5a9e396d5cfbde7"
+        }
+      ],
+      "expected": {
+        "subjects": [
+          {
+            "subject_kind": "delegation",
+            "subject_id": "del_revocation_corpus_01",
+            "outcome": "REVOKED",
+            "artifacts": [
+              {
+                "revocation_artifact_digest": "sha256:96767ec727925dcddc50c873c4cfe2e11076f4f1bfc9dfb3c5a9e396d5cfbde7",
+                "ref_id": "rev_revocation_corpus_01"
+              }
+            ],
+            "duplicate_count": 0,
+            "discards": []
+          },
+          {
+            "subject_kind": "principal_binding",
+            "subject_id": "e8ddda0af142cdbe64d47247e6261e1aead9355401df4984cbaa76b3d55fc726",
+            "outcome": "no_revocation_evidence_observed",
+            "artifacts": [],
+            "duplicate_count": 0,
+            "discards": []
+          }
+        ],
+        "unclassifiable": []
+      }
+    },
+    {
+      "name": "V03",
+      "description": "delegation revocation with a valid signature whose delegationId is not the supplied delegation: invalid_reference",
+      "inputs": {
+        "artifacts": [
+          {
+            "revocationId": "rev_revocation_corpus_01",
+            "delegationId": "del_revocation_corpus_absent",
+            "revokedBy": "d04ab232742bb4ab3a1368bd4615e4e6d0224ab71a016baf8520a332c9778737",
+            "revokedAt": "2026-08-26T00:00:00.000Z",
+            "reason": "revocation verification corpus",
+            "signature": "9aca620406ddf9c7202f0f452194c067207d8e0bbf86a4d01cef827b1638ce0515c6449fbd019e8818a7b31f89ab05bb12dbe575c4b3a210ab9dc16332dbd50e"
+          }
+        ],
+        "delegation": {
+          "delegationId": "del_revocation_corpus_01",
+          "delegatedTo": "a09aa5f47a6759802ff955f8dc2d2a14a5c99d23be97f864127ff9383455a4f0",
+          "delegatedBy": "d04ab232742bb4ab3a1368bd4615e4e6d0224ab71a016baf8520a332c9778737",
+          "scope": [
+            "data:read"
+          ],
+          "expiresAt": "2027-01-01T00:00:00.000Z",
+          "spentAmount": 0,
+          "maxDepth": 1,
+          "currentDepth": 0,
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "notBefore": "2026-01-01T00:00:00.000Z",
+          "signature": "62976742337fda3c6b2e107fb5656c90517f954eb930c561aaac605743cb50fd4c3f2aaf556198fdddf38ed91787a11e89cac85bd6e606941c1696fb81f19305"
+        },
+        "binding": {
+          "record_type": "aps.principal-binding",
+          "version": "1.0",
+          "agent_id": "did:aps:agent-revocation-corpus",
+          "principal_id": "did:aps:principal-revocation-corpus",
+          "verification_method": "did:aps:principal-revocation-corpus#key-1",
+          "audiences": [
+            "https://gateway.example/aps"
+          ],
+          "authority_profiles": [
+            "aps.principal-binding.v1"
+          ],
+          "status_uri": "https://status.example/aps/revocation-corpus",
+          "issued_at": "2026-01-01T00:00:00.000Z",
+          "expires_at": "2027-01-01T00:00:00.000Z",
+          "nonce": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+          "binding_id": "e8ddda0af142cdbe64d47247e6261e1aead9355401df4984cbaa76b3d55fc726",
+          "signature": "71fe729d065023dee022780a39eeb40537866dc22e55f26c6544bf60ff629b08fef8c6c3c37f3f84827bd33278fd508d782654bd47c4e4f3a2e9102b0974120e"
+        },
+        "resolver_table": {
+          "segments": [
+            {
+              "controller": "did:aps:principal-revocation-corpus",
+              "verification_method": "did:aps:principal-revocation-corpus#key-1",
+              "from": "0000-01-01T00:00:00.000Z",
+              "until": "2026-06-01T00:00:00.000Z",
+              "state": "resolved",
+              "public_key_hex": "c6822637c7d310ec57627be00ba259d253749f4aaf644470cffbe53a35f73242"
+            },
+            {
+              "controller": "did:aps:principal-revocation-corpus",
+              "verification_method": "did:aps:principal-revocation-corpus#key-1",
+              "from": "2026-06-01T00:00:00.000Z",
+              "until": "9999-12-31T23:59:59.999Z",
+              "state": "resolved",
+              "public_key_hex": "d759793bbc13a2819a827c76adb6fba8a49aee007f49f2d0992d99b825ad2c48"
+            }
+          ],
+          "fallback": "not_found"
+        }
+      },
+      "artifact_digests": [
+        {
+          "index": 0,
+          "canonical": "{\"delegationId\":\"del_revocation_corpus_absent\",\"reason\":\"revocation verification corpus\",\"revocationId\":\"rev_revocation_corpus_01\",\"revokedAt\":\"2026-08-26T00:00:00.000Z\",\"revokedBy\":\"d04ab232742bb4ab3a1368bd4615e4e6d0224ab71a016baf8520a332c9778737\",\"signature\":\"9aca620406ddf9c7202f0f452194c067207d8e0bbf86a4d01cef827b1638ce0515c6449fbd019e8818a7b31f89ab05bb12dbe575c4b3a210ab9dc16332dbd50e\"}",
+          "revocation_artifact_digest": "sha256:d2fb45fcd7b6ca0ba0ce35cbe5fc12ff00869fb56177bdaeecbb8bac44ddc67a"
+        }
+      ],
+      "expected": {
+        "subjects": [
+          {
+            "subject_kind": "delegation",
+            "subject_id": "del_revocation_corpus_01",
+            "outcome": "no_revocation_evidence_observed",
+            "artifacts": [],
+            "duplicate_count": 0,
+            "discards": []
+          },
+          {
+            "subject_kind": "delegation",
+            "subject_id": "del_revocation_corpus_absent",
+            "outcome": "no_revocation_evidence_observed",
+            "artifacts": [],
+            "duplicate_count": 0,
+            "discards": [
+              {
+                "index": 0,
+                "outcome": "invalid_reference",
+                "reason": "no supplied delegation matches delegationId"
+              }
+            ]
+          },
+          {
+            "subject_kind": "principal_binding",
+            "subject_id": "e8ddda0af142cdbe64d47247e6261e1aead9355401df4984cbaa76b3d55fc726",
+            "outcome": "no_revocation_evidence_observed",
+            "artifacts": [],
+            "duplicate_count": 0,
+            "discards": []
+          }
+        ],
+        "unclassifiable": []
+      }
+    },
+    {
+      "name": "V04",
+      "description": "self-signed delegation revocation, revokedBy is not delegation.delegatedBy: unauthorized_revoker. verifyRevocation alone accepts this record",
+      "inputs": {
+        "artifacts": [
+          {
+            "revocationId": "rev_revocation_corpus_forged",
+            "delegationId": "del_revocation_corpus_01",
+            "revokedBy": "17cb79fb2b4120f2b1ec65e4198d6e08b28e813feb01e4a400839b85e18080ce",
+            "revokedAt": "2026-08-26T00:00:00.000Z",
+            "reason": "revocation verification corpus",
+            "signature": "aea913cf6b8120897449b57978dd547e5c5865a1b5c293d82e8f58b3eca145732d3dd30d897a0d54eb115c08d92bbd4f307d0720c834fe26dea1a4b7451dc00b"
+          }
+        ],
+        "delegation": {
+          "delegationId": "del_revocation_corpus_01",
+          "delegatedTo": "a09aa5f47a6759802ff955f8dc2d2a14a5c99d23be97f864127ff9383455a4f0",
+          "delegatedBy": "d04ab232742bb4ab3a1368bd4615e4e6d0224ab71a016baf8520a332c9778737",
+          "scope": [
+            "data:read"
+          ],
+          "expiresAt": "2027-01-01T00:00:00.000Z",
+          "spentAmount": 0,
+          "maxDepth": 1,
+          "currentDepth": 0,
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "notBefore": "2026-01-01T00:00:00.000Z",
+          "signature": "62976742337fda3c6b2e107fb5656c90517f954eb930c561aaac605743cb50fd4c3f2aaf556198fdddf38ed91787a11e89cac85bd6e606941c1696fb81f19305"
+        },
+        "binding": {
+          "record_type": "aps.principal-binding",
+          "version": "1.0",
+          "agent_id": "did:aps:agent-revocation-corpus",
+          "principal_id": "did:aps:principal-revocation-corpus",
+          "verification_method": "did:aps:principal-revocation-corpus#key-1",
+          "audiences": [
+            "https://gateway.example/aps"
+          ],
+          "authority_profiles": [
+            "aps.principal-binding.v1"
+          ],
+          "status_uri": "https://status.example/aps/revocation-corpus",
+          "issued_at": "2026-01-01T00:00:00.000Z",
+          "expires_at": "2027-01-01T00:00:00.000Z",
+          "nonce": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+          "binding_id": "e8ddda0af142cdbe64d47247e6261e1aead9355401df4984cbaa76b3d55fc726",
+          "signature": "71fe729d065023dee022780a39eeb40537866dc22e55f26c6544bf60ff629b08fef8c6c3c37f3f84827bd33278fd508d782654bd47c4e4f3a2e9102b0974120e"
+        },
+        "resolver_table": {
+          "segments": [
+            {
+              "controller": "did:aps:principal-revocation-corpus",
+              "verification_method": "did:aps:principal-revocation-corpus#key-1",
+              "from": "0000-01-01T00:00:00.000Z",
+              "until": "2026-06-01T00:00:00.000Z",
+              "state": "resolved",
+              "public_key_hex": "c6822637c7d310ec57627be00ba259d253749f4aaf644470cffbe53a35f73242"
+            },
+            {
+              "controller": "did:aps:principal-revocation-corpus",
+              "verification_method": "did:aps:principal-revocation-corpus#key-1",
+              "from": "2026-06-01T00:00:00.000Z",
+              "until": "9999-12-31T23:59:59.999Z",
+              "state": "resolved",
+              "public_key_hex": "d759793bbc13a2819a827c76adb6fba8a49aee007f49f2d0992d99b825ad2c48"
+            }
+          ],
+          "fallback": "not_found"
+        }
+      },
+      "artifact_digests": [
+        {
+          "index": 0,
+          "canonical": "{\"delegationId\":\"del_revocation_corpus_01\",\"reason\":\"revocation verification corpus\",\"revocationId\":\"rev_revocation_corpus_forged\",\"revokedAt\":\"2026-08-26T00:00:00.000Z\",\"revokedBy\":\"17cb79fb2b4120f2b1ec65e4198d6e08b28e813feb01e4a400839b85e18080ce\",\"signature\":\"aea913cf6b8120897449b57978dd547e5c5865a1b5c293d82e8f58b3eca145732d3dd30d897a0d54eb115c08d92bbd4f307d0720c834fe26dea1a4b7451dc00b\"}",
+          "revocation_artifact_digest": "sha256:75222e8539dbda05b10c32f0318740dacde0f2db6a52b72dd8d2011fed9fcce9"
+        }
+      ],
+      "expected": {
+        "subjects": [
+          {
+            "subject_kind": "delegation",
+            "subject_id": "del_revocation_corpus_01",
+            "outcome": "no_revocation_evidence_observed",
+            "artifacts": [],
+            "duplicate_count": 0,
+            "discards": [
+              {
+                "index": 0,
+                "outcome": "unauthorized_revoker",
+                "reason": "revokedBy is not the delegation delegatedBy key"
+              }
+            ]
+          },
+          {
+            "subject_kind": "principal_binding",
+            "subject_id": "e8ddda0af142cdbe64d47247e6261e1aead9355401df4984cbaa76b3d55fc726",
+            "outcome": "no_revocation_evidence_observed",
+            "artifacts": [],
+            "duplicate_count": 0,
+            "discards": []
+          }
+        ],
+        "unclassifiable": []
+      }
+    },
+    {
+      "name": "V05",
+      "description": "delegation revocation with one signature byte flipped: invalid_signature",
+      "inputs": {
+        "artifacts": [
+          {
+            "revocationId": "rev_revocation_corpus_01",
+            "delegationId": "del_revocation_corpus_01",
+            "revokedBy": "d04ab232742bb4ab3a1368bd4615e4e6d0224ab71a016baf8520a332c9778737",
+            "revokedAt": "2026-08-26T00:00:00.000Z",
+            "reason": "revocation verification corpus",
+            "signature": "944e76d1f516c1692e9a88cb23bee35b12553410874f5cba72a78a1b7aea415b76d4ed93f73993e6c302fbf0fee1d6805de0959ffa7aa8074e9eaab22e1bce0d"
+          }
+        ],
+        "delegation": {
+          "delegationId": "del_revocation_corpus_01",
+          "delegatedTo": "a09aa5f47a6759802ff955f8dc2d2a14a5c99d23be97f864127ff9383455a4f0",
+          "delegatedBy": "d04ab232742bb4ab3a1368bd4615e4e6d0224ab71a016baf8520a332c9778737",
+          "scope": [
+            "data:read"
+          ],
+          "expiresAt": "2027-01-01T00:00:00.000Z",
+          "spentAmount": 0,
+          "maxDepth": 1,
+          "currentDepth": 0,
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "notBefore": "2026-01-01T00:00:00.000Z",
+          "signature": "62976742337fda3c6b2e107fb5656c90517f954eb930c561aaac605743cb50fd4c3f2aaf556198fdddf38ed91787a11e89cac85bd6e606941c1696fb81f19305"
+        },
+        "binding": {
+          "record_type": "aps.principal-binding",
+          "version": "1.0",
+          "agent_id": "did:aps:agent-revocation-corpus",
+          "principal_id": "did:aps:principal-revocation-corpus",
+          "verification_method": "did:aps:principal-revocation-corpus#key-1",
+          "audiences": [
+            "https://gateway.example/aps"
+          ],
+          "authority_profiles": [
+            "aps.principal-binding.v1"
+          ],
+          "status_uri": "https://status.example/aps/revocation-corpus",
+          "issued_at": "2026-01-01T00:00:00.000Z",
+          "expires_at": "2027-01-01T00:00:00.000Z",
+          "nonce": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+          "binding_id": "e8ddda0af142cdbe64d47247e6261e1aead9355401df4984cbaa76b3d55fc726",
+          "signature": "71fe729d065023dee022780a39eeb40537866dc22e55f26c6544bf60ff629b08fef8c6c3c37f3f84827bd33278fd508d782654bd47c4e4f3a2e9102b0974120e"
+        },
+        "resolver_table": {
+          "segments": [
+            {
+              "controller": "did:aps:principal-revocation-corpus",
+              "verification_method": "did:aps:principal-revocation-corpus#key-1",
+              "from": "0000-01-01T00:00:00.000Z",
+              "until": "2026-06-01T00:00:00.000Z",
+              "state": "resolved",
+              "public_key_hex": "c6822637c7d310ec57627be00ba259d253749f4aaf644470cffbe53a35f73242"
+            },
+            {
+              "controller": "did:aps:principal-revocation-corpus",
+              "verification_method": "did:aps:principal-revocation-corpus#key-1",
+              "from": "2026-06-01T00:00:00.000Z",
+              "until": "9999-12-31T23:59:59.999Z",
+              "state": "resolved",
+              "public_key_hex": "d759793bbc13a2819a827c76adb6fba8a49aee007f49f2d0992d99b825ad2c48"
+            }
+          ],
+          "fallback": "not_found"
+        }
+      },
+      "artifact_digests": [
+        {
+          "index": 0,
+          "canonical": "{\"delegationId\":\"del_revocation_corpus_01\",\"reason\":\"revocation verification corpus\",\"revocationId\":\"rev_revocation_corpus_01\",\"revokedAt\":\"2026-08-26T00:00:00.000Z\",\"revokedBy\":\"d04ab232742bb4ab3a1368bd4615e4e6d0224ab71a016baf8520a332c9778737\",\"signature\":\"944e76d1f516c1692e9a88cb23bee35b12553410874f5cba72a78a1b7aea415b76d4ed93f73993e6c302fbf0fee1d6805de0959ffa7aa8074e9eaab22e1bce0d\"}",
+          "revocation_artifact_digest": "sha256:d0d1d9bfed6c5f5531493bcbfe62086ee6d80a57e2be18fb970157eb34e5ed3d"
+        }
+      ],
+      "expected": {
+        "subjects": [
+          {
+            "subject_kind": "delegation",
+            "subject_id": "del_revocation_corpus_01",
+            "outcome": "no_revocation_evidence_observed",
+            "artifacts": [],
+            "duplicate_count": 0,
+            "discards": [
+              {
+                "index": 0,
+                "outcome": "invalid_signature",
+                "reason": "verifyRevocation rejected the record signature"
+              }
+            ]
+          },
+          {
+            "subject_kind": "principal_binding",
+            "subject_id": "e8ddda0af142cdbe64d47247e6261e1aead9355401df4984cbaa76b3d55fc726",
+            "outcome": "no_revocation_evidence_observed",
+            "artifacts": [],
+            "duplicate_count": 0,
+            "discards": []
+          }
+        ],
+        "unclassifiable": []
+      }
+    },
+    {
+      "name": "V06",
+      "description": "valid principal-binding revocation resolved through its verification_method: REVOKED, artifacts 1",
+      "inputs": {
+        "artifacts": [
+          {
+            "record_type": "aps.principal-binding-revocation",
+            "version": "1.0",
+            "binding_id": "e8ddda0af142cdbe64d47247e6261e1aead9355401df4984cbaa76b3d55fc726",
+            "principal_id": "did:aps:principal-revocation-corpus",
+            "verification_method": "did:aps:principal-revocation-corpus#key-1",
+            "revoked_at": "2026-08-26T00:00:00.000Z",
+            "reason_code": "corpus_fixture",
+            "nonce": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+            "revocation_id": "217e7b94a4d23d8b596981a0b9f882569d54fc508000ce34d9ab05929d38b94a",
+            "signature": "0f3cb4339502a123d1ef8596e92ec2cbc25edd1dbd20e7317af5e5d514c419118ef6ef90a4437036ba4ef6608034fb833ba2b56588bc10b5fdd22a031ea74b0e"
+          }
+        ],
+        "delegation": {
+          "delegationId": "del_revocation_corpus_01",
+          "delegatedTo": "a09aa5f47a6759802ff955f8dc2d2a14a5c99d23be97f864127ff9383455a4f0",
+          "delegatedBy": "d04ab232742bb4ab3a1368bd4615e4e6d0224ab71a016baf8520a332c9778737",
+          "scope": [
+            "data:read"
+          ],
+          "expiresAt": "2027-01-01T00:00:00.000Z",
+          "spentAmount": 0,
+          "maxDepth": 1,
+          "currentDepth": 0,
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "notBefore": "2026-01-01T00:00:00.000Z",
+          "signature": "62976742337fda3c6b2e107fb5656c90517f954eb930c561aaac605743cb50fd4c3f2aaf556198fdddf38ed91787a11e89cac85bd6e606941c1696fb81f19305"
+        },
+        "binding": {
+          "record_type": "aps.principal-binding",
+          "version": "1.0",
+          "agent_id": "did:aps:agent-revocation-corpus",
+          "principal_id": "did:aps:principal-revocation-corpus",
+          "verification_method": "did:aps:principal-revocation-corpus#key-1",
+          "audiences": [
+            "https://gateway.example/aps"
+          ],
+          "authority_profiles": [
+            "aps.principal-binding.v1"
+          ],
+          "status_uri": "https://status.example/aps/revocation-corpus",
+          "issued_at": "2026-01-01T00:00:00.000Z",
+          "expires_at": "2027-01-01T00:00:00.000Z",
+          "nonce": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+          "binding_id": "e8ddda0af142cdbe64d47247e6261e1aead9355401df4984cbaa76b3d55fc726",
+          "signature": "71fe729d065023dee022780a39eeb40537866dc22e55f26c6544bf60ff629b08fef8c6c3c37f3f84827bd33278fd508d782654bd47c4e4f3a2e9102b0974120e"
+        },
+        "resolver_table": {
+          "segments": [
+            {
+              "controller": "did:aps:principal-revocation-corpus",
+              "verification_method": "did:aps:principal-revocation-corpus#key-1",
+              "from": "0000-01-01T00:00:00.000Z",
+              "until": "2026-06-01T00:00:00.000Z",
+              "state": "resolved",
+              "public_key_hex": "c6822637c7d310ec57627be00ba259d253749f4aaf644470cffbe53a35f73242"
+            },
+            {
+              "controller": "did:aps:principal-revocation-corpus",
+              "verification_method": "did:aps:principal-revocation-corpus#key-1",
+              "from": "2026-06-01T00:00:00.000Z",
+              "until": "9999-12-31T23:59:59.999Z",
+              "state": "resolved",
+              "public_key_hex": "d759793bbc13a2819a827c76adb6fba8a49aee007f49f2d0992d99b825ad2c48"
+            }
+          ],
+          "fallback": "not_found"
+        }
+      },
+      "artifact_digests": [
+        {
+          "index": 0,
+          "canonical": "{\"binding_id\":\"e8ddda0af142cdbe64d47247e6261e1aead9355401df4984cbaa76b3d55fc726\",\"nonce\":\"a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1\",\"principal_id\":\"did:aps:principal-revocation-corpus\",\"reason_code\":\"corpus_fixture\",\"record_type\":\"aps.principal-binding-revocation\",\"revocation_id\":\"217e7b94a4d23d8b596981a0b9f882569d54fc508000ce34d9ab05929d38b94a\",\"revoked_at\":\"2026-08-26T00:00:00.000Z\",\"signature\":\"0f3cb4339502a123d1ef8596e92ec2cbc25edd1dbd20e7317af5e5d514c419118ef6ef90a4437036ba4ef6608034fb833ba2b56588bc10b5fdd22a031ea74b0e\",\"verification_method\":\"did:aps:principal-revocation-corpus#key-1\",\"version\":\"1.0\"}",
+          "revocation_artifact_digest": "sha256:73f8834a0f3cff067697e3bc0213888a8a9ae3c0e5d5d6142c98302ce5910e34"
+        }
+      ],
+      "expected": {
+        "subjects": [
+          {
+            "subject_kind": "delegation",
+            "subject_id": "del_revocation_corpus_01",
+            "outcome": "no_revocation_evidence_observed",
+            "artifacts": [],
+            "duplicate_count": 0,
+            "discards": []
+          },
+          {
+            "subject_kind": "principal_binding",
+            "subject_id": "e8ddda0af142cdbe64d47247e6261e1aead9355401df4984cbaa76b3d55fc726",
+            "outcome": "REVOKED",
+            "artifacts": [
+              {
+                "revocation_artifact_digest": "sha256:73f8834a0f3cff067697e3bc0213888a8a9ae3c0e5d5d6142c98302ce5910e34",
+                "ref_id": "217e7b94a4d23d8b596981a0b9f882569d54fc508000ce34d9ab05929d38b94a"
+              }
+            ],
+            "duplicate_count": 0,
+            "discards": []
+          }
+        ],
+        "unclassifiable": []
+      }
+    },
+    {
+      "name": "V07",
+      "description": "binding revocation whose revocation_id does not recompute: invalid, carrying the existing verifier reason",
+      "inputs": {
+        "artifacts": [
+          {
+            "record_type": "aps.principal-binding-revocation",
+            "version": "1.0",
+            "binding_id": "e8ddda0af142cdbe64d47247e6261e1aead9355401df4984cbaa76b3d55fc726",
+            "principal_id": "did:aps:principal-revocation-corpus",
+            "verification_method": "did:aps:principal-revocation-corpus#key-1",
+            "revoked_at": "2026-08-26T00:00:00.000Z",
+            "reason_code": "corpus_fixture",
+            "nonce": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+            "revocation_id": "e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5",
+            "signature": "0f3cb4339502a123d1ef8596e92ec2cbc25edd1dbd20e7317af5e5d514c419118ef6ef90a4437036ba4ef6608034fb833ba2b56588bc10b5fdd22a031ea74b0e"
+          }
+        ],
+        "delegation": {
+          "delegationId": "del_revocation_corpus_01",
+          "delegatedTo": "a09aa5f47a6759802ff955f8dc2d2a14a5c99d23be97f864127ff9383455a4f0",
+          "delegatedBy": "d04ab232742bb4ab3a1368bd4615e4e6d0224ab71a016baf8520a332c9778737",
+          "scope": [
+            "data:read"
+          ],
+          "expiresAt": "2027-01-01T00:00:00.000Z",
+          "spentAmount": 0,
+          "maxDepth": 1,
+          "currentDepth": 0,
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "notBefore": "2026-01-01T00:00:00.000Z",
+          "signature": "62976742337fda3c6b2e107fb5656c90517f954eb930c561aaac605743cb50fd4c3f2aaf556198fdddf38ed91787a11e89cac85bd6e606941c1696fb81f19305"
+        },
+        "binding": {
+          "record_type": "aps.principal-binding",
+          "version": "1.0",
+          "agent_id": "did:aps:agent-revocation-corpus",
+          "principal_id": "did:aps:principal-revocation-corpus",
+          "verification_method": "did:aps:principal-revocation-corpus#key-1",
+          "audiences": [
+            "https://gateway.example/aps"
+          ],
+          "authority_profiles": [
+            "aps.principal-binding.v1"
+          ],
+          "status_uri": "https://status.example/aps/revocation-corpus",
+          "issued_at": "2026-01-01T00:00:00.000Z",
+          "expires_at": "2027-01-01T00:00:00.000Z",
+          "nonce": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+          "binding_id": "e8ddda0af142cdbe64d47247e6261e1aead9355401df4984cbaa76b3d55fc726",
+          "signature": "71fe729d065023dee022780a39eeb40537866dc22e55f26c6544bf60ff629b08fef8c6c3c37f3f84827bd33278fd508d782654bd47c4e4f3a2e9102b0974120e"
+        },
+        "resolver_table": {
+          "segments": [
+            {
+              "controller": "did:aps:principal-revocation-corpus",
+              "verification_method": "did:aps:principal-revocation-corpus#key-1",
+              "from": "0000-01-01T00:00:00.000Z",
+              "until": "2026-06-01T00:00:00.000Z",
+              "state": "resolved",
+              "public_key_hex": "c6822637c7d310ec57627be00ba259d253749f4aaf644470cffbe53a35f73242"
+            },
+            {
+              "controller": "did:aps:principal-revocation-corpus",
+              "verification_method": "did:aps:principal-revocation-corpus#key-1",
+              "from": "2026-06-01T00:00:00.000Z",
+              "until": "9999-12-31T23:59:59.999Z",
+              "state": "resolved",
+              "public_key_hex": "d759793bbc13a2819a827c76adb6fba8a49aee007f49f2d0992d99b825ad2c48"
+            }
+          ],
+          "fallback": "not_found"
+        }
+      },
+      "artifact_digests": [
+        {
+          "index": 0,
+          "canonical": "{\"binding_id\":\"e8ddda0af142cdbe64d47247e6261e1aead9355401df4984cbaa76b3d55fc726\",\"nonce\":\"a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1\",\"principal_id\":\"did:aps:principal-revocation-corpus\",\"reason_code\":\"corpus_fixture\",\"record_type\":\"aps.principal-binding-revocation\",\"revocation_id\":\"e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5\",\"revoked_at\":\"2026-08-26T00:00:00.000Z\",\"signature\":\"0f3cb4339502a123d1ef8596e92ec2cbc25edd1dbd20e7317af5e5d514c419118ef6ef90a4437036ba4ef6608034fb833ba2b56588bc10b5fdd22a031ea74b0e\",\"verification_method\":\"did:aps:principal-revocation-corpus#key-1\",\"version\":\"1.0\"}",
+          "revocation_artifact_digest": "sha256:6e2fbf71d5493fb38ff073c6a02b3813bdae83b9e1940f0566ab26a247bbbcf4"
+        }
+      ],
+      "expected": {
+        "subjects": [
+          {
+            "subject_kind": "delegation",
+            "subject_id": "del_revocation_corpus_01",
+            "outcome": "no_revocation_evidence_observed",
+            "artifacts": [],
+            "duplicate_count": 0,
+            "discards": []
+          },
+          {
+            "subject_kind": "principal_binding",
+            "subject_id": "e8ddda0af142cdbe64d47247e6261e1aead9355401df4984cbaa76b3d55fc726",
+            "outcome": "no_revocation_evidence_observed",
+            "artifacts": [],
+            "duplicate_count": 0,
+            "discards": [
+              {
+                "index": 0,
+                "outcome": "invalid",
+                "reason": "PRINCIPAL_BINDING_REVOCATION_ID_MISMATCH"
+              }
+            ]
+          }
+        ],
+        "unclassifiable": []
+      }
+    },
+    {
+      "name": "V08",
+      "description": "valid binding revocation naming a binding_id that was not supplied: invalid_reference",
+      "inputs": {
+        "artifacts": [
+          {
+            "record_type": "aps.principal-binding-revocation",
+            "version": "1.0",
+            "binding_id": "648af5afaf354969fe57b6982e10a35af0afa1a3936f93ec815871f54e0df7fa",
+            "principal_id": "did:aps:principal-revocation-corpus",
+            "verification_method": "did:aps:principal-revocation-corpus#key-1",
+            "revoked_at": "2026-08-26T00:00:00.000Z",
+            "reason_code": "corpus_fixture",
+            "nonce": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+            "revocation_id": "f231f7ae111047b2bff930066cc5f305cd2ef2efc3bfc49842f35d8b31ccc9c7",
+            "signature": "dfe84b60a19fecc6b8a4a901b224bdf7c02c3c1160226cee0e6eb949fae6e22384aa8d6b46f57ecc328d9434dfe0398f522fe1ca7e2ce1b0f1231c7ca2b10609"
+          }
+        ],
+        "delegation": {
+          "delegationId": "del_revocation_corpus_01",
+          "delegatedTo": "a09aa5f47a6759802ff955f8dc2d2a14a5c99d23be97f864127ff9383455a4f0",
+          "delegatedBy": "d04ab232742bb4ab3a1368bd4615e4e6d0224ab71a016baf8520a332c9778737",
+          "scope": [
+            "data:read"
+          ],
+          "expiresAt": "2027-01-01T00:00:00.000Z",
+          "spentAmount": 0,
+          "maxDepth": 1,
+          "currentDepth": 0,
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "notBefore": "2026-01-01T00:00:00.000Z",
+          "signature": "62976742337fda3c6b2e107fb5656c90517f954eb930c561aaac605743cb50fd4c3f2aaf556198fdddf38ed91787a11e89cac85bd6e606941c1696fb81f19305"
+        },
+        "binding": {
+          "record_type": "aps.principal-binding",
+          "version": "1.0",
+          "agent_id": "did:aps:agent-revocation-corpus",
+          "principal_id": "did:aps:principal-revocation-corpus",
+          "verification_method": "did:aps:principal-revocation-corpus#key-1",
+          "audiences": [
+            "https://gateway.example/aps"
+          ],
+          "authority_profiles": [
+            "aps.principal-binding.v1"
+          ],
+          "status_uri": "https://status.example/aps/revocation-corpus",
+          "issued_at": "2026-01-01T00:00:00.000Z",
+          "expires_at": "2027-01-01T00:00:00.000Z",
+          "nonce": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+          "binding_id": "e8ddda0af142cdbe64d47247e6261e1aead9355401df4984cbaa76b3d55fc726",
+          "signature": "71fe729d065023dee022780a39eeb40537866dc22e55f26c6544bf60ff629b08fef8c6c3c37f3f84827bd33278fd508d782654bd47c4e4f3a2e9102b0974120e"
+        },
+        "resolver_table": {
+          "segments": [
+            {
+              "controller": "did:aps:principal-revocation-corpus",
+              "verification_method": "did:aps:principal-revocation-corpus#key-1",
+              "from": "0000-01-01T00:00:00.000Z",
+              "until": "2026-06-01T00:00:00.000Z",
+              "state": "resolved",
+              "public_key_hex": "c6822637c7d310ec57627be00ba259d253749f4aaf644470cffbe53a35f73242"
+            },
+            {
+              "controller": "did:aps:principal-revocation-corpus",
+              "verification_method": "did:aps:principal-revocation-corpus#key-1",
+              "from": "2026-06-01T00:00:00.000Z",
+              "until": "9999-12-31T23:59:59.999Z",
+              "state": "resolved",
+              "public_key_hex": "d759793bbc13a2819a827c76adb6fba8a49aee007f49f2d0992d99b825ad2c48"
+            }
+          ],
+          "fallback": "not_found"
+        }
+      },
+      "artifact_digests": [
+        {
+          "index": 0,
+          "canonical": "{\"binding_id\":\"648af5afaf354969fe57b6982e10a35af0afa1a3936f93ec815871f54e0df7fa\",\"nonce\":\"a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1\",\"principal_id\":\"did:aps:principal-revocation-corpus\",\"reason_code\":\"corpus_fixture\",\"record_type\":\"aps.principal-binding-revocation\",\"revocation_id\":\"f231f7ae111047b2bff930066cc5f305cd2ef2efc3bfc49842f35d8b31ccc9c7\",\"revoked_at\":\"2026-08-26T00:00:00.000Z\",\"signature\":\"dfe84b60a19fecc6b8a4a901b224bdf7c02c3c1160226cee0e6eb949fae6e22384aa8d6b46f57ecc328d9434dfe0398f522fe1ca7e2ce1b0f1231c7ca2b10609\",\"verification_method\":\"did:aps:principal-revocation-corpus#key-1\",\"version\":\"1.0\"}",
+          "revocation_artifact_digest": "sha256:8a6d5116d72f8cc008dfbe7f47a909bc772b9cdc4ddf6ebf87c18e7efc1f9171"
+        }
+      ],
+      "expected": {
+        "subjects": [
+          {
+            "subject_kind": "delegation",
+            "subject_id": "del_revocation_corpus_01",
+            "outcome": "no_revocation_evidence_observed",
+            "artifacts": [],
+            "duplicate_count": 0,
+            "discards": []
+          },
+          {
+            "subject_kind": "principal_binding",
+            "subject_id": "648af5afaf354969fe57b6982e10a35af0afa1a3936f93ec815871f54e0df7fa",
+            "outcome": "no_revocation_evidence_observed",
+            "artifacts": [],
+            "duplicate_count": 0,
+            "discards": [
+              {
+                "index": 0,
+                "outcome": "invalid_reference",
+                "reason": "no supplied binding matches binding_id"
+              }
+            ]
+          },
+          {
+            "subject_kind": "principal_binding",
+            "subject_id": "e8ddda0af142cdbe64d47247e6261e1aead9355401df4984cbaa76b3d55fc726",
+            "outcome": "no_revocation_evidence_observed",
+            "artifacts": [],
+            "duplicate_count": 0,
+            "discards": []
+          }
+        ],
+        "unclassifiable": []
+      }
+    },
+    {
+      "name": "V09",
+      "description": "binding revocation stamped before the key rotation and signed by the former key: the historical resolver returns the key valid at revoked_at, so REVOKED",
+      "inputs": {
+        "artifacts": [
+          {
+            "record_type": "aps.principal-binding-revocation",
+            "version": "1.0",
+            "binding_id": "e8ddda0af142cdbe64d47247e6261e1aead9355401df4984cbaa76b3d55fc726",
+            "principal_id": "did:aps:principal-revocation-corpus",
+            "verification_method": "did:aps:principal-revocation-corpus#key-1",
+            "revoked_at": "2026-03-01T00:00:00.000Z",
+            "reason_code": "corpus_fixture",
+            "nonce": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
+            "revocation_id": "de9ba18c7c48db642477545e1abbae730d8ee8784917ce1958e0574ff845d857",
+            "signature": "c78113843425dba73143226fcf6a41f60a75d752255c57a0afc2915c21eb4b28cd4af75796847f1278f2113b08287b5e82177e5d68bd3f2a4e3ace4fe0d4c20e"
+          }
+        ],
+        "delegation": {
+          "delegationId": "del_revocation_corpus_01",
+          "delegatedTo": "a09aa5f47a6759802ff955f8dc2d2a14a5c99d23be97f864127ff9383455a4f0",
+          "delegatedBy": "d04ab232742bb4ab3a1368bd4615e4e6d0224ab71a016baf8520a332c9778737",
+          "scope": [
+            "data:read"
+          ],
+          "expiresAt": "2027-01-01T00:00:00.000Z",
+          "spentAmount": 0,
+          "maxDepth": 1,
+          "currentDepth": 0,
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "notBefore": "2026-01-01T00:00:00.000Z",
+          "signature": "62976742337fda3c6b2e107fb5656c90517f954eb930c561aaac605743cb50fd4c3f2aaf556198fdddf38ed91787a11e89cac85bd6e606941c1696fb81f19305"
+        },
+        "binding": {
+          "record_type": "aps.principal-binding",
+          "version": "1.0",
+          "agent_id": "did:aps:agent-revocation-corpus",
+          "principal_id": "did:aps:principal-revocation-corpus",
+          "verification_method": "did:aps:principal-revocation-corpus#key-1",
+          "audiences": [
+            "https://gateway.example/aps"
+          ],
+          "authority_profiles": [
+            "aps.principal-binding.v1"
+          ],
+          "status_uri": "https://status.example/aps/revocation-corpus",
+          "issued_at": "2026-01-01T00:00:00.000Z",
+          "expires_at": "2027-01-01T00:00:00.000Z",
+          "nonce": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+          "binding_id": "e8ddda0af142cdbe64d47247e6261e1aead9355401df4984cbaa76b3d55fc726",
+          "signature": "71fe729d065023dee022780a39eeb40537866dc22e55f26c6544bf60ff629b08fef8c6c3c37f3f84827bd33278fd508d782654bd47c4e4f3a2e9102b0974120e"
+        },
+        "resolver_table": {
+          "segments": [
+            {
+              "controller": "did:aps:principal-revocation-corpus",
+              "verification_method": "did:aps:principal-revocation-corpus#key-1",
+              "from": "0000-01-01T00:00:00.000Z",
+              "until": "2026-06-01T00:00:00.000Z",
+              "state": "resolved",
+              "public_key_hex": "c6822637c7d310ec57627be00ba259d253749f4aaf644470cffbe53a35f73242"
+            },
+            {
+              "controller": "did:aps:principal-revocation-corpus",
+              "verification_method": "did:aps:principal-revocation-corpus#key-1",
+              "from": "2026-06-01T00:00:00.000Z",
+              "until": "9999-12-31T23:59:59.999Z",
+              "state": "resolved",
+              "public_key_hex": "d759793bbc13a2819a827c76adb6fba8a49aee007f49f2d0992d99b825ad2c48"
+            }
+          ],
+          "fallback": "not_found"
+        }
+      },
+      "artifact_digests": [
+        {
+          "index": 0,
+          "canonical": "{\"binding_id\":\"e8ddda0af142cdbe64d47247e6261e1aead9355401df4984cbaa76b3d55fc726\",\"nonce\":\"b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2\",\"principal_id\":\"did:aps:principal-revocation-corpus\",\"reason_code\":\"corpus_fixture\",\"record_type\":\"aps.principal-binding-revocation\",\"revocation_id\":\"de9ba18c7c48db642477545e1abbae730d8ee8784917ce1958e0574ff845d857\",\"revoked_at\":\"2026-03-01T00:00:00.000Z\",\"signature\":\"c78113843425dba73143226fcf6a41f60a75d752255c57a0afc2915c21eb4b28cd4af75796847f1278f2113b08287b5e82177e5d68bd3f2a4e3ace4fe0d4c20e\",\"verification_method\":\"did:aps:principal-revocation-corpus#key-1\",\"version\":\"1.0\"}",
+          "revocation_artifact_digest": "sha256:266d6358b1121f51665e70373c12361daf7f5fd166e325616dadf447c8bb85b2"
+        }
+      ],
+      "expected": {
+        "subjects": [
+          {
+            "subject_kind": "delegation",
+            "subject_id": "del_revocation_corpus_01",
+            "outcome": "no_revocation_evidence_observed",
+            "artifacts": [],
+            "duplicate_count": 0,
+            "discards": []
+          },
+          {
+            "subject_kind": "principal_binding",
+            "subject_id": "e8ddda0af142cdbe64d47247e6261e1aead9355401df4984cbaa76b3d55fc726",
+            "outcome": "REVOKED",
+            "artifacts": [
+              {
+                "revocation_artifact_digest": "sha256:266d6358b1121f51665e70373c12361daf7f5fd166e325616dadf447c8bb85b2",
+                "ref_id": "de9ba18c7c48db642477545e1abbae730d8ee8784917ce1958e0574ff845d857"
+              }
+            ],
+            "duplicate_count": 0,
+            "discards": []
+          }
+        ],
+        "unclassifiable": []
+      }
+    },
+    {
+      "name": "V10",
+      "description": "historical resolution ambiguous: the existing verifier result is preserved verbatim as the discard reason",
+      "inputs": {
+        "artifacts": [
+          {
+            "record_type": "aps.principal-binding-revocation",
+            "version": "1.0",
+            "binding_id": "e8ddda0af142cdbe64d47247e6261e1aead9355401df4984cbaa76b3d55fc726",
+            "principal_id": "did:aps:principal-revocation-corpus",
+            "verification_method": "did:aps:principal-revocation-corpus#key-1",
+            "revoked_at": "2026-08-26T00:00:00.000Z",
+            "reason_code": "corpus_fixture",
+            "nonce": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+            "revocation_id": "217e7b94a4d23d8b596981a0b9f882569d54fc508000ce34d9ab05929d38b94a",
+            "signature": "0f3cb4339502a123d1ef8596e92ec2cbc25edd1dbd20e7317af5e5d514c419118ef6ef90a4437036ba4ef6608034fb833ba2b56588bc10b5fdd22a031ea74b0e"
+          }
+        ],
+        "delegation": {
+          "delegationId": "del_revocation_corpus_01",
+          "delegatedTo": "a09aa5f47a6759802ff955f8dc2d2a14a5c99d23be97f864127ff9383455a4f0",
+          "delegatedBy": "d04ab232742bb4ab3a1368bd4615e4e6d0224ab71a016baf8520a332c9778737",
+          "scope": [
+            "data:read"
+          ],
+          "expiresAt": "2027-01-01T00:00:00.000Z",
+          "spentAmount": 0,
+          "maxDepth": 1,
+          "currentDepth": 0,
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "notBefore": "2026-01-01T00:00:00.000Z",
+          "signature": "62976742337fda3c6b2e107fb5656c90517f954eb930c561aaac605743cb50fd4c3f2aaf556198fdddf38ed91787a11e89cac85bd6e606941c1696fb81f19305"
+        },
+        "binding": {
+          "record_type": "aps.principal-binding",
+          "version": "1.0",
+          "agent_id": "did:aps:agent-revocation-corpus",
+          "principal_id": "did:aps:principal-revocation-corpus",
+          "verification_method": "did:aps:principal-revocation-corpus#key-1",
+          "audiences": [
+            "https://gateway.example/aps"
+          ],
+          "authority_profiles": [
+            "aps.principal-binding.v1"
+          ],
+          "status_uri": "https://status.example/aps/revocation-corpus",
+          "issued_at": "2026-01-01T00:00:00.000Z",
+          "expires_at": "2027-01-01T00:00:00.000Z",
+          "nonce": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+          "binding_id": "e8ddda0af142cdbe64d47247e6261e1aead9355401df4984cbaa76b3d55fc726",
+          "signature": "71fe729d065023dee022780a39eeb40537866dc22e55f26c6544bf60ff629b08fef8c6c3c37f3f84827bd33278fd508d782654bd47c4e4f3a2e9102b0974120e"
+        },
+        "resolver_table": {
+          "segments": [
+            {
+              "controller": "did:aps:principal-revocation-corpus",
+              "verification_method": "did:aps:principal-revocation-corpus#key-1",
+              "from": "0000-01-01T00:00:00.000Z",
+              "until": "9999-12-31T23:59:59.999Z",
+              "state": "ambiguous"
+            }
+          ],
+          "fallback": "not_found"
+        }
+      },
+      "artifact_digests": [
+        {
+          "index": 0,
+          "canonical": "{\"binding_id\":\"e8ddda0af142cdbe64d47247e6261e1aead9355401df4984cbaa76b3d55fc726\",\"nonce\":\"a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1\",\"principal_id\":\"did:aps:principal-revocation-corpus\",\"reason_code\":\"corpus_fixture\",\"record_type\":\"aps.principal-binding-revocation\",\"revocation_id\":\"217e7b94a4d23d8b596981a0b9f882569d54fc508000ce34d9ab05929d38b94a\",\"revoked_at\":\"2026-08-26T00:00:00.000Z\",\"signature\":\"0f3cb4339502a123d1ef8596e92ec2cbc25edd1dbd20e7317af5e5d514c419118ef6ef90a4437036ba4ef6608034fb833ba2b56588bc10b5fdd22a031ea74b0e\",\"verification_method\":\"did:aps:principal-revocation-corpus#key-1\",\"version\":\"1.0\"}",
+          "revocation_artifact_digest": "sha256:73f8834a0f3cff067697e3bc0213888a8a9ae3c0e5d5d6142c98302ce5910e34"
+        }
+      ],
+      "expected": {
+        "subjects": [
+          {
+            "subject_kind": "delegation",
+            "subject_id": "del_revocation_corpus_01",
+            "outcome": "no_revocation_evidence_observed",
+            "artifacts": [],
+            "duplicate_count": 0,
+            "discards": []
+          },
+          {
+            "subject_kind": "principal_binding",
+            "subject_id": "e8ddda0af142cdbe64d47247e6261e1aead9355401df4984cbaa76b3d55fc726",
+            "outcome": "no_revocation_evidence_observed",
+            "artifacts": [],
+            "duplicate_count": 0,
+            "discards": [
+              {
+                "index": 0,
+                "outcome": "invalid",
+                "reason": "PRINCIPAL_BINDING_REVOCATION_KEY_AMBIGUOUS"
+              }
+            ]
+          }
+        ],
+        "unclassifiable": []
+      }
+    },
+    {
+      "name": "V11",
+      "description": "the exact same artifact twice: REVOKED, artifacts 1, duplicate_count 1",
+      "inputs": {
+        "artifacts": [
+          {
+            "revocationId": "rev_revocation_corpus_01",
+            "delegationId": "del_revocation_corpus_01",
+            "revokedBy": "d04ab232742bb4ab3a1368bd4615e4e6d0224ab71a016baf8520a332c9778737",
+            "revokedAt": "2026-08-26T00:00:00.000Z",
+            "reason": "revocation verification corpus",
+            "signature": "844e76d1f516c1692e9a88cb23bee35b12553410874f5cba72a78a1b7aea415b76d4ed93f73993e6c302fbf0fee1d6805de0959ffa7aa8074e9eaab22e1bce0d"
+          },
+          {
+            "revocationId": "rev_revocation_corpus_01",
+            "delegationId": "del_revocation_corpus_01",
+            "revokedBy": "d04ab232742bb4ab3a1368bd4615e4e6d0224ab71a016baf8520a332c9778737",
+            "revokedAt": "2026-08-26T00:00:00.000Z",
+            "reason": "revocation verification corpus",
+            "signature": "844e76d1f516c1692e9a88cb23bee35b12553410874f5cba72a78a1b7aea415b76d4ed93f73993e6c302fbf0fee1d6805de0959ffa7aa8074e9eaab22e1bce0d"
+          }
+        ],
+        "delegation": {
+          "delegationId": "del_revocation_corpus_01",
+          "delegatedTo": "a09aa5f47a6759802ff955f8dc2d2a14a5c99d23be97f864127ff9383455a4f0",
+          "delegatedBy": "d04ab232742bb4ab3a1368bd4615e4e6d0224ab71a016baf8520a332c9778737",
+          "scope": [
+            "data:read"
+          ],
+          "expiresAt": "2027-01-01T00:00:00.000Z",
+          "spentAmount": 0,
+          "maxDepth": 1,
+          "currentDepth": 0,
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "notBefore": "2026-01-01T00:00:00.000Z",
+          "signature": "62976742337fda3c6b2e107fb5656c90517f954eb930c561aaac605743cb50fd4c3f2aaf556198fdddf38ed91787a11e89cac85bd6e606941c1696fb81f19305"
+        },
+        "binding": {
+          "record_type": "aps.principal-binding",
+          "version": "1.0",
+          "agent_id": "did:aps:agent-revocation-corpus",
+          "principal_id": "did:aps:principal-revocation-corpus",
+          "verification_method": "did:aps:principal-revocation-corpus#key-1",
+          "audiences": [
+            "https://gateway.example/aps"
+          ],
+          "authority_profiles": [
+            "aps.principal-binding.v1"
+          ],
+          "status_uri": "https://status.example/aps/revocation-corpus",
+          "issued_at": "2026-01-01T00:00:00.000Z",
+          "expires_at": "2027-01-01T00:00:00.000Z",
+          "nonce": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+          "binding_id": "e8ddda0af142cdbe64d47247e6261e1aead9355401df4984cbaa76b3d55fc726",
+          "signature": "71fe729d065023dee022780a39eeb40537866dc22e55f26c6544bf60ff629b08fef8c6c3c37f3f84827bd33278fd508d782654bd47c4e4f3a2e9102b0974120e"
+        },
+        "resolver_table": {
+          "segments": [
+            {
+              "controller": "did:aps:principal-revocation-corpus",
+              "verification_method": "did:aps:principal-revocation-corpus#key-1",
+              "from": "0000-01-01T00:00:00.000Z",
+              "until": "2026-06-01T00:00:00.000Z",
+              "state": "resolved",
+              "public_key_hex": "c6822637c7d310ec57627be00ba259d253749f4aaf644470cffbe53a35f73242"
+            },
+            {
+              "controller": "did:aps:principal-revocation-corpus",
+              "verification_method": "did:aps:principal-revocation-corpus#key-1",
+              "from": "2026-06-01T00:00:00.000Z",
+              "until": "9999-12-31T23:59:59.999Z",
+              "state": "resolved",
+              "public_key_hex": "d759793bbc13a2819a827c76adb6fba8a49aee007f49f2d0992d99b825ad2c48"
+            }
+          ],
+          "fallback": "not_found"
+        }
+      },
+      "artifact_digests": [
+        {
+          "index": 0,
+          "canonical": "{\"delegationId\":\"del_revocation_corpus_01\",\"reason\":\"revocation verification corpus\",\"revocationId\":\"rev_revocation_corpus_01\",\"revokedAt\":\"2026-08-26T00:00:00.000Z\",\"revokedBy\":\"d04ab232742bb4ab3a1368bd4615e4e6d0224ab71a016baf8520a332c9778737\",\"signature\":\"844e76d1f516c1692e9a88cb23bee35b12553410874f5cba72a78a1b7aea415b76d4ed93f73993e6c302fbf0fee1d6805de0959ffa7aa8074e9eaab22e1bce0d\"}",
+          "revocation_artifact_digest": "sha256:96767ec727925dcddc50c873c4cfe2e11076f4f1bfc9dfb3c5a9e396d5cfbde7"
+        },
+        {
+          "index": 1,
+          "canonical": "{\"delegationId\":\"del_revocation_corpus_01\",\"reason\":\"revocation verification corpus\",\"revocationId\":\"rev_revocation_corpus_01\",\"revokedAt\":\"2026-08-26T00:00:00.000Z\",\"revokedBy\":\"d04ab232742bb4ab3a1368bd4615e4e6d0224ab71a016baf8520a332c9778737\",\"signature\":\"844e76d1f516c1692e9a88cb23bee35b12553410874f5cba72a78a1b7aea415b76d4ed93f73993e6c302fbf0fee1d6805de0959ffa7aa8074e9eaab22e1bce0d\"}",
+          "revocation_artifact_digest": "sha256:96767ec727925dcddc50c873c4cfe2e11076f4f1bfc9dfb3c5a9e396d5cfbde7"
+        }
+      ],
+      "expected": {
+        "subjects": [
+          {
+            "subject_kind": "delegation",
+            "subject_id": "del_revocation_corpus_01",
+            "outcome": "REVOKED",
+            "artifacts": [
+              {
+                "revocation_artifact_digest": "sha256:96767ec727925dcddc50c873c4cfe2e11076f4f1bfc9dfb3c5a9e396d5cfbde7",
+                "ref_id": "rev_revocation_corpus_01"
+              }
+            ],
+            "duplicate_count": 1,
+            "discards": []
+          },
+          {
+            "subject_kind": "principal_binding",
+            "subject_id": "e8ddda0af142cdbe64d47247e6261e1aead9355401df4984cbaa76b3d55fc726",
+            "outcome": "no_revocation_evidence_observed",
+            "artifacts": [],
+            "duplicate_count": 0,
+            "discards": []
+          }
+        ],
+        "unclassifiable": []
+      }
+    },
+    {
+      "name": "V12",
+      "description": "two different valid binding revocations for one subject, differing only by nonce: REVOKED, artifacts 2, never equivocation",
+      "inputs": {
+        "artifacts": [
+          {
+            "record_type": "aps.principal-binding-revocation",
+            "version": "1.0",
+            "binding_id": "e8ddda0af142cdbe64d47247e6261e1aead9355401df4984cbaa76b3d55fc726",
+            "principal_id": "did:aps:principal-revocation-corpus",
+            "verification_method": "did:aps:principal-revocation-corpus#key-1",
+            "revoked_at": "2026-08-26T00:00:00.000Z",
+            "reason_code": "corpus_fixture",
+            "nonce": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+            "revocation_id": "217e7b94a4d23d8b596981a0b9f882569d54fc508000ce34d9ab05929d38b94a",
+            "signature": "0f3cb4339502a123d1ef8596e92ec2cbc25edd1dbd20e7317af5e5d514c419118ef6ef90a4437036ba4ef6608034fb833ba2b56588bc10b5fdd22a031ea74b0e"
+          },
+          {
+            "record_type": "aps.principal-binding-revocation",
+            "version": "1.0",
+            "binding_id": "e8ddda0af142cdbe64d47247e6261e1aead9355401df4984cbaa76b3d55fc726",
+            "principal_id": "did:aps:principal-revocation-corpus",
+            "verification_method": "did:aps:principal-revocation-corpus#key-1",
+            "revoked_at": "2026-08-26T00:00:00.000Z",
+            "reason_code": "corpus_fixture",
+            "nonce": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
+            "revocation_id": "782d6a2c2a23c95b6aa52d110b391a200e302134ec18df709423c0f31852c338",
+            "signature": "290a27b576d6d246ffe659f4149480d42fcc540bbb6d9b5384276a5ad5c15dacee89d182271a86037b93e671b5d3e67519199e43570089235e467760e6d1300c"
+          }
+        ],
+        "delegation": {
+          "delegationId": "del_revocation_corpus_01",
+          "delegatedTo": "a09aa5f47a6759802ff955f8dc2d2a14a5c99d23be97f864127ff9383455a4f0",
+          "delegatedBy": "d04ab232742bb4ab3a1368bd4615e4e6d0224ab71a016baf8520a332c9778737",
+          "scope": [
+            "data:read"
+          ],
+          "expiresAt": "2027-01-01T00:00:00.000Z",
+          "spentAmount": 0,
+          "maxDepth": 1,
+          "currentDepth": 0,
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "notBefore": "2026-01-01T00:00:00.000Z",
+          "signature": "62976742337fda3c6b2e107fb5656c90517f954eb930c561aaac605743cb50fd4c3f2aaf556198fdddf38ed91787a11e89cac85bd6e606941c1696fb81f19305"
+        },
+        "binding": {
+          "record_type": "aps.principal-binding",
+          "version": "1.0",
+          "agent_id": "did:aps:agent-revocation-corpus",
+          "principal_id": "did:aps:principal-revocation-corpus",
+          "verification_method": "did:aps:principal-revocation-corpus#key-1",
+          "audiences": [
+            "https://gateway.example/aps"
+          ],
+          "authority_profiles": [
+            "aps.principal-binding.v1"
+          ],
+          "status_uri": "https://status.example/aps/revocation-corpus",
+          "issued_at": "2026-01-01T00:00:00.000Z",
+          "expires_at": "2027-01-01T00:00:00.000Z",
+          "nonce": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+          "binding_id": "e8ddda0af142cdbe64d47247e6261e1aead9355401df4984cbaa76b3d55fc726",
+          "signature": "71fe729d065023dee022780a39eeb40537866dc22e55f26c6544bf60ff629b08fef8c6c3c37f3f84827bd33278fd508d782654bd47c4e4f3a2e9102b0974120e"
+        },
+        "resolver_table": {
+          "segments": [
+            {
+              "controller": "did:aps:principal-revocation-corpus",
+              "verification_method": "did:aps:principal-revocation-corpus#key-1",
+              "from": "0000-01-01T00:00:00.000Z",
+              "until": "2026-06-01T00:00:00.000Z",
+              "state": "resolved",
+              "public_key_hex": "c6822637c7d310ec57627be00ba259d253749f4aaf644470cffbe53a35f73242"
+            },
+            {
+              "controller": "did:aps:principal-revocation-corpus",
+              "verification_method": "did:aps:principal-revocation-corpus#key-1",
+              "from": "2026-06-01T00:00:00.000Z",
+              "until": "9999-12-31T23:59:59.999Z",
+              "state": "resolved",
+              "public_key_hex": "d759793bbc13a2819a827c76adb6fba8a49aee007f49f2d0992d99b825ad2c48"
+            }
+          ],
+          "fallback": "not_found"
+        }
+      },
+      "artifact_digests": [
+        {
+          "index": 0,
+          "canonical": "{\"binding_id\":\"e8ddda0af142cdbe64d47247e6261e1aead9355401df4984cbaa76b3d55fc726\",\"nonce\":\"a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1\",\"principal_id\":\"did:aps:principal-revocation-corpus\",\"reason_code\":\"corpus_fixture\",\"record_type\":\"aps.principal-binding-revocation\",\"revocation_id\":\"217e7b94a4d23d8b596981a0b9f882569d54fc508000ce34d9ab05929d38b94a\",\"revoked_at\":\"2026-08-26T00:00:00.000Z\",\"signature\":\"0f3cb4339502a123d1ef8596e92ec2cbc25edd1dbd20e7317af5e5d514c419118ef6ef90a4437036ba4ef6608034fb833ba2b56588bc10b5fdd22a031ea74b0e\",\"verification_method\":\"did:aps:principal-revocation-corpus#key-1\",\"version\":\"1.0\"}",
+          "revocation_artifact_digest": "sha256:73f8834a0f3cff067697e3bc0213888a8a9ae3c0e5d5d6142c98302ce5910e34"
+        },
+        {
+          "index": 1,
+          "canonical": "{\"binding_id\":\"e8ddda0af142cdbe64d47247e6261e1aead9355401df4984cbaa76b3d55fc726\",\"nonce\":\"b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2\",\"principal_id\":\"did:aps:principal-revocation-corpus\",\"reason_code\":\"corpus_fixture\",\"record_type\":\"aps.principal-binding-revocation\",\"revocation_id\":\"782d6a2c2a23c95b6aa52d110b391a200e302134ec18df709423c0f31852c338\",\"revoked_at\":\"2026-08-26T00:00:00.000Z\",\"signature\":\"290a27b576d6d246ffe659f4149480d42fcc540bbb6d9b5384276a5ad5c15dacee89d182271a86037b93e671b5d3e67519199e43570089235e467760e6d1300c\",\"verification_method\":\"did:aps:principal-revocation-corpus#key-1\",\"version\":\"1.0\"}",
+          "revocation_artifact_digest": "sha256:3fac680bd390725def599d64e850021f096b9ad55691ec67ea641e79f40357a8"
+        }
+      ],
+      "expected": {
+        "subjects": [
+          {
+            "subject_kind": "delegation",
+            "subject_id": "del_revocation_corpus_01",
+            "outcome": "no_revocation_evidence_observed",
+            "artifacts": [],
+            "duplicate_count": 0,
+            "discards": []
+          },
+          {
+            "subject_kind": "principal_binding",
+            "subject_id": "e8ddda0af142cdbe64d47247e6261e1aead9355401df4984cbaa76b3d55fc726",
+            "outcome": "REVOKED",
+            "artifacts": [
+              {
+                "revocation_artifact_digest": "sha256:3fac680bd390725def599d64e850021f096b9ad55691ec67ea641e79f40357a8",
+                "ref_id": "782d6a2c2a23c95b6aa52d110b391a200e302134ec18df709423c0f31852c338"
+              },
+              {
+                "revocation_artifact_digest": "sha256:73f8834a0f3cff067697e3bc0213888a8a9ae3c0e5d5d6142c98302ce5910e34",
+                "ref_id": "217e7b94a4d23d8b596981a0b9f882569d54fc508000ce34d9ab05929d38b94a"
+              }
+            ],
+            "duplicate_count": 0,
+            "discards": []
+          }
+        ],
+        "unclassifiable": []
+      }
+    },
+    {
+      "name": "V13",
+      "description": "one valid artifact and one hostile forged artifact for the same subject: REVOKED on the valid one, the forged one discarded",
+      "inputs": {
+        "artifacts": [
+          {
+            "revocationId": "rev_revocation_corpus_01",
+            "delegationId": "del_revocation_corpus_01",
+            "revokedBy": "d04ab232742bb4ab3a1368bd4615e4e6d0224ab71a016baf8520a332c9778737",
+            "revokedAt": "2026-08-26T00:00:00.000Z",
+            "reason": "revocation verification corpus",
+            "signature": "844e76d1f516c1692e9a88cb23bee35b12553410874f5cba72a78a1b7aea415b76d4ed93f73993e6c302fbf0fee1d6805de0959ffa7aa8074e9eaab22e1bce0d"
+          },
+          {
+            "revocationId": "rev_revocation_corpus_forged",
+            "delegationId": "del_revocation_corpus_01",
+            "revokedBy": "17cb79fb2b4120f2b1ec65e4198d6e08b28e813feb01e4a400839b85e18080ce",
+            "revokedAt": "2026-08-26T00:00:00.000Z",
+            "reason": "revocation verification corpus",
+            "signature": "aea913cf6b8120897449b57978dd547e5c5865a1b5c293d82e8f58b3eca145732d3dd30d897a0d54eb115c08d92bbd4f307d0720c834fe26dea1a4b7451dc00b"
+          }
+        ],
+        "delegation": {
+          "delegationId": "del_revocation_corpus_01",
+          "delegatedTo": "a09aa5f47a6759802ff955f8dc2d2a14a5c99d23be97f864127ff9383455a4f0",
+          "delegatedBy": "d04ab232742bb4ab3a1368bd4615e4e6d0224ab71a016baf8520a332c9778737",
+          "scope": [
+            "data:read"
+          ],
+          "expiresAt": "2027-01-01T00:00:00.000Z",
+          "spentAmount": 0,
+          "maxDepth": 1,
+          "currentDepth": 0,
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "notBefore": "2026-01-01T00:00:00.000Z",
+          "signature": "62976742337fda3c6b2e107fb5656c90517f954eb930c561aaac605743cb50fd4c3f2aaf556198fdddf38ed91787a11e89cac85bd6e606941c1696fb81f19305"
+        },
+        "binding": {
+          "record_type": "aps.principal-binding",
+          "version": "1.0",
+          "agent_id": "did:aps:agent-revocation-corpus",
+          "principal_id": "did:aps:principal-revocation-corpus",
+          "verification_method": "did:aps:principal-revocation-corpus#key-1",
+          "audiences": [
+            "https://gateway.example/aps"
+          ],
+          "authority_profiles": [
+            "aps.principal-binding.v1"
+          ],
+          "status_uri": "https://status.example/aps/revocation-corpus",
+          "issued_at": "2026-01-01T00:00:00.000Z",
+          "expires_at": "2027-01-01T00:00:00.000Z",
+          "nonce": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+          "binding_id": "e8ddda0af142cdbe64d47247e6261e1aead9355401df4984cbaa76b3d55fc726",
+          "signature": "71fe729d065023dee022780a39eeb40537866dc22e55f26c6544bf60ff629b08fef8c6c3c37f3f84827bd33278fd508d782654bd47c4e4f3a2e9102b0974120e"
+        },
+        "resolver_table": {
+          "segments": [
+            {
+              "controller": "did:aps:principal-revocation-corpus",
+              "verification_method": "did:aps:principal-revocation-corpus#key-1",
+              "from": "0000-01-01T00:00:00.000Z",
+              "until": "2026-06-01T00:00:00.000Z",
+              "state": "resolved",
+              "public_key_hex": "c6822637c7d310ec57627be00ba259d253749f4aaf644470cffbe53a35f73242"
+            },
+            {
+              "controller": "did:aps:principal-revocation-corpus",
+              "verification_method": "did:aps:principal-revocation-corpus#key-1",
+              "from": "2026-06-01T00:00:00.000Z",
+              "until": "9999-12-31T23:59:59.999Z",
+              "state": "resolved",
+              "public_key_hex": "d759793bbc13a2819a827c76adb6fba8a49aee007f49f2d0992d99b825ad2c48"
+            }
+          ],
+          "fallback": "not_found"
+        }
+      },
+      "artifact_digests": [
+        {
+          "index": 0,
+          "canonical": "{\"delegationId\":\"del_revocation_corpus_01\",\"reason\":\"revocation verification corpus\",\"revocationId\":\"rev_revocation_corpus_01\",\"revokedAt\":\"2026-08-26T00:00:00.000Z\",\"revokedBy\":\"d04ab232742bb4ab3a1368bd4615e4e6d0224ab71a016baf8520a332c9778737\",\"signature\":\"844e76d1f516c1692e9a88cb23bee35b12553410874f5cba72a78a1b7aea415b76d4ed93f73993e6c302fbf0fee1d6805de0959ffa7aa8074e9eaab22e1bce0d\"}",
+          "revocation_artifact_digest": "sha256:96767ec727925dcddc50c873c4cfe2e11076f4f1bfc9dfb3c5a9e396d5cfbde7"
+        },
+        {
+          "index": 1,
+          "canonical": "{\"delegationId\":\"del_revocation_corpus_01\",\"reason\":\"revocation verification corpus\",\"revocationId\":\"rev_revocation_corpus_forged\",\"revokedAt\":\"2026-08-26T00:00:00.000Z\",\"revokedBy\":\"17cb79fb2b4120f2b1ec65e4198d6e08b28e813feb01e4a400839b85e18080ce\",\"signature\":\"aea913cf6b8120897449b57978dd547e5c5865a1b5c293d82e8f58b3eca145732d3dd30d897a0d54eb115c08d92bbd4f307d0720c834fe26dea1a4b7451dc00b\"}",
+          "revocation_artifact_digest": "sha256:75222e8539dbda05b10c32f0318740dacde0f2db6a52b72dd8d2011fed9fcce9"
+        }
+      ],
+      "expected": {
+        "subjects": [
+          {
+            "subject_kind": "delegation",
+            "subject_id": "del_revocation_corpus_01",
+            "outcome": "REVOKED",
+            "artifacts": [
+              {
+                "revocation_artifact_digest": "sha256:96767ec727925dcddc50c873c4cfe2e11076f4f1bfc9dfb3c5a9e396d5cfbde7",
+                "ref_id": "rev_revocation_corpus_01"
+              }
+            ],
+            "duplicate_count": 0,
+            "discards": [
+              {
+                "index": 1,
+                "outcome": "unauthorized_revoker",
+                "reason": "revokedBy is not the delegation delegatedBy key"
+              }
+            ]
+          },
+          {
+            "subject_kind": "principal_binding",
+            "subject_id": "e8ddda0af142cdbe64d47247e6261e1aead9355401df4984cbaa76b3d55fc726",
+            "outcome": "no_revocation_evidence_observed",
+            "artifacts": [],
+            "duplicate_count": 0,
+            "discards": []
+          }
+        ],
+        "unclassifiable": []
+      }
+    },
+    {
+      "name": "V14",
+      "description": "artifact with no readable subject: reported at the top level as unclassifiable malformed, attributed to no subject",
+      "inputs": {
+        "artifacts": [
+          {
+            "note": "this object names no delegation and no binding",
+            "revoked": true
+          }
+        ],
+        "delegation": {
+          "delegationId": "del_revocation_corpus_01",
+          "delegatedTo": "a09aa5f47a6759802ff955f8dc2d2a14a5c99d23be97f864127ff9383455a4f0",
+          "delegatedBy": "d04ab232742bb4ab3a1368bd4615e4e6d0224ab71a016baf8520a332c9778737",
+          "scope": [
+            "data:read"
+          ],
+          "expiresAt": "2027-01-01T00:00:00.000Z",
+          "spentAmount": 0,
+          "maxDepth": 1,
+          "currentDepth": 0,
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "notBefore": "2026-01-01T00:00:00.000Z",
+          "signature": "62976742337fda3c6b2e107fb5656c90517f954eb930c561aaac605743cb50fd4c3f2aaf556198fdddf38ed91787a11e89cac85bd6e606941c1696fb81f19305"
+        },
+        "binding": {
+          "record_type": "aps.principal-binding",
+          "version": "1.0",
+          "agent_id": "did:aps:agent-revocation-corpus",
+          "principal_id": "did:aps:principal-revocation-corpus",
+          "verification_method": "did:aps:principal-revocation-corpus#key-1",
+          "audiences": [
+            "https://gateway.example/aps"
+          ],
+          "authority_profiles": [
+            "aps.principal-binding.v1"
+          ],
+          "status_uri": "https://status.example/aps/revocation-corpus",
+          "issued_at": "2026-01-01T00:00:00.000Z",
+          "expires_at": "2027-01-01T00:00:00.000Z",
+          "nonce": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+          "binding_id": "e8ddda0af142cdbe64d47247e6261e1aead9355401df4984cbaa76b3d55fc726",
+          "signature": "71fe729d065023dee022780a39eeb40537866dc22e55f26c6544bf60ff629b08fef8c6c3c37f3f84827bd33278fd508d782654bd47c4e4f3a2e9102b0974120e"
+        },
+        "resolver_table": {
+          "segments": [
+            {
+              "controller": "did:aps:principal-revocation-corpus",
+              "verification_method": "did:aps:principal-revocation-corpus#key-1",
+              "from": "0000-01-01T00:00:00.000Z",
+              "until": "2026-06-01T00:00:00.000Z",
+              "state": "resolved",
+              "public_key_hex": "c6822637c7d310ec57627be00ba259d253749f4aaf644470cffbe53a35f73242"
+            },
+            {
+              "controller": "did:aps:principal-revocation-corpus",
+              "verification_method": "did:aps:principal-revocation-corpus#key-1",
+              "from": "2026-06-01T00:00:00.000Z",
+              "until": "9999-12-31T23:59:59.999Z",
+              "state": "resolved",
+              "public_key_hex": "d759793bbc13a2819a827c76adb6fba8a49aee007f49f2d0992d99b825ad2c48"
+            }
+          ],
+          "fallback": "not_found"
+        }
+      },
+      "artifact_digests": [
+        {
+          "index": 0,
+          "canonical": "{\"note\":\"this object names no delegation and no binding\",\"revoked\":true}",
+          "revocation_artifact_digest": "sha256:a69b0b8f40dac02890dc1bc0c0c8f390c2455275b906a0596cde186807f98756"
+        }
+      ],
+      "expected": {
+        "subjects": [
+          {
+            "subject_kind": "delegation",
+            "subject_id": "del_revocation_corpus_01",
+            "outcome": "no_revocation_evidence_observed",
+            "artifacts": [],
+            "duplicate_count": 0,
+            "discards": []
+          },
+          {
+            "subject_kind": "principal_binding",
+            "subject_id": "e8ddda0af142cdbe64d47247e6261e1aead9355401df4984cbaa76b3d55fc726",
+            "outcome": "no_revocation_evidence_observed",
+            "artifacts": [],
+            "duplicate_count": 0,
+            "discards": []
+          }
+        ],
+        "unclassifiable": [
+          {
+            "index": 0,
+            "outcome": "malformed",
+            "reason": "artifact matches no known revocation record shape"
+          }
+        ]
+      }
+    },
+    {
+      "name": "V15",
+      "description": "publication boundary: a proof committing to the artifact digest verifies, the same proof against a different artifact does not, and artifact validity is unchanged either way",
+      "inputs": {
+        "artifacts": [
+          {
+            "revocationId": "rev_revocation_corpus_01",
+            "delegationId": "del_revocation_corpus_01",
+            "revokedBy": "d04ab232742bb4ab3a1368bd4615e4e6d0224ab71a016baf8520a332c9778737",
+            "revokedAt": "2026-08-26T00:00:00.000Z",
+            "reason": "revocation verification corpus",
+            "signature": "844e76d1f516c1692e9a88cb23bee35b12553410874f5cba72a78a1b7aea415b76d4ed93f73993e6c302fbf0fee1d6805de0959ffa7aa8074e9eaab22e1bce0d"
+          }
+        ],
+        "delegation": {
+          "delegationId": "del_revocation_corpus_01",
+          "delegatedTo": "a09aa5f47a6759802ff955f8dc2d2a14a5c99d23be97f864127ff9383455a4f0",
+          "delegatedBy": "d04ab232742bb4ab3a1368bd4615e4e6d0224ab71a016baf8520a332c9778737",
+          "scope": [
+            "data:read"
+          ],
+          "expiresAt": "2027-01-01T00:00:00.000Z",
+          "spentAmount": 0,
+          "maxDepth": 1,
+          "currentDepth": 0,
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "notBefore": "2026-01-01T00:00:00.000Z",
+          "signature": "62976742337fda3c6b2e107fb5656c90517f954eb930c561aaac605743cb50fd4c3f2aaf556198fdddf38ed91787a11e89cac85bd6e606941c1696fb81f19305"
+        },
+        "binding": {
+          "record_type": "aps.principal-binding",
+          "version": "1.0",
+          "agent_id": "did:aps:agent-revocation-corpus",
+          "principal_id": "did:aps:principal-revocation-corpus",
+          "verification_method": "did:aps:principal-revocation-corpus#key-1",
+          "audiences": [
+            "https://gateway.example/aps"
+          ],
+          "authority_profiles": [
+            "aps.principal-binding.v1"
+          ],
+          "status_uri": "https://status.example/aps/revocation-corpus",
+          "issued_at": "2026-01-01T00:00:00.000Z",
+          "expires_at": "2027-01-01T00:00:00.000Z",
+          "nonce": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+          "binding_id": "e8ddda0af142cdbe64d47247e6261e1aead9355401df4984cbaa76b3d55fc726",
+          "signature": "71fe729d065023dee022780a39eeb40537866dc22e55f26c6544bf60ff629b08fef8c6c3c37f3f84827bd33278fd508d782654bd47c4e4f3a2e9102b0974120e"
+        },
+        "resolver_table": {
+          "segments": [
+            {
+              "controller": "did:aps:principal-revocation-corpus",
+              "verification_method": "did:aps:principal-revocation-corpus#key-1",
+              "from": "0000-01-01T00:00:00.000Z",
+              "until": "2026-06-01T00:00:00.000Z",
+              "state": "resolved",
+              "public_key_hex": "c6822637c7d310ec57627be00ba259d253749f4aaf644470cffbe53a35f73242"
+            },
+            {
+              "controller": "did:aps:principal-revocation-corpus",
+              "verification_method": "did:aps:principal-revocation-corpus#key-1",
+              "from": "2026-06-01T00:00:00.000Z",
+              "until": "9999-12-31T23:59:59.999Z",
+              "state": "resolved",
+              "public_key_hex": "d759793bbc13a2819a827c76adb6fba8a49aee007f49f2d0992d99b825ad2c48"
+            }
+          ],
+          "fallback": "not_found"
+        }
+      },
+      "artifact_digests": [
+        {
+          "index": 0,
+          "canonical": "{\"delegationId\":\"del_revocation_corpus_01\",\"reason\":\"revocation verification corpus\",\"revocationId\":\"rev_revocation_corpus_01\",\"revokedAt\":\"2026-08-26T00:00:00.000Z\",\"revokedBy\":\"d04ab232742bb4ab3a1368bd4615e4e6d0224ab71a016baf8520a332c9778737\",\"signature\":\"844e76d1f516c1692e9a88cb23bee35b12553410874f5cba72a78a1b7aea415b76d4ed93f73993e6c302fbf0fee1d6805de0959ffa7aa8074e9eaab22e1bce0d\"}",
+          "revocation_artifact_digest": "sha256:96767ec727925dcddc50c873c4cfe2e11076f4f1bfc9dfb3c5a9e396d5cfbde7"
+        }
+      ],
+      "expected": {
+        "subjects": [
+          {
+            "subject_kind": "delegation",
+            "subject_id": "del_revocation_corpus_01",
+            "outcome": "REVOKED",
+            "artifacts": [
+              {
+                "revocation_artifact_digest": "sha256:96767ec727925dcddc50c873c4cfe2e11076f4f1bfc9dfb3c5a9e396d5cfbde7",
+                "ref_id": "rev_revocation_corpus_01"
+              }
+            ],
+            "duplicate_count": 0,
+            "discards": []
+          },
+          {
+            "subject_kind": "principal_binding",
+            "subject_id": "e8ddda0af142cdbe64d47247e6261e1aead9355401df4984cbaa76b3d55fc726",
+            "outcome": "no_revocation_evidence_observed",
+            "artifacts": [],
+            "duplicate_count": 0,
+            "discards": []
+          }
+        ],
+        "unclassifiable": []
+      },
+      "publication": [
+        {
+          "name": "proof commits to this artifact",
+          "proof": {
+            "committed_digest": "sha256:96767ec727925dcddc50c873c4cfe2e11076f4f1bfc9dfb3c5a9e396d5cfbde7"
+          },
+          "artifact": {
+            "revocationId": "rev_revocation_corpus_01",
+            "delegationId": "del_revocation_corpus_01",
+            "revokedBy": "d04ab232742bb4ab3a1368bd4615e4e6d0224ab71a016baf8520a332c9778737",
+            "revokedAt": "2026-08-26T00:00:00.000Z",
+            "reason": "revocation verification corpus",
+            "signature": "844e76d1f516c1692e9a88cb23bee35b12553410874f5cba72a78a1b7aea415b76d4ed93f73993e6c302fbf0fee1d6805de0959ffa7aa8074e9eaab22e1bce0d"
+          },
+          "expected": {
+            "publication_verified": true
+          }
+        },
+        {
+          "name": "same proof, different artifact",
+          "proof": {
+            "committed_digest": "sha256:96767ec727925dcddc50c873c4cfe2e11076f4f1bfc9dfb3c5a9e396d5cfbde7"
+          },
+          "artifact": {
+            "record_type": "aps.principal-binding-revocation",
+            "version": "1.0",
+            "binding_id": "e8ddda0af142cdbe64d47247e6261e1aead9355401df4984cbaa76b3d55fc726",
+            "principal_id": "did:aps:principal-revocation-corpus",
+            "verification_method": "did:aps:principal-revocation-corpus#key-1",
+            "revoked_at": "2026-08-26T00:00:00.000Z",
+            "reason_code": "corpus_fixture",
+            "nonce": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+            "revocation_id": "217e7b94a4d23d8b596981a0b9f882569d54fc508000ce34d9ab05929d38b94a",
+            "signature": "0f3cb4339502a123d1ef8596e92ec2cbc25edd1dbd20e7317af5e5d514c419118ef6ef90a4437036ba4ef6608034fb833ba2b56588bc10b5fdd22a031ea74b0e"
+          },
+          "expected": {
+            "publication_verified": false
+          }
+        }
+      ]
+    },
+    {
+      "name": "V16",
+      "description": "mixed subjects, one delegation revocation and one binding revocation: two independent per-subject results",
+      "inputs": {
+        "artifacts": [
+          {
+            "revocationId": "rev_revocation_corpus_01",
+            "delegationId": "del_revocation_corpus_01",
+            "revokedBy": "d04ab232742bb4ab3a1368bd4615e4e6d0224ab71a016baf8520a332c9778737",
+            "revokedAt": "2026-08-26T00:00:00.000Z",
+            "reason": "revocation verification corpus",
+            "signature": "844e76d1f516c1692e9a88cb23bee35b12553410874f5cba72a78a1b7aea415b76d4ed93f73993e6c302fbf0fee1d6805de0959ffa7aa8074e9eaab22e1bce0d"
+          },
+          {
+            "record_type": "aps.principal-binding-revocation",
+            "version": "1.0",
+            "binding_id": "e8ddda0af142cdbe64d47247e6261e1aead9355401df4984cbaa76b3d55fc726",
+            "principal_id": "did:aps:principal-revocation-corpus",
+            "verification_method": "did:aps:principal-revocation-corpus#key-1",
+            "revoked_at": "2026-08-26T00:00:00.000Z",
+            "reason_code": "corpus_fixture",
+            "nonce": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+            "revocation_id": "217e7b94a4d23d8b596981a0b9f882569d54fc508000ce34d9ab05929d38b94a",
+            "signature": "0f3cb4339502a123d1ef8596e92ec2cbc25edd1dbd20e7317af5e5d514c419118ef6ef90a4437036ba4ef6608034fb833ba2b56588bc10b5fdd22a031ea74b0e"
+          }
+        ],
+        "delegation": {
+          "delegationId": "del_revocation_corpus_01",
+          "delegatedTo": "a09aa5f47a6759802ff955f8dc2d2a14a5c99d23be97f864127ff9383455a4f0",
+          "delegatedBy": "d04ab232742bb4ab3a1368bd4615e4e6d0224ab71a016baf8520a332c9778737",
+          "scope": [
+            "data:read"
+          ],
+          "expiresAt": "2027-01-01T00:00:00.000Z",
+          "spentAmount": 0,
+          "maxDepth": 1,
+          "currentDepth": 0,
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "notBefore": "2026-01-01T00:00:00.000Z",
+          "signature": "62976742337fda3c6b2e107fb5656c90517f954eb930c561aaac605743cb50fd4c3f2aaf556198fdddf38ed91787a11e89cac85bd6e606941c1696fb81f19305"
+        },
+        "binding": {
+          "record_type": "aps.principal-binding",
+          "version": "1.0",
+          "agent_id": "did:aps:agent-revocation-corpus",
+          "principal_id": "did:aps:principal-revocation-corpus",
+          "verification_method": "did:aps:principal-revocation-corpus#key-1",
+          "audiences": [
+            "https://gateway.example/aps"
+          ],
+          "authority_profiles": [
+            "aps.principal-binding.v1"
+          ],
+          "status_uri": "https://status.example/aps/revocation-corpus",
+          "issued_at": "2026-01-01T00:00:00.000Z",
+          "expires_at": "2027-01-01T00:00:00.000Z",
+          "nonce": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+          "binding_id": "e8ddda0af142cdbe64d47247e6261e1aead9355401df4984cbaa76b3d55fc726",
+          "signature": "71fe729d065023dee022780a39eeb40537866dc22e55f26c6544bf60ff629b08fef8c6c3c37f3f84827bd33278fd508d782654bd47c4e4f3a2e9102b0974120e"
+        },
+        "resolver_table": {
+          "segments": [
+            {
+              "controller": "did:aps:principal-revocation-corpus",
+              "verification_method": "did:aps:principal-revocation-corpus#key-1",
+              "from": "0000-01-01T00:00:00.000Z",
+              "until": "2026-06-01T00:00:00.000Z",
+              "state": "resolved",
+              "public_key_hex": "c6822637c7d310ec57627be00ba259d253749f4aaf644470cffbe53a35f73242"
+            },
+            {
+              "controller": "did:aps:principal-revocation-corpus",
+              "verification_method": "did:aps:principal-revocation-corpus#key-1",
+              "from": "2026-06-01T00:00:00.000Z",
+              "until": "9999-12-31T23:59:59.999Z",
+              "state": "resolved",
+              "public_key_hex": "d759793bbc13a2819a827c76adb6fba8a49aee007f49f2d0992d99b825ad2c48"
+            }
+          ],
+          "fallback": "not_found"
+        }
+      },
+      "artifact_digests": [
+        {
+          "index": 0,
+          "canonical": "{\"delegationId\":\"del_revocation_corpus_01\",\"reason\":\"revocation verification corpus\",\"revocationId\":\"rev_revocation_corpus_01\",\"revokedAt\":\"2026-08-26T00:00:00.000Z\",\"revokedBy\":\"d04ab232742bb4ab3a1368bd4615e4e6d0224ab71a016baf8520a332c9778737\",\"signature\":\"844e76d1f516c1692e9a88cb23bee35b12553410874f5cba72a78a1b7aea415b76d4ed93f73993e6c302fbf0fee1d6805de0959ffa7aa8074e9eaab22e1bce0d\"}",
+          "revocation_artifact_digest": "sha256:96767ec727925dcddc50c873c4cfe2e11076f4f1bfc9dfb3c5a9e396d5cfbde7"
+        },
+        {
+          "index": 1,
+          "canonical": "{\"binding_id\":\"e8ddda0af142cdbe64d47247e6261e1aead9355401df4984cbaa76b3d55fc726\",\"nonce\":\"a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1\",\"principal_id\":\"did:aps:principal-revocation-corpus\",\"reason_code\":\"corpus_fixture\",\"record_type\":\"aps.principal-binding-revocation\",\"revocation_id\":\"217e7b94a4d23d8b596981a0b9f882569d54fc508000ce34d9ab05929d38b94a\",\"revoked_at\":\"2026-08-26T00:00:00.000Z\",\"signature\":\"0f3cb4339502a123d1ef8596e92ec2cbc25edd1dbd20e7317af5e5d514c419118ef6ef90a4437036ba4ef6608034fb833ba2b56588bc10b5fdd22a031ea74b0e\",\"verification_method\":\"did:aps:principal-revocation-corpus#key-1\",\"version\":\"1.0\"}",
+          "revocation_artifact_digest": "sha256:73f8834a0f3cff067697e3bc0213888a8a9ae3c0e5d5d6142c98302ce5910e34"
+        }
+      ],
+      "expected": {
+        "subjects": [
+          {
+            "subject_kind": "delegation",
+            "subject_id": "del_revocation_corpus_01",
+            "outcome": "REVOKED",
+            "artifacts": [
+              {
+                "revocation_artifact_digest": "sha256:96767ec727925dcddc50c873c4cfe2e11076f4f1bfc9dfb3c5a9e396d5cfbde7",
+                "ref_id": "rev_revocation_corpus_01"
+              }
+            ],
+            "duplicate_count": 0,
+            "discards": []
+          },
+          {
+            "subject_kind": "principal_binding",
+            "subject_id": "e8ddda0af142cdbe64d47247e6261e1aead9355401df4984cbaa76b3d55fc726",
+            "outcome": "REVOKED",
+            "artifacts": [
+              {
+                "revocation_artifact_digest": "sha256:73f8834a0f3cff067697e3bc0213888a8a9ae3c0e5d5d6142c98302ce5910e34",
+                "ref_id": "217e7b94a4d23d8b596981a0b9f882569d54fc508000ce34d9ab05929d38b94a"
+              }
+            ],
+            "duplicate_count": 0,
+            "discards": []
+          }
+        ],
+        "unclassifiable": []
+      }
+    }
+  ]
+}
