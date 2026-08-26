@@ -14,6 +14,8 @@ Issue and verify helpers: `issueApsMcpAuthorizationV1`,
 
 ## mcp-use
 
+An external mcp-use integration example, built by a mcp-use contributor before this adapter existed: [khandrew1/mcp-use-aps-example](https://github.com/khandrew1/mcp-use-aps-example). It imports this package and calls `createApsMcpToolCallMiddleware` directly. The adapter below packages the same seam with the type conformance and Node 20/22 tests in this repo.
+
 `createApsMcpUseMiddleware` adapts the profile to
 [mcp-use](https://github.com/mcp-use/mcp-use) exact-method middleware. Register
 it on `mcp:tools/call`.
