@@ -1,0 +1,54 @@
+{
+  "kind": "negative",
+  "id": "NEG-DELEGATION-ROOT-MISMATCH",
+  "description": "A cryptographically sound receipt is presented to a verifier whose authoritative delegation chain root is a different one. The root is not revoked, it is simply not the one this verifier recognises.",
+  "expected_reject_reason": "DELEGATION_ROOT_MISMATCH",
+  "layer": "context",
+  "receipt": {
+    "claim_type": "aps:action:v1",
+    "receipt_id": "ea9cbbd82facbd45b939f57c1da372fb595369b69ce308f149199d88a24dffc1",
+    "timestamp": "2026-05-01T12:00:00.000Z",
+    "signer_did": "d04ab232742bb4ab3a1368bd4615e4e6d0224ab71a016baf8520a332c9778737",
+    "scope_of_claim": {
+      "asserts": "aps:action:v1. the gateway observed the agent issue this action under the cited delegation chain.",
+      "does_not_assert": [
+        "that the off-protocol side effect actually completed",
+        "that the agent understood the consequences of the action",
+        "that the underlying business outcome was correct"
+      ],
+      "capture_mode": "gateway_observed",
+      "completeness": "complete",
+      "self_attested": false
+    },
+    "agent_did": "a09aa5f47a6759802ff955f8dc2d2a14a5c99d23be97f864127ff9383455a4f0",
+    "delegation_chain_root": "4444444444444444444444444444444444444444444444444444444444444444",
+    "policy_ref": "policy:v3",
+    "action": {
+      "kind": "http_post",
+      "target": "https://api.example.test/orders",
+      "parameters": {
+        "amount": "1000",
+        "currency": "USD"
+      }
+    },
+    "side_effect_classes": [
+      "financial",
+      "external_message"
+    ],
+    "signature": "a49ec9c6ceba384bf828e65f37c962f4e86f805dbddf23d50053834f8261a9ebbe905366c3f6adc2119f4c698ad50e0988b5d2c9426622c735d1c347f940860a"
+  },
+  "context": {
+    "now": "2026-05-01T12:00:00.000Z",
+    "active_delegation_root": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "delegation_expires_at": "2027-01-01T00:00:00.000Z",
+    "revoked_delegation_roots": [],
+    "budget_base_units": "1000000",
+    "action_cost_base_units": "1000",
+    "expected_principal_did": "a09aa5f47a6759802ff955f8dc2d2a14a5c99d23be97f864127ff9383455a4f0",
+    "active_policy_version": 3,
+    "evaluated_policy_version": 3,
+    "seen_receipt_ids": [],
+    "presented_as_claim_type": "aps:action:v1",
+    "execution_attested": true
+  }
+}

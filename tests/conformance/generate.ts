@@ -435,5 +435,24 @@ export function buildNegatives(): NegativeFixture[] {
     })
   }
 
+  // 14. wrong delegation root. a sound receipt presented to a verifier
+  //     whose authoritative chain root is a different one. Not a revoked
+  //     root: this root was never recognised in the first place.
+  {
+    const receipt = valid
+    const ctx = baseContext(receipt)
+    ctx.active_delegation_root = 'b'.repeat(64)
+    negatives.push({
+      kind: 'negative',
+      id: 'NEG-DELEGATION-ROOT-MISMATCH',
+      description:
+        "A cryptographically sound receipt is presented to a verifier whose authoritative delegation chain root is a different one. The root is not revoked, it is simply not the one this verifier recognises.",
+      expected_reject_reason: 'DELEGATION_ROOT_MISMATCH',
+      layer: 'context',
+      receipt,
+      context: ctx,
+    })
+  }
+
   return negatives
 }

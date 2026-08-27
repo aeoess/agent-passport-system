@@ -56,6 +56,7 @@ export type RejectReason =
   | 'REPLAYED' // receipt_id already seen in this verification window
   | 'WRONG_CLAIM' // valid receipt presented as proof of a claim it does not make
   | 'POLICY_NOT_EXECUTED' // policy evaluated but execution never happened
+  | 'DELEGATION_ROOT_MISMATCH' // receipt's chain root is not the root the verifier treats as authoritative
 
 /** The closed set of crypto-layer reasons, for callers that want to
  *  branch on which layer surfaced a rejection without re-running the
@@ -166,6 +167,15 @@ export function verifyReceiptContext(
   // the receipt cannot be treated as proof of execution.
   if (!ctx.execution_attested) {
     return { valid: false, reason: 'POLICY_NOT_EXECUTED' }
+  }
+
+  // wrong delegation root: the receipt's chain root is not the root this
+  // verifier treats as authoritative. Distinct from DELEGATION_REVOKED: a
+  // root the verifier does not recognise is not the same as one it has
+  // seen revoked. Appended last so every pre-existing first-failure
+  // classification is unchanged, per the extend-at-the-end rule above.
+  if (receipt.delegation_chain_root !== ctx.active_delegation_root) {
+    return { valid: false, reason: 'DELEGATION_ROOT_MISMATCH' }
   }
 
   return { valid: true }

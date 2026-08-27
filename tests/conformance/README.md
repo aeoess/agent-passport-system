@@ -53,6 +53,7 @@ context is consulted.
 | `NEG-WRONG-CLAIM` | `WRONG_CLAIM` | context |
 | `NEG-POLICY-NOT-EXECUTED` | `POLICY_NOT_EXECUTED` | context |
 | `NEG-UNVERIFIED-EXTERNAL-EVIDENCE` | `WRONG_CLAIM` | context |
+| `NEG-DELEGATION-ROOT-MISMATCH` | `DELEGATION_ROOT_MISMATCH` | context |
 
 The on-disk JSON lives in `golden-fixtures/`. `INDEX.json` is the manifest
 a cross-implementation harness reads first.
