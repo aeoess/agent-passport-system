@@ -78,6 +78,12 @@
       "reason": "WRONG_CLAIM",
       "layer": "context",
       "description": "A self-attested oracle read is presented as gateway-observed evidence. self_attested receipts carry lower evidentiary weight and must not be promoted to observed evidence."
+    },
+    {
+      "id": "NEG-DELEGATION-ROOT-MISMATCH",
+      "reason": "DELEGATION_ROOT_MISMATCH",
+      "layer": "context",
+      "description": "A cryptographically sound receipt is presented to a verifier whose authoritative delegation chain root is a different one. The root is not revoked, it is simply not the one this verifier recognises."
     }
   ]
 }
