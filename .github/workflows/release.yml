@@ -78,7 +78,13 @@ jobs:
           echo "tarball=$tarball" >> "$GITHUB_OUTPUT"
 
       - name: Publish to npm (Trusted Publishing, OIDC)
-        run: npm publish
+        # Publishes the tarball packed above, the same file the attestation
+        # step signs, so the provenance subject and the shipped bytes are one
+        # artifact. A bare `npm publish` would pack a second time. The
+        # relative path begins with ./ so npm reads it as a file, not a spec.
+        env:
+          TARBALL: ${{ steps.pack.outputs.tarball }}
+        run: npm publish "./$TARBALL"
 
       - name: Attest build provenance
         id: attest
