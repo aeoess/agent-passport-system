@@ -2032,3 +2032,54 @@ export type {
   HistoricalKeyResolutionRequest,
   HistoricalKeyResolutionResult,
 } from './v2/identity-binding/types.js'
+
+// ── Receipt core (v2): signed decision receipts ──
+// Verification establishes the integrity and semantics represented by a
+// receipt. It does not authorize dispatch, consume receipt_id, enforce
+// single-use, recheck revocation or time at dispatch, or reserve spend.
+// Those obligations belong to the enforcement boundary.
+// For serialized artifacts the safe public route is verifyReceiptV1Serialized,
+// which rejects duplicate members before structured parsing destroys the
+// evidence; the object-taking entrypoints cannot detect duplicates that
+// existed in serialized JSON.
+export {
+  RECEIPT_ID_TAG,
+  RECEIPT_SIG_TAG,
+  isExactUtcMilliseconds,
+  receiptIdPayloadV1,
+  computeReceiptIdV1,
+  receiptSignaturePayloadV1,
+  validateReceiptV1,
+  createReceiptV1,
+  verifyReceiptV1,
+  verifyReceiptV1Serialized,
+} from './v2/receipt-core/receipt.js'
+export type {
+  ReceiptV1,
+  ReceiptSignatureV1,
+  ReceiptSignerV1,
+} from './v2/receipt-core/types.js'
+export type { ReceiptVerificationV1 } from './v2/receipt-core/receipt.js'
+export { verifyReceiptWithDecisionV1 } from './v2/receipt-core/composite.js'
+export type {
+  DecisionEvidenceV1,
+  ReceiptWithDecisionVerificationV1,
+} from './v2/receipt-core/composite.js'
+
+// ── Authority delegation (v2): signed delegation records ──
+export {
+  AUTHORITY_DELEGATION_ID_DOMAIN,
+  AUTHORITY_DELEGATION_SIGNATURE_DOMAIN,
+  authorityDelegationIdInput,
+  computeAuthorityDelegationId,
+  authorityDelegationSignatureInput,
+  signAuthorityDelegation,
+  verifyAuthorityDelegationSignature,
+} from './v2/authority-delegation/canonical.js'
+export { parseAuthorityDelegationJson } from './v2/authority-delegation/parse.js'
+export type {
+  AuthorityDelegationV1,
+  AuthorityDelegationBodyV1,
+  AuthorityFailureCode,
+  RevocationResolution,
+} from './v2/authority-delegation/types.js'
