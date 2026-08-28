@@ -3,6 +3,7 @@
 
 import { createHash } from 'node:crypto'
 import { canonicalizeJCS } from '../../core/canonical-jcs.js'
+import { parseStrictIJson } from '../receipt-core/jcs.js'
 import {
   assertExactKeys,
   assertHex,
@@ -83,4 +84,37 @@ export function validateActionReferenceInputV2(candidate: unknown): asserts cand
   }
   assertUtcMilliseconds(String(candidate.issued_at), 'issued_at')
   assertHex(String(candidate.nonce), 32, 'nonce')
+}
+
+/** Serialized-input entry path for an action reference document.
+ *
+ *  WHY THIS EXISTS, and why validation could never have covered it. Rejecting a
+ *  duplicate object member is a property of PARSING, not of validation. By the
+ *  time raw JSON has become a JavaScript object the second `agent_id` has already
+ *  overwritten the first and the evidence is gone, so no check added to
+ *  computeActionRefV2 or validateActionReferenceInputV2, both of which receive an
+ *  already-parsed value, can ever satisfy the duplicate-member requirement. The
+ *  only place the fact still exists is the byte stream.
+ *
+ *  So this entry point takes the raw document and parses it with the strict
+ *  parser that already lives in receipt-core, which rejects a duplicate member
+ *  name after JSON string decoding, meaning "a" and "\u0061" collide as the same
+ *  name. The result is then handed to the EXISTING validator unchanged: nothing
+ *  here weakens or bypasses validateActionReferenceInputV2, it runs in full.
+ */
+export function parseActionReferenceInputV2(raw: string): ActionReferenceInputV2 {
+  const parsed: unknown = parseStrictIJson(raw)
+  validateActionReferenceInputV2(parsed)
+  return parsed
+}
+
+/** Compute an action_ref straight from the serialized document.
+ *
+ *  The composed form of parseActionReferenceInputV2 and computeActionRefV2, for
+ *  callers holding wire bytes rather than a constructed input. Identical digest
+ *  to the parsed path for any document that parses, because it IS the parsed
+ *  path once the bytes have been read.
+ */
+export function computeActionRefV2FromJson(raw: string): string {
+  return computeActionRefV2(parseActionReferenceInputV2(raw))
 }
