@@ -47,6 +47,12 @@ export function receiptSignaturePayloadV1(receipt: ReceiptV1, descriptor: Omit<R
   return `${RECEIPT_SIG_TAG}\0${strictJCS(form)}`
 }
 
+/**
+ * This entrypoint validates the standalone ReceiptV1 structure and the fields available
+ * within the receipt. It does not establish cross-document constraints involving the
+ * referenced decision, including the requirement that decision valid_until be later than
+ * receipt issued_at. Use verifyReceiptWithDecisionV1 when both artifacts are available.
+ */
 export function validateReceiptV1(receipt: ReceiptV1, requireValues = true): void {
   assertExactKeys(receipt as unknown as Record<string, unknown>,
     ['profile', 'receipt_id', 'receipt_type', 'issuer', 'subject_agent', 'action_ref', 'delegation_ref', 'decision_ref', 'issued_at', 'evidence_refs', 'result', 'prev', 'signatures'],
@@ -109,6 +115,12 @@ export interface ReceiptVerificationV1 {
   errors: string[]
 }
 
+/**
+ * This entrypoint validates the standalone ReceiptV1 structure and the fields available
+ * within the receipt. It does not establish cross-document constraints involving the
+ * referenced decision, including the requirement that decision valid_until be later than
+ * receipt issued_at. Use verifyReceiptWithDecisionV1 when both artifacts are available.
+ */
 export function verifyReceiptV1(receipt: ReceiptV1, resolveKey: (signer: string, keyId: string, issuedAt: string) => string | undefined): ReceiptVerificationV1 {
   const errors: string[] = []
   try { validateReceiptV1(receipt) } catch (err) {
