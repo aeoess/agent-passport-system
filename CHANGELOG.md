@@ -1,5 +1,9 @@
 # Changelog
 
+## 4.5.1 (2026-08-28)
+
+- Lockfile-only patch; resolves tar advisory GHSA-r292-9mhp-454m in the dev chain; prepared for publication through the Trusted Publishing workflow with build provenance and SBOM. No API change.
+
 ## 4.4.0 (2026-08-20)
 
 ### Behavior change
