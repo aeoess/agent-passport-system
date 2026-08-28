@@ -3,8 +3,8 @@
 
 import { createHash } from 'node:crypto'
 import { sign, verify } from '../../crypto/keys.js'
-import { assertExactKeys, strictJCS } from './jcs.js'
-import type { EvidenceRefV1, ReceiptSignatureV1, ReceiptSignerV1, ReceiptV1 } from './types.js'
+import { assertExactKeys, parseStrictIJson, strictJCS } from './jcs.js'
+import type { EvidenceRefV1, JsonValue, ReceiptSignatureV1, ReceiptSignerV1, ReceiptV1 } from './types.js'
 
 export const RECEIPT_ID_TAG = 'APS-RECEIPT-ID-V1' as const
 export const RECEIPT_SIG_TAG = 'APS-RECEIPT-SIG-V1' as const
@@ -120,6 +120,10 @@ export interface ReceiptVerificationV1 {
  * within the receipt. It does not establish cross-document constraints involving the
  * referenced decision, including the requirement that decision valid_until be later than
  * receipt issued_at. Use verifyReceiptWithDecisionV1 when both artifacts are available.
+ *
+ * This entrypoint operates on an already-parsed object and therefore cannot detect
+ * duplicate members that may have existed in serialized JSON. For verification of
+ * serialized artifacts, use the Serialized variant.
  */
 export function verifyReceiptV1(receipt: ReceiptV1, resolveKey: (signer: string, keyId: string, issuedAt: string) => string | undefined): ReceiptVerificationV1 {
   const errors: string[] = []
@@ -140,4 +144,53 @@ export function verifyReceiptV1(receipt: ReceiptV1, resolveKey: (signer: string,
   })
   if (signature_results.some(r => !r.valid)) errors.push('signature_invalid')
   return { valid: errors.length === 0, receipt_id_valid, signature_results, errors }
+}
+
+/**
+ * Verify a receipt from its serialized bytes.
+ *
+ * The chain is raw -> strict duplicate-rejecting parse -> the existing structural
+ * validation -> the existing cryptographic verification. Every stage after the parse is
+ * verifyReceiptV1 itself, called once and unchanged, so this adds a parser in front of
+ * the existing path rather than a second implementation of it.
+ *
+ * WHY A SERIALIZED ENTRY POINT IS NEEDED AT ALL. Rejecting a duplicate object member is
+ * a property of parsing. Once bytes have become an object the later member has already
+ * overwritten the earlier one and the evidence is gone, so verifyReceiptV1, which
+ * receives an object, cannot detect it however carefully it validates. Exposing only the
+ * object-taking form would leave JSON.parse plus verifyReceiptV1 as the easy and
+ * superficially legitimate composition, which is exactly the shape this is meant to
+ * remove.
+ *
+ * Parse failure is reported as the error code `parse_error` followed by the parser's own
+ * message, so it is distinguishable from a structural failure, which surfaces the
+ * validator's message with no code, and from a signature failure, which surfaces
+ * `signature_invalid`. That uses the existing free-form `errors` array of
+ * ReceiptVerificationV1; no shared enum or result contract was widened to carry it.
+ */
+export function verifyReceiptV1Serialized(
+  raw: string,
+  resolveKey: (signer: string, keyId: string, issuedAt: string) => string | undefined,
+): ReceiptVerificationV1 {
+  let parsed: JsonValue
+  try {
+    parsed = parseStrictIJson(raw)
+  } catch (err) {
+    return {
+      valid: false,
+      receipt_id_valid: false,
+      signature_results: [],
+      errors: ['parse_error', err instanceof Error ? err.message : String(err)],
+    }
+  }
+  // The single narrowing point. It does NOT stand in for validation: verifyReceiptV1's
+  // first action is validateReceiptV1, the full runtime structural check, and a value
+  // that fails it returns invalid here rather than reaching any cryptographic step.
+  // A cast-free form is not expressible against the current signatures. Passing the
+  // parsed value directly is TS2345, and a single assertion is TS2352 because JsonValue
+  // and ReceiptV1 do not overlap, so the type system itself requires the two-step form.
+  // Removing the need for it would mean widening validateReceiptV1 to an assertion over
+  // unknown, which its body's direct field accesses would force a rewrite of. That is a
+  // public API decision, recorded in the handoff rather than taken here.
+  return verifyReceiptV1(parsed as unknown as ReceiptV1, resolveKey)
 }
