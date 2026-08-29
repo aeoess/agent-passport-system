@@ -187,6 +187,12 @@ export interface DelegationStatus {
   depthExceeded: boolean
   revokedAt?: string
   errors: string[]
+  /** What revocation evidence the verifier actually had, reported separately
+   *  from `revoked` so that "no evidence" and "evidence says not revoked" are
+   *  never conflated. 'absent' means no cached revocation state was supplied,
+   *  'stale' means it was older than the freshness bound, 'fresh' means it was
+   *  within it. Set on every verifyDelegation result. */
+  revocationEvidence?: 'absent' | 'stale' | 'fresh'
 }
 
 // ── v1.4: Cascade Revocation ──

@@ -560,3 +560,129 @@ describe('Timestamp Freshness (B-8)', () => {
     assert.equal(status.notYetValid, true)
   })
 })
+
+// ══════════════════════════════════════════════════════════════════
+// Invariant: the three revocation-check policies are genuinely distinct,
+// and fail_closed never accepts stale or absent revocation evidence.
+// ══════════════════════════════════════════════════════════════════
+// verifyDelegation read revocationCheckPolicy into a local and then
+// compared it against exactly one value, 'cache_grace'. 'fail_closed' and
+// 'fail_open' therefore ran the same code, so a caller who asked for
+// fail-closed revocation got fail-open revocation: a two-hour-old cached
+// "not revoked" was accepted, and so was having no revocation evidence at
+// all. The table below is the specification; every cell is asserted.
+
+describe('Delegation: revocation check policy is not decorative', () => {
+  const GRACE_MS = 300_000
+  const FRESH = () => new Date(Date.now() - 1_000).toISOString()
+  const STALE = () => new Date(Date.now() - 2 * 3_600_000).toISOString() // two hours
+
+  function live() {
+    return createDelegation({
+      delegatedTo: agentA.publicKey,
+      delegatedBy: human.publicKey,
+      scope: ['data:read'],
+      privateKey: human.privateKey,
+    })
+  }
+
+  // evidence → policy → expected admissibility of the delegation
+  const TABLE: Array<{
+    evidence: 'absent' | 'fresh_active' | 'fresh_revoked' | 'stale_active' | 'stale_revoked'
+    fail_open: boolean
+    cache_grace: boolean
+    fail_closed: boolean
+  }> = [
+    { evidence: 'absent',        fail_open: true,  cache_grace: true,  fail_closed: false },
+    { evidence: 'fresh_active',  fail_open: true,  cache_grace: true,  fail_closed: true },
+    { evidence: 'fresh_revoked', fail_open: false, cache_grace: false, fail_closed: false },
+    { evidence: 'stale_active',  fail_open: true,  cache_grace: false, fail_closed: false },
+    { evidence: 'stale_revoked', fail_open: false, cache_grace: false, fail_closed: false },
+  ]
+
+  function cacheFor(evidence: string) {
+    switch (evidence) {
+      case 'absent': return undefined
+      case 'fresh_active': return { revoked: false, checkedAt: FRESH() }
+      case 'fresh_revoked': return { revoked: true, checkedAt: FRESH() }
+      case 'stale_active': return { revoked: false, checkedAt: STALE() }
+      case 'stale_revoked': return { revoked: true, checkedAt: STALE() }
+      default: throw new Error(`unknown evidence ${evidence}`)
+    }
+  }
+
+  for (const row of TABLE) {
+    for (const policy of ['fail_open', 'cache_grace', 'fail_closed'] as const) {
+      it(`${policy} with ${row.evidence} revocation evidence: valid=${row[policy]}`, () => {
+        const status = verifyDelegation(live(), {
+          revocationCheckPolicy: policy,
+          cachedRevocationState: cacheFor(row.evidence),
+          cacheGraceMs: GRACE_MS,
+        })
+        assert.equal(status.valid, row[policy], status.errors.join(' | '))
+      })
+    }
+  }
+
+  it('fail_closed differs from fail_open on absent evidence', () => {
+    const d = live()
+    const open = verifyDelegation(d, { revocationCheckPolicy: 'fail_open' })
+    const closed = verifyDelegation(d, { revocationCheckPolicy: 'fail_closed' })
+    assert.notEqual(open.valid, closed.valid, 'fail_closed must not be a synonym for fail_open')
+  })
+
+  it('fail_closed differs from fail_open on two-hour-stale not-revoked evidence', () => {
+    const d = live()
+    const cached = { revoked: false, checkedAt: STALE() }
+    const open = verifyDelegation(d, { revocationCheckPolicy: 'fail_open', cachedRevocationState: cached })
+    const closed = verifyDelegation(d, { revocationCheckPolicy: 'fail_closed', cachedRevocationState: cached })
+    assert.equal(open.valid, true)
+    assert.equal(closed.valid, false)
+  })
+
+  it('fail_closed differs from cache_grace on absent evidence', () => {
+    const d = live()
+    const grace = verifyDelegation(d, { revocationCheckPolicy: 'cache_grace' })
+    const closed = verifyDelegation(d, { revocationCheckPolicy: 'fail_closed' })
+    assert.equal(grace.valid, true)
+    assert.equal(closed.valid, false)
+  })
+
+  it('fail_closed reports why it refused: the evidence, not a revocation it did not observe', () => {
+    const status = verifyDelegation(live(), { revocationCheckPolicy: 'fail_closed' })
+    assert.equal(status.valid, false)
+    assert.equal(status.revoked, false, 'absent evidence is not an observed revocation')
+    assert.equal(status.revocationEvidence, 'absent')
+    assert.ok(
+      status.errors.some(e => e.includes('revocation')),
+      `expected a revocation-evidence error, got ${JSON.stringify(status.errors)}`,
+    )
+  })
+
+  it('fail_closed labels stale evidence as stale rather than as a revocation', () => {
+    const status = verifyDelegation(live(), {
+      revocationCheckPolicy: 'fail_closed',
+      cachedRevocationState: { revoked: false, checkedAt: STALE() },
+      cacheGraceMs: GRACE_MS,
+    })
+    assert.equal(status.valid, false)
+    assert.equal(status.revoked, false)
+    assert.equal(status.revocationEvidence, 'stale')
+  })
+
+  it('fail_closed admits a delegation whose revocation evidence is fresh and clean', () => {
+    const status = verifyDelegation(live(), {
+      revocationCheckPolicy: 'fail_closed',
+      cachedRevocationState: { revoked: false, checkedAt: FRESH() },
+      cacheGraceMs: GRACE_MS,
+    })
+    assert.equal(status.valid, true, status.errors.join(' | '))
+    assert.equal(status.revocationEvidence, 'fresh')
+  })
+
+  it('the default policy is unchanged: no option means fail_open', () => {
+    const d = live()
+    assert.equal(verifyDelegation(d).valid, true)
+    assert.equal(verifyDelegation(d).valid, verifyDelegation(d, { revocationCheckPolicy: 'fail_open' }).valid)
+  })
+})
