@@ -102,10 +102,23 @@ export function verifyAgoraMessage(
     errors.push('Invalid Ed25519 signature')
   }
 
-  // Check if author is in registry
-  const registryChecked = registry !== undefined
+  // Check if author is in registry.
+  //
+  // Three states, and the guard has to agree with the flag about which one
+  // we are in. `registry !== undefined` counted null as "checked" while the
+  // `if (registry)` body never ran, which produced valid=false with an empty
+  // errors array: a refusal with no stated reason.
+  //
+  //   absent            no registry to check against, signature-only verdict
+  //   usable            membership decides
+  //   present, unusable a registry WAS supplied and could not be read, which
+  //                     is a failed check, not a skipped one
+  const registryChecked = registry !== undefined && registry !== null
+  const usableRegistry = registryChecked && Array.isArray(registry.agents)
   let knownAgent = false
-  if (registry) {
+  if (registryChecked && !usableRegistry) {
+    errors.push('Agent registry supplied but unusable: agents is not an array')
+  } else if (usableRegistry) {
     knownAgent = registry.agents.some(
       a => a.publicKey === message.author.publicKey
     )
@@ -114,10 +127,11 @@ export function verifyAgoraMessage(
     }
   }
 
-  // Every predicate that ran has to reach the verdict. Both conjuncts below
-  // push an error when they fail, so this is also `errors.length === 0`; it is
-  // written out as the predicates themselves so that adding a check without
-  // adding it here is a visible omission rather than a silent one.
+  // Every predicate that ran has to reach the verdict, and every refusal has
+  // to have pushed a reason. Written out as the predicates themselves so that
+  // adding a check without adding it here is a visible omission; the
+  // equivalence with `errors.length === 0` is asserted in the test suite over
+  // every registry shape, in both directions.
   const valid = signatureValid && (!registryChecked || knownAgent)
 
   return {

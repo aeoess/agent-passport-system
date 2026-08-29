@@ -387,3 +387,64 @@ describe('Agora: the verdict reflects every check that ran', () => {
     assert.ok(result.invalid[0].includes('registry'));
   });
 });
+
+// ══════════════════════════════════════════════════════════════════
+// Invariant: the verdict and the errors never contradict each other,
+// in EITHER direction.
+// ══════════════════════════════════════════════════════════════════
+// Round 1 fixed "valid true while reporting errors". It introduced the
+// mirror image: registryChecked was `registry !== undefined`, so a null
+// registry counted as a registry that had been checked while the
+// membership lookup, guarded by `if (registry)`, never ran. The result was
+// valid=false with errors=[]: a refusal with no stated reason, which is the
+// same failure of legibility as an admission with a stated error.
+
+describe('Agora: a refusal always states its reason', () => {
+  function signedMessage(name: string) {
+    const agent = makeAgent(name);
+    return createAgoraMessage({
+      ...agent,
+      topic: 'general', type: 'discussion', subject: 'Subject', content: 'Content',
+    });
+  }
+
+  it('a null registry is no registry, not an empty one', () => {
+    const result = verifyAgoraMessage(signedMessage('null-reg'), null as never);
+    assert.equal(result.registryChecked, false);
+    assert.equal(result.valid, true, 'signature-only verdict, same as omitting the argument');
+    assert.deepEqual(result.errors, []);
+  });
+
+  it('null and omitted registries agree', () => {
+    const msg = signedMessage('agreement');
+    const omitted = verifyAgoraMessage(msg);
+    const nulled = verifyAgoraMessage(msg, null as never);
+    assert.equal(omitted.valid, nulled.valid);
+    assert.equal(omitted.registryChecked, nulled.registryChecked);
+  });
+
+  it('a malformed registry is a checked registry that failed, and says so', () => {
+    const result = verifyAgoraMessage(signedMessage('bad-reg'), { version: '1.0' } as never);
+    assert.equal(result.registryChecked, true);
+    assert.equal(result.knownAgent, false);
+    assert.equal(result.valid, false);
+    assert.ok(
+      result.errors.length > 0,
+      'a refusal with an empty errors array is the contradiction this suite exists to prevent',
+    );
+  });
+
+  it('no result ever refuses without a reason or admits with one', () => {
+    const cases: Array<[string, unknown]> = [
+      ['omitted', undefined],
+      ['null', null],
+      ['empty registry', createRegistry()],
+      ['malformed registry', { version: '1.0' }],
+      ['agents not an array', { version: '1.0', lastUpdated: '', agents: 'nope' }],
+    ];
+    for (const [label, registry] of cases) {
+      const r = verifyAgoraMessage(signedMessage('sweep'), registry as never);
+      assert.equal(r.valid, r.errors.length === 0, `${label}: valid=${r.valid} errors=${JSON.stringify(r.errors)}`);
+    }
+  });
+});
