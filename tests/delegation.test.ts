@@ -686,3 +686,70 @@ describe('Delegation: revocation check policy is not decorative', () => {
     assert.equal(verifyDelegation(d).valid, verifyDelegation(d, { revocationCheckPolicy: 'fail_open' }).valid)
   })
 })
+
+// ══════════════════════════════════════════════════════════════════
+// Invariant: revocation evidence dated in the future is not fresh.
+// ══════════════════════════════════════════════════════════════════
+// The freshness gate was one-sided: `cacheAge = Date.now() - checkedAtMs`
+// then `cacheAge <= freshnessMs`. A future-dated checkedAt yields a
+// NEGATIVE age, which passed the bound, so checkedAt: '2999-01-01' made
+// fail_closed report valid=true, revocationEvidence='fresh', errors=[].
+// Evidence cannot have been gathered after the moment it is read.
+
+describe('Delegation: revocation evidence cannot be dated in the future', () => {
+  function live() {
+    return createDelegation({
+      delegatedTo: agentA.publicKey,
+      delegatedBy: human.publicKey,
+      scope: ['data:read'],
+      privateKey: human.privateKey,
+    })
+  }
+
+  it('a far-future checkedAt is not fresh and fail_closed refuses it', () => {
+    const status = verifyDelegation(live(), {
+      revocationCheckPolicy: 'fail_closed',
+      cachedRevocationState: { revoked: false, checkedAt: '2999-01-01T00:00:00.000Z' },
+    })
+    assert.equal(status.revocationEvidence, 'stale')
+    assert.equal(status.valid, false)
+    assert.ok(status.errors.some(e => e.includes('revocation')), status.errors.join(' | '))
+  })
+
+  it('a checkedAt one second in the future is not fresh either', () => {
+    const status = verifyDelegation(live(), {
+      revocationCheckPolicy: 'fail_closed',
+      cachedRevocationState: { revoked: false, checkedAt: new Date(Date.now() + 1_000).toISOString() },
+    })
+    assert.equal(status.revocationEvidence, 'stale')
+    assert.equal(status.valid, false)
+  })
+
+  it('cache_grace treats future-dated evidence as expired, the same as old evidence', () => {
+    const status = verifyDelegation(live(), {
+      revocationCheckPolicy: 'cache_grace',
+      cachedRevocationState: { revoked: false, checkedAt: '2999-01-01T00:00:00.000Z' },
+    })
+    assert.equal(status.valid, false)
+    assert.equal(status.revoked, true)
+  })
+
+  it('a future-dated REVOKED state still reads as revoked, never as admissible', () => {
+    for (const policy of ['fail_open', 'cache_grace', 'fail_closed'] as const) {
+      const status = verifyDelegation(live(), {
+        revocationCheckPolicy: policy,
+        cachedRevocationState: { revoked: true, checkedAt: '2999-01-01T00:00:00.000Z' },
+      })
+      assert.equal(status.valid, false, `${policy} admitted a future-dated revocation`)
+    }
+  })
+
+  it('evidence checked right now is still fresh', () => {
+    const status = verifyDelegation(live(), {
+      revocationCheckPolicy: 'fail_closed',
+      cachedRevocationState: { revoked: false, checkedAt: new Date().toISOString() },
+    })
+    assert.equal(status.revocationEvidence, 'fresh')
+    assert.equal(status.valid, true, status.errors.join(' | '))
+  })
+})
