@@ -2078,10 +2078,9 @@ export {
 } from './v2/authority-delegation/canonical.js'
 export { parseAuthorityDelegationJson } from './v2/authority-delegation/parse.js'
 // Full root-to-leaf chain validation (structural, cryptographic, temporal, revocation,
-// attenuation via compareAuthority). Verification only: a valid result is admissibility of
+// attenuation). Verification only: a valid result is admissibility of
 // the chain at `options.now`, never authorization to dispatch.
 export { verifyAuthorityDelegationChain } from './v2/authority-delegation/verify.js'
-export { compareAuthority } from './v2/authority-delegation/compare.js'
 export type {
   AuthorityDelegationV1,
   AuthorityDelegationBodyV1,
