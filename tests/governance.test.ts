@@ -426,3 +426,53 @@ describe('Governance Artifact Provenance', () => {
     })
   })
 })
+
+// ══════════════════════════════════════════════════════════════════
+// Invariant: an empty trust-anchor set does not mean "trust anyone".
+// ══════════════════════════════════════════════════════════════════
+// GovernanceLoadPolicy.allowedIssuers was guarded with
+// `allowedIssuers.length > 0 && ...`, so an empty list skipped the check
+// and admitted any issuer. DEFAULT_LOAD_POLICY shipped with [], which is
+// the shape a caller writes when they mean "none", so the permissive
+// reading was invisible at the call site. Wildcard trust is now spelled
+// ['*'] and an empty list rejects.
+
+describe('Governance load policy: wildcard issuer trust is written down', () => {
+  const issuer = generateKeyPair()
+
+  function envelope() {
+    const artifact = createGovernanceArtifact({
+      artifactType: 'floor', version: '1.0.0', content: FLOOR_CONTENT,
+      issuerPrivateKey: issuer.privateKey, issuerPublicKey: issuer.publicKey,
+    })
+    return createGovernanceEnvelope(artifact)
+  }
+
+  it('the shipped default states wildcard trust explicitly', () => {
+    assert.deepEqual(DEFAULT_LOAD_POLICY.allowedIssuers, ['*'])
+  })
+
+  it('an empty allowedIssuers list rejects every issuer', () => {
+    const policy: GovernanceLoadPolicy = { ...DEFAULT_LOAD_POLICY, allowedIssuers: [] }
+    const result = loadGovernanceArtifact(envelope(), policy)
+    assert.equal(result.valid, false)
+    assert.ok(
+      result.errors.some(e => e.includes('no allowed issuers')),
+      `expected an empty-allowlist error, got ${JSON.stringify(result.errors)}`,
+    )
+  })
+
+  it("['*'] admits any issuer", () => {
+    const policy: GovernanceLoadPolicy = { ...DEFAULT_LOAD_POLICY, allowedIssuers: ['*'] }
+    const result = loadGovernanceArtifact(envelope(), policy)
+    assert.equal(result.valid, true, result.errors.join(' | '))
+  })
+
+  it('a named allowlist still admits the named issuer and only that one', () => {
+    const other = generateKeyPair()
+    const named: GovernanceLoadPolicy = { ...DEFAULT_LOAD_POLICY, allowedIssuers: [issuer.publicKey] }
+    assert.equal(loadGovernanceArtifact(envelope(), named).valid, true)
+    const wrong: GovernanceLoadPolicy = { ...DEFAULT_LOAD_POLICY, allowedIssuers: [other.publicKey] }
+    assert.equal(loadGovernanceArtifact(envelope(), wrong).valid, false)
+  })
+})

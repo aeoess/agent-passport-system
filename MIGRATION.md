@@ -115,6 +115,37 @@ slots for `chain` and `address` are `undefined`. The asymmetry with
 `bindWallet` (which does accept a config object) is resolved in
 v2.1.0 — both forms supported.
 
+### Verdicts that used to stand in for "not checked"
+
+Four verification surfaces returned a permissive verdict when a check had
+not run. Each now separates "checked and passed" from "not checked", and
+each fails closed where it used to fail open. Consumers that relied on the
+permissive reading have to state their trust posture explicitly.
+
+| Surface | Was | Is |
+|---|---|---|
+| `verifyApsTxt(doc)` with no public key | `{ valid: true, errors: [] }` | `{ valid: false, signatureChecked: false, reason: 'UNSIGNED' }` |
+| `verifyDelegation(d, { revocationCheckPolicy: 'fail_closed' })` | identical to `fail_open`; accepted absent and stale revocation evidence | admits only against evidence present and inside `cacheGraceMs`; result carries `revocationEvidence` |
+| `verifyAgoraMessage(msg, registry)` for an unlisted author | `{ valid: true, errors: ['Author not found in agent registry'] }` | `{ valid: false, signatureValid: true, knownAgent: false }` |
+| `evaluateRequest(passport, opts)` with no trust anchors | admitted the self-signed passport | denies with `UNTRUSTED_ISSUER` unless `trustedIssuers` is non-empty or `allowSelfSigned: true` |
+| `GovernanceLoadPolicy.allowedIssuers: []` | skipped the check, admitted any issuer | admits none; write `['*']` (`ANY_ISSUER`) for wildcard trust |
+
+Porting notes:
+
+- Reading an aps.txt without authenticating it is `parseApsTxt`, which is
+  what it was always for. `verifyApsTxt` is not a parser.
+- A caller who wants the old `fail_closed` behaviour wanted `fail_open`;
+  say so. A caller who genuinely wants fail-closed revocation has to supply
+  `cachedRevocationState` from a live source.
+- `evaluateRequest` on a closed network or a development gate takes
+  `allowSelfSigned: true`. Every admit made that way carries the verifier's
+  self-signed warning in `GateDecision.warnings`, which the gate used to
+  discard.
+- `DEFAULT_LOAD_POLICY` is unchanged in behaviour: it now spells its
+  wildcard as `allowedIssuers: ['*']` instead of `[]`. Only a policy that
+  hand-wrote `allowedIssuers: []` changes meaning, and it changes to the
+  meaning it reads as.
+
 ## What moved to @aeoess/gateway
 
 ### Data lifecycle (commit 4b710c4)

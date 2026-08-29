@@ -831,7 +831,7 @@ export {
   createGovernanceEnvelope, loadGovernanceArtifact,
   upgradeGovernanceArtifact, classifyGovernanceChange,
   validateCredentialLifecycle,
-  DEFAULT_LOAD_POLICY,
+  DEFAULT_LOAD_POLICY, ANY_ISSUER,
 } from './core/governance.js'
 
 export type {

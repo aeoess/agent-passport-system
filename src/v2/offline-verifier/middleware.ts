@@ -41,10 +41,12 @@ import type { SignedPassport } from '../../types/passport.js'
 import type { CoreVerifyClockOptions } from '../../types/policy.js'
 
 /** Why a request was denied at the gate. Closed set, ordered: a missing
- *  passport is reported before signature, signature before scope. */
+ *  passport is reported before signature, signature before issuer trust,
+ *  issuer trust before scope. */
 export type GateDenyReason =
   | 'NO_PASSPORT' // no passport presented on the request
   | 'PASSPORT_INVALID' // signature, expiry, or issuer-trust check failed
+  | 'UNTRUSTED_ISSUER' // the gate holds no trust anchor for this passport
   | 'MISSING_SCOPE' // passport is valid but lacks a required capability
 
 export interface GateDecision {
@@ -62,13 +64,32 @@ export interface GateDecision {
   /** Verifier errors from the passport check, when applicable. Useful for
    *  audit logs; not sent to the caller by default. */
   errors?: string[]
+  /** Verifier warnings, carried through rather than dropped. The
+   *  self-signed acceptance warning arrives here on an admit made under
+   *  allowSelfSigned, so an operator can see on what basis a request was
+   *  let through. */
+  warnings?: string[]
 }
 
 export interface GateOptions {
-  /** Trust anchors. When provided, the passport MUST carry a valid issuer
-   *  countersignature from one of these. When omitted, self-signed
-   *  passports verify (signature + expiry only) - documented and weaker. */
+  /** Trust anchors: issuer public keys whose countersignature the gate
+   *  accepts. When this list is NON-EMPTY the passport MUST carry a valid
+   *  countersignature from one of them, and allowSelfSigned does not
+   *  override that.
+   *
+   *  An EMPTY list, or omitting the option, means the gate holds no trust
+   *  anchors. It does not mean "trust anyone": with no anchor and no
+   *  explicit allowSelfSigned the gate denies with UNTRUSTED_ISSUER. */
   trustedIssuers?: string[]
+  /** Explicit wildcard trust. Set true to admit a passport whose only
+   *  authority is its own signature, i.e. a self-signed credential where
+   *  the subject and the issuer are the same key. This is a real posture
+   *  for a closed network or a development gate, and the decision carries
+   *  a warning saying so, but it has to be asked for by name: a signature
+   *  that verifies under a key the passport itself supplied is not an
+   *  authorization by a trusted issuer. Default false. Ignored when
+   *  trustedIssuers is non-empty. */
+  allowSelfSigned?: boolean
   /** Uniform clock-skew option, threaded into verifyPassport. Reuses the
    *  one millisecond-based skew option the SDK exposes. */
   clock?: CoreVerifyClockOptions
@@ -83,12 +104,30 @@ export interface GateOptions {
 
 /**
  * The gate decision. Pure and offline: it runs verifyPassport (signature,
- * validity window, optional issuer-trust) and then the scope check, in
- * that order, and returns admit/deny. No network, no mutation, no I/O.
+ * validity window, issuer countersignature against the configured anchors),
+ * then the trust-anchor posture check, then the scope check, in that order,
+ * and returns admit/deny. No network, no mutation, no I/O.
  *
  * `presented` is whatever the transport adapter extracted. `undefined` or
  * a malformed value denies with NO_PASSPORT rather than throwing, so a
  * missing credential is a clean 401, not a 500.
+ *
+ * TRUST POSTURE. A passport signature verifies under the public key carried
+ * inside the passport, so on its own it proves only that the holder of that
+ * key wrote the passport, including whatever capabilities it claims. That is
+ * not an authorization by anyone the gate trusts. The gate therefore requires
+ * one of two explicit postures and refuses to guess:
+ *
+ *   trustedIssuers: [keys]   the passport must carry a valid countersignature
+ *                            from one of those issuers.
+ *   allowSelfSigned: true    self-signed credentials are accepted, and every
+ *                            admit says so in `warnings`.
+ *
+ * Neither one configured, or trustedIssuers set to an empty array, denies
+ * with UNTRUSTED_ISSUER. This used to admit: verifyPassport's 'self-signed
+ * passports are accepted' warning had nowhere to go on the old GateDecision
+ * and was discarded, so an attacker's self-signed passport claiming
+ * admin:everything came back as {"admit": true}.
  */
 export function evaluateRequest(
   presented: SignedPassport | undefined | null,
@@ -104,9 +143,10 @@ export function evaluateRequest(
     }
   }
 
-  // 2. Passport signature / expiry / issuer trust.
+  // 2. Passport signature / expiry / issuer countersignature.
+  const anchors = opts.trustedIssuers ?? []
   const result = verifyPassport(presented, {
-    trustedIssuers: opts.trustedIssuers,
+    trustedIssuers: anchors,
     clock: opts.clock,
   })
   if (!result.valid) {
@@ -116,10 +156,27 @@ export function evaluateRequest(
       status: 401,
       detail: 'passport failed verification',
       errors: result.errors,
+      warnings: result.warnings,
     }
   }
 
-  // 3. Scope check against the passport's declared capabilities.
+  // 3. Trust posture. verifyPassport enforces the countersignature only when
+  //    anchors were supplied; with none, its verdict is signature and expiry
+  //    alone. An empty anchor set is an empty anchor set, not a wildcard, so
+  //    admitting on that basis requires the caller to have said so.
+  if (anchors.length === 0 && opts.allowSelfSigned !== true) {
+    return {
+      admit: false,
+      reason: 'UNTRUSTED_ISSUER',
+      status: 401,
+      detail:
+        'gate holds no trust anchors: supply trustedIssuers, or set allowSelfSigned to accept self-signed passports',
+      errors: result.errors,
+      warnings: result.warnings,
+    }
+  }
+
+  // 4. Scope check against the passport's declared capabilities.
   const required = opts.requiredScopes ?? []
   if (required.length > 0) {
     const held = new Set(presented.passport.capabilities ?? [])
@@ -135,11 +192,15 @@ export function evaluateRequest(
         detail: opts.anyScope
           ? `passport holds none of the required scopes: ${required.join(', ')}`
           : `passport is missing required scope(s): ${missing.join(', ')}`,
+        warnings: result.warnings,
       }
     }
   }
 
-  return { admit: true }
+  // Warnings ride along on the admit too. An admit made under wildcard trust
+  // carries verifyPassport's self-signed warning, so an operator reading the
+  // log can see the basis on which the request was let through.
+  return { admit: true, warnings: result.warnings }
 }
 
 // ── Minimal structural transport types ──────────────────────────────

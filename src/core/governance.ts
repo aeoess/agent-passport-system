@@ -15,7 +15,9 @@ import type {
   GovernanceDiff, CredentialLifecyclePolicy,
 } from '../types/governance.js'
 
-export { DEFAULT_LOAD_POLICY } from '../types/governance.js'
+import { ANY_ISSUER } from '../types/governance.js'
+
+export { DEFAULT_LOAD_POLICY, ANY_ISSUER } from '../types/governance.js'
 
 // ══════════════════════════════════════
 // CONTENT HASHING
@@ -211,9 +213,15 @@ export function loadGovernanceArtifact(
     errors.push('Policy requires valid signature')
   }
 
-  // 3. Policy: allowed issuers
-  if (policy.allowedIssuers.length > 0 && !policy.allowedIssuers.includes(artifact.issuer)) {
-    errors.push(`Issuer ${artifact.issuer.slice(0, 16)}... not in allowed issuers list`)
+  // 3. Policy: allowed issuers. An empty allowlist is an empty allowlist:
+  // it admits nobody. Accepting any issuer is a posture the policy has to
+  // state, with the ANY_ISSUER wildcard.
+  if (!policy.allowedIssuers.includes(ANY_ISSUER)) {
+    if (policy.allowedIssuers.length === 0) {
+      errors.push('Policy declares no allowed issuers, so no issuer is accepted; use ["*"] to accept any issuer')
+    } else if (!policy.allowedIssuers.includes(artifact.issuer)) {
+      errors.push(`Issuer ${artifact.issuer.slice(0, 16)}... not in allowed issuers list`)
+    }
   }
 
   // 4. Policy: expiry

@@ -67,10 +67,19 @@ export interface GovernanceVerification {
   weakeningApproved: boolean   // weakening changes have sufficient approvals
 }
 
+/** Wildcard entry for GovernanceLoadPolicy.allowedIssuers: accept an
+ *  artifact from any issuer. Spelled out so that a policy which trusts
+ *  everyone says so, and an empty allowlist can mean what it looks like. */
+export const ANY_ISSUER = '*'
+
 export interface GovernanceLoadPolicy {
   requireSignature: boolean        // reject unsigned artifacts
   requireApprovals: number         // min approval count (0 = no requirement)
-  allowedIssuers: string[]         // empty = any issuer
+  /** Issuer public keys this policy accepts. `['*']` (ANY_ISSUER) accepts
+   *  any issuer; an EMPTY list accepts none and rejects every artifact.
+   *  An empty list used to skip the check entirely, which made "no
+   *  anchors" and "all anchors" the same input. */
+  allowedIssuers: string[]
   allowExpired: boolean            // default false
   allowBreakingWithoutApproval: boolean  // default false
   // Gap 8B: Differential thresholds for governance weakening
@@ -82,7 +91,9 @@ export interface GovernanceLoadPolicy {
 export const DEFAULT_LOAD_POLICY: GovernanceLoadPolicy = {
   requireSignature: true,
   requireApprovals: 0,
-  allowedIssuers: [],
+  // The shipped default has always accepted any issuer. It now says so
+  // instead of expressing it as an empty allowlist.
+  allowedIssuers: [ANY_ISSUER],
   allowExpired: false,
   allowBreakingWithoutApproval: false,
   requireApprovalsForWeakening: 1,
