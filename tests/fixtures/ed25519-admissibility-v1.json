@@ -1,8 +1,8 @@
 {
   "version": "ed25519-admissibility-v1",
-  "description": "Ed25519 admissibility vectors for APS. expected_verification is the behaviour on which the two strict reference implementations agree: libsodium through PyNaCl (agent-passport-python src/agent_passport/crypto.py) and ed25519-dalek verify_strict (agent-passport-system crates/aps-verifier-core). Agreement was established over a 2534 vector corpus that also contains the Wycheproof Ed25519 suite; the two oracles disagreed on nothing. A public key or an R whose decoded point has small order, a non canonically encoded public key or R, and a scalar s that is not reduced modulo L are all inadmissible.",
+  "description": "Ed25519 admissibility vectors for APS. expected_verification is the accept or reject that the two strict reference implementations were OBSERVED to agree on: libsodium through PyNaCl (agent-passport-python src/agent_passport/crypto.py) and ed25519-dalek verify_strict (agent-passport-system crates/aps-verifier-core). It records their observable answer, not a claim about how either one reaches it; the two do not implement the same internal checks. Agreement was established over a corpus that also contains the Wycheproof Ed25519 suite, and the two disagreed on nothing. A public key or an R whose decoded point has small order, and a scalar s that is not reduced modulo L, are inadmissible. The small_order_A_full_order_R group isolates the test on the public key: R there is a full order, canonically encoded point and s < L, so only a small order test on A refuses the signature. The small_order_R_honest_key group isolates the test on R in the same way.",
   "message_encoding": "message_utf8 and message_hex are the same bytes",
-  "count": 463,
+  "count": 491,
   "vectors": [
     {
       "id": "normal-0000",
@@ -3335,6 +3335,286 @@
       "expected_verification": false
     },
     {
+      "id": "smallorderA-fullR-00",
+      "group": "small_order_A_full_order_R",
+      "note": "small order public key (order 1, canonical) with a full order canonical R and s < L; only the test on A refuses it",
+      "message_utf8": "aps-p1 soA00 0",
+      "message_hex": "6170732d703120736f4130302030",
+      "public_key_hex": "0100000000000000000000000000000000000000000000000000000000000000",
+      "signature_hex": "ec57e6b7626a1bcf15df965128e7739cc32d27e1b935653aabd2d5b24d5f7938e007890b4ba81bfc95d2ec01fd8ac1ced10d435ab643f63aec5f1fcc5ffadb0c",
+      "expected_verification": false
+    },
+    {
+      "id": "smallorderA-fullR-othermsg-00",
+      "group": "small_order_A_full_order_R",
+      "note": "same small order A and full order R against a message the grind was not run for (order 1, canonical)",
+      "message_utf8": "an unrelated APS artifact body",
+      "message_hex": "616e20756e72656c617465642041505320617274696661637420626f6479",
+      "public_key_hex": "0100000000000000000000000000000000000000000000000000000000000000",
+      "signature_hex": "ec57e6b7626a1bcf15df965128e7739cc32d27e1b935653aabd2d5b24d5f7938e007890b4ba81bfc95d2ec01fd8ac1ced10d435ab643f63aec5f1fcc5ffadb0c",
+      "expected_verification": false
+    },
+    {
+      "id": "smallorderA-fullR-01",
+      "group": "small_order_A_full_order_R",
+      "note": "small order public key (order 1, non canonical sign bit with x = 0) with a full order canonical R and s < L; only the test on A refuses it",
+      "message_utf8": "aps-p1 soA01 0",
+      "message_hex": "6170732d703120736f4130312030",
+      "public_key_hex": "0100000000000000000000000000000000000000000000000000000000000080",
+      "signature_hex": "0b0d07560aedc9c1933fd8070eea266fabacc72832f8d25cbcf5a44304c24aa6a45ce661f274dcdd6fb8d18ba015430be9490bdf75d7c2c470b43a7aaa38520f",
+      "expected_verification": false
+    },
+    {
+      "id": "smallorderA-fullR-othermsg-01",
+      "group": "small_order_A_full_order_R",
+      "note": "same small order A and full order R against a message the grind was not run for (order 1, non canonical sign bit with x = 0)",
+      "message_utf8": "an unrelated APS artifact body",
+      "message_hex": "616e20756e72656c617465642041505320617274696661637420626f6479",
+      "public_key_hex": "0100000000000000000000000000000000000000000000000000000000000080",
+      "signature_hex": "0b0d07560aedc9c1933fd8070eea266fabacc72832f8d25cbcf5a44304c24aa6a45ce661f274dcdd6fb8d18ba015430be9490bdf75d7c2c470b43a7aaa38520f",
+      "expected_verification": false
+    },
+    {
+      "id": "smallorderA-fullR-02",
+      "group": "small_order_A_full_order_R",
+      "note": "small order public key (order 1, non canonical y = y + p) with a full order canonical R and s < L; only the test on A refuses it",
+      "message_utf8": "aps-p1 soA02 0",
+      "message_hex": "6170732d703120736f4130322030",
+      "public_key_hex": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+      "signature_hex": "eee676a11944cad53d7937dea34987854e84eb8c4eac1f6bf1e7941a6ddfbd09d503986aaa8532c9fc047543cc568060b09ea0b4d4cb42d1f9f006ef67ca310d",
+      "expected_verification": false
+    },
+    {
+      "id": "smallorderA-fullR-othermsg-02",
+      "group": "small_order_A_full_order_R",
+      "note": "same small order A and full order R against a message the grind was not run for (order 1, non canonical y = y + p)",
+      "message_utf8": "an unrelated APS artifact body",
+      "message_hex": "616e20756e72656c617465642041505320617274696661637420626f6479",
+      "public_key_hex": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+      "signature_hex": "eee676a11944cad53d7937dea34987854e84eb8c4eac1f6bf1e7941a6ddfbd09d503986aaa8532c9fc047543cc568060b09ea0b4d4cb42d1f9f006ef67ca310d",
+      "expected_verification": false
+    },
+    {
+      "id": "smallorderA-fullR-03",
+      "group": "small_order_A_full_order_R",
+      "note": "small order public key (order 1, non canonical y = y + p with sign bit set) with a full order canonical R and s < L; only the test on A refuses it",
+      "message_utf8": "aps-p1 soA03 0",
+      "message_hex": "6170732d703120736f4130332030",
+      "public_key_hex": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "signature_hex": "5e23283eabd17fc54a9768f13ecab805f267099ca153ea82835f1c43aa2a9c27ad3c6b1c7df5edb5115a4f49b0aa1a9716e93ad0d45649b47ba24890f04af604",
+      "expected_verification": false
+    },
+    {
+      "id": "smallorderA-fullR-othermsg-03",
+      "group": "small_order_A_full_order_R",
+      "note": "same small order A and full order R against a message the grind was not run for (order 1, non canonical y = y + p with sign bit set)",
+      "message_utf8": "an unrelated APS artifact body",
+      "message_hex": "616e20756e72656c617465642041505320617274696661637420626f6479",
+      "public_key_hex": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "signature_hex": "5e23283eabd17fc54a9768f13ecab805f267099ca153ea82835f1c43aa2a9c27ad3c6b1c7df5edb5115a4f49b0aa1a9716e93ad0d45649b47ba24890f04af604",
+      "expected_verification": false
+    },
+    {
+      "id": "smallorderA-fullR-04",
+      "group": "small_order_A_full_order_R",
+      "note": "small order public key (order 8, canonical) with a full order canonical R and s < L; only the test on A refuses it",
+      "message_utf8": "aps-p1 soA04 3",
+      "message_hex": "6170732d703120736f4130342033",
+      "public_key_hex": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac037a",
+      "signature_hex": "80c5e290863ccbb1a1dd378bd10a054e3ec28fab9400cb73430296c5299ffc1bcfb6c7bc88c2dc68668730864fdc7f39fdbc1b5c915f8a0895f838b38ed40a0f",
+      "expected_verification": false
+    },
+    {
+      "id": "smallorderA-fullR-othermsg-04",
+      "group": "small_order_A_full_order_R",
+      "note": "same small order A and full order R against a message the grind was not run for (order 8, canonical)",
+      "message_utf8": "an unrelated APS artifact body",
+      "message_hex": "616e20756e72656c617465642041505320617274696661637420626f6479",
+      "public_key_hex": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac037a",
+      "signature_hex": "80c5e290863ccbb1a1dd378bd10a054e3ec28fab9400cb73430296c5299ffc1bcfb6c7bc88c2dc68668730864fdc7f39fdbc1b5c915f8a0895f838b38ed40a0f",
+      "expected_verification": false
+    },
+    {
+      "id": "smallorderA-fullR-05",
+      "group": "small_order_A_full_order_R",
+      "note": "small order public key (order 4, canonical) with a full order canonical R and s < L; only the test on A refuses it",
+      "message_utf8": "aps-p1 soA05 5",
+      "message_hex": "6170732d703120736f4130352035",
+      "public_key_hex": "0000000000000000000000000000000000000000000000000000000000000080",
+      "signature_hex": "b3f8195683e8c44c61a5d032bdf7ace7b2e5a6f0bdf49f3d54267a5f5d7d461d764896d7cf895f4c025b4c53d009d359cfd172916588ed848b41f59f9659280f",
+      "expected_verification": false
+    },
+    {
+      "id": "smallorderA-fullR-othermsg-05",
+      "group": "small_order_A_full_order_R",
+      "note": "same small order A and full order R against a message the grind was not run for (order 4, canonical)",
+      "message_utf8": "an unrelated APS artifact body",
+      "message_hex": "616e20756e72656c617465642041505320617274696661637420626f6479",
+      "public_key_hex": "0000000000000000000000000000000000000000000000000000000000000080",
+      "signature_hex": "b3f8195683e8c44c61a5d032bdf7ace7b2e5a6f0bdf49f3d54267a5f5d7d461d764896d7cf895f4c025b4c53d009d359cfd172916588ed848b41f59f9659280f",
+      "expected_verification": false
+    },
+    {
+      "id": "smallorderA-fullR-06",
+      "group": "small_order_A_full_order_R",
+      "note": "small order public key (order 4, non canonical y = y + p) with a full order canonical R and s < L; only the test on A refuses it",
+      "message_utf8": "aps-p1 soA06 2",
+      "message_hex": "6170732d703120736f4130362032",
+      "public_key_hex": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "signature_hex": "d806d1a5f73a70c7c3369363f08af49d702000df5622ca88216806156d3c8043fdff2899985cc662d9937c99fbbc99cd89ea3c7dd021f92f45abcc79cc694104",
+      "expected_verification": false
+    },
+    {
+      "id": "smallorderA-fullR-othermsg-06",
+      "group": "small_order_A_full_order_R",
+      "note": "same small order A and full order R against a message the grind was not run for (order 4, non canonical y = y + p)",
+      "message_utf8": "an unrelated APS artifact body",
+      "message_hex": "616e20756e72656c617465642041505320617274696661637420626f6479",
+      "public_key_hex": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "signature_hex": "d806d1a5f73a70c7c3369363f08af49d702000df5622ca88216806156d3c8043fdff2899985cc662d9937c99fbbc99cd89ea3c7dd021f92f45abcc79cc694104",
+      "expected_verification": false
+    },
+    {
+      "id": "smallorderA-fullR-07",
+      "group": "small_order_A_full_order_R",
+      "note": "small order public key (order 8, canonical) with a full order canonical R and s < L; only the test on A refuses it",
+      "message_utf8": "aps-p1 soA07 1",
+      "message_hex": "6170732d703120736f4130372031",
+      "public_key_hex": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc05",
+      "signature_hex": "93115a9f7da82019b443abd4d35bd86d1299aeb29ab80ec4a814de4695bf9dba94d5f8529974457051e887fc970390a4d52c3953d1659feb146fd0f99f2bf70c",
+      "expected_verification": false
+    },
+    {
+      "id": "smallorderA-fullR-othermsg-07",
+      "group": "small_order_A_full_order_R",
+      "note": "same small order A and full order R against a message the grind was not run for (order 8, canonical)",
+      "message_utf8": "an unrelated APS artifact body",
+      "message_hex": "616e20756e72656c617465642041505320617274696661637420626f6479",
+      "public_key_hex": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc05",
+      "signature_hex": "93115a9f7da82019b443abd4d35bd86d1299aeb29ab80ec4a814de4695bf9dba94d5f8529974457051e887fc970390a4d52c3953d1659feb146fd0f99f2bf70c",
+      "expected_verification": false
+    },
+    {
+      "id": "smallorderA-fullR-08",
+      "group": "small_order_A_full_order_R",
+      "note": "small order public key (order 2, canonical) with a full order canonical R and s < L; only the test on A refuses it",
+      "message_utf8": "aps-p1 soA08 1",
+      "message_hex": "6170732d703120736f4130382031",
+      "public_key_hex": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+      "signature_hex": "b39a93f5f7a06c5a5f52d44d7e4577e1d28f03f467387c4c97eca5a020c5670aef8487a596abc1b9fece71c9bbb38eec2ff7c8a3d21494bc393cc7686eca970f",
+      "expected_verification": false
+    },
+    {
+      "id": "smallorderA-fullR-othermsg-08",
+      "group": "small_order_A_full_order_R",
+      "note": "same small order A and full order R against a message the grind was not run for (order 2, canonical)",
+      "message_utf8": "an unrelated APS artifact body",
+      "message_hex": "616e20756e72656c617465642041505320617274696661637420626f6479",
+      "public_key_hex": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+      "signature_hex": "b39a93f5f7a06c5a5f52d44d7e4577e1d28f03f467387c4c97eca5a020c5670aef8487a596abc1b9fece71c9bbb38eec2ff7c8a3d21494bc393cc7686eca970f",
+      "expected_verification": false
+    },
+    {
+      "id": "smallorderA-fullR-09",
+      "group": "small_order_A_full_order_R",
+      "note": "small order public key (order 2, non canonical sign bit with x = 0) with a full order canonical R and s < L; only the test on A refuses it",
+      "message_utf8": "aps-p1 soA09 0",
+      "message_hex": "6170732d703120736f4130392030",
+      "public_key_hex": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "signature_hex": "76beb24fc260cd3006d6327cb5c1d15517c53d513f56a6303e501e6f4f75324746a5ac3f186814cd4b1ae21af390e253d43b5387dee5320404c63a5708591002",
+      "expected_verification": false
+    },
+    {
+      "id": "smallorderA-fullR-othermsg-09",
+      "group": "small_order_A_full_order_R",
+      "note": "same small order A and full order R against a message the grind was not run for (order 2, non canonical sign bit with x = 0)",
+      "message_utf8": "an unrelated APS artifact body",
+      "message_hex": "616e20756e72656c617465642041505320617274696661637420626f6479",
+      "public_key_hex": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "signature_hex": "76beb24fc260cd3006d6327cb5c1d15517c53d513f56a6303e501e6f4f75324746a5ac3f186814cd4b1ae21af390e253d43b5387dee5320404c63a5708591002",
+      "expected_verification": false
+    },
+    {
+      "id": "smallorderA-fullR-10",
+      "group": "small_order_A_full_order_R",
+      "note": "small order public key (order 8, canonical) with a full order canonical R and s < L; only the test on A refuses it",
+      "message_utf8": "aps-p1 soA10 7",
+      "message_hex": "6170732d703120736f4131302037",
+      "public_key_hex": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc85",
+      "signature_hex": "30b41eca4d0aaeea2e242afe9f96e97f3ba8885849ece48e73c3980c7666f1881f6938b429ac32c0a6b3a06499f73ef6719c1052edd69253f959d406b15cfa0f",
+      "expected_verification": false
+    },
+    {
+      "id": "smallorderA-fullR-othermsg-10",
+      "group": "small_order_A_full_order_R",
+      "note": "same small order A and full order R against a message the grind was not run for (order 8, canonical)",
+      "message_utf8": "an unrelated APS artifact body",
+      "message_hex": "616e20756e72656c617465642041505320617274696661637420626f6479",
+      "public_key_hex": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc85",
+      "signature_hex": "30b41eca4d0aaeea2e242afe9f96e97f3ba8885849ece48e73c3980c7666f1881f6938b429ac32c0a6b3a06499f73ef6719c1052edd69253f959d406b15cfa0f",
+      "expected_verification": false
+    },
+    {
+      "id": "smallorderA-fullR-11",
+      "group": "small_order_A_full_order_R",
+      "note": "small order public key (order 4, canonical) with a full order canonical R and s < L; only the test on A refuses it",
+      "message_utf8": "aps-p1 soA11 1",
+      "message_hex": "6170732d703120736f4131312031",
+      "public_key_hex": "0000000000000000000000000000000000000000000000000000000000000000",
+      "signature_hex": "e88c3634effa0179cab2fcc3f5215167f42d93a00d5b0d1f362e0f5f81394f0e7542f5dd06cd2e4be3fb5854be6380b6586213c5bedd30e22d7bd9cf5f91760a",
+      "expected_verification": false
+    },
+    {
+      "id": "smallorderA-fullR-othermsg-11",
+      "group": "small_order_A_full_order_R",
+      "note": "same small order A and full order R against a message the grind was not run for (order 4, canonical)",
+      "message_utf8": "an unrelated APS artifact body",
+      "message_hex": "616e20756e72656c617465642041505320617274696661637420626f6479",
+      "public_key_hex": "0000000000000000000000000000000000000000000000000000000000000000",
+      "signature_hex": "e88c3634effa0179cab2fcc3f5215167f42d93a00d5b0d1f362e0f5f81394f0e7542f5dd06cd2e4be3fb5854be6380b6586213c5bedd30e22d7bd9cf5f91760a",
+      "expected_verification": false
+    },
+    {
+      "id": "smallorderA-fullR-12",
+      "group": "small_order_A_full_order_R",
+      "note": "small order public key (order 4, non canonical y = y + p) with a full order canonical R and s < L; only the test on A refuses it",
+      "message_utf8": "aps-p1 soA12 0",
+      "message_hex": "6170732d703120736f4131322030",
+      "public_key_hex": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+      "signature_hex": "c9ef5b70ec5c92938d972ed5f02a3238e0b6d46d8b27156f0f38295ab43a8a7a778f625dc3a62e3c980499f27a58b04c971f3d65f93a43df1872f33a7973690c",
+      "expected_verification": false
+    },
+    {
+      "id": "smallorderA-fullR-othermsg-12",
+      "group": "small_order_A_full_order_R",
+      "note": "same small order A and full order R against a message the grind was not run for (order 4, non canonical y = y + p)",
+      "message_utf8": "an unrelated APS artifact body",
+      "message_hex": "616e20756e72656c617465642041505320617274696661637420626f6479",
+      "public_key_hex": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+      "signature_hex": "c9ef5b70ec5c92938d972ed5f02a3238e0b6d46d8b27156f0f38295ab43a8a7a778f625dc3a62e3c980499f27a58b04c971f3d65f93a43df1872f33a7973690c",
+      "expected_verification": false
+    },
+    {
+      "id": "smallorderA-fullR-13",
+      "group": "small_order_A_full_order_R",
+      "note": "small order public key (order 8, canonical) with a full order canonical R and s < L; only the test on A refuses it",
+      "message_utf8": "aps-p1 soA13 9",
+      "message_hex": "6170732d703120736f4131332039",
+      "public_key_hex": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac03fa",
+      "signature_hex": "b0ceab7c13f2dd10eb56a2012f7da194d53dd826b14de7a95cefff71e40478a9228189b0b3e398d96721ce7e3d6b3bb3259410f4939e15fd5cb8e2356f36e80f",
+      "expected_verification": false
+    },
+    {
+      "id": "smallorderA-fullR-othermsg-13",
+      "group": "small_order_A_full_order_R",
+      "note": "same small order A and full order R against a message the grind was not run for (order 8, canonical)",
+      "message_utf8": "an unrelated APS artifact body",
+      "message_hex": "616e20756e72656c617465642041505320617274696661637420626f6479",
+      "public_key_hex": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac03fa",
+      "signature_hex": "b0ceab7c13f2dd10eb56a2012f7da194d53dd826b14de7a95cefff71e40478a9228189b0b3e398d96721ce7e3d6b3bb3259410f4939e15fd5cb8e2356f36e80f",
+      "expected_verification": false
+    },
+    {
       "id": "zero-pk-zero-sig",
       "group": "zero_material",
       "note": "all zero 32 byte public key with all zero 64 byte signature",
@@ -4634,5 +4914,23 @@
       "signature_hex": "c4875b0dff3e7ca91afe5c2c994830fc5768cd3cc5a7bfd47e5853b4ed5963c9d6e33255053e30604dd1e277da93a360bbe5b7fa611eb40f86c56a6f3407160a",
       "expected_verification": true
     }
-  ]
+  ],
+  "artifact_vectors": {
+    "note": "A delegation whose JCS/legacy canonical bytes satisfy the RFC 8032 equation under a small order public key with a FULL ORDER, CANONICAL R and s < L. Only a small order test on the public key refuses it. Granting payments:transfer and admin:* was minted with no private key.",
+    "public_key_hex": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc85",
+    "canonical_preimage": "{\"delegatedBy\":\"26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc85\",\"delegatedTo\":\"agent-b\",\"delegationId\":\"del_admissibility_probe\",\"expiresAt\":\"2099-01-01T00:00:00Z\",\"issuedAt\":\"2026-01-01T00:00:00Z\",\"nonce\":\"36\",\"scope\":[\"payments:transfer\",\"admin:*\"]}",
+    "delegation": {
+      "delegationId": "del_admissibility_probe",
+      "delegatedBy": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc85",
+      "delegatedTo": "agent-b",
+      "expiresAt": "2099-01-01T00:00:00Z",
+      "issuedAt": "2026-01-01T00:00:00Z",
+      "nonce": "36",
+      "scope": [
+        "payments:transfer",
+        "admin:*"
+      ],
+      "signature": "50b07ccb540abc5ef3905ba92173f7feba834bb596ab9030799fb53122b2a1fbe54ce1aad23c1ed21c38119eb50698d3670836ac30a4f311282245d1f4641f09"
+    }
+  }
 }

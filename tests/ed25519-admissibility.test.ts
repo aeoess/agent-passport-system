@@ -36,7 +36,17 @@ interface Vector {
 
 const doc = JSON.parse(
   readFileSync(new URL('./fixtures/ed25519-admissibility-v1.json', import.meta.url), 'utf-8'),
-) as { version: string; count: number; vectors: Vector[] }
+) as {
+  version: string
+  count: number
+  vectors: Vector[]
+  artifact_vectors: {
+    note: string
+    public_key_hex: string
+    canonical_preimage: string
+    delegation: Record<string, unknown>
+  }
+}
 
 /** The Edwards identity point as a public key. */
 const IDENTITY_KEY = '0100000000000000000000000000000000000000000000000000000000000000'
@@ -252,28 +262,78 @@ test('the point check agrees with the exhaustive small-order enumeration', () =>
   }
   for (let i = 0; i < 128; i++) candidates.add(generateKeyPair().publicKey)
 
+  // An independent on-curve test, so the assertion below is not the module
+  // checking itself. x exists for this y exactly when (y^2 - 1)/(d*y^2 + 1) is
+  // a square in the field.
+  const FIELD_P = (1n << 255n) - 19n
+  const CURVE_D =
+    37095705934669439343138083508754565189542113879843219016388785533085940283555n
+  const powm = (b: bigint, e: bigint): bigint => {
+    let result = 1n
+    let base = ((b % FIELD_P) + FIELD_P) % FIELD_P
+    let exp = e
+    while (exp > 0n) {
+      if (exp & 1n) result = (result * base) % FIELD_P
+      base = (base * base) % FIELD_P
+      exp >>= 1n
+    }
+    return result
+  }
+  const decodesToACurvePoint = (bytes: Buffer): boolean => {
+    const n = BigInt(`0x${Buffer.from(bytes).reverse().toString('hex')}`)
+    const y = (n & ((1n << 255n) - 1n)) % FIELD_P
+    const yy = (y * y) % FIELD_P
+    const u = (yy - 1n + FIELD_P) % FIELD_P
+    const v = (CURVE_D * yy + 1n) % FIELD_P
+    if (v === 0n) return false
+    const xx = (u * powm(v, FIELD_P - 2n)) % FIELD_P
+    if (xx === 0n) return true
+    // xx is a square exactly when xx^((p-1)/2) == 1
+    return powm(xx, (FIELD_P - 1n) / 2n) === 1n
+  }
+
   let checked = 0
+  let onCurveNotSmall = 0
   for (const hex of candidates) {
     const bytes = Buffer.from(hex, 'hex')
     if (bytes.length !== 32) continue
     // Restrict the claim to canonical encodings, which is where the
-    // enumeration argument applies.
-    const y = BigInt(`0x${Buffer.from(bytes).reverse().toString('hex')}`) & ((1n << 255n) - 1n)
-    if (y >= (1n << 255n) - 19n) continue
+    // enumeration argument applies. Canonical means two things, not one: the
+    // y coordinate is reduced modulo p, AND the sign bit is clear when x is
+    // zero. x is zero exactly for y = 1 and y = p - 1, so those two y values
+    // with the sign bit set are the second family of non-canonical spellings.
+    const raw = BigInt(`0x${Buffer.from(bytes).reverse().toString('hex')}`)
+    const y = raw & ((1n << 255n) - 1n)
+    const signBit = raw >> 255n
+    if (y >= FIELD_P) continue
+    if (signBit === 1n && (y === 1n || y === FIELD_P - 1n)) continue
     const admissible = isAdmissiblePoint(bytes)
     if (small.has(hex)) {
       assert.equal(admissible, false, `${hex} is one of the eight and must be inadmissible`)
-    } else if (!admissible) {
-      // The only other reason a canonical encoding is inadmissible is that it
-      // is not a point at all.
-      assert.ok(
-        !isAdmissiblePoint(bytes),
-        `${hex} is inadmissible but is not one of the eight small-order points`,
+    } else if (decodesToACurvePoint(bytes)) {
+      // The whole claim: a canonical encoding of a curve point that is not one
+      // of the eight has order greater than 8 and must be admissible.
+      assert.equal(
+        admissible,
+        true,
+        `${hex} is a canonical curve point and is not one of the eight small-order points, so it must be admissible`,
+      )
+      onCurveNotSmall++
+    } else {
+      // Not a point encoding at all.
+      assert.equal(
+        admissible,
+        false,
+        `${hex} does not decode to a curve point and must be inadmissible`,
       )
     }
     checked++
   }
   assert.ok(checked > 200, `expected a broad sample, checked ${checked}`)
+  assert.ok(
+    onCurveNotSmall > 200,
+    `the claim must actually bite on real points, it bit on ${onCurveNotSmall}`,
+  )
 })
 
 // ---------------------------------------------------------------------------
@@ -350,5 +410,90 @@ test('a did:key naming a small-order point cannot authenticate a document', asyn
   assert.equal(
     await verifyWithDID({ claim: 'a totally different document' }, signatureBase64url, did),
     false,
+  )
+})
+
+// ---------------------------------------------------------------------------
+// The public-key half of admissibility, isolated.
+//
+// Every vector that carries a small-order public key also carries R = the
+// identity, so the test on R alone refuses it and the test on A is never
+// exercised. Dropping the check on A would leave all of those tests green.
+//
+// These vectors close that. Take a canonical order-8 public key, pick any r,
+// set R = [r]B, and grind the message until k = H(R||A||M) mod L is divisible
+// by 8. Then [k]A is the identity and [S]B = R + [k]A holds with S = r. R is a
+// full-order, canonically encoded point and S < L, so the R half passes it and
+// only the test on A refuses it.
+// ---------------------------------------------------------------------------
+
+test('a small-order public key carrying an ordinary R is rejected', () => {
+  const vectors = doc.vectors.filter(v => v.group === 'small_order_A_full_order_R')
+  assert.equal(vectors.length, 28)
+  for (const v of vectors) {
+    assert.equal(
+      verify(v.message_utf8, v.signature_hex, v.public_key_hex),
+      false,
+      `${v.id} accepted a small-order public key carrying an ordinary R: ${v.note}`,
+    )
+  }
+})
+
+test('both halves of the admissibility check are independently forced', () => {
+  const aOnly = doc.vectors.filter(v => v.group === 'small_order_A_full_order_R')
+  const rOnly = doc.vectors.filter(
+    v => v.group === 'small_order_R_honest_key' && v.id.startsWith('smallR-honest-'),
+  )
+  assert.ok(aOnly.length > 0, 'no vector isolates the public-key half of the check')
+  assert.ok(rOnly.length > 0, 'no vector isolates the R half of the check')
+  // The isolating vectors must really isolate: R admissible, A not.
+  for (const v of aOnly) {
+    assert.equal(
+      isAdmissiblePoint(Buffer.from(v.signature_hex.slice(0, 64), 'hex')),
+      true,
+      `${v.id}: R must pass the R half, or the vector does not isolate A`,
+    )
+    assert.equal(
+      isAdmissiblePoint(Buffer.from(v.public_key_hex, 'hex')),
+      false,
+      `${v.id}: A must fail the A half`,
+    )
+  }
+  for (const v of rOnly) {
+    assert.equal(
+      isAdmissiblePoint(Buffer.from(v.public_key_hex, 'hex')),
+      true,
+      `${v.id}: A must pass the A half, or the vector does not isolate R`,
+    )
+    assert.equal(
+      isAdmissiblePoint(Buffer.from(v.signature_hex.slice(0, 64), 'hex')),
+      false,
+      `${v.id}: R must fail the R half`,
+    )
+  }
+})
+
+// Artifact path for the same class. This delegation grants payments:transfer
+// and admin:*, and it was minted with no private key at all.
+test('a delegation with a small-order signer and an ordinary R is refused', async () => {
+  const { verifyDelegation } = await import('../src/core/delegation.js')
+  const { canonicalize } = await import('../src/core/canonical.js')
+  const av = doc.artifact_vectors
+  assert.ok(av?.public_key_hex, 'the fixture must carry an artifact vector')
+
+  // The canonical bytes this SDK computes must be the ones the signature was
+  // ground against, otherwise the test would pass for the wrong reason.
+  const { signature: _sig, ...unsigned } = av.delegation as Record<string, unknown>
+  assert.equal(
+    canonicalize(unsigned),
+    av.canonical_preimage,
+    'canonical bytes differ from the fixture preimage',
+  )
+
+  const status = verifyDelegation(av.delegation as never)
+  assert.equal(
+    status.valid,
+    false,
+    `a delegation granting payments:transfer and admin:*, minted with no private key, was accepted: ${JSON.stringify(status)}`,
   )
 })
