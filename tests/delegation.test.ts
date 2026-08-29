@@ -760,7 +760,12 @@ describe('Delegation: revocation evidence cannot be dated in the future', () => 
     assert.ok(status.errors.some(e => e.includes('revocation')), status.errors.join(' | '))
   })
 
-  it('no window is wide enough to make an unreadable timestamp fresh', () => {
+  // Scope note, corrected after review: of the four windows below only
+  // Infinity can actually falsify the pre-fix code, because Infinity <=
+  // MAX_VALUE, <= 1e18 and <= 300000 are all false, so the sentinel graded
+  // those stale for an unrelated reason. The other three are regression
+  // breadth across window sizes, not four independent proofs of the claim.
+  it('an unreadable timestamp is stale at every window size, and provably so at an unbounded one', () => {
     for (const cacheGraceMs of [Infinity, Number.MAX_VALUE, 1e18, 300_000]) {
       for (const checkedAt of ['not-a-date', '', 'yesterday', 'NaN', '2026-13-45T99:99:99Z']) {
         const status = verifyDelegation(live(), {
@@ -775,6 +780,37 @@ describe('Delegation: revocation evidence cannot be dated in the future', () => 
         assert.equal(status.valid, false)
       }
     }
+  })
+
+  // The unreadable grade has its OWN error text. Without this the branch that
+  // produces it could be deleted and NaN comparison semantics would yield the
+  // same verdict, so the conditional would be unpinned even though the
+  // behaviour looked covered. That is the sentinel-versus-conditional trap
+  // this exact code already fell into once.
+  it('unreadable evidence is reported as unreadable, not as merely old', () => {
+    const status = verifyDelegation(live(), {
+      revocationCheckPolicy: 'fail_closed',
+      cachedRevocationState: { revoked: false, checkedAt: 'not-a-date' },
+      cacheGraceMs: Infinity,
+    })
+    assert.ok(
+      status.errors.some(e => e.includes('unreadable')),
+      `expected an unreadable-timestamp reason, got ${JSON.stringify(status.errors)}`,
+    )
+    assert.ok(
+      !status.errors.some(e => e.includes('older than')),
+      'an unreadable timestamp is not an old one',
+    )
+  })
+
+  it('genuinely old evidence is reported as old, not as unreadable', () => {
+    const status = verifyDelegation(live(), {
+      revocationCheckPolicy: 'fail_closed',
+      cachedRevocationState: { revoked: false, checkedAt: new Date(Date.now() - 2 * 3_600_000).toISOString() },
+      cacheGraceMs: 300_000,
+    })
+    assert.ok(status.errors.some(e => e.includes('older than')), JSON.stringify(status.errors))
+    assert.ok(!status.errors.some(e => e.includes('unreadable')))
   })
 
   it('cache_grace also refuses an unreadable timestamp under an unbounded window', () => {

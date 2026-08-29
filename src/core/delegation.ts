@@ -383,9 +383,11 @@ export function verifyDelegation(delegation: Delegation, opts?: RevocationCheckO
   const freshnessMs = opts?.cacheGraceMs ?? DEFAULT_REVOCATION_FRESHNESS_MS
   const cached = opts?.cachedRevocationState
   let revocationEvidence: 'absent' | 'stale' | 'fresh' = 'absent'
+  let evidenceUnreadable = false
   if (cached) {
     const checkedAtMs = new Date(cached.checkedAt).getTime()
     if (!Number.isFinite(checkedAtMs)) {
+      evidenceUnreadable = true
       // Graded BEFORE any window comparison, not by arithmetic on a sentinel.
       // Mapping an unparseable timestamp to an Infinity age and comparing it
       // against the window looked equivalent and was not: with
@@ -413,7 +415,9 @@ export function verifyDelegation(delegation: Delegation, opts?: RevocationCheckO
       // cache_grace converts expiry of the window into a revocation: the
       // shipped behaviour, kept.
       revoked = true
-      errors.push('Revocation cache expired, treating as revoked')
+      errors.push(evidenceUnreadable
+        ? 'Revocation cache timestamp is unreadable, treating as revoked'
+        : 'Revocation cache expired, treating as revoked')
     } else {
       revoked = cached.revoked
     }
@@ -429,10 +433,17 @@ export function verifyDelegation(delegation: Delegation, opts?: RevocationCheckO
   // is reported as an evidence failure, because asserting a revocation the
   // verifier never saw would be a different lie from the one being fixed.
   if (policy === 'fail_closed' && revocationEvidence !== 'fresh') {
+    // Three distinct reasons, not two. The unreadable case gets its own message
+    // so that the branch producing it is OBSERVABLE: with a shared message the
+    // branch could be deleted and NaN comparison semantics would silently
+    // produce the same grade, which is the sentinel-versus-conditional trap
+    // this file already fell into once.
     errors.push(
       revocationEvidence === 'absent'
         ? 'fail_closed: no revocation evidence supplied, revocation status unknown'
-        : `fail_closed: revocation evidence is stale (older than ${freshnessMs}ms), revocation status unknown`,
+        : evidenceUnreadable
+          ? 'fail_closed: revocation evidence timestamp is unreadable, revocation status unknown'
+          : `fail_closed: revocation evidence is stale (older than ${freshnessMs}ms), revocation status unknown`,
     )
   }
 
