@@ -250,10 +250,11 @@ describe('aps.txt: verification verdict is never a stand-in for "unchecked"', ()
     assert.equal(result.signatureChecked, false)
   })
 
-  it('no public key: strict and non-strict agree, the verdict is not an option', () => {
+  it('the unsigned verdict is not an option: verifyApsTxt takes no strictness knob', () => {
     const doc = signedDoc()
-    assert.equal(verifyApsTxt(doc, undefined, { strict: true }).valid, false)
-    assert.equal(verifyApsTxt(doc, undefined, { strict: false }).valid, false)
+    assert.equal(verifyApsTxt(doc, undefined).valid, false)
+    // The signature is the only thing that can make this document valid.
+    assert.equal(verifyApsTxt.length, 2, 'verifyApsTxt(doc, publicKey) and nothing else')
   })
 
   it('correct publisher key over an untouched document: valid, signature checked', () => {

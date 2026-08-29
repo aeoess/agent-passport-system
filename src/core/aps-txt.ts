@@ -99,13 +99,6 @@ export function generateApsTxt(input: GenerateApsTxtInput): ApsTxt {
   return { ...doc, signature }
 }
 
-export interface VerifyApsTxtOptions {
-  /** When true, the first failure short-circuits and the remaining checks are
-   *  skipped, so `errors` names one cause instead of all of them. It does NOT
-   *  decide whether an unverified document is valid: see verifyApsTxt. */
-  strict?: boolean
-}
-
 export interface VerifyApsTxtResult {
   valid: boolean
   errors: string[]
@@ -128,22 +121,25 @@ const ED25519_PUBLIC_KEY_HEX = /^[0-9a-fA-F]{64}$/
  * `valid: true` means one thing only: a signature check ran against the key
  * the caller supplied and passed, and the document's publisher_did matches
  * that key. It NEVER means "the signature was not checked". A caller with no
- * key gets `valid: false`, `signatureChecked: false`, `reason: 'UNSIGNED'` —
- * an aps.txt nobody has authenticated is not valid governance, whatever the
- * `strict` option says.
+ * key gets `valid: false`, `signatureChecked: false`, `reason: 'UNSIGNED'`.
+ * An aps.txt nobody has authenticated is not valid governance.
  *
  * Reading an aps.txt without authenticating it is a real use case and it has
  * its own named operation: parseApsTxt() returns the document and asserts
  * nothing about its signature. Use that when the publisher key is genuinely
  * not available, and treat the result as unverified input.
+ *
+ * There is no `strict` option any more. It used to gate the unsigned verdict;
+ * once the unsigned verdict became unconditional, the only thing it still
+ * changed was how many entries landed in `errors`. A security-shaped option
+ * that cannot change a security outcome is the exact defect class this work
+ * was sent to remove, so keeping it as a no-op was not available. The
+ * behaviour it used to select is now the only behaviour.
  */
 export function verifyApsTxt(
   doc: ApsTxt,
   publicKey?: string,
-  options?: VerifyApsTxtOptions,
 ): VerifyApsTxtResult {
-  const strict = options?.strict ?? false
-
   // No key: nothing was checked, so nothing can be reported valid.
   if (!publicKey) {
     return {
@@ -171,12 +167,7 @@ export function verifyApsTxt(
   const { signature, ...rest } = doc
   const payload = canonicalize(rest)
   const sigValid = verify(payload, signature, publicKey)
-  if (!sigValid) {
-    if (strict) {
-      return { valid: false, errors: ['Signature verification failed'], signatureChecked: true, reason: 'UNSIGNED' }
-    }
-    errors.push('Signature verification failed')
-  }
+  if (!sigValid) errors.push('Signature verification failed')
 
   const expectedDid = createDID(publicKey)
   if (doc.publisher_did !== expectedDid) errors.push(`DID mismatch: expected ${expectedDid}`)
