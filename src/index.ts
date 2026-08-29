@@ -27,6 +27,8 @@ export type {
 
 // ── Layer 1: Identity & Accountability ──
 export { createPassport, signPassport, updatePassport, isExpired, isPassportValid, countersignPassport, verifyIssuerSignature, isIssuerVerified, isIssuerSigned } from './core/passport.js'
+export { checkPassportTrustPosture } from './verification/trust-posture.js'
+export type { TrustPostureOptions, TrustPostureResult, TrustPostureFailure } from './verification/trust-posture.js'
 export { canonicalize, canonicalJson, canonicalHash, normalizeTimestamp } from './core/canonical.js'
 
 // ── Scope Version Hash (MCP#1763) — bilateral receipt pre-commitment ──
@@ -90,7 +92,7 @@ export {
   scopeCovers, scopeAuthorizes
 } from './core/delegation.js'
 export type { RevocationCheckPolicy, RevocationCheckOptions } from './core/delegation.js'
-export { DEFAULT_REVOCATION_FRESHNESS_MS } from './core/delegation.js'
+export { DEFAULT_REVOCATION_FRESHNESS_MS, REVOCATION_CHECK_POLICIES } from './core/delegation.js'
 
 // ── Bilateral Completion Receipts ──
 export { createCompletionReceipt, verifyCompletionReceipt, linkPermitAndCompletion } from './core/completion.js'

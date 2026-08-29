@@ -12,7 +12,7 @@
 
 import { createHash } from 'node:crypto'
 import { scopeAuthorizes, verifyDelegation, type RevocationCheckOptions } from '../core/delegation.js'
-import { verifyPassport } from '../verification/verify.js'
+import { checkPassportTrustPosture } from '../verification/trust-posture.js'
 import { sign } from '../crypto/keys.js'
 import { canonicalize, canonicalizeForWrite } from '../core/canonical.js'
 import type { Delegation, ActionReceipt, SignedPassport } from '../types/passport.js'
@@ -36,6 +36,16 @@ export interface GonkaHostConfig {
   maxInferencesPerEpoch?: number
   onReceipt?: (r: ActionReceipt) => void
   onDenied?: (info: { host: string; reason: string }) => void
+  /** Trust anchors for this gate: issuer public keys whose countersignature
+   *  is accepted. A NON-EMPTY list requires a valid countersignature from one
+   *  of them. An empty list, or omitting it, means this gate holds no
+   *  anchors; it does not mean "trust anyone". */
+  trustedIssuers?: string[]
+  /** Explicit wildcard trust: admit a passport whose only authority is its
+   *  own signature. Required to admit a self-signed credential, because a
+   *  signature that verifies under a key the passport itself supplied is not
+   *  an authorization by a trusted issuer. Default false. */
+  allowSelfSigned?: boolean
   /** Revocation posture applied to the delegation check before every
    *  governed call. This adapter is an execution gate: it verifies the
    *  delegation immediately before the tool runs, which is exactly where a
@@ -102,9 +112,9 @@ export function verifyGonkaHost(
 ): GonkaHostVerification {
   const scope = `inference:serve:${model}`
 
-  const pc = verifyPassport(config.passport)
-  if (!pc.valid) {
-    return { authorized: false, reason: `Passport invalid: ${pc.errors.join(', ')}`, scope, hostAddress, model }
+  const pc = checkPassportTrustPosture(config.passport, config)
+  if (!pc.ok) {
+    return { authorized: false, reason: pc.detail ?? 'Passport rejected at the gate', scope, hostAddress, model }
   }
 
   const dc = verifyDelegation(config.delegation, config.revocation)

@@ -8,6 +8,13 @@ import {
 } from '../src/index.js'
 import type { ActionReceipt, MCPToolCall } from '../src/index.js'
 
+// The four governed-execution configs below declare allowSelfSigned. These
+// suites verify scope, receipts and rate limits on SELF-SIGNED passports, and
+// the adapter gates no longer admit a self-issued claim of authority without
+// the caller saying so. That posture is what these tests always relied on
+// implicitly; it is now written down. The trust-anchor axis itself is pinned
+// in tests/adapter-trust-posture.test.ts. No assertion here was changed.
+
 const pk = generateKeyPair()
 const ak = generateKeyPair()
 const { signedPassport } = createPassport({
@@ -25,7 +32,7 @@ describe('MCP Adapter', () => {
     const r = await governMCPToolCall(
       { name: 'read_file', arguments: { path: '/tmp/x' } },
       mockExec,
-      { passport: signedPassport, delegation: mkDel(['tools:read_file']), privateKey: ak.privateKey, onReceipt: r => receipts.push(r) },
+      { passport: signedPassport, allowSelfSigned: true, delegation: mkDel(['tools:read_file']), privateKey: ak.privateKey, onReceipt: r => receipts.push(r) },
     )
     assert.ok('result' in r && !('denied' in r))
     assert.equal(receipts.length, 1)
@@ -36,7 +43,7 @@ describe('MCP Adapter', () => {
     const r = await governMCPToolCall(
       { name: 'write_file', arguments: {} },
       mockExec,
-      { passport: signedPassport, delegation: mkDel(['tools:read_file']), privateKey: ak.privateKey },
+      { passport: signedPassport, allowSelfSigned: true, delegation: mkDel(['tools:read_file']), privateKey: ak.privateKey },
     )
     assert.ok('denied' in r && r.denied === true)
     assert.ok(r.reason.includes('not covered'))
@@ -73,7 +80,7 @@ describe('MCP Adapter', () => {
 
   it('interceptor creation and use', async () => {
     const interceptor = createMCPGovernanceInterceptor({
-      passport: signedPassport, delegation: mkDel(['tools:ping']), privateKey: ak.privateKey,
+      passport: signedPassport, allowSelfSigned: true, delegation: mkDel(['tools:ping']), privateKey: ak.privateKey,
     })
     const r = await interceptor({ name: 'ping', arguments: {} }, mockExec)
     assert.ok('result' in r)
@@ -82,7 +89,7 @@ describe('MCP Adapter', () => {
   it('receipt signature verifies', async () => {
     const r = await governMCPToolCall(
       { name: 'read', arguments: {} }, mockExec,
-      { passport: signedPassport, delegation: mkDel(['tools:read']), privateKey: ak.privateKey },
+      { passport: signedPassport, allowSelfSigned: true, delegation: mkDel(['tools:read']), privateKey: ak.privateKey },
     )
     assert.ok('receipt' in r)
     const { signature, ...rest } = r.receipt
@@ -93,7 +100,7 @@ describe('MCP Adapter', () => {
     const del = { ...mkDel(['tools:read']), expiresAt: new Date(Date.now() - 1000).toISOString() }
     const r = await governMCPToolCall(
       { name: 'read', arguments: {} }, mockExec,
-      { passport: signedPassport, delegation: del, privateKey: ak.privateKey },
+      { passport: signedPassport, allowSelfSigned: true, delegation: del, privateKey: ak.privateKey },
     )
     assert.ok('denied' in r)
   })
@@ -101,7 +108,7 @@ describe('MCP Adapter', () => {
   it('empty arguments handling', async () => {
     const r = await governMCPToolCall(
       { name: 'ping', arguments: {} }, mockExec,
-      { passport: signedPassport, delegation: mkDel(['tools:ping']), privateKey: ak.privateKey },
+      { passport: signedPassport, allowSelfSigned: true, delegation: mkDel(['tools:ping']), privateKey: ak.privateKey },
     )
     assert.ok('result' in r)
   })

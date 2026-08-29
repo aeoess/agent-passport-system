@@ -9,6 +9,13 @@ import {
 } from '../src/index.js'
 import type { ActionReceipt, GonkaInferenceRequest } from '../src/index.js'
 
+// The four governed-execution configs below declare allowSelfSigned. These
+// suites verify scope, receipts and rate limits on SELF-SIGNED passports, and
+// the adapter gates no longer admit a self-issued claim of authority without
+// the caller saying so. That posture is what these tests always relied on
+// implicitly; it is now written down. The trust-anchor axis itself is pinned
+// in tests/adapter-trust-posture.test.ts. No assertion here was changed.
+
 const pk = generateKeyPair()
 const ak = generateKeyPair()
 const { signedPassport } = createPassport({
@@ -24,7 +31,7 @@ describe('Gonka Adapter', () => {
   describe('verifyGonkaHost', () => {
     it('host authorized for model', () => {
       const r = verifyGonkaHost('gonka1-host-1', 'Qwen/Qwen3-235B', {
-        passport: signedPassport, delegation: mkDel(['inference:serve:Qwen/Qwen3-235B']), privateKey: ak.privateKey,
+        passport: signedPassport, allowSelfSigned: true, delegation: mkDel(['inference:serve:Qwen/Qwen3-235B']), privateKey: ak.privateKey,
       })
       assert.equal(r.authorized, true)
       assert.equal(r.model, 'Qwen/Qwen3-235B')
@@ -32,7 +39,7 @@ describe('Gonka Adapter', () => {
 
     it('host denied (wrong model)', () => {
       const r = verifyGonkaHost('gonka1-host-1', 'llama-405b', {
-        passport: signedPassport, delegation: mkDel(['inference:serve:Qwen/Qwen3-235B']), privateKey: ak.privateKey,
+        passport: signedPassport, allowSelfSigned: true, delegation: mkDel(['inference:serve:Qwen/Qwen3-235B']), privateKey: ak.privateKey,
       })
       assert.equal(r.authorized, false)
       assert.ok(r.reason.includes('not covered'))
@@ -41,14 +48,14 @@ describe('Gonka Adapter', () => {
     it('host denied (expired delegation)', () => {
       const del = { ...mkDel(['inference:serve:Qwen/Qwen3-235B']), expiresAt: new Date(Date.now() - 1000).toISOString() }
       const r = verifyGonkaHost('gonka1-host-1', 'Qwen/Qwen3-235B', {
-        passport: signedPassport, delegation: del, privateKey: ak.privateKey,
+        passport: signedPassport, allowSelfSigned: true, delegation: del, privateKey: ak.privateKey,
       })
       assert.equal(r.authorized, false)
     })
 
     it('host denied (model not in allowlist)', () => {
       const r = verifyGonkaHost('gonka1-host-1', 'llama-405b', {
-        passport: signedPassport, delegation: mkDel(['inference:serve:llama-405b']), privateKey: ak.privateKey,
+        passport: signedPassport, allowSelfSigned: true, delegation: mkDel(['inference:serve:llama-405b']), privateKey: ak.privateKey,
         allowedModels: ['Qwen/Qwen3-235B'],
       })
       assert.equal(r.authorized, false)
@@ -57,7 +64,7 @@ describe('Gonka Adapter', () => {
 
     it('empty model allowlist permits all models', () => {
       const r = verifyGonkaHost('gonka1-host-1', 'any-model', {
-        passport: signedPassport, delegation: mkDel(['inference:serve:any-model']), privateKey: ak.privateKey,
+        passport: signedPassport, allowSelfSigned: true, delegation: mkDel(['inference:serve:any-model']), privateKey: ak.privateKey,
         allowedModels: [],
       })
       assert.equal(r.authorized, true)
@@ -65,9 +72,9 @@ describe('Gonka Adapter', () => {
 
     it('multiple models in scope', () => {
       const del = mkDel(['inference:serve:model-a', 'inference:serve:model-b'])
-      const r1 = verifyGonkaHost('h1', 'model-a', { passport: signedPassport, delegation: del, privateKey: ak.privateKey })
-      const r2 = verifyGonkaHost('h1', 'model-b', { passport: signedPassport, delegation: del, privateKey: ak.privateKey })
-      const r3 = verifyGonkaHost('h1', 'model-c', { passport: signedPassport, delegation: del, privateKey: ak.privateKey })
+      const r1 = verifyGonkaHost('h1', 'model-a', { passport: signedPassport, allowSelfSigned: true, delegation: del, privateKey: ak.privateKey })
+      const r2 = verifyGonkaHost('h1', 'model-b', { passport: signedPassport, allowSelfSigned: true, delegation: del, privateKey: ak.privateKey })
+      const r3 = verifyGonkaHost('h1', 'model-c', { passport: signedPassport, allowSelfSigned: true, delegation: del, privateKey: ak.privateKey })
       assert.ok(r1.authorized)
       assert.ok(r2.authorized)
       assert.ok(!r3.authorized)
@@ -80,7 +87,7 @@ describe('Gonka Adapter', () => {
       const r = await governGonkaInference(
         { model: 'Qwen/Qwen3-235B', prompt: 'What is APS?', epochId: 155 },
         mockInfer,
-        { passport: signedPassport, delegation: mkDel(['inference:serve:Qwen/Qwen3-235B']), privateKey: ak.privateKey, onReceipt: r => receipts.push(r) },
+        { passport: signedPassport, allowSelfSigned: true, delegation: mkDel(['inference:serve:Qwen/Qwen3-235B']), privateKey: ak.privateKey, onReceipt: r => receipts.push(r) },
       )
       assert.ok('result' in r && !('denied' in r))
       assert.equal(r.result.tokensUsed, 42)
@@ -94,7 +101,7 @@ describe('Gonka Adapter', () => {
       const r = await governGonkaInference(
         { model: 'forbidden-model', prompt: 'test' },
         mockInfer,
-        { passport: signedPassport, delegation: mkDel(['inference:serve:Qwen/Qwen3-235B']), privateKey: ak.privateKey },
+        { passport: signedPassport, allowSelfSigned: true, delegation: mkDel(['inference:serve:Qwen/Qwen3-235B']), privateKey: ak.privateKey },
       )
       assert.ok('denied' in r && r.denied === true)
       assert.ok(r.reason.includes('not covered'))
@@ -104,14 +111,14 @@ describe('Gonka Adapter', () => {
       const r = await governGonkaInference(
         { model: 'Qwen/Qwen3-235B', prompt: 'test' },
         mockInfer,
-        { passport: signedPassport, delegation: mkDel(['inference:serve:Qwen/Qwen3-235B']), privateKey: ak.privateKey, allowedModels: ['other-model'] },
+        { passport: signedPassport, allowSelfSigned: true, delegation: mkDel(['inference:serve:Qwen/Qwen3-235B']), privateKey: ak.privateKey, allowedModels: ['other-model'] },
       )
       assert.ok('denied' in r && r.denied === true)
     })
 
     it('rate limit enforcement (maxInferencesPerEpoch)', async () => {
       const cfg = {
-        passport: signedPassport,
+        passport: signedPassport, allowSelfSigned: true,
         delegation: mkDel(['inference:serve:rate-test']),
         privateKey: ak.privateKey,
         maxInferencesPerEpoch: 2,
@@ -131,7 +138,7 @@ describe('Gonka Adapter', () => {
       let fired = false
       await governGonkaInference(
         { model: 'nope', prompt: 'test' }, mockInfer,
-        { passport: signedPassport, delegation: mkDel(['inference:serve:other']), privateKey: ak.privateKey, onDenied: () => { fired = true } },
+        { passport: signedPassport, allowSelfSigned: true, delegation: mkDel(['inference:serve:other']), privateKey: ak.privateKey, onDenied: () => { fired = true } },
       )
       assert.ok(fired)
     })
@@ -140,7 +147,7 @@ describe('Gonka Adapter', () => {
       let fired = false
       await governGonkaInference(
         { model: 'cb-test', prompt: 'test' }, mockInfer,
-        { passport: signedPassport, delegation: mkDel(['inference:serve:cb-test']), privateKey: ak.privateKey, onReceipt: () => { fired = true } },
+        { passport: signedPassport, allowSelfSigned: true, delegation: mkDel(['inference:serve:cb-test']), privateKey: ak.privateKey, onReceipt: () => { fired = true } },
       )
       assert.ok(fired)
     })
@@ -149,7 +156,7 @@ describe('Gonka Adapter', () => {
   describe('createDevshardReceipt', () => {
     it('creates receipt with participants', () => {
       const r = createDevshardReceipt('shard-001', 50, 12000, ['host-a', 'host-b', 'host-c'], {
-        passport: signedPassport, delegation: mkDel(['devshard:participate']), privateKey: ak.privateKey,
+        passport: signedPassport, allowSelfSigned: true, delegation: mkDel(['devshard:participate']), privateKey: ak.privateKey,
       })
       assert.ok(r.receiptId.startsWith('rcpt_devshard_'))
       assert.equal(r.action.target, 'shard-001')
@@ -160,7 +167,7 @@ describe('Gonka Adapter', () => {
 
     it('signature verifies', () => {
       const r = createDevshardReceipt('shard-002', 10, 5000, ['host-x'], {
-        passport: signedPassport, delegation: mkDel(['devshard:participate']), privateKey: ak.privateKey,
+        passport: signedPassport, allowSelfSigned: true, delegation: mkDel(['devshard:participate']), privateKey: ak.privateKey,
       })
       const { signature, ...rest } = r
       assert.ok(verify(canonicalize(rest), signature, ak.publicKey))
@@ -190,7 +197,7 @@ describe('Gonka Adapter', () => {
   describe('verifyPoCParticipation', () => {
     it('produces receipt', () => {
       const r = verifyPoCParticipation('gonka1-validator-1', 155, 0.85, {
-        passport: signedPassport, privateKey: ak.privateKey,
+        passport: signedPassport, allowSelfSigned: true, privateKey: ak.privateKey,
       })
       assert.ok(r.receiptId.startsWith('rcpt_poc_'))
       assert.equal(r.action.type, 'poc_participation')
@@ -201,7 +208,7 @@ describe('Gonka Adapter', () => {
 
     it('signature verifies', () => {
       const r = verifyPoCParticipation('gonka1-val-2', 156, 0.9, {
-        passport: signedPassport, privateKey: ak.privateKey,
+        passport: signedPassport, allowSelfSigned: true, privateKey: ak.privateKey,
       })
       const { signature, ...rest } = r
       assert.ok(verify(canonicalize(rest), signature, ak.publicKey))

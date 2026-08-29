@@ -36,7 +36,7 @@
 // the gate.
 // ══════════════════════════════════════════════════════════════════
 
-import { verifyPassport } from '../../verification/verify.js'
+import { checkPassportTrustPosture } from '../../verification/trust-posture.js'
 import type { SignedPassport } from '../../types/passport.js'
 import type { CoreVerifyClockOptions } from '../../types/policy.js'
 
@@ -143,38 +143,24 @@ export function evaluateRequest(
     }
   }
 
-  // 2. Passport signature / expiry / issuer countersignature.
-  const anchors = opts.trustedIssuers ?? []
-  const result = verifyPassport(presented, {
-    trustedIssuers: anchors,
-    clock: opts.clock,
-  })
-  if (!result.valid) {
+  // 2 and 3. Passport signature / validity window / issuer countersignature,
+  //    then the trust posture, both from the ONE shared implementation every
+  //    execution gate in the SDK uses. This logic used to live here alone,
+  //    which is exactly how the five adapter gates ended up without it.
+  const posture = checkPassportTrustPosture(presented, opts)
+  if (!posture.ok) {
     return {
       admit: false,
-      reason: 'PASSPORT_INVALID',
+      reason: posture.failure === 'UNTRUSTED_ISSUER' ? 'UNTRUSTED_ISSUER' : 'PASSPORT_INVALID',
       status: 401,
-      detail: 'passport failed verification',
-      errors: result.errors,
-      warnings: result.warnings,
+      detail: posture.failure === 'UNTRUSTED_ISSUER'
+        ? 'gate holds no trust anchors: supply trustedIssuers, or set allowSelfSigned to accept self-signed passports'
+        : 'passport failed verification',
+      errors: posture.errors,
+      warnings: posture.warnings,
     }
   }
-
-  // 3. Trust posture. verifyPassport enforces the countersignature only when
-  //    anchors were supplied; with none, its verdict is signature and expiry
-  //    alone. An empty anchor set is an empty anchor set, not a wildcard, so
-  //    admitting on that basis requires the caller to have said so.
-  if (anchors.length === 0 && opts.allowSelfSigned !== true) {
-    return {
-      admit: false,
-      reason: 'UNTRUSTED_ISSUER',
-      status: 401,
-      detail:
-        'gate holds no trust anchors: supply trustedIssuers, or set allowSelfSigned to accept self-signed passports',
-      errors: result.errors,
-      warnings: result.warnings,
-    }
-  }
+  const result = { errors: posture.errors, warnings: posture.warnings }
 
   // 4. Scope check against the passport's declared capabilities.
   const required = opts.requiredScopes ?? []
