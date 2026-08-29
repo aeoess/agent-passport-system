@@ -216,3 +216,90 @@ describe('Chained Governance Blocks', () => {
     assert.equal(result.chainValid, true) // no parent to check against, so chain is "valid"
   })
 })
+
+// ══════════════════════════════════════════════════════════════════
+// Invariant: `valid: true` never means "the signature was not checked".
+// ══════════════════════════════════════════════════════════════════
+// verifyApsTxt used to return { valid: true, errors: [] } whenever the
+// caller passed no public key, because the `strict` option defaulted to
+// false. An aps.txt served by anyone therefore read as valid governance
+// to any caller that had not resolved the publisher key yet. Parsing
+// without verifying is a real use case and it already has its own named
+// operation, parseApsTxt; verifyApsTxt is not it.
+
+describe('aps.txt: verification verdict is never a stand-in for "unchecked"', () => {
+  const publisher = generateKeyPair()
+  const attacker = generateKeyPair()
+
+  function signedDoc() {
+    return generateApsTxt({
+      domain: 'publisher.example', publisherName: 'Publisher',
+      publicKey: publisher.publicKey, privateKey: publisher.privateKey,
+      defaultTerms: TERMS,
+    })
+  }
+
+  it('no public key: the document is NOT valid', () => {
+    const result = verifyApsTxt(signedDoc())
+    assert.equal(result.valid, false)
+    assert.equal(result.reason, 'UNSIGNED')
+  })
+
+  it('no public key: the result reports that no signature was checked', () => {
+    const result = verifyApsTxt(signedDoc())
+    assert.equal(result.signatureChecked, false)
+  })
+
+  it('no public key: strict and non-strict agree, the verdict is not an option', () => {
+    const doc = signedDoc()
+    assert.equal(verifyApsTxt(doc, undefined, { strict: true }).valid, false)
+    assert.equal(verifyApsTxt(doc, undefined, { strict: false }).valid, false)
+  })
+
+  it('correct publisher key over an untouched document: valid, signature checked', () => {
+    const result = verifyApsTxt(signedDoc(), publisher.publicKey)
+    assert.equal(result.valid, true)
+    assert.equal(result.signatureChecked, true)
+    assert.deepEqual(result.errors, [])
+  })
+
+  it('correct publisher key over a tampered document: invalid, signature checked', () => {
+    const doc = signedDoc()
+    doc.default_terms = { ...doc.default_terms, training: 'permitted' }
+    const result = verifyApsTxt(doc, publisher.publicKey)
+    assert.equal(result.valid, false)
+    assert.equal(result.signatureChecked, true)
+  })
+
+  it('an unrelated well-formed key does not verify the publisher document', () => {
+    const result = verifyApsTxt(signedDoc(), attacker.publicKey)
+    assert.equal(result.valid, false)
+    assert.equal(result.signatureChecked, true)
+  })
+
+  it('a malformed public key yields an invalid verdict instead of throwing', () => {
+    const doc = signedDoc()
+    const result = verifyApsTxt(doc, 'not-a-key')
+    assert.equal(result.valid, false)
+    assert.equal(result.signatureChecked, false)
+    assert.equal(result.reason, 'UNSIGNED')
+  })
+
+  it('a 64-character non-hex public key yields an invalid verdict instead of throwing', () => {
+    const doc = signedDoc()
+    const result = verifyApsTxt(doc, 'z'.repeat(64))
+    assert.equal(result.valid, false)
+    assert.equal(result.signatureChecked, false)
+  })
+
+  it('parseApsTxt is the named parse-without-verify operation and asserts no signature', () => {
+    const doc = signedDoc()
+    const parsed = parseApsTxt(serializeApsTxt(doc))
+    assert.ok(parsed)
+    // Parsing succeeds on a document nobody has authenticated. That is the
+    // whole point of having a separate operation for it.
+    const forged = parseApsTxt(serializeApsTxt({ ...doc, signature: 'ff'.repeat(64) }))
+    assert.ok(forged)
+    assert.equal(verifyApsTxt(forged!, publisher.publicKey).valid, false)
+  })
+})

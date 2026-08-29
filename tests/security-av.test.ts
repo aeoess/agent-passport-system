@@ -104,10 +104,16 @@ describe('Security: MoltyCel AV-2 through AV-5 (qntm#7)', () => {
       assert.equal(result.reason, undefined)
     })
 
-    it('default mode accepts unsigned (backward compat)', () => {
+    // Was 'default mode accepts unsigned (backward compat)', asserting
+    // valid === true when no key was supplied. That assertion pinned the
+    // defect: a verdict of valid stood in for "the signature was not
+    // checked". The default is now the same as strict for this case.
+    it('default mode rejects unsigned (no public key), same as strict', () => {
       const doc = makeApsTxt()
       const result = verifyApsTxt(doc)
-      assert.equal(result.valid, true)
+      assert.equal(result.valid, false)
+      assert.equal(result.reason, 'UNSIGNED')
+      assert.equal(result.signatureChecked, false)
     })
   })
 

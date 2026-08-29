@@ -100,17 +100,43 @@ export function generateApsTxt(input: GenerateApsTxtInput): ApsTxt {
 }
 
 export interface VerifyApsTxtOptions {
-  /** When true, unsigned or unverifiable aps.txt returns { valid: false, reason: 'UNSIGNED' } */
+  /** When true, the first failure short-circuits and the remaining checks are
+   *  skipped, so `errors` names one cause instead of all of them. It does NOT
+   *  decide whether an unverified document is valid: see verifyApsTxt. */
   strict?: boolean
 }
 
 export interface VerifyApsTxtResult {
   valid: boolean
   errors: string[]
-  /** Set when strict mode rejects an unsigned/unverifiable document */
+  /** Whether a signature check actually ran against a usable public key.
+   *  False means the document was never authenticated, which is reported
+   *  separately from a signature that ran and failed. */
+  signatureChecked: boolean
+  /** Set when the document was not authenticated: no key supplied, an
+   *  unusable key, or a signature that did not verify. */
   reason?: 'UNSIGNED'
 }
 
+/** Ed25519 public keys are 64 hex characters. Checked before use so an
+ *  unusable key produces a verdict rather than a throw out of createDID. */
+const ED25519_PUBLIC_KEY_HEX = /^[0-9a-fA-F]{64}$/
+
+/**
+ * Verify an aps.txt document against the publisher's public key.
+ *
+ * `valid: true` means one thing only: a signature check ran against the key
+ * the caller supplied and passed, and the document's publisher_did matches
+ * that key. It NEVER means "the signature was not checked". A caller with no
+ * key gets `valid: false`, `signatureChecked: false`, `reason: 'UNSIGNED'` —
+ * an aps.txt nobody has authenticated is not valid governance, whatever the
+ * `strict` option says.
+ *
+ * Reading an aps.txt without authenticating it is a real use case and it has
+ * its own named operation: parseApsTxt() returns the document and asserts
+ * nothing about its signature. Use that when the publisher key is genuinely
+ * not available, and treat the result as unverified input.
+ */
 export function verifyApsTxt(
   doc: ApsTxt,
   publicKey?: string,
@@ -118,12 +144,27 @@ export function verifyApsTxt(
 ): VerifyApsTxtResult {
   const strict = options?.strict ?? false
 
-  // Strict mode: if no public key provided, reject as unsigned
+  // No key: nothing was checked, so nothing can be reported valid.
   if (!publicKey) {
-    if (strict) {
-      return { valid: false, errors: ['No public key provided for signature verification'], reason: 'UNSIGNED' }
+    return {
+      valid: false,
+      errors: ['No public key provided for signature verification'],
+      signatureChecked: false,
+      reason: 'UNSIGNED',
     }
-    return { valid: true, errors: [] }
+  }
+
+  // A key the verifier cannot use is the same epistemic state as no key at
+  // all: the signature was not checked. Guarded explicitly rather than caught,
+  // because createDID() below throws on a wrong-length key and a throw out of
+  // a verifier is not a verdict.
+  if (!ED25519_PUBLIC_KEY_HEX.test(publicKey)) {
+    return {
+      valid: false,
+      errors: ['Public key is not a 64-character hex Ed25519 key; signature not checked'],
+      signatureChecked: false,
+      reason: 'UNSIGNED',
+    }
   }
 
   const errors: string[] = []
@@ -132,7 +173,7 @@ export function verifyApsTxt(
   const sigValid = verify(payload, signature, publicKey)
   if (!sigValid) {
     if (strict) {
-      return { valid: false, errors: ['Signature verification failed'], reason: 'UNSIGNED' }
+      return { valid: false, errors: ['Signature verification failed'], signatureChecked: true, reason: 'UNSIGNED' }
     }
     errors.push('Signature verification failed')
   }
@@ -140,7 +181,13 @@ export function verifyApsTxt(
   const expectedDid = createDID(publicKey)
   if (doc.publisher_did !== expectedDid) errors.push(`DID mismatch: expected ${expectedDid}`)
 
-  return { valid: errors.length === 0, errors }
+  const valid = errors.length === 0
+  return {
+    valid,
+    errors,
+    signatureChecked: true,
+    ...(valid ? {} : { reason: 'UNSIGNED' as const }),
+  }
 }
 
 /**
