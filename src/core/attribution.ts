@@ -12,7 +12,7 @@
 import { v4 as uuidv4 } from 'uuid'
 import { createHash } from 'node:crypto'
 import { verify } from '../crypto/keys.js'
-import { verifyDelegation, verifyReceipt } from './delegation.js'
+import { verifyDelegation, verifyReceipt, type RevocationCheckPolicy } from './delegation.js'
 import { canonicalize } from './canonical.js'
 import type {
   ActionReceipt, Delegation,
@@ -69,10 +69,30 @@ export function hashReceipt(receipt: ActionReceipt): string {
  * Every agent action resolves to a human. `verified` is the field to trust;
  * `resolved` is a convenience lookup that makes no cryptographic claim.
  */
+/** Revocation posture for an attribution walk.
+ *
+ *  A chain walk checks MANY delegations, so it cannot take the single
+ *  `cachedRevocationState` the other entrypoints take: one delegation's
+ *  evidence applied to every hop would be a new defect, not a fix. Evidence is
+ *  supplied per delegation through a resolver instead, the same shape the v2
+ *  authority-delegation verifier uses.
+ *
+ *  Omitting this leaves the historical default exactly: policy `fail_open`,
+ *  no evidence consulted, which is what this walk has always done. */
+export interface AttributionRevocationOptions {
+  revocationCheckPolicy?: RevocationCheckPolicy
+  cacheGraceMs?: number
+  /** Called once per candidate delegation. Return undefined when no evidence
+   *  is held for that delegation; under `fail_closed` that hop is then not
+   *  authentic, which is the point of selecting it. */
+  resolveRevocation?: (delegation: Delegation) => { revoked: boolean; checkedAt: string } | undefined
+}
+
 export function traceBeneficiary(
   receipt: ActionReceipt,
   delegations: Delegation[],
-  beneficiaryMap: Map<string, BeneficiaryInfo>
+  beneficiaryMap: Map<string, BeneficiaryInfo>,
+  revocation?: AttributionRevocationOptions
 ): BeneficiaryTrace {
   const chain: DelegationHop[] = []
   const keyChain = receipt.delegationChain ?? []
@@ -82,7 +102,8 @@ export function traceBeneficiary(
   //
   //   verified (security): a hop is authentic iff SOME matching delegation
   //     passes the canonical verifyDelegation (ed25519 signature + temporal
-  //     validity; revocation is fail-open on this path). This does not depend on
+  //     validity, and whatever revocation posture the caller passed, which
+  //     defaults to fail-open). This does not depend on
   //     WHICH delegation gets reported, so a re-used key pair cannot turn a valid
   //     lineage into verified=false, and a hop with no valid delegation still
   //     breaks `verified`.
@@ -99,17 +120,29 @@ export function traceBeneficiary(
     const to = keyChain[i + 1]
     const isTail = i === keyChain.length - 2
 
-    // DELIBERATELY no revocation posture here, unlike every other
-    // verifyDelegation call site in the SDK. This walk asks a HISTORICAL
-    // question, "was this hop authentically signed when the receipt was
-    // produced", not a live authorization question. Threading a revocation
-    // policy through would make the attribution of a past action depend on
-    // present-day revocation state, so a later revocation would retroactively
-    // erase the record of who did what. Revocation belongs at the gate, not
-    // in the ledger.
+    // The revocation posture is the caller's, defaulting to fail_open, which
+    // is what this walk has always done.
+    //
+    // An earlier version of this comment argued that a posture must NOT be
+    // available here, because letting present-day revocation state change a
+    // historical verdict would retroactively erase the record of who did what.
+    // That argument does not survive its own call site: verifyDelegation
+    // checks EXPIRY too, so the present-day clock already flips a hop from
+    // authentic to not, on this exact line, and has always done so. The
+    // property the comment claimed to protect was not held. An optional
+    // fail_open-defaulted posture preserves the historical default exactly and
+    // removes a capability from a caller who genuinely wants attribution to
+    // depend on revocation, so withholding it protected nothing.
     const matches = delegations
       .filter(d => d.delegatedBy === from && d.delegatedTo === to)
-      .map(d => ({ del: d, valid: verifyDelegation(d).valid }))
+      .map(d => ({
+        del: d,
+        valid: verifyDelegation(d, {
+          revocationCheckPolicy: revocation?.revocationCheckPolicy,
+          cacheGraceMs: revocation?.cacheGraceMs,
+          cachedRevocationState: revocation?.resolveRevocation?.(d),
+        }).valid,
+      }))
 
     if (!matches.some(m => m.valid)) everyHopAuthentic = false
 
