@@ -12,7 +12,8 @@ import assert from 'node:assert/strict'
 import {
   joinSocialContract, verifySocialContract,
   delegate, recordWork, proveContributions, auditCompliance,
-  generateKeyPair, loadFloor, clearStores, countersignPassport
+  generateKeyPair, loadFloor, clearStores, countersignPassport,
+  createPassport, signPassport, verifyPassport
 } from '../src/index.js'
 
 const FLOOR = `
@@ -262,7 +263,13 @@ test('Trust root: a countersignature from an issuer outside the list is not trus
     trustedIssuers: [trusted.publicKey],
   })
   assert.equal(trust.issuerTrusted, false)
-  assert.equal(trust.structurallyValid, false, 'the untrusted countersignature is a verification error')
+  assert.equal(trust.issuerChecked, true)
+  assert.ok(trust.issuerErrors.length > 0, 'the untrusted countersignature is reported as an issuer error')
+  // The bytes of this passport are sound. Only the trust root is missing.
+  // Round 1 asserted structurallyValid === false here, which is what made
+  // the flag depend on the caller's anchor list.
+  assert.equal(trust.structurallyValid, true)
+  assert.equal(trust.overall, false, 'the caller asked for issuer trust and did not get it')
 })
 
 test('Trust root: a self-signed passport is not issuer-trusted even when issuers are supplied', () => {
@@ -277,5 +284,142 @@ test('Trust root: a self-signed passport is not issuer-trusted even when issuers
     trustedIssuers: [issuer.publicKey],
   })
   assert.equal(trust.issuerTrusted, false)
-  assert.equal(trust.structurallyValid, false)
+  assert.equal(trust.structurallyValid, true)
+  assert.equal(trust.overall, false)
+})
+
+// ══════════════════════════════════════════════════════════════════
+// Invariant: structural validity is a property of the passport, not of
+// the caller's trust configuration.
+// ══════════════════════════════════════════════════════════════════
+// Round 1 computed structurallyValid from a verifyPassport call that was
+// ALSO given the anchors, so a byte-identical passport flipped
+// structurallyValid true -> false purely because the caller passed a
+// trustedIssuers list, and the CLI printed DOES NOT VERIFY over a passport
+// whose signature was fine. The two questions are now answered by two
+// calls: one without anchors for structure, one with them for trust.
+
+test('Invariant 5: structurallyValid does not move when anchors are supplied', () => {
+  clearStores()
+  const issuer = generateKeyPair()
+  const agent = joinSocialContract({
+    name: 'Stable', mission: 'Test invariant 5', owner: 'test',
+    capabilities: ['web_search'], platform: 'cloud', models: ['test'],
+    floor: FLOOR, floorExtensions: [],
+  })
+  const withoutAnchors = verifySocialContract(agent.passport, agent.attestation)
+  const withAnchors = verifySocialContract(agent.passport, agent.attestation, {
+    trustedIssuers: [issuer.publicKey],
+  })
+  assert.equal(
+    withoutAnchors.structurallyValid,
+    withAnchors.structurallyValid,
+    'same bytes, same structural verdict',
+  )
+  assert.equal(withoutAnchors.structurallyValid, true)
+  assert.equal(withoutAnchors.issuerChecked, false)
+  assert.equal(withAnchors.issuerChecked, true)
+})
+
+test('Invariant 5: a tampered passport is structurally invalid with or without anchors', () => {
+  clearStores()
+  const issuer = generateKeyPair()
+  const agent = joinSocialContract({
+    name: 'Tampered', mission: 'Test invariant 5', owner: 'test',
+    capabilities: ['web_search'], platform: 'cloud', models: ['test'],
+    floor: FLOOR, floorExtensions: [],
+  })
+  const tampered = { ...agent.passport, passport: { ...agent.passport.passport, mission: 'rewritten' } }
+  assert.equal(verifySocialContract(tampered).structurallyValid, false)
+  assert.equal(
+    verifySocialContract(tampered, null, { trustedIssuers: [issuer.publicKey] }).structurallyValid,
+    false,
+  )
+})
+
+test('overall is exactly the old verdict: structure AND whatever trust was demanded', () => {
+  clearStores()
+  const issuer = generateKeyPair()
+  const agent = joinSocialContract({
+    name: 'Alias', mission: 'Test the alias', owner: 'test',
+    capabilities: ['web_search'], platform: 'cloud', models: ['test'],
+    floor: FLOOR, floorExtensions: [],
+  })
+  const countersigned = countersignPassport(agent.passport, issuer.privateKey, 'ca')
+
+  for (const [label, passport, opts, expected] of [
+    ['self-signed, no anchors', agent.passport, undefined, true],
+    ['self-signed, anchors demanded', agent.passport, { trustedIssuers: [issuer.publicKey] }, false],
+    ['countersigned, no anchors', countersigned, undefined, true],
+    ['countersigned, anchors demanded', countersigned, { trustedIssuers: [issuer.publicKey] }, true],
+  ] as const) {
+    const t = verifySocialContract(passport, agent.attestation, opts)
+    assert.equal(t.overall, expected, label)
+    assert.equal(
+      t.overall,
+      t.structurallyValid && (!t.issuerChecked || t.issuerTrusted),
+      `${label}: overall must equal structure AND demanded trust`,
+    )
+  }
+})
+
+
+// ══════════════════════════════════════════════════════════════════
+// B4, deferred half: verifyPassport still admits a self-signed
+// admin:everything passport. That default is NOT changed here.
+// ══════════════════════════════════════════════════════════════════
+// Flipping it fails 71 tests across the suite (measured), which makes it a
+// protocol decision rather than a local repair, and it is escalated rather
+// than taken. What IS closed is the reporting: the self-signed state was
+// only available as English inside a warnings array, so no caller could
+// branch on it without string-matching. These tests pin the machine-readable
+// form, which is what a later flip will be built on.
+
+test('B4: verifyPassport reports self-signed acceptance as a field, not only as prose', () => {
+  const p = createPassport({
+    agentId: 'attacker', agentName: 'attacker', ownerAlias: 'nobody',
+    mission: 'claim everything', capabilities: ['admin:everything'],
+    runtime: { platform: 'node', models: ['t'], toolsCount: 0, memoryType: 'none' },
+    expiresInDays: 30,
+  })
+  const signed = signPassport(p.signedPassport.passport, p.keyPair.privateKey)
+
+  const result = verifyPassport(signed)
+  // The documented, unchanged default.
+  assert.equal(result.valid, true)
+  // The part that is now legible to code rather than only to a reader.
+  assert.equal(result.issuerTrustChecked, false)
+  assert.equal(result.selfSignedAccepted, true)
+})
+
+test('B4: a countersigned passport under anchors is not flagged self-signed', () => {
+  const issuer = generateKeyPair()
+  const p = createPassport({
+    agentId: 'issued', agentName: 'issued', ownerAlias: 'owner',
+    mission: 'normal', capabilities: ['data:read'],
+    runtime: { platform: 'node', models: ['t'], toolsCount: 0, memoryType: 'none' },
+    expiresInDays: 30,
+  })
+  const signed = signPassport(p.signedPassport.passport, p.keyPair.privateKey)
+  const countersigned = countersignPassport(signed, issuer.privateKey, 'ca')
+
+  const result = verifyPassport(countersigned, { trustedIssuers: [issuer.publicKey] })
+  assert.equal(result.valid, true)
+  assert.equal(result.issuerTrustChecked, true)
+  assert.equal(result.selfSignedAccepted, false)
+})
+
+test('B4: an invalid passport is never flagged as an accepted self-signed one', () => {
+  const p = createPassport({
+    agentId: 'tampered', agentName: 'tampered', ownerAlias: 'owner',
+    mission: 'original', capabilities: ['data:read'],
+    runtime: { platform: 'node', models: ['t'], toolsCount: 0, memoryType: 'none' },
+    expiresInDays: 30,
+  })
+  const signed = signPassport(p.signedPassport.passport, p.keyPair.privateKey)
+  const tampered = { ...signed, passport: { ...signed.passport, mission: 'rewritten' } }
+
+  const result = verifyPassport(tampered)
+  assert.equal(result.valid, false)
+  assert.equal(result.selfSignedAccepted, false, 'a failed verdict is not an acceptance of anything')
 })

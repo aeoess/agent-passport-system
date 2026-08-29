@@ -593,11 +593,16 @@ function cmdVerify(): void {
 
   const trust = verifySocialContract(passport, attestation, { trustedIssuers })
 
+  // Four states, not two. The passport's own soundness and the presence of a
+  // trust root are separate axes, so a passport that verifies is never
+  // reported as a failure just because no issuer vouched for it.
   console.log('')
   if (!trust.structurallyValid) {
     console.log('❌ DOES NOT VERIFY')
   } else if (trust.issuerTrusted) {
     console.log('✅ TRUSTED (countersigned by a trusted issuer)')
+  } else if (trust.issuerChecked) {
+    console.log('❌ NOT TRUSTED — the passport verifies, but no supplied issuer countersigned it')
   } else {
     console.log('⚠️  SELF-SIGNED — verifies, but no trusted issuer vouches for it')
     console.log('   Pass --trusted-issuer <issuer-public-key> to check against a trust root.')
@@ -609,6 +614,10 @@ function cmdVerify(): void {
     for (const e of trust.identity.errors) console.log(`    ✗ ${e}`)
   }
   for (const w of trust.identity.warnings) console.log(`    ! ${w}`)
+  console.log(
+    `  Issuer:   ${trust.issuerTrusted ? '✓ trusted' : trust.issuerChecked ? '✗ NOT TRUSTED' : '— no trust root supplied'}`
+  )
+  for (const e of trust.issuerErrors) console.log(`    ✗ ${e}`)
 
   if (trust.values) {
     console.log(`  Values:   ${trust.values.valid ? '✓ attested' : '✗ INVALID'}`)

@@ -308,6 +308,16 @@ export interface VerificationResult {
   errors: string[]
   warnings: string[]
   passport?: AgentPassport
+  /** Whether an issuer-trust check ran at all, i.e. whether the caller
+   *  supplied a non-empty trustedIssuers list. */
+  issuerTrustChecked?: boolean
+  /** True when this passport verified on its OWN signature alone, with no
+   *  trust root consulted. `valid` is still true in that case, for backward
+   *  compatibility, so this field is the machine-readable form of the
+   *  'self-signed passports are accepted' warning: a caller that must not
+   *  act on a self-vouching credential branches on this rather than on
+   *  string-matching the warning text. */
+  selfSignedAccepted?: boolean
 }
 
 export interface Challenge {

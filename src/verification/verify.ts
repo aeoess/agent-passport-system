@@ -13,9 +13,23 @@ import { v4 as uuidv4 } from 'uuid'
 
 /**
  * Verify passport structural integrity and signature.
- * WARNING: Without trustedIssuers, this trusts self-signed passports.
- * For production, pass trustedIssuers to verify the passport was issued
- * by a known authority, not just self-signed.
+ *
+ * WARNING: without `trustedIssuers`, a self-signed passport still returns
+ * valid: true. A passport signature verifies under the public key the
+ * passport itself carries, so on its own it proves that the holder of that
+ * key wrote the passport, capabilities included, and nothing about who
+ * vouches for the holder. A self-signed passport declaring
+ * `admin:everything` verifies here.
+ *
+ * That default is UNCHANGED and is relied on across the SDK; flipping it is
+ * a protocol decision, not a local repair. What this function now does is
+ * report the state in a form a caller can branch on: `issuerTrustChecked`
+ * says whether a trust root was consulted, and `selfSignedAccepted` says
+ * that the verdict rests on the passport's own signature alone. Callers
+ * that must not act on a self-vouching credential read those fields; the
+ * relying-party gate (v2/offline-verifier/middleware) and
+ * verifySocialContract both do, and both refuse to admit on that basis
+ * without an explicit posture from their own caller.
  */
 export function verifyPassport(
   signed: SignedPassport,
@@ -35,13 +49,15 @@ export function verifyPassport(
   // Null / undefined / non-object (attacker-deliverable JSON `null`) rejects
   // with the missing-fields verdict rather than throwing on the property
   // access below.
+  const issuerTrustChecked = Boolean(opts?.trustedIssuers && opts.trustedIssuers.length > 0)
+
   if (!isRecord(signed)) {
-    return { valid: false, errors: ['Missing passport or signature'], warnings }
+    return { valid: false, errors: ['Missing passport or signature'], warnings, issuerTrustChecked, selfSignedAccepted: false }
   }
 
   // Check required fields
   if (!signed.passport || !signed.signature) {
-    return { valid: false, errors: ['Missing passport or signature'], warnings }
+    return { valid: false, errors: ['Missing passport or signature'], warnings, issuerTrustChecked, selfSignedAccepted: false }
   }
 
   const { passport, signature } = signed
@@ -54,7 +70,7 @@ export function verifyPassport(
   }
 
   // If trustedIssuers provided, verify issuer countersignature
-  if (opts?.trustedIssuers && opts.trustedIssuers.length > 0) {
+  if (issuerTrustChecked && opts?.trustedIssuers) {
     const issuerSig = (signed as any).issuerSignature
     if (!issuerSig?.signature || !issuerSig?.issuerPublicKey) {
       errors.push('No issuer countersignature — passport is self-signed')
@@ -126,11 +142,16 @@ export function verifyPassport(
     }
   }
 
+  const valid = errors.length === 0
   return {
-    valid: errors.length === 0,
+    valid,
     errors,
     warnings,
-    passport: errors.length === 0 ? passport : undefined
+    issuerTrustChecked,
+    // The verdict rests on the passport's own signature alone: it verified,
+    // and no trust root was consulted to say who stands behind it.
+    selfSignedAccepted: valid && !issuerTrustChecked,
+    passport: valid ? passport : undefined
   }
 }
 

@@ -123,47 +123,62 @@ export function joinSocialContract(opts: JoinOptions): SocialContractAgent {
 export interface TrustVerification {
   identity: { valid: boolean; errors: string[]; warnings: string[] }
   values: { attested: boolean; valid: boolean; errors: string[] } | null
-  /** Whether an issuer countersignature from one of the caller's trusted
-   *  issuers verified. False whenever no trusted issuers were supplied: a
-   *  passport signature checks out under the key the passport itself
-   *  carries, which establishes that the holder of that key wrote it and
-   *  nothing about who vouches for the holder. */
+  /** Whether a trust root was consulted at all, i.e. whether the caller
+   *  supplied a non-empty trustedIssuers list. */
+  issuerChecked: boolean
+  /** Whether an issuer countersignature from one of those trusted issuers
+   *  verified. Always false when no trust root was consulted. */
   issuerTrusted: boolean
-  /** Every check that RAN, passed: signature, validity window, the issuer
-   *  countersignature when trusted issuers were supplied, and the values
-   *  attestation when one was supplied. This is a structural verdict. It is
-   *  NOT an authorization by a trust root; `issuerTrusted` is that. */
+  /** Why the issuer check failed, when one ran. Kept out of
+   *  identity.errors so that a missing trust root never reads as a defect
+   *  in the passport itself. */
+  issuerErrors: string[]
+  /** The passport's own signature, its validity window, and the values
+   *  attestation when one was supplied. A property of the BYTES: it does
+   *  not move when the caller changes their trust configuration. It is not
+   *  an authorization by a trust root; `issuerTrusted` is that. */
   structurallyValid: boolean
-  /** Alias of `structurallyValid`, kept for callers reading `overall`.
-   *  It never meant "trusted", which is why the honest name exists now. */
+  /** @deprecated Reading this emits a runtime DeprecationWarning.
+   *
+   *  Equal to `structurallyValid && (!issuerChecked || issuerTrusted)`,
+   *  which is exactly what this field always returned. The name says
+   *  "overall" and was rendered to operators as TRUSTED, but with no
+   *  trustedIssuers supplied it has only ever meant "the bytes check out".
+   *  Read `structurallyValid` and `issuerTrusted` instead and decide
+   *  explicitly which one your call site needs. */
   overall: boolean
 }
 
 export interface VerifySocialContractOptions {
   /** Issuer public keys the caller trusts. When supplied and non-empty, the
-   *  passport must carry a valid countersignature from one of them, and
-   *  `issuerTrusted` reports whether it did. When omitted, no external
-   *  trust root is consulted and `issuerTrusted` is false. */
+   *  passport must carry a valid countersignature from one of them for
+   *  `issuerTrusted` to be true. When omitted, no external trust root is
+   *  consulted, `issuerChecked` is false, and `issuerTrusted` is false. */
   trustedIssuers?: string[]
 }
+
+let overallDeprecationEmitted = false
 
 /**
  * Verify another agent's standing in the social contract.
  *
- * Two separate questions, answered separately:
+ * Two independent questions, answered by two separate checks so that
+ * neither can move the other:
  *
  *   structurallyValid — the passport signature, its validity window, and
- *     the values attestation if one was supplied, all check out. This is a
- *     statement about the bytes.
+ *     the values attestation if one was supplied, all check out. Computed
+ *     WITHOUT the caller's anchors, so it is a statement about the bytes and
+ *     is stable across trust configurations. Round 1 computed it from the
+ *     anchored check, so a byte-identical passport flipped true to false
+ *     purely because the caller passed a trustedIssuers list, and the CLI
+ *     printed a failure over a passport that verified.
  *   issuerTrusted     — an issuer the CALLER named countersigned this
  *     passport. This is the statement about standing.
  *
- * Without `trustedIssuers`, only the first question is answered and
- * `issuerTrusted` is false. The verifier's warnings, including 'No
- * trustedIssuers provided, self-signed passports are accepted', are
- * carried on `identity.warnings` rather than dropped, which is what used to
- * happen: the result was returned as a bare `overall` and rendered to
- * operators as TRUSTED.
+ * Without `trustedIssuers`, only the first question is answered.
+ * `issuerChecked` reports whether the second one was even asked, so "no
+ * trust root consulted" is never indistinguishable from "trust root
+ * consulted and failed".
  */
 export function verifySocialContract(
   passport: SignedPassport,
@@ -171,7 +186,18 @@ export function verifySocialContract(
   opts?: VerifySocialContractOptions
 ): TrustVerification {
   const trustedIssuers = opts?.trustedIssuers ?? []
-  const identity = verifyPassport(passport, { trustedIssuers })
+  const issuerChecked = trustedIssuers.length > 0
+
+  // Structure first, deliberately WITHOUT anchors. verifyPassport folds the
+  // issuer countersignature into its own `valid`, so passing anchors here
+  // would make the structural verdict depend on the caller's configuration.
+  const structural = verifyPassport(passport)
+
+  // Trust root second, as a separate question. Only asked when the caller
+  // named anchors to ask it against.
+  const anchored = issuerChecked
+    ? verifyPassport(passport, { trustedIssuers })
+    : undefined
 
   let values: TrustVerification['values'] = null
   if (attestation) {
@@ -183,23 +209,47 @@ export function verifySocialContract(
     }
   }
 
-  // Issuer trust is claimed only when a trust root was actually consulted
-  // and the countersignature check that verifyPassport runs against it
-  // produced no error.
-  const issuerTrusted = trustedIssuers.length > 0 && identity.valid
-  const structurallyValid = identity.valid && (!values || values.valid)
+  const issuerTrusted = anchored !== undefined && anchored.valid
+  // Errors the anchored check raised that the unanchored one did not: the
+  // issuer-trust failures, isolated from the passport's own problems.
+  const issuerErrors = anchored
+    ? anchored.errors.filter(e => !structural.errors.includes(e))
+    : []
+  const structurallyValid = structural.valid && (!values || values.valid)
 
-  return {
+  const result = {
     identity: {
-      valid: identity.valid,
-      errors: identity.errors,
-      warnings: identity.warnings ?? [],
+      valid: structural.valid,
+      errors: structural.errors,
+      warnings: structural.warnings ?? [],
     },
     values,
+    issuerChecked,
     issuerTrusted,
+    issuerErrors,
     structurallyValid,
-    overall: structurallyValid,
-  }
+  } as TrustVerification
+
+  // `overall` is an accessor, not a stored field, so that reading it emits a
+  // deprecation warning once per process. Enumerable so JSON.stringify of a
+  // result still carries it for existing consumers. Its VALUE is unchanged
+  // from before the split: structure AND whatever trust the caller demanded.
+  Object.defineProperty(result, 'overall', {
+    enumerable: true,
+    configurable: true,
+    get() {
+      if (!overallDeprecationEmitted) {
+        overallDeprecationEmitted = true
+        process.emitWarning(
+          'TrustVerification.overall is deprecated: it reads as a trust decision but with no trustedIssuers supplied it only means the bytes check out. Read structurallyValid and issuerTrusted instead.',
+          'DeprecationWarning',
+        )
+      }
+      return structurallyValid && (!issuerChecked || issuerTrusted)
+    },
+  })
+
+  return result
 }
 
 // ══════════════════════════════════════
