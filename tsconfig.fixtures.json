@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    // viem ships transitive .d.ts files that do not compile cleanly under
+    // moduleResolution node16. Skipping lib checks keeps this gate about the
+    // fixture generator and vendored support code, which are .ts files and are
+    // still fully checked.
+    "skipLibCheck": true
+  },
+  "include": ["fixtures/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
+}

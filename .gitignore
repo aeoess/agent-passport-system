@@ -70,3 +70,7 @@ __pycache__/
 
 # Written by mcp-use when a test server starts. Never source.
 .mcp-use/
+
+# Upstream fixture generator output: regenerated, not committed here. The
+# committed vectors live in the conformance suite (see the directory README).
+fixtures/oracle-safety-check/oracle-safety-check-v1/
