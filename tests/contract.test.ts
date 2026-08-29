@@ -8,6 +8,11 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { spawnSync } from 'node:child_process'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 import {
   joinSocialContract, verifySocialContract,
@@ -422,4 +427,39 @@ test('B4: an invalid passport is never flagged as an accepted self-signed one', 
   const result = verifyPassport(tampered)
   assert.equal(result.valid, false)
   assert.equal(result.selfSignedAccepted, false, 'a failed verdict is not an acceptance of anything')
+})
+
+// The deprecation on `overall` is a RUNTIME warning, and a warning nobody
+// checks is a comment. It fires once per process, so asserting it in-process
+// would depend on which test read `overall` first; this drives a child
+// process that reads it exactly once.
+test('B4: reading TrustVerification.overall emits a runtime DeprecationWarning', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'aps-deprecation-'))
+  try {
+    const probe = join(dir, 'probe.ts')
+    const repo = fileURLToPath(new URL('..', import.meta.url))
+    writeFileSync(probe, `
+      import { joinSocialContract, verifySocialContract } from ${JSON.stringify(join(repo, 'src', 'index.ts'))}
+      const agent = joinSocialContract({
+        name: 'probe', mission: 'probe', owner: 'probe',
+        capabilities: ['web_search'], platform: 'cloud', models: ['t'],
+      })
+      const trust = verifySocialContract(agent.passport)
+      // Reading the other fields must NOT warn.
+      void trust.structurallyValid
+      void trust.issuerTrusted
+      console.log('NO_WARNING_YET')
+      void trust.overall
+    `)
+    const r = spawnSync(join(repo, 'node_modules', '.bin', 'tsx'), [probe], { encoding: 'utf8' })
+    const out = (r.stdout || '') + (r.stderr || '')
+    assert.match(out, /DeprecationWarning/, `expected a DeprecationWarning, got: ${out}`)
+    assert.match(out, /overall is deprecated/)
+    assert.ok(
+      out.indexOf('NO_WARNING_YET') < out.indexOf('DeprecationWarning'),
+      'reading structurallyValid or issuerTrusted must not warn; only overall does',
+    )
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
 })
