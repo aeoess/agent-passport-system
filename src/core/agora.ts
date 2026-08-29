@@ -59,6 +59,27 @@ export function createAgoraMessage(opts: {
 
 // ── Verify a message signature ──
 
+/**
+ * Verify an agora message.
+ *
+ * Two independent predicates, reported separately and both folded into the
+ * verdict:
+ *
+ *   signatureValid — the Ed25519 signature verifies under the public key the
+ *     message carries. A structural fact about the bytes, not about who the
+ *     author is: the key is supplied by the object being verified.
+ *   knownAgent     — the author's key appears in the registry the caller
+ *     supplied. This is the identity check, and it only runs when a registry
+ *     is passed (`registryChecked` says whether it did).
+ *
+ * `valid` is true only when every check that ran, passed. It was previously
+ * set to signatureValid alone, so a message from an author absent from the
+ * registry came back valid with 'Author not found in agent registry' sitting
+ * in its own errors array.
+ *
+ * With no registry, `valid` is a signature-only verdict. It does not mean the
+ * author is a known participant; nothing checked that.
+ */
 export function verifyAgoraMessage(
   message: AgoraMessage,
   registry?: AgoraRegistry
@@ -82,6 +103,7 @@ export function verifyAgoraMessage(
   }
 
   // Check if author is in registry
+  const registryChecked = registry !== undefined
   let knownAgent = false
   if (registry) {
     knownAgent = registry.agents.some(
@@ -92,10 +114,18 @@ export function verifyAgoraMessage(
     }
   }
 
+  // Every predicate that ran has to reach the verdict. Both conjuncts below
+  // push an error when they fail, so this is also `errors.length === 0`; it is
+  // written out as the predicates themselves so that adding a check without
+  // adding it here is a visible omission rather than a silent one.
+  const valid = signatureValid && (!registryChecked || knownAgent)
+
   return {
-    valid: signatureValid,
+    valid,
     messageId: message.id,
     authorKey: message.author.publicKey,
+    signatureValid,
+    registryChecked,
     knownAgent,
     errors,
   }

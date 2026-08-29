@@ -1108,7 +1108,11 @@ function cmdAgoraRead(): void {
 
   for (const msg of messages) {
     const v = verifyAgoraMessage(msg, registry)
-    const verifyIcon = v.valid ? (v.knownAgent ? '✅' : '⚠️') : '❌'
+    // Three states, not two: verified member, authentic signature from an
+    // author the registry does not list, and a signature that did not verify.
+    // A message from an unlisted author is no longer `valid`, so the middle
+    // state now reads off signatureValid rather than off valid.
+    const verifyIcon = !v.signatureValid ? '❌' : (v.knownAgent ? '✅' : '⚠️')
     const typeIcon = msg.type === 'announcement' ? '📢' :
                      msg.type === 'proposal' ? '📋' :
                      msg.type === 'request' ? '🔧' :
