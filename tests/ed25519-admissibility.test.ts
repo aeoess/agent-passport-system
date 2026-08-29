@@ -275,3 +275,80 @@ test('the point check agrees with the exhaustive small-order enumeration', () =>
   }
   assert.ok(checked > 200, `expected a broad sample, checked ${checked}`)
 })
+
+// ---------------------------------------------------------------------------
+// High-level paths. The primitive is not the surface an attacker meets; the
+// artifact verifiers are. Each of these hands a verifier the degenerate
+// identity-key signature, which satisfies the RFC 8032 equation for every
+// message, so a permissive primitive would accept the artifact whatever its
+// contents. Inadmissible key material must stop the artifact.
+// ---------------------------------------------------------------------------
+
+test('a delegation signed with an inadmissible key is refused', async () => {
+  const { verifyDelegation } = await import('../src/core/delegation.js')
+  const status = verifyDelegation({
+    delegationId: 'del_smallorder',
+    delegatedBy: IDENTITY_KEY,
+    delegatedTo: 'agent-b',
+    scope: ['*'],
+    issuedAt: '2026-01-01T00:00:00Z',
+    expiresAt: '2099-01-01T00:00:00Z',
+    signature: DEGENERATE_SIG,
+  } as never)
+  assert.equal(status.valid, false, JSON.stringify(status))
+})
+
+test('a passport issuer countersignature under an inadmissible key is refused', async () => {
+  const { verifyIssuerSignature } = await import('../src/core/passport.js')
+  assert.equal(
+    verifyIssuerSignature(
+      {
+        passport: { agentId: 'agent-a' },
+        signature: 'ff'.repeat(64),
+        signedAt: '2026-01-01T00:00:00Z',
+        issuerSignature: {
+          issuerPublicKey: IDENTITY_KEY,
+          signature: DEGENERATE_SIG,
+          issuedAt: '2026-01-01T00:00:00Z',
+        },
+      } as never,
+      IDENTITY_KEY,
+    ),
+    false,
+  )
+})
+
+test('an Agora message from an inadmissible author key is refused', async () => {
+  const { verifyAgoraMessage } = await import('../src/core/agora.js')
+  const result = verifyAgoraMessage({
+    id: 'msg_smallorder',
+    topic: 'aps.security',
+    body: 'inadmissible signer',
+    author: { agentId: 'agent-a', publicKey: IDENTITY_KEY },
+    signature: DEGENERATE_SIG,
+  } as never)
+  assert.equal(result.valid, false, JSON.stringify(result))
+})
+
+// A did:key is self-certifying: the key is the identifier. That makes an
+// inadmissible key expressible as a well-formed DID, so the refusal has to
+// happen at verification rather than at parsing.
+test('a did:key naming a small-order point cannot authenticate a document', async () => {
+  const { createDID, publicKeyFromDID, verifyWithDID } = await import('../src/core/did.js')
+  const did = createDID(IDENTITY_KEY)
+  assert.equal(
+    publicKeyFromDID(did),
+    IDENTITY_KEY,
+    'the DID round-trips, so parsing alone does not stop it',
+  )
+  const signatureBase64url = Buffer.from(DEGENERATE_SIG, 'hex').toString('base64url')
+  assert.equal(
+    await verifyWithDID({ claim: 'anything at all' }, signatureBase64url, did),
+    false,
+    'the document must be refused at verification',
+  )
+  assert.equal(
+    await verifyWithDID({ claim: 'a totally different document' }, signatureBase64url, did),
+    false,
+  )
+})

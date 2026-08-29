@@ -219,10 +219,12 @@ export function verifyActionTimeContextRoot(input: ActionTimeContextRootInput): 
 // with the Edwards identity verified whatever its canonical bytes were. It now
 // delegates to the shared primitive in src/crypto/keys.ts, which enforces
 // Ed25519 admissibility, so there is one policy and one place to change it.
-function verifyEd25519(message: string | Uint8Array, sigHex: string, publicKeyHex: string): boolean {
-  const text =
-    typeof message === 'string' ? message : Buffer.from(message).toString('utf8')
-  return verifySignature(text, sigHex, publicKeyHex)
+// The parameter was `string | Uint8Array`, but the only call site passes the
+// canonical envelope string and the shared primitive signs UTF-8 bytes. Taking
+// bytes here would mean a lossy round-trip for anything that is not valid
+// UTF-8, so the type says what the function actually accepts.
+function verifyEd25519(message: string, sigHex: string, publicKeyHex: string): boolean {
+  return verifySignature(message, sigHex, publicKeyHex)
 }
 
 function isSortedByPath(files: readonly InstructionFile[]): boolean {
