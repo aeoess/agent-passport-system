@@ -5,6 +5,7 @@
 
 import crypto from 'node:crypto'
 import type { KeyPair } from '../types/passport.js'
+import { isAdmissibleKeyMaterial } from './ed25519-admissibility.js'
 
 function hexToBytes(hex: string): Uint8Array {
   if (!hex || hex.length % 2 !== 0 || !/^[0-9a-fA-F]+$/.test(hex)) {
@@ -43,6 +44,17 @@ export function sign(message: string, privateKeyHex: string): string {
   return bytesToHex(new Uint8Array(sig))
 }
 
+/**
+ * Verify an Ed25519 signature over the UTF-8 bytes of `message`.
+ *
+ * The public key and the signature's R must be admissible: the canonical
+ * encoding of a point that is not of small order. That is the behaviour on
+ * which the two strict implementations in the APS family agree, libsodium in
+ * agent-passport-python and ed25519-dalek verify_strict in
+ * crates/aps-verifier-core, checked over a 2534 vector corpus that includes
+ * the Wycheproof Ed25519 suite. Inadmissible key material is refused here so
+ * no artifact verifier downstream can accept it.
+ */
 export function verify(message: string, signatureHex: string, publicKeyHex: string): boolean {
   // Ed25519 public keys are exactly 32 bytes (64 hex chars) and signatures are
   // exactly 64 bytes (128 hex chars). Reject any other length up front. This
@@ -54,11 +66,20 @@ export function verify(message: string, signatureHex: string, publicKeyHex: stri
   if (typeof signatureHex !== 'string' || signatureHex.length !== 128) return false
   try {
     const pubBytes = hexToBytes(publicKeyHex)
+    const sigBytes = hexToBytes(signatureHex)
+
+    // Ed25519 admissibility. Node's crypto.verify implements the RFC 8032
+    // equation and nothing more, so it accepts a public key or an R that
+    // decodes to a small-order point. With the Edwards identity as the public
+    // key and R = the identity with S = 0 the equation degenerates and one
+    // signature verifies under every message, which proves nothing about the
+    // artifact carrying it. See ./ed25519-admissibility.ts.
+    if (!isAdmissibleKeyMaterial(pubBytes, sigBytes)) return false
+
     const derPrefix = Buffer.from('302a300506032b6570032100', 'hex')
     const derKey = Buffer.concat([derPrefix, Buffer.from(pubBytes)])
 
     const keyObj = crypto.createPublicKey({ key: derKey, format: 'der', type: 'spki' })
-    const sigBytes = hexToBytes(signatureHex)
     return crypto.verify(null, Buffer.from(message, 'utf8'), keyObj, Buffer.from(sigBytes))
   } catch (err: unknown) {
     // Distinguish input errors from verification failures (F-PX2-003)
