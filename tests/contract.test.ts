@@ -430,10 +430,19 @@ test('B4: an invalid passport is never flagged as an accepted self-signed one', 
 })
 
 // The deprecation on `overall` is a RUNTIME warning, and a warning nobody
-// checks is a comment. It fires once per process, so asserting it in-process
-// would depend on which test read `overall` first; this drives a child
-// process that reads it exactly once.
-test('B4: reading TrustVerification.overall emits a runtime DeprecationWarning', () => {
+// checks is a comment.
+//
+// The first version of this test could not fail. It asserted
+// out.indexOf('NO_WARNING_YET') < out.indexOf('DeprecationWarning') over
+// stdout and stderr CONCATENATED, and the marker is on stdout while the
+// warning is on stderr, so the ordering held no matter when the warning
+// fired. A patch that emitted the warning eagerly at construction, which is
+// exactly what the assertion was meant to forbid, still passed.
+//
+// Two child processes, streams kept apart. One reads only the replacement
+// fields and its stderr must be clean; the other reads `overall` and its
+// stderr must carry the warning. An eager emit fails the first.
+function runProbe(readOverall: boolean): { stdout: string; stderr: string } {
   const dir = mkdtempSync(join(tmpdir(), 'aps-deprecation-'))
   try {
     const probe = join(dir, 'probe.ts')
@@ -445,21 +454,32 @@ test('B4: reading TrustVerification.overall emits a runtime DeprecationWarning',
         capabilities: ['web_search'], platform: 'cloud', models: ['t'],
       })
       const trust = verifySocialContract(agent.passport)
-      // Reading the other fields must NOT warn.
       void trust.structurallyValid
       void trust.issuerTrusted
-      console.log('NO_WARNING_YET')
-      void trust.overall
+      void trust.issuerChecked
+      ${readOverall ? 'void trust.overall' : ''}
+      console.log('PROBE_DONE')
     `)
     const r = spawnSync(join(repo, 'node_modules', '.bin', 'tsx'), [probe], { encoding: 'utf8' })
-    const out = (r.stdout || '') + (r.stderr || '')
-    assert.match(out, /DeprecationWarning/, `expected a DeprecationWarning, got: ${out}`)
-    assert.match(out, /overall is deprecated/)
-    assert.ok(
-      out.indexOf('NO_WARNING_YET') < out.indexOf('DeprecationWarning'),
-      'reading structurallyValid or issuerTrusted must not warn; only overall does',
-    )
+    return { stdout: r.stdout || '', stderr: r.stderr || '' }
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
+}
+
+test('B4: reading TrustVerification.overall emits a runtime DeprecationWarning', () => {
+  const r = runProbe(true)
+  assert.match(r.stdout, /PROBE_DONE/, `probe did not run: ${r.stderr}`)
+  assert.match(r.stderr, /DeprecationWarning/, `expected a DeprecationWarning on stderr, got: ${r.stderr}`)
+  assert.match(r.stderr, /overall is deprecated/)
+})
+
+test('B4: the replacement fields do NOT warn, so the deprecation stays attached to overall', () => {
+  const r = runProbe(false)
+  assert.match(r.stdout, /PROBE_DONE/, `probe did not run: ${r.stderr}`)
+  assert.doesNotMatch(
+    r.stderr,
+    /DeprecationWarning/,
+    `reading structurallyValid, issuerTrusted and issuerChecked must not warn, got: ${r.stderr}`,
+  )
 })
