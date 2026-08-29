@@ -12,7 +12,7 @@ import assert from 'node:assert/strict'
 import {
   joinSocialContract, verifySocialContract,
   delegate, recordWork, proveContributions, auditCompliance,
-  generateKeyPair, loadFloor, clearStores
+  generateKeyPair, loadFloor, clearStores, countersignPassport
 } from '../src/index.js'
 
 const FLOOR = `
@@ -203,4 +203,79 @@ test('Edge: Verify agent with expired attestation', () => {
   assert.ok(trust.identity.valid, 'Identity still valid')
   assert.ok(!trust.values?.valid, 'Values attestation expired')
   assert.ok(!trust.overall, 'Overall: not trusted')
+})
+
+// ══════════════════════════════════════════════════════════════════
+// Invariant: a function that verifies internal cryptographic structure
+// must not report trusted authorization.
+// ══════════════════════════════════════════════════════════════════
+// verifySocialContract called verifyPassport with no trust anchors, threw
+// away its 'self-signed passports are accepted' warning (TrustVerification
+// had no field for it), and returned the result as `overall`, which the
+// CLI printed as "TRUSTED". A passport signature verifies under the key
+// the passport carries, so on its own it establishes structure, not
+// standing. The two are now separate fields with separate names.
+
+test('Trust root: a self-signed passport is structurally valid, not issuer-trusted', () => {
+  clearStores()
+  const agent = joinSocialContract({
+    name: 'SelfSigned', mission: 'Test trust roots', owner: 'test',
+    capabilities: ['web_search'], platform: 'cloud', models: ['test'],
+    floor: FLOOR, floorExtensions: [],
+  })
+  const trust = verifySocialContract(agent.passport, agent.attestation)
+  assert.equal(trust.structurallyValid, true, 'signature and attestation check out')
+  assert.equal(trust.issuerTrusted, false, 'nobody external vouched for this passport')
+  assert.ok(
+    trust.identity.warnings.some(w => w.toLowerCase().includes('self-signed')),
+    `expected the self-signed warning to survive, got ${JSON.stringify(trust.identity.warnings)}`,
+  )
+})
+
+test('Trust root: a countersignature from a supplied trusted issuer is issuer-trusted', () => {
+  clearStores()
+  const issuer = generateKeyPair()
+  const agent = joinSocialContract({
+    name: 'Issued', mission: 'Test trust roots', owner: 'test',
+    capabilities: ['web_search'], platform: 'cloud', models: ['test'],
+    floor: FLOOR, floorExtensions: [],
+  })
+  const countersigned = countersignPassport(agent.passport, issuer.privateKey, 'test-ca')
+  const trust = verifySocialContract(countersigned, agent.attestation, {
+    trustedIssuers: [issuer.publicKey],
+  })
+  assert.equal(trust.structurallyValid, true)
+  assert.equal(trust.issuerTrusted, true)
+})
+
+test('Trust root: a countersignature from an issuer outside the list is not trusted', () => {
+  clearStores()
+  const trusted = generateKeyPair()
+  const rogue = generateKeyPair()
+  const agent = joinSocialContract({
+    name: 'Rogue', mission: 'Test trust roots', owner: 'test',
+    capabilities: ['web_search'], platform: 'cloud', models: ['test'],
+    floor: FLOOR, floorExtensions: [],
+  })
+  const countersigned = countersignPassport(agent.passport, rogue.privateKey, 'rogue-ca')
+  const trust = verifySocialContract(countersigned, agent.attestation, {
+    trustedIssuers: [trusted.publicKey],
+  })
+  assert.equal(trust.issuerTrusted, false)
+  assert.equal(trust.structurallyValid, false, 'the untrusted countersignature is a verification error')
+})
+
+test('Trust root: a self-signed passport is not issuer-trusted even when issuers are supplied', () => {
+  clearStores()
+  const issuer = generateKeyPair()
+  const agent = joinSocialContract({
+    name: 'NoCountersig', mission: 'Test trust roots', owner: 'test',
+    capabilities: ['web_search'], platform: 'cloud', models: ['test'],
+    floor: FLOOR, floorExtensions: [],
+  })
+  const trust = verifySocialContract(agent.passport, agent.attestation, {
+    trustedIssuers: [issuer.publicKey],
+  })
+  assert.equal(trust.issuerTrusted, false)
+  assert.equal(trust.structurallyValid, false)
 })

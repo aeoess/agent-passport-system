@@ -121,21 +121,57 @@ export function joinSocialContract(opts: JoinOptions): SocialContractAgent {
 // ══════════════════════════════════════
 
 export interface TrustVerification {
-  identity: { valid: boolean; errors: string[] }
+  identity: { valid: boolean; errors: string[]; warnings: string[] }
   values: { attested: boolean; valid: boolean; errors: string[] } | null
+  /** Whether an issuer countersignature from one of the caller's trusted
+   *  issuers verified. False whenever no trusted issuers were supplied: a
+   *  passport signature checks out under the key the passport itself
+   *  carries, which establishes that the holder of that key wrote it and
+   *  nothing about who vouches for the holder. */
+  issuerTrusted: boolean
+  /** Every check that RAN, passed: signature, validity window, the issuer
+   *  countersignature when trusted issuers were supplied, and the values
+   *  attestation when one was supplied. This is a structural verdict. It is
+   *  NOT an authorization by a trust root; `issuerTrusted` is that. */
+  structurallyValid: boolean
+  /** Alias of `structurallyValid`, kept for callers reading `overall`.
+   *  It never meant "trusted", which is why the honest name exists now. */
   overall: boolean
+}
+
+export interface VerifySocialContractOptions {
+  /** Issuer public keys the caller trusts. When supplied and non-empty, the
+   *  passport must carry a valid countersignature from one of them, and
+   *  `issuerTrusted` reports whether it did. When omitted, no external
+   *  trust root is consulted and `issuerTrusted` is false. */
+  trustedIssuers?: string[]
 }
 
 /**
  * Verify another agent's standing in the social contract.
  *
- * One call. Checks identity, attestation, gives you a trust decision.
+ * Two separate questions, answered separately:
+ *
+ *   structurallyValid — the passport signature, its validity window, and
+ *     the values attestation if one was supplied, all check out. This is a
+ *     statement about the bytes.
+ *   issuerTrusted     — an issuer the CALLER named countersigned this
+ *     passport. This is the statement about standing.
+ *
+ * Without `trustedIssuers`, only the first question is answered and
+ * `issuerTrusted` is false. The verifier's warnings, including 'No
+ * trustedIssuers provided, self-signed passports are accepted', are
+ * carried on `identity.warnings` rather than dropped, which is what used to
+ * happen: the result was returned as a bare `overall` and rendered to
+ * operators as TRUSTED.
  */
 export function verifySocialContract(
   passport: SignedPassport,
-  attestation?: FloorAttestation | null
+  attestation?: FloorAttestation | null,
+  opts?: VerifySocialContractOptions
 ): TrustVerification {
-  const identity = verifyPassport(passport)
+  const trustedIssuers = opts?.trustedIssuers ?? []
+  const identity = verifyPassport(passport, { trustedIssuers })
 
   let values: TrustVerification['values'] = null
   if (attestation) {
@@ -147,10 +183,22 @@ export function verifySocialContract(
     }
   }
 
+  // Issuer trust is claimed only when a trust root was actually consulted
+  // and the countersignature check that verifyPassport runs against it
+  // produced no error.
+  const issuerTrusted = trustedIssuers.length > 0 && identity.valid
+  const structurallyValid = identity.valid && (!values || values.valid)
+
   return {
-    identity: { valid: identity.valid, errors: identity.errors },
+    identity: {
+      valid: identity.valid,
+      errors: identity.errors,
+      warnings: identity.warnings ?? [],
+    },
     values,
-    overall: identity.valid && (!values || values.valid)
+    issuerTrusted,
+    structurallyValid,
+    overall: structurallyValid,
   }
 }
 
