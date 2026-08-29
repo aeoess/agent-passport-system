@@ -19,7 +19,8 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   generateKeyPair, createDelegation, subDelegate, createReceipt,
-  createPassport, signPassport,
+  createPassport, signPassport, verifyDelegation, REVOCATION_CHECK_POLICIES,
+  traceBeneficiary,
   type RevocationCheckOptions,
 } from '../src/index.js'
 import { verifyOnAccept } from '../src/v2/credential-check-policy/check.js'
@@ -167,6 +168,9 @@ describe('reachability: the MCP adapter execution gate', () => {
         scope: ['data:read', 'tools:read_file'], privateKey: principal.privateKey,
       }),
       privateKey: keyPair.privateKey,
+      // The trust-anchor axis is pinned in adapter-trust-posture.test.ts; this
+      // file isolates the revocation axis, so the posture is stated explicitly.
+      allowSelfSigned: true as const,
       ...(revocation ? { revocation } : {}),
     }
   }
@@ -192,5 +196,199 @@ describe('reachability: the MCP adapter execution gate', () => {
     const result = await governMCPToolCall(call, async () => { executed++; return 'contents' }, config(FAIL_CLOSED_FRESH))
     assert.ok(!('denied' in result))
     assert.equal(executed, 1)
+  })
+})
+
+// ── Per-site pinning ────────────────────────────────────────────────
+// Mutation survivors M24, M25 and M26: un-threading `revocation` from
+// crewai, langchain or gonka INDIVIDUALLY caused zero failures, because the
+// only adapter exercised above was MCP. Moving all five together and
+// counting six failures proved that SOMETHING was threaded, not that each
+// site was. Each adapter now has its own case, so one gate regressing is
+// one test failing.
+//
+// These pass allowSelfSigned because they are testing the revocation axis;
+// the trust-anchor axis is pinned separately in adapter-trust-posture.test.ts.
+
+import { governLangChainTool } from '../src/adapters/langchain.js'
+import { verifyCrewMember } from '../src/adapters/crewai.js'
+import { verifyGonkaHost } from '../src/adapters/gonka.js'
+
+function adapterConfig(revocation?: RevocationCheckOptions) {
+  const { signedPassport, keyPair } = createPassport({
+    agentId: 'agent-adapter', agentName: 'adapter', ownerAlias: 'o', mission: 'm',
+    capabilities: ['data:read'],
+    runtime: { platform: 'node', models: ['gpt'], toolsCount: 0, memoryType: 'none' },
+    expiresInDays: 30,
+  })
+  return {
+    passport: signPassport(signedPassport.passport, keyPair.privateKey),
+    delegation: createDelegation({
+      delegatedTo: keyPair.publicKey, delegatedBy: principal.publicKey,
+      scope: ['*'], privateKey: principal.privateKey,
+    }),
+    privateKey: keyPair.privateKey,
+    allowSelfSigned: true as const,
+    ...(revocation ? { revocation } : {}),
+  }
+}
+
+describe('reachability: the LangChain adapter execution gate (M25)', () => {
+  const call = { name: 'search', arguments: {} }
+
+  it('executes without a posture and denies under fail_closed with no evidence', async () => {
+    let executed = 0
+    const run = async () => { executed++; return 'result' }
+
+    const permitted = await governLangChainTool(call, run, adapterConfig())
+    assert.ok(!('denied' in permitted), 'baseline call should execute')
+    assert.equal(executed, 1)
+
+    const denied = await governLangChainTool(call, run, adapterConfig(FAIL_CLOSED))
+    assert.ok('denied' in denied, 'fail_closed is not reachable through the LangChain adapter')
+    assert.match(denied.reason, /revocation/)
+    assert.equal(executed, 1, 'the tool must not run when the gate denies')
+  })
+
+  it('executes against fresh revocation evidence', async () => {
+    let executed = 0
+    const r = await governLangChainTool(call, async () => { executed++; return 'ok' }, adapterConfig(FAIL_CLOSED_FRESH))
+    assert.ok(!('denied' in r))
+    assert.equal(executed, 1)
+  })
+})
+
+describe('reachability: the CrewAI adapter gate (M24)', () => {
+  const task = { description: 'do the thing', expectedOutput: 'a thing', tools: ['search'] }
+
+  it('authorizes without a posture and refuses under fail_closed with no evidence', () => {
+    const permitted = verifyCrewMember('agent', task as never, adapterConfig())
+    assert.equal(permitted.authorized, true, permitted.reason)
+
+    const denied = verifyCrewMember('agent', task as never, adapterConfig(FAIL_CLOSED))
+    assert.equal(denied.authorized, false, 'fail_closed is not reachable through the CrewAI adapter')
+    assert.match(denied.reason, /revocation/)
+  })
+
+  it('refuses two-hour-stale evidence and authorizes against fresh evidence', () => {
+    assert.equal(verifyCrewMember('agent', task as never, adapterConfig(FAIL_CLOSED_STALE)).authorized, false)
+    assert.equal(verifyCrewMember('agent', task as never, adapterConfig(FAIL_CLOSED_FRESH)).authorized, true)
+  })
+})
+
+describe('reachability: the Gonka adapter gate (M26)', () => {
+  it('authorizes without a posture and refuses under fail_closed with no evidence', () => {
+    const permitted = verifyGonkaHost('host-1', 'gpt', adapterConfig())
+    assert.equal(permitted.authorized, true, permitted.reason)
+
+    const denied = verifyGonkaHost('host-1', 'gpt', adapterConfig(FAIL_CLOSED))
+    assert.equal(denied.authorized, false, 'fail_closed is not reachable through the Gonka adapter')
+    assert.match(denied.reason, /revocation/)
+  })
+
+  it('refuses two-hour-stale evidence and authorizes against fresh evidence', () => {
+    assert.equal(verifyGonkaHost('host-1', 'gpt', adapterConfig(FAIL_CLOSED_STALE)).authorized, false)
+    assert.equal(verifyGonkaHost('host-1', 'gpt', adapterConfig(FAIL_CLOSED_FRESH)).authorized, true)
+  })
+})
+
+// ── The policy value itself cannot be a silent typo ──────────────────
+
+describe('revocation policy values are validated, not silently defaulted', () => {
+  it("a mis-cased 'FAIL_CLOSED' throws instead of quietly meaning fail_open", () => {
+    assert.throws(
+      () => verifyDelegation(delegation(), { revocationCheckPolicy: 'FAIL_CLOSED' as never }),
+      /unknown revocationCheckPolicy/,
+      'a typo in the strictest setting silently selected the weakest one',
+    )
+  })
+
+  it('every documented policy value is accepted', () => {
+    for (const policy of REVOCATION_CHECK_POLICIES) {
+      assert.doesNotThrow(() => verifyDelegation(delegation(), { revocationCheckPolicy: policy }))
+    }
+  })
+
+  it('omitting the policy is still the fail_open default', () => {
+    assert.equal(verifyDelegation(delegation()).valid, true)
+  })
+})
+
+// ── attribution: the ninth call site, now threaded ──────────────────
+// Round 2 left this one out with an argument that did not survive review:
+// it claimed a revocation posture would let present-day state flip a
+// historical verdict, on a line whose verifyDelegation call already does
+// exactly that via EXPIRY. The posture is now available, defaults to
+// fail_open, and takes evidence PER DELEGATION, since one cached state
+// applied to every hop of a chain would be a new defect rather than a fix.
+
+describe('reachability: the attribution chain walk', () => {
+  function chainFixture() {
+    const mid = generateKeyPair()
+    const leaf = generateKeyPair()
+    const first = createDelegation({
+      delegatedTo: mid.publicKey, delegatedBy: principal.publicKey,
+      scope: ['data:read'], maxDepth: 3, privateKey: principal.privateKey,
+    })
+    const second = createDelegation({
+      delegatedTo: leaf.publicKey, delegatedBy: mid.publicKey,
+      scope: ['data:read'], maxDepth: 3, currentDepth: 1, privateKey: mid.privateKey,
+    })
+    const receipt = createReceipt({
+      agentId: 'leaf', delegationId: second.delegationId, delegation: second,
+      action: { type: 'read', target: 'db', scopeUsed: 'data:read' },
+      result: { status: 'success', summary: 'ok' },
+      delegationChain: [principal.publicKey, mid.publicKey, leaf.publicKey],
+      privateKey: leaf.privateKey,
+    })
+    return { delegations: [first, second], receipt }
+  }
+
+  it('defaults to fail_open, so the historical behaviour is unchanged', () => {
+    const { delegations, receipt } = chainFixture()
+    const trace = traceBeneficiary(receipt, delegations, new Map())
+    assert.equal(trace.verified, true, 'the default walk must be what it always was')
+  })
+
+  it('fail_closed with no evidence resolver makes every hop unauthenticated', () => {
+    const { delegations, receipt } = chainFixture()
+    const trace = traceBeneficiary(receipt, delegations, new Map(), {
+      revocationCheckPolicy: 'fail_closed',
+    })
+    assert.equal(trace.verified, false, 'fail_closed is not reachable through traceBeneficiary')
+  })
+
+  it('fail_closed with fresh per-delegation evidence verifies again', () => {
+    const { delegations, receipt } = chainFixture()
+    const trace = traceBeneficiary(receipt, delegations, new Map(), {
+      revocationCheckPolicy: 'fail_closed',
+      resolveRevocation: () => ({ revoked: false, checkedAt: new Date().toISOString() }),
+    })
+    assert.equal(trace.verified, true)
+  })
+
+  it('the resolver is consulted PER delegation, not once for the whole chain', () => {
+    const { delegations, receipt } = chainFixture()
+    const seen: string[] = []
+    traceBeneficiary(receipt, delegations, new Map(), {
+      revocationCheckPolicy: 'fail_closed',
+      resolveRevocation: (d) => {
+        seen.push(d.delegationId)
+        return { revoked: false, checkedAt: new Date().toISOString() }
+      },
+    })
+    assert.equal(new Set(seen).size, delegations.length,
+      `expected one lookup per delegation, saw ${JSON.stringify(seen)}`)
+  })
+
+  it('a revoked hop breaks the chain when the caller asks about revocation', () => {
+    const { delegations, receipt } = chainFixture()
+    const trace = traceBeneficiary(receipt, delegations, new Map(), {
+      revocationCheckPolicy: 'fail_closed',
+      resolveRevocation: (d) => d.delegationId === delegations[0].delegationId
+        ? { revoked: true, checkedAt: new Date().toISOString() }
+        : { revoked: false, checkedAt: new Date().toISOString() },
+    })
+    assert.equal(trace.verified, false)
   })
 })

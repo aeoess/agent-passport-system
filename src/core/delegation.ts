@@ -272,6 +272,11 @@ export function subDelegate(opts: SubDelegateOptions): Delegation {
  */
 export type RevocationCheckPolicy = 'fail_open' | 'fail_closed' | 'cache_grace'
 
+/** The complete set of accepted policy values, exported so a caller reading a
+ *  policy out of configuration can check it before handing it over. */
+export const REVOCATION_CHECK_POLICIES: readonly RevocationCheckPolicy[] =
+  Object.freeze(['fail_open', 'fail_closed', 'cache_grace'])
+
 /** Default freshness bound for cached revocation evidence, in milliseconds.
  *  Used by `cache_grace` as the grace window and by `fail_closed` as the
  *  maximum age of evidence it will accept. */
@@ -322,7 +327,22 @@ export function verifyDelegation(delegation: Delegation, opts?: RevocationCheckO
       revocationEvidence: 'absent',
     }
   }
-  const policy = opts?.revocationCheckPolicy ?? 'fail_open'
+  // A policy value the SDK does not recognise is a caller configuration error,
+  // and it must not resolve to the most permissive branch by falling through
+  // every comparison. 'FAIL_CLOSED' used to return valid true with no error
+  // and no complaint: an integrator who typed the strictest setting in the
+  // wrong case silently got the weakest one. The policy is chosen by the
+  // integrator and never carried in the artifact being verified, so this can
+  // only ever fire on the caller's own configuration, which is why it is loud
+  // rather than a silent downgrade to fail_closed.
+  const requestedPolicy = opts?.revocationCheckPolicy
+  if (requestedPolicy !== undefined && !REVOCATION_CHECK_POLICIES.includes(requestedPolicy)) {
+    throw new Error(
+      `verifyDelegation: unknown revocationCheckPolicy ${JSON.stringify(requestedPolicy)}. ` +
+      `Expected one of ${REVOCATION_CHECK_POLICIES.join(', ')}.`,
+    )
+  }
+  const policy: RevocationCheckPolicy = requestedPolicy ?? 'fail_open'
   const errors: string[] = []
 
   const { signature, ...unsigned } = delegation
@@ -365,15 +385,25 @@ export function verifyDelegation(delegation: Delegation, opts?: RevocationCheckO
   let revocationEvidence: 'absent' | 'stale' | 'fresh' = 'absent'
   if (cached) {
     const checkedAtMs = new Date(cached.checkedAt).getTime()
-    // The freshness window is bounded on BOTH sides. An unparseable
-    // checkedAt is not evidence of freshness, and neither is one dated after
-    // the moment the evidence is being read: a negative age used to pass the
-    // upper bound, so checkedAt in the year 2999 graded as 'fresh' and
-    // satisfied fail_closed. There is no future tolerance. A verifier whose
-    // clock lags the evidence source grades that evidence stale, which
-    // fail_closed refuses, which is the safe direction to be wrong in.
-    const cacheAge = Number.isFinite(checkedAtMs) ? Date.now() - checkedAtMs : Infinity
-    revocationEvidence = cacheAge >= 0 && cacheAge <= freshnessMs ? 'fresh' : 'stale'
+    if (!Number.isFinite(checkedAtMs)) {
+      // Graded BEFORE any window comparison, not by arithmetic on a sentinel.
+      // Mapping an unparseable timestamp to an Infinity age and comparing it
+      // against the window looked equivalent and was not: with
+      // cacheGraceMs: Infinity, Infinity <= Infinity passed, so
+      // checkedAt: 'not-a-date' graded FRESH and satisfied fail_closed. A
+      // timestamp that cannot be read is not evidence of when anything was
+      // checked, whatever the window is set to.
+      revocationEvidence = 'stale'
+    } else {
+      // The window is bounded on BOTH sides. Evidence dated after the moment
+      // it is read is not fresh either: a negative age used to pass the upper
+      // bound, so checkedAt in the year 2999 graded fresh. There is no future
+      // tolerance. A verifier whose clock lags the evidence source grades that
+      // evidence stale, which fail_closed refuses, which is the safe direction
+      // to be wrong in.
+      const cacheAge = Date.now() - checkedAtMs
+      revocationEvidence = cacheAge >= 0 && cacheAge <= freshnessMs ? 'fresh' : 'stale'
+    }
   }
 
   let revoked = false

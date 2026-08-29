@@ -744,6 +744,59 @@ describe('Delegation: revocation evidence cannot be dated in the future', () => 
     }
   })
 
+  // The unparseable-timestamp path needs its OWN case, and it needs an
+  // unbounded window. With the default 300000ms window an Infinity age is
+  // already outside the bound, so garbage graded stale for the wrong reason
+  // and every existing test passed either way. The defect only shows when the
+  // window is wide enough that Infinity <= window is true.
+  it('an unparseable checkedAt is stale even when the window is unbounded', () => {
+    const status = verifyDelegation(live(), {
+      revocationCheckPolicy: 'fail_closed',
+      cachedRevocationState: { revoked: false, checkedAt: 'not-a-date' },
+      cacheGraceMs: Infinity,
+    })
+    assert.equal(status.revocationEvidence, 'stale')
+    assert.equal(status.valid, false, 'garbage in checkedAt satisfied fail_closed')
+    assert.ok(status.errors.some(e => e.includes('revocation')), status.errors.join(' | '))
+  })
+
+  it('no window is wide enough to make an unreadable timestamp fresh', () => {
+    for (const cacheGraceMs of [Infinity, Number.MAX_VALUE, 1e18, 300_000]) {
+      for (const checkedAt of ['not-a-date', '', 'yesterday', 'NaN', '2026-13-45T99:99:99Z']) {
+        const status = verifyDelegation(live(), {
+          revocationCheckPolicy: 'fail_closed',
+          cachedRevocationState: { revoked: false, checkedAt },
+          cacheGraceMs,
+        })
+        assert.equal(
+          status.revocationEvidence, 'stale',
+          `checkedAt ${JSON.stringify(checkedAt)} with window ${cacheGraceMs} graded fresh`,
+        )
+        assert.equal(status.valid, false)
+      }
+    }
+  })
+
+  it('cache_grace also refuses an unreadable timestamp under an unbounded window', () => {
+    const status = verifyDelegation(live(), {
+      revocationCheckPolicy: 'cache_grace',
+      cachedRevocationState: { revoked: false, checkedAt: 'not-a-date' },
+      cacheGraceMs: Infinity,
+    })
+    assert.equal(status.valid, false)
+    assert.equal(status.revoked, true, 'cache_grace converts unusable evidence into a revocation')
+  })
+
+  it('an unbounded window still admits genuinely fresh evidence', () => {
+    const status = verifyDelegation(live(), {
+      revocationCheckPolicy: 'fail_closed',
+      cachedRevocationState: { revoked: false, checkedAt: new Date().toISOString() },
+      cacheGraceMs: Infinity,
+    })
+    assert.equal(status.revocationEvidence, 'fresh')
+    assert.equal(status.valid, true, status.errors.join(' | '))
+  })
+
   it('evidence checked right now is still fresh', () => {
     const status = verifyDelegation(live(), {
       revocationCheckPolicy: 'fail_closed',
