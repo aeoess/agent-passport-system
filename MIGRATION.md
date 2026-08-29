@@ -128,23 +128,87 @@ permissive reading have to state their trust posture explicitly.
 | `verifyDelegation(d, { revocationCheckPolicy: 'fail_closed' })` | identical to `fail_open`; accepted absent and stale revocation evidence | admits only against evidence present and inside `cacheGraceMs`; result carries `revocationEvidence` |
 | `verifyAgoraMessage(msg, registry)` for an unlisted author | `{ valid: true, errors: ['Author not found in agent registry'] }` | `{ valid: false, signatureValid: true, knownAgent: false }` |
 | `evaluateRequest(passport, opts)` with no trust anchors | admitted the self-signed passport | denies with `UNTRUSTED_ISSUER` unless `trustedIssuers` is non-empty or `allowSelfSigned: true` |
-| `GovernanceLoadPolicy.allowedIssuers: []` | skipped the check, admitted any issuer | admits none; write `['*']` (`ANY_ISSUER`) for wildcard trust |
+| `GovernanceLoadPolicy.allowedIssuers: []` | skipped the check, admitted any issuer | admits none; write `['*']` (`ANY_ISSUER`) alone for wildcard trust |
 
 Porting notes:
 
 - Reading an aps.txt without authenticating it is `parseApsTxt`, which is
-  what it was always for. `verifyApsTxt` is not a parser.
+  what it was always for. `verifyApsTxt` is not a parser. Its `strict`
+  option and `VerifyApsTxtOptions` are removed: once the unsigned verdict
+  became unconditional, `strict` changed only the length of the `errors`
+  array, and a security-shaped option that cannot change a security outcome
+  is the thing this work exists to delete.
 - A caller who wants the old `fail_closed` behaviour wanted `fail_open`;
   say so. A caller who genuinely wants fail-closed revocation has to supply
-  `cachedRevocationState` from a live source.
+  `cachedRevocationState` from a live source. The posture is selectable
+  from `subDelegate`, `createReceipt`, `verifyOnAccept`, `consultAdvisor`
+  and the LangChain, CrewAI, Gonka and MCP adapters through a `revocation`
+  field, all defaulting to `fail_open`.
 - `evaluateRequest` on a closed network or a development gate takes
   `allowSelfSigned: true`. Every admit made that way carries the verifier's
   self-signed warning in `GateDecision.warnings`, which the gate used to
   discard.
-- `DEFAULT_LOAD_POLICY` is unchanged in behaviour: it now spells its
-  wildcard as `allowedIssuers: ['*']` instead of `[]`. Only a policy that
-  hand-wrote `allowedIssuers: []` changes meaning, and it changes to the
-  meaning it reads as.
+
+### allowedIssuers: how the wildcard behaves under the spread idiom
+
+An earlier draft of this note said that "only a policy that hand-wrote
+`allowedIssuers: []` changes meaning". **That was wrong and it was the more
+dangerous half of the change.** `'*'` survives array concatenation, so the
+idiom an operator uses to HARDEN a policy
+
+```ts
+{ ...DEFAULT_LOAD_POLICY,
+  allowedIssuers: [...DEFAULT_LOAD_POLICY.allowedIssuers, myKey] }
+```
+
+produced `['*', myKey]`, which admitted every issuer. The operator's own key
+was appended to a list that no longer restricted anything. `tests/governance.test.ts`
+spreads the default at eight sites, so the idiom is native to this codebase.
+
+The wildcard is now honoured ONLY as the sole entry. Naming any issuer
+alongside it means the operator named issuers, so the list is read as a
+closed allowlist of the named ones and the ignored wildcard is reported in
+`GovernanceVerification.warnings`. Every idiom now lands where it reads:
+
+| Policy | Admits |
+|---|---|
+| `DEFAULT_LOAD_POLICY` | any issuer (unchanged) |
+| `{...DEFAULT, allowedIssuers: [...DEFAULT.allowedIssuers, k]}` | **only `k`** |
+| `{...DEFAULT, allowedIssuers: [k]}` | only `k` |
+| `{...DEFAULT, allowedIssuers: []}` | nobody |
+| `{allowedIssuers: ['*']}` | any issuer |
+
+### Type-level breaks
+
+Result interfaces gained required members. Code that READS these results is
+unaffected. Code that CONSTRUCTS one, which in practice means test doubles,
+mocks and re-implementations, must add them.
+
+| Interface | Added / changed |
+|---|---|
+| `AgoraVerification` | required `signatureValid`, `registryChecked` |
+| `VerifyApsTxtResult` | required `signatureChecked` |
+| `GovernanceVerification` | required `warnings` |
+| `TrustVerification` | required `issuerChecked`, `issuerTrusted`, `issuerErrors`, `structurallyValid`; `identity` gained required `warnings`; `overall` is an accessor that emits a `DeprecationWarning` |
+| `GateDenyReason` | union widened with `UNTRUSTED_ISSUER`; an exhaustive `switch` over it no longer compiles without a new branch |
+| `DelegationStatus` | optional `revocationEvidence` |
+| `VerificationResult` | optional `issuerTrustChecked`, `selfSignedAccepted` |
+| `VerifyApsTxtOptions` | **removed**, along with the third parameter of `verifyApsTxt` |
+
+### Still open: verifyPassport and self-signed passports
+
+`verifyPassport(signed)` with no `trustedIssuers` still returns `valid: true`
+for a self-signed passport declaring `admin:everything`. Closing that default
+fails 71 tests across accountability, payment rails, mutual-auth and the
+adapters, so it is a protocol decision rather than a local repair and it has
+not been taken here.
+
+What changed is that the state is machine-readable:
+`VerificationResult.issuerTrustChecked` says whether a trust root was
+consulted and `.selfSignedAccepted` says the verdict rests on the passport's
+own signature alone. Branch on those rather than string-matching the warning.
+The relying-party gate and `verifySocialContract` both do, and neither will
+admit on that basis without an explicit posture from its own caller.
 
 ## What moved to @aeoess/gateway
 

@@ -1,5 +1,154 @@
 # Changelog
 
+## 5.0.0 (2026-08-29)
+
+Five verification surfaces returned a permissive verdict when a check had not
+run. Each one now separates "checked and passed" from "not checked", and each
+fails closed where it used to fail open. The major bump is because these
+change verdicts and interface shapes, not because the wire format moved: no
+signed artifact that verified before verifies differently now.
+
+Per AGENTS.md this bump is PROPOSED, not decided. A human owns the version.
+
+### Behavior change
+
+- **`verifyApsTxt` no longer reports an unverified document as valid.** With no
+  public key it returned `{ valid: true, errors: [] }`, because the `strict`
+  option that gated the unsigned verdict defaulted to false. A caller that had
+  not yet resolved the publisher key read any aps.txt, including one
+  substituted in transit, as valid governance for the whole domain. With no key
+  the result is now `valid: false`, `signatureChecked: false`, `reason:
+  'UNSIGNED'`. A public key that is not 64 hex characters lands in the same
+  unchecked state rather than throwing out of `createDID`, which a verifier
+  must not do. Reading an aps.txt without authenticating it keeps its own named
+  operation, `parseApsTxt`, which asserts nothing about signatures.
+- **`verifyDelegation`'s `fail_closed` revocation policy now does something.**
+  The policy was read into a local and compared against exactly one value,
+  `cache_grace`, so `fail_closed` and `fail_open` ran identical code. Driven
+  against the SDK, `fail_closed` accepted a cached revocation state two hours
+  old and accepted having no revocation evidence at all. The three policies are
+  now observably different on the same input: `fail_open` is unchanged and
+  remains the default, `cache_grace` is unchanged, and `fail_closed` admits
+  only against evidence that is present and inside the freshness bound. A
+  `fail_closed` refusal reports `revoked: false` and names the evidence
+  problem rather than asserting a revocation nobody observed. Evidence dated in
+  the FUTURE is not fresh either: a negative age used to pass the upper bound,
+  so `checkedAt: '2999-01-01'` graded as fresh.
+- **The revocation posture is selectable from shipped entrypoints.** The
+  repaired policy was reachable only from a direct `verifyDelegation` call:
+  nine internal call sites, none passing options. `subDelegate`,
+  `createReceipt`, `verifyOnAccept`, `consultAdvisor` and the LangChain,
+  CrewAI, Gonka and MCP adapters now all accept a `revocation`
+  (`RevocationCheckOptions`) argument and thread it through. All default to
+  `fail_open`, so no existing caller changes behaviour. `verifyAttribution`'s
+  chain walk deliberately does NOT take one: it asks a historical question and
+  must not let present-day revocation state rewrite the record of a past act.
+- **`verifyAgoraMessage` folds the registry check into its verdict.** It ran
+  the check, pushed `'Author not found in agent registry'` into `errors`, and
+  then returned `valid: signatureValid`, so a message from an unlisted author
+  came back as `{"valid":true, errors:["Author not found in agent registry"]}`
+  and `verifyFeed` counted it toward `valid` with `invalid: []`. `signatureValid`,
+  `registryChecked` and `knownAgent` are now reported separately and the
+  verdict conjoins every check that ran. A `null` registry is no registry
+  rather than an empty one, and a registry whose `agents` is not an array is a
+  check that FAILED rather than one that was skipped, so a refusal always
+  states a reason.
+- **The relying-party gate requires a stated trust posture.** `evaluateRequest`
+  admitted an attacker's self-signed passport declaring `admin:everything` with
+  `{"admit": true}`. `verifyPassport` emits a self-signed warning, but
+  `GateDecision` had no warnings field, so the gate discarded the one signal
+  that said on what basis it was admitting, and `trustedIssuers: []` took the
+  same silent path as omitting the option. A non-empty `trustedIssuers` now
+  requires a valid countersignature from one of them; `allowSelfSigned: true`
+  accepts self-signed credentials and every admit made that way carries the
+  warning; neither, or an empty list, denies with the new `UNTRUSTED_ISSUER`
+  reason and a 401.
+- **`GovernanceLoadPolicy.allowedIssuers` distinguishes "none" from "anyone".**
+  The check was guarded with `length > 0`, so an empty list skipped it and
+  admitted every issuer, and `DEFAULT_LOAD_POLICY` shipped that empty list. An
+  empty list now admits nobody. Wildcard trust is the explicit `ANY_ISSUER`
+  (`'*'`) entry, honoured ONLY as the SOLE entry: `['*', key]` is what comes
+  out of spreading the default and appending a key, which is an operator
+  HARDENING a policy, so it reads as a closed allowlist of the named issuers
+  and the dropped wildcard is reported in the new `warnings` array.
+  `DEFAULT_LOAD_POLICY` carries `['*']`, so its behaviour is unchanged.
+- **`verifySocialContract` separates structure from standing.** It called
+  `verifyPassport` with no trust anchors, discarded its self-signed warning,
+  and returned the result as `overall`, which the CLI printed as
+  "✅ TRUSTED". `structurallyValid` is now the passport's own signature,
+  validity window and values attestation, computed WITHOUT the caller's
+  anchors so it is a property of the bytes and does not move when the caller
+  changes trust configuration. `issuerTrusted` is the separate statement about
+  standing, `issuerChecked` says whether it was even asked, and `issuerErrors`
+  keeps trust failures out of `identity.errors`.
+- **`passport verify` reports four states, not two.** DOES NOT VERIFY,
+  TRUSTED, NOT TRUSTED (verifies, but no supplied issuer countersigned it) and
+  SELF-SIGNED (verifies, no trust root supplied). It takes a repeatable
+  `--trusted-issuer` flag; `getFlag` returned only the first value for a
+  repeated flag, which silently dropped the rest of a trust-anchor list.
+
+### Deprecated
+
+- **`TrustVerification.overall`.** Reading it emits a runtime
+  `DeprecationWarning`. Its value is unchanged, `structurallyValid && (!issuerChecked
+  || issuerTrusted)`, which is exactly what the field always returned. The name
+  reads as a trust decision, but with no `trustedIssuers` supplied it has only
+  ever meant "the bytes check out". Read `structurallyValid` and
+  `issuerTrusted` and decide explicitly which one the call site needs.
+
+### Known limitation
+
+- **`verifyPassport` still returns `valid: true` for a self-signed passport
+  declaring `admin:everything`.** This default is relied on across the SDK:
+  closing it fails 71 tests spanning accountability, payment rails,
+  mutual-auth and the adapters, which makes it a protocol decision rather than
+  a local repair. It is escalated, not taken. What changed is that the state is
+  now machine-readable: `VerificationResult.issuerTrustChecked` and
+  `.selfSignedAccepted` let a caller branch on it instead of string-matching a
+  warning. The gate and `verifySocialContract` both refuse to admit on that
+  basis without an explicit posture from their own caller.
+
+### Removed
+
+- **`VerifyApsTxtOptions` and the third parameter of `verifyApsTxt`.** The
+  `strict` option gated the unsigned verdict; once that verdict became
+  unconditional the only thing it still changed was how many entries landed in
+  `errors`. A security-shaped option that cannot change a security outcome is
+  the defect class this release exists to remove, so it is gone rather than
+  kept as a no-op. The behaviour it selected is now the only behaviour, which
+  is strictly stronger than what the AV-2 report asked for.
+
+### Breaking type changes
+
+Result interfaces gained required members. Code that READS these results is
+unaffected; code that CONSTRUCTS one (test doubles, mocks, re-implementations)
+must add them.
+
+| Interface | Change |
+|---|---|
+| `AgoraVerification` | required `signatureValid`, `registryChecked` |
+| `VerifyApsTxtResult` | required `signatureChecked` |
+| `GovernanceVerification` | required `warnings` |
+| `TrustVerification` | required `issuerChecked`, `issuerTrusted`, `issuerErrors`, `structurallyValid`; `identity` gained required `warnings`; `overall` is now an accessor |
+| `GateDenyReason` | union widened with `UNTRUSTED_ISSUER`, so an exhaustive `switch` no longer compiles without a branch |
+| `GovernanceLoadPolicy.allowedIssuers` | semantics changed, shape unchanged |
+| `DelegationStatus` | optional `revocationEvidence` added |
+| `VerificationResult` | optional `issuerTrustChecked`, `selfSignedAccepted` added |
+| `VerifyApsTxtOptions` | removed |
+
+### Tests
+
+- `tests/revocation-policy-reachability.test.ts` drives each shipped entrypoint
+  twice with identical input, changing only the revocation posture, and asserts
+  the outcome differs. Reverting the threading fails six of its eight cases.
+- `tests/v2/authority-delegation-resolver-guards.test.ts` closes two mutation
+  survivors on the authority-delegation verifier: dropping the resolver value
+  normalization made `undefined`, `null`, a Promise and any unrecognised string
+  return `valid: true` with the previous suite fully green. No source in that
+  module changed; the tests pass against the shipped implementation.
+- `tests/cli-verify.test.ts` drives the real `passport verify` binary and
+  asserts on operator-visible output, which is where this defect lived.
+
 ## 4.5.1 (2026-08-28)
 
 - Lockfile-only patch; resolves tar advisory GHSA-r292-9mhp-454m in the dev chain; prepared for publication through the Trusted Publishing workflow with build provenance and SBOM. No API change.
