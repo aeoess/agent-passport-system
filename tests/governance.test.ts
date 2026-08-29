@@ -8,7 +8,7 @@ import {
   approveArtifact, verifyApproval,
   createGovernanceEnvelope, loadGovernanceArtifact,
   upgradeGovernanceArtifact, hashContent, classifyGovernanceChange,
-  DEFAULT_LOAD_POLICY,
+  DEFAULT_LOAD_POLICY, ANY_ISSUER,
 } from '../src/core/governance.js'
 import type { GovernanceLoadPolicy } from '../src/types/governance.js'
 
@@ -474,5 +474,81 @@ describe('Governance load policy: wildcard issuer trust is written down', () => 
     assert.equal(loadGovernanceArtifact(envelope(), named).valid, true)
     const wrong: GovernanceLoadPolicy = { ...DEFAULT_LOAD_POLICY, allowedIssuers: [other.publicKey] }
     assert.equal(loadGovernanceArtifact(envelope(), wrong).valid, false)
+  })
+})
+
+// ══════════════════════════════════════════════════════════════════
+// Invariant: appending your key to the shipped default must HARDEN
+// the policy, never disable it.
+// ══════════════════════════════════════════════════════════════════
+// Round 1 of this work moved DEFAULT_LOAD_POLICY.allowedIssuers from []
+// to ['*'] so that wildcard trust was written down. That fixed the
+// "empty means everyone" reading and introduced a worse one: '*' survives
+// concatenation, so the idiom an operator uses to harden a policy,
+// spreading the default and appending their own key, produced
+// ['*', myKey] and admitted every issuer. This file spreads the default
+// at eight other sites, so the idiom is native here.
+//
+// The wildcard is now honoured ONLY when it is the sole entry. Any other
+// entry alongside it means the operator named issuers, and naming issuers
+// is a closed allowlist.
+
+describe('Governance load policy: the wildcard cannot be extended into', () => {
+  const issuer = generateKeyPair()
+  const operator = generateKeyPair()
+
+  function envelope(byKey = issuer) {
+    const artifact = createGovernanceArtifact({
+      artifactType: 'floor', version: '1.0.0', content: FLOOR_CONTENT,
+      issuerPrivateKey: byKey.privateKey, issuerPublicKey: byKey.publicKey,
+    })
+    return createGovernanceEnvelope(artifact)
+  }
+
+  it('appending a key to the default admits ONLY that key', () => {
+    const hardened: GovernanceLoadPolicy = {
+      ...DEFAULT_LOAD_POLICY,
+      allowedIssuers: [...DEFAULT_LOAD_POLICY.allowedIssuers, operator.publicKey],
+    }
+    const unlisted = loadGovernanceArtifact(envelope(issuer), hardened)
+    assert.equal(unlisted.valid, false, 'an unlisted issuer must not load under a hardened policy')
+    assert.ok(unlisted.errors.some(e => e.includes('not in allowed issuers')))
+
+    const listed = loadGovernanceArtifact(envelope(operator), hardened)
+    assert.equal(listed.valid, true, listed.errors.join(' | '))
+  })
+
+  it('the wildcard alongside named issuers is reported, not silently dropped', () => {
+    const hardened: GovernanceLoadPolicy = {
+      ...DEFAULT_LOAD_POLICY,
+      allowedIssuers: [...DEFAULT_LOAD_POLICY.allowedIssuers, operator.publicKey],
+    }
+    const result = loadGovernanceArtifact(envelope(operator), hardened)
+    assert.ok(
+      result.warnings.some(w => w.includes('wildcard')),
+      `expected the ignored wildcard to be reported, got ${JSON.stringify(result.warnings)}`,
+    )
+  })
+
+  it('an artifact whose issuer literally is "*" cannot match a named allowlist', () => {
+    const policy: GovernanceLoadPolicy = {
+      ...DEFAULT_LOAD_POLICY,
+      allowedIssuers: [ANY_ISSUER, operator.publicKey],
+    }
+    const env = envelope(operator)
+    env.artifact.issuer = ANY_ISSUER
+    const result = loadGovernanceArtifact(env, policy)
+    assert.equal(result.valid, false)
+  })
+
+  it('the sole wildcard still admits any issuer, so the shipped default is unchanged', () => {
+    assert.deepEqual(DEFAULT_LOAD_POLICY.allowedIssuers, [ANY_ISSUER])
+    assert.equal(loadGovernanceArtifact(envelope(issuer), DEFAULT_LOAD_POLICY).valid, true)
+    assert.equal(loadGovernanceArtifact(envelope(operator), DEFAULT_LOAD_POLICY).valid, true)
+  })
+
+  it('spreading the default and emptying the list still admits nobody', () => {
+    const closed: GovernanceLoadPolicy = { ...DEFAULT_LOAD_POLICY, allowedIssuers: [] }
+    assert.equal(loadGovernanceArtifact(envelope(issuer), closed).valid, false)
   })
 })

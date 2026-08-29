@@ -136,6 +136,7 @@ export function verifyGovernanceArtifact(
   return {
     valid: errors.length === 0,
     errors,
+    warnings: [],
     contentIntegrity,
     signatureValid,
     chainValid,
@@ -203,23 +204,44 @@ export function loadGovernanceArtifact(
 ): GovernanceVerification {
   const { artifact, approvals } = envelope
   const errors: string[] = []
+  const warnings: string[] = []
 
   // 1. Verify the artifact itself
   const baseVerification = verifyGovernanceArtifact(artifact, previousArtifact)
   errors.push(...baseVerification.errors)
+  warnings.push(...baseVerification.warnings)
 
   // 2. Policy: require signature
   if (policy.requireSignature && !baseVerification.signatureValid) {
     errors.push('Policy requires valid signature')
   }
 
-  // 3. Policy: allowed issuers. An empty allowlist is an empty allowlist:
-  // it admits nobody. Accepting any issuer is a posture the policy has to
-  // state, with the ANY_ISSUER wildcard.
-  if (!policy.allowedIssuers.includes(ANY_ISSUER)) {
-    if (policy.allowedIssuers.length === 0) {
-      errors.push('Policy declares no allowed issuers, so no issuer is accepted; use ["*"] to accept any issuer')
-    } else if (!policy.allowedIssuers.includes(artifact.issuer)) {
+  // 3. Policy: allowed issuers.
+  //
+  // Three states, and the list has to distinguish all three without any of
+  // them being reachable by accident:
+  //
+  //   []        no issuer is accepted
+  //   ['*']     any issuer is accepted, said out loud
+  //   anything  a closed allowlist of the named issuers
+  //   else
+  //
+  // The wildcard counts only as a SOLE entry. `['*', k]` is what comes out
+  // of spreading the default and appending a key, which is an operator
+  // HARDENING the policy; honouring a concatenated wildcard there would
+  // disable the very check they were adding. The dropped wildcard is
+  // reported rather than silently applied.
+  const named = policy.allowedIssuers.filter(i => i !== ANY_ISSUER)
+  const wildcardIsSole = policy.allowedIssuers.length === 1 && named.length === 0
+  if (!wildcardIsSole) {
+    if (named.length !== policy.allowedIssuers.length) {
+      warnings.push(
+        'allowedIssuers names explicit issuers, so the "*" wildcard is ignored and the list is read as a closed allowlist',
+      )
+    }
+    if (named.length === 0) {
+      errors.push('Policy declares no allowed issuers, so no issuer is accepted; use ["*"] alone to accept any issuer')
+    } else if (!named.includes(artifact.issuer)) {
       errors.push(`Issuer ${artifact.issuer.slice(0, 16)}... not in allowed issuers list`)
     }
   }
@@ -271,6 +293,7 @@ export function loadGovernanceArtifact(
   return {
     valid: errors.length === 0,
     errors,
+    warnings,
     contentIntegrity: baseVerification.contentIntegrity,
     signatureValid: baseVerification.signatureValid,
     chainValid: baseVerification.chainValid,
