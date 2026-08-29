@@ -67,6 +67,21 @@ Per AGENTS.md this bump is PROPOSED, not decided. A human owns the version.
   rather than an empty one, and a registry whose `agents` is not an array is a
   check that FAILED rather than one that was skipped, so a refusal always
   states a reason.
+- **A malformed `trustedIssuers` value fails closed instead of disabling the
+  check.** Two guards read the option with opposite tests, one positive
+  (`.length > 0`) and one equality (`.length === 0`), so any value whose
+  `.length` is neither exactly 0 nor greater than 0 failed both and composed
+  into an admit. `{}`, `NaN`, `0`, `true`, `new Map()` and
+  `new Set(['key'])` all land there; the Set is the one an operator actually
+  reaches for, and reaching for it silently admitted everyone through all six
+  gates. The option is now normalized once, at the boundary, by
+  `normalizeTrustAnchors`: anything that is not an array of non-empty strings
+  is graded malformed and denied with a reason, and neither guard tests
+  `.length` on a caller-supplied value again. A bare key string is refused
+  too, since it has a numeric length and the membership test downstream was
+  substring matching. Pre-existing, and older than the gate consolidation;
+  what the consolidation changed is that the repair is one function rather
+  than six guards.
 - **Every SDK execution gate requires a stated trust posture, not just the
   offline verifier.** The relying-party middleware was hardened and the five
   ADAPTER gates that also call `verifyPassport` were not, so the same hole
@@ -165,6 +180,7 @@ must add them.
 | `VerifyApsTxtOptions` | removed |
 | `MCPGovernanceConfig`, `LangChainGovernanceConfig`, `CrewGovernanceConfig`, `GonkaHostConfig` | gained optional `trustedIssuers` and `allowSelfSigned`; all four gates now DENY by default |
 | `verifyA2AIdentity` | gained a third options parameter; denies self-signed by default |
+| `normalizeTrustAnchors` | new, exported; a malformed `trustedIssuers` now makes `verifyPassport` return `valid: false` instead of silently meaning "no anchors" |
 | `traceBeneficiary` | gained a fourth options parameter (`AttributionRevocationOptions`) |
 
 ### Tests

@@ -131,6 +131,8 @@ permissive reading have to state their trust posture explicitly.
 | the MCP, LangChain, CrewAI, Gonka and A2A gates with no trust anchors | admitted, ran the tool, minted a success receipt | deny unless `trustedIssuers` is non-empty or `allowSelfSigned: true` |
 | `verifyDelegation` with `cacheGraceMs: Infinity` and an unparseable `checkedAt` | graded `fresh`, satisfied `fail_closed` | graded `stale`, refused |
 | `verifyDelegation` with a typo'd policy such as `'FAIL_CLOSED'` | silently meant `fail_open` | throws |
+| any gate with `trustedIssuers: {}`, `new Set([...])`, `NaN`, `0` or `true` | admitted everyone silently | denies with a reason naming the option |
+| `verifyPassport` with a malformed `trustedIssuers` | ignored it, kept `valid: true` | `valid: false`, error names the option |
 | `GovernanceLoadPolicy.allowedIssuers: []` | skipped the check, admitted any issuer | admits none; write `['*']` (`ANY_ISSUER`) alone for wildcard trust |
 
 Porting notes:
@@ -151,6 +153,11 @@ Porting notes:
   `allowSelfSigned: true`. Every admit made that way carries the verifier's
   self-signed warning in `GateDecision.warnings`, which the gate used to
   discard.
+- **Trust anchors must be an ARRAY of key strings.** A Set, a Map, an object
+  or a bare key string is now a configuration error that denies, where it used
+  to disable the issuer check silently. If you hold anchors in a Set, pass
+  `[...mySet]`. `normalizeTrustAnchors` is exported if you want to validate a
+  value before handing it over.
 - **The same posture is now required at the five adapter gates.** If you call
   `governMCPToolCall`, `governLangChainTool`, `verifyCrewMember`,
   `verifyGonkaHost` or `verifyA2AIdentity`, add `trustedIssuers: [...]` or
