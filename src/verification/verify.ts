@@ -5,6 +5,7 @@
 import { verify } from '../crypto/keys.js'
 import { canonicalize } from '../core/canonical.js'
 import { isRecord } from '../core/is-record.js'
+import { normalizeTrustAnchors } from './trust-anchors.js'
 import { isExpired } from '../core/passport.js'
 import type { SignedPassport, VerificationResult, Challenge } from '../types/passport.js'
 import type { CoreVerifyClockOptions } from '../types/policy.js'
@@ -49,7 +50,26 @@ export function verifyPassport(
   // Null / undefined / non-object (attacker-deliverable JSON `null`) rejects
   // with the missing-fields verdict rather than throwing on the property
   // access below.
-  const issuerTrustChecked = Boolean(opts?.trustedIssuers && opts.trustedIssuers.length > 0)
+  // Normalized ONCE, at the boundary, so this guard and the one in
+  // trust-posture.ts cannot disagree about what the caller passed. This line
+  // used to be a positive `.length > 0` test while the gate used an equality
+  // `.length === 0` test, and a value with no numeric length fell through both
+  // into the permissive branch.
+  const trustAnchors = normalizeTrustAnchors(opts?.trustedIssuers)
+  const issuerTrustChecked = trustAnchors.anchors.length > 0
+
+  // A malformed trustedIssuers is a caller configuration error, and it must
+  // not resolve to "no anchors" (which composes into an admit) or to "all
+  // anchors". It fails closed and names itself.
+  if (trustAnchors.malformed) {
+    return {
+      valid: false,
+      errors: [`Invalid trustedIssuers option: ${trustAnchors.reason}`],
+      warnings,
+      issuerTrustChecked: false,
+      selfSignedAccepted: false,
+    }
+  }
 
   if (!isRecord(signed)) {
     return { valid: false, errors: ['Missing passport or signature'], warnings, issuerTrustChecked, selfSignedAccepted: false }
@@ -70,11 +90,11 @@ export function verifyPassport(
   }
 
   // If trustedIssuers provided, verify issuer countersignature
-  if (issuerTrustChecked && opts?.trustedIssuers) {
+  if (issuerTrustChecked) {
     const issuerSig = (signed as any).issuerSignature
     if (!issuerSig?.signature || !issuerSig?.issuerPublicKey) {
       errors.push('No issuer countersignature — passport is self-signed')
-    } else if (!opts.trustedIssuers.includes(issuerSig.issuerPublicKey)) {
+    } else if (!trustAnchors.anchors.includes(issuerSig.issuerPublicKey)) {
       errors.push(`Issuer ${issuerSig.issuerPublicKey.slice(0, 16)}... not in trusted issuers list`)
     } else {
       // countersignPassport() signs {passport, signature, signedAt} — must match

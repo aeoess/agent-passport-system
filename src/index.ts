@@ -29,6 +29,8 @@ export type {
 export { createPassport, signPassport, updatePassport, isExpired, isPassportValid, countersignPassport, verifyIssuerSignature, isIssuerVerified, isIssuerSigned } from './core/passport.js'
 export { checkPassportTrustPosture } from './verification/trust-posture.js'
 export type { TrustPostureOptions, TrustPostureResult, TrustPostureFailure } from './verification/trust-posture.js'
+export { normalizeTrustAnchors } from './verification/trust-anchors.js'
+export type { NormalizedTrustAnchors } from './verification/trust-anchors.js'
 export { canonicalize, canonicalJson, canonicalHash, normalizeTimestamp } from './core/canonical.js'
 
 // ── Scope Version Hash (MCP#1763) — bilateral receipt pre-commitment ──

@@ -30,6 +30,7 @@
 // is available, but it has to be asked for by name.
 
 import { verifyPassport } from './verify.js'
+import { normalizeTrustAnchors } from './trust-anchors.js'
 import type { SignedPassport } from '../types/passport.js'
 import type { CoreVerifyClockOptions } from '../types/policy.js'
 
@@ -81,7 +82,20 @@ export function checkPassportTrustPosture(
   passport: SignedPassport,
   opts: TrustPostureOptions = {},
 ): TrustPostureResult {
-  const anchors = opts.trustedIssuers ?? []
+  // Normalized BEFORE verifyPassport runs, so a malformed anchor list is
+  // attributed to the caller's configuration rather than reported as a defect
+  // in the presented passport.
+  const trustAnchors = normalizeTrustAnchors(opts.trustedIssuers)
+  if (trustAnchors.malformed) {
+    return {
+      ok: false,
+      failure: 'UNTRUSTED_ISSUER',
+      detail: `Untrusted issuer: ${trustAnchors.reason}. This gate holds no usable trust anchors.`,
+      errors: [`Invalid trustedIssuers option: ${trustAnchors.reason}`],
+      warnings: [],
+    }
+  }
+  const anchors = trustAnchors.anchors
 
   const result = verifyPassport(passport, {
     trustedIssuers: anchors,
@@ -102,6 +116,11 @@ export function checkPassportTrustPosture(
   // verifyPassport enforces the countersignature only when anchors were
   // supplied; with none, its verdict is signature and validity window alone.
   // Admitting on that basis is a decision the caller has to have made.
+  //
+  // `anchors` is the NORMALIZED array, so `.length` means what it says here.
+  // `allowSelfSigned` is compared against the literal `true` on purpose:
+  // loosening it to `!opts.allowSelfSigned` would make the string "false",
+  // which is what an unparsed config value looks like, ADMIT.
   if (anchors.length === 0 && opts.allowSelfSigned !== true) {
     return {
       ok: false,
