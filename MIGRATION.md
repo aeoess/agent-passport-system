@@ -128,6 +128,9 @@ permissive reading have to state their trust posture explicitly.
 | `verifyDelegation(d, { revocationCheckPolicy: 'fail_closed' })` | identical to `fail_open`; accepted absent and stale revocation evidence | admits only against evidence present and inside `cacheGraceMs`; result carries `revocationEvidence` |
 | `verifyAgoraMessage(msg, registry)` for an unlisted author | `{ valid: true, errors: ['Author not found in agent registry'] }` | `{ valid: false, signatureValid: true, knownAgent: false }` |
 | `evaluateRequest(passport, opts)` with no trust anchors | admitted the self-signed passport | denies with `UNTRUSTED_ISSUER` unless `trustedIssuers` is non-empty or `allowSelfSigned: true` |
+| the MCP, LangChain, CrewAI, Gonka and A2A gates with no trust anchors | admitted, ran the tool, minted a success receipt | deny unless `trustedIssuers` is non-empty or `allowSelfSigned: true` |
+| `verifyDelegation` with `cacheGraceMs: Infinity` and an unparseable `checkedAt` | graded `fresh`, satisfied `fail_closed` | graded `stale`, refused |
+| `verifyDelegation` with a typo'd policy such as `'FAIL_CLOSED'` | silently meant `fail_open` | throws |
 | `GovernanceLoadPolicy.allowedIssuers: []` | skipped the check, admitted any issuer | admits none; write `['*']` (`ANY_ISSUER`) alone for wildcard trust |
 
 Porting notes:
@@ -148,6 +151,14 @@ Porting notes:
   `allowSelfSigned: true`. Every admit made that way carries the verifier's
   self-signed warning in `GateDecision.warnings`, which the gate used to
   discard.
+- **The same posture is now required at the five adapter gates.** If you call
+  `governMCPToolCall`, `governLangChainTool`, `verifyCrewMember`,
+  `verifyGonkaHost` or `verifyA2AIdentity`, add `trustedIssuers: [...]` or
+  `allowSelfSigned: true` to the config. Without one they deny, because a
+  signature that verifies under a key the passport itself supplied is a
+  self-issued claim of authority, not an authorization. The rule is one shared
+  function, `checkPassportTrustPosture`, exported from the package root for
+  anyone building their own gate.
 
 ### allowedIssuers: how the wildcard behaves under the spread idiom
 

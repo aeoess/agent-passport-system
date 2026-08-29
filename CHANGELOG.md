@@ -22,6 +22,18 @@ Per AGENTS.md this bump is PROPOSED, not decided. A human owns the version.
   unchecked state rather than throwing out of `createDID`, which a verifier
   must not do. Reading an aps.txt without authenticating it keeps its own named
   operation, `parseApsTxt`, which asserts nothing about signatures.
+- **`fail_closed` no longer admits unreadable revocation evidence, and a
+  typo'd policy value is no longer silent.** An unparseable `checkedAt` was
+  mapped to an Infinity age and then compared against the window, which looked
+  equivalent to rejecting it and was not: with `cacheGraceMs: Infinity`,
+  `Infinity <= Infinity` passed, so `checkedAt: 'not-a-date'` graded FRESH and
+  satisfied `fail_closed`. It is now graded stale before any window
+  arithmetic. Separately, an unrecognised `revocationCheckPolicy` fell through
+  every comparison to the most permissive branch, so `'FAIL_CLOSED'` returned
+  `valid: true` with no error: an integrator who typed the strictest setting
+  in the wrong case silently got the weakest one. Unknown policy values now
+  throw, and `REVOCATION_CHECK_POLICIES` is exported so a caller reading a
+  policy out of configuration can check it first.
 - **`verifyDelegation`'s `fail_closed` revocation policy now does something.**
   The policy was read into a local and compared against exactly one value,
   `cache_grace`, so `fail_closed` and `fail_open` ran identical code. Driven
@@ -41,8 +53,10 @@ Per AGENTS.md this bump is PROPOSED, not decided. A human owns the version.
   CrewAI, Gonka and MCP adapters now all accept a `revocation`
   (`RevocationCheckOptions`) argument and thread it through. All default to
   `fail_open`, so no existing caller changes behaviour. `verifyAttribution`'s
-  chain walk deliberately does NOT take one: it asks a historical question and
-  must not let present-day revocation state rewrite the record of a past act.
+  chain walk takes one too, through a PER-DELEGATION resolver rather than a
+  single cached state, since one delegation's evidence applied to every hop
+  would be a new defect. It defaults to fail_open, so the historical behaviour
+  is unchanged.
 - **`verifyAgoraMessage` folds the registry check into its verdict.** It ran
   the check, pushed `'Author not found in agent registry'` into `errors`, and
   then returned `valid: signatureValid`, so a message from an unlisted author
@@ -53,6 +67,20 @@ Per AGENTS.md this bump is PROPOSED, not decided. A human owns the version.
   rather than an empty one, and a registry whose `agents` is not an array is a
   check that FAILED rather than one that was skipped, so a refusal always
   states a reason.
+- **Every SDK execution gate requires a stated trust posture, not just the
+  offline verifier.** The relying-party middleware was hardened and the five
+  ADAPTER gates that also call `verifyPassport` were not, so the same hole
+  stayed open in the gates that actually run the tool. Driven against the SDK:
+  `governMCPToolCall` EXECUTED the tool and minted a success receipt for an
+  attacker's self-signed passport declaring `admin:everything` carrying a
+  delegation they had issued to themselves, and `verifyA2AIdentity` returned
+  `{valid: true, errors: []}` for it. `MCPGovernanceConfig`,
+  `LangChainGovernanceConfig`, `CrewGovernanceConfig` and `GonkaHostConfig`
+  now take `trustedIssuers` and `allowSelfSigned`, `verifyA2AIdentity` takes
+  an options argument, and all five deny by default. The rule lives once, in
+  `checkPassportTrustPosture` (`src/verification/trust-posture.ts`), which the
+  middleware now uses too: five copies of one rule is how four of them ended
+  up without it.
 - **The relying-party gate requires a stated trust posture.** `evaluateRequest`
   admitted an attacker's self-signed passport declaring `admin:everything` with
   `{"admit": true}`. `verifyPassport` emits a self-signed warning, but
@@ -135,6 +163,9 @@ must add them.
 | `DelegationStatus` | optional `revocationEvidence` added |
 | `VerificationResult` | optional `issuerTrustChecked`, `selfSignedAccepted` added |
 | `VerifyApsTxtOptions` | removed |
+| `MCPGovernanceConfig`, `LangChainGovernanceConfig`, `CrewGovernanceConfig`, `GonkaHostConfig` | gained optional `trustedIssuers` and `allowSelfSigned`; all four gates now DENY by default |
+| `verifyA2AIdentity` | gained a third options parameter; denies self-signed by default |
+| `traceBeneficiary` | gained a fourth options parameter (`AttributionRevocationOptions`) |
 
 ### Tests
 
