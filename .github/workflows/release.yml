@@ -77,6 +77,30 @@ jobs:
           tarball=$(npm pack | tail -n1)
           echo "tarball=$tarball" >> "$GITHUB_OUTPUT"
 
+      - name: Probe the packed tarball's public exports
+        # Installs the exact tarball into a scratch directory and imports it through
+        # the package's exports map, the way a consumer does. Guards the failure class
+        # where a symbol exists in dist but is unreachable from the package root
+        # (ERR_PACKAGE_PATH_NOT_EXPORTED), which no source-level test can see.
+        env:
+          TARBALL: ${{ steps.pack.outputs.tarball }}
+        run: |
+          set -euo pipefail
+          probe=$(mktemp -d)
+          cp "./$TARBALL" "$probe/"
+          cd "$probe"
+          npm init -y >/dev/null
+          npm install --silent --ignore-scripts "./$TARBALL"
+          node --input-type=module -e "
+            const m = await import('agent-passport-system');
+            const c = await import('agent-passport-system/core');
+            for (const name of ['verifyAuthorityDelegationChain','verifyAuthorityDelegationSignature','parseAuthorityDelegationJson','verifyReceiptV1','computeReceiptIdV1']) {
+              if (typeof m[name] !== 'function') { console.error('root export missing: ' + name); process.exit(1); }
+            }
+            if (typeof c.verifyPassport !== 'function') { console.error('core export missing: verifyPassport'); process.exit(1); }
+            console.log('packed tarball exports probe: ok');
+          "
+
       - name: Publish to npm (Trusted Publishing, OIDC)
         # Publishes the tarball packed above, the same file the attestation
         # step signs, so the provenance subject and the shipped bytes are one
