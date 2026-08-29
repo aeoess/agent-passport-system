@@ -88,6 +88,45 @@ export interface AttributionRevocationOptions {
   resolveRevocation?: (delegation: Delegation) => { revoked: boolean; checkedAt: string } | undefined
 }
 
+/** Call the caller's revocation resolver and normalize whatever comes back.
+ *
+ *  The resolver is caller-supplied code running inside a LEDGER READ, so two
+ *  things are handled here rather than left to chance:
+ *
+ *  A THROW becomes absent evidence instead of propagating. Reading an
+ *  attribution ledger should not crash because a revocation lookup failed, and
+ *  absent is the conservative grade: under fail_closed the hop is not
+ *  authentic, under fail_open nothing changes. This is a narrow normalization
+ *  of one untrusted callback, not a blanket catch, and it converts the failure
+ *  into the SAFE answer rather than discarding it.
+ *
+ *  A RETURN VALUE THAT IS NOT REVOCATION EVIDENCE becomes absent evidence. The
+ *  likeliest real form is an async resolver written against a synchronous
+ *  interface, which returns a Promise: a Promise has no `revoked` and no
+ *  `checkedAt`, so under fail_open it would have read as not-revoked. That is
+ *  benign only because fail_open is already permissive, which is not a
+ *  property worth relying on. Same class as the MA1 resolver-normalization
+ *  gap in the v2 authority-delegation verifier, handled the same way. */
+function resolveEvidence(
+  revocation: AttributionRevocationOptions | undefined,
+  delegation: Delegation,
+): { revoked: boolean; checkedAt: string } | undefined {
+  if (!revocation?.resolveRevocation) return undefined
+  let raw: unknown
+  try {
+    raw = revocation.resolveRevocation(delegation)
+  } catch {
+    return undefined
+  }
+  if (raw === undefined || raw === null) return undefined
+  if (typeof raw !== 'object') return undefined
+  const candidate = raw as { revoked?: unknown; checkedAt?: unknown }
+  if (typeof candidate.revoked !== 'boolean' || typeof candidate.checkedAt !== 'string') {
+    return undefined
+  }
+  return { revoked: candidate.revoked, checkedAt: candidate.checkedAt }
+}
+
 export function traceBeneficiary(
   receipt: ActionReceipt,
   delegations: Delegation[],
@@ -140,7 +179,7 @@ export function traceBeneficiary(
         valid: verifyDelegation(d, {
           revocationCheckPolicy: revocation?.revocationCheckPolicy,
           cacheGraceMs: revocation?.cacheGraceMs,
-          cachedRevocationState: revocation?.resolveRevocation?.(d),
+          cachedRevocationState: resolveEvidence(revocation, d),
         }).valid,
       }))
 

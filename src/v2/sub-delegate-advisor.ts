@@ -150,9 +150,14 @@ export function consultAdvisor(opts: ConsultAdvisorOptions): ConsultAdvisorResul
   // so the promise was empty; the options are now actually threaded.
   const status = verifyDelegation(d, opts.revocation)
   if (!status.valid || status.expired || status.revoked) {
-    throw new Error(
-      `consultAdvisor: delegation invalid — ${status.revoked ? 'revoked' : status.expired ? 'expired' : 'failed verification'}`
-    )
+    // The three-way label collapsed every non-revoked, non-expired failure
+    // into 'failed verification' and discarded status.errors, so a
+    // fail_closed refusal for missing or stale revocation evidence reached
+    // the caller as an unexplained invalid. The verifier's own reasons are
+    // now carried through.
+    const label = status.revoked ? 'revoked' : status.expired ? 'expired' : 'failed verification'
+    const detail = status.errors.length > 0 ? `: ${status.errors.join(', ')}` : ''
+    throw new Error(`consultAdvisor: delegation invalid — ${label}${detail}`)
   }
 
   const used = advisorUseTracker.get(d.delegationId) ?? 0

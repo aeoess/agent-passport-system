@@ -145,9 +145,13 @@ describe('reachability: consultAdvisor', () => {
 
   it('consults without a posture and refuses under fail_closed', () => {
     assert.ok(consultAdvisor({ ...base, advisorDelegation: advisorDelegation() }))
+    // The message always begins 'consultAdvisor: delegation invalid', so a
+    // /invalid/ alternative would match the constant prefix and pass whatever
+    // the reason was. The assertion names the revocation-specific text that
+    // only a fail_closed refusal produces.
     assert.throws(
       () => consultAdvisor({ ...base, advisorDelegation: advisorDelegation(), revocation: FAIL_CLOSED }),
-      /invalid|revocation/,
+      /no revocation evidence supplied/,
       'fail_closed is not reachable through consultAdvisor',
     )
   })
@@ -379,6 +383,55 @@ describe('reachability: the attribution chain walk', () => {
     })
     assert.equal(new Set(seen).size, delegations.length,
       `expected one lookup per delegation, saw ${JSON.stringify(seen)}`)
+  })
+
+  // The resolver is caller-supplied code inside a ledger read. Every
+  // mis-wired shape must fail CLOSED under fail_closed and must never crash
+  // the read. Same class as the MA1 resolver-normalization gap in the v2
+  // authority-delegation verifier.
+  it('a throwing resolver grades absent instead of propagating out of a ledger read', () => {
+    const { delegations, receipt } = chainFixture()
+    let trace: ReturnType<typeof traceBeneficiary> | undefined
+    assert.doesNotThrow(() => {
+      trace = traceBeneficiary(receipt, delegations, new Map(), {
+        revocationCheckPolicy: 'fail_closed',
+        resolveRevocation: () => { throw new Error('revocation registry unreachable') },
+      })
+    })
+    assert.equal(trace!.verified, false, 'a failed lookup must not read as not-revoked')
+  })
+
+  it('a throwing resolver under fail_open leaves the historical default intact', () => {
+    const { delegations, receipt } = chainFixture()
+    const trace = traceBeneficiary(receipt, delegations, new Map(), {
+      resolveRevocation: () => { throw new Error('down') },
+    })
+    assert.equal(trace.verified, true)
+  })
+
+  it('a resolver return value that is not revocation evidence grades absent', () => {
+    const { delegations, receipt } = chainFixture()
+    const shapes: unknown[] = [
+      Promise.resolve({ revoked: false, checkedAt: new Date().toISOString() }), // async by mistake
+      null,
+      {},
+      { revoked: 'no', checkedAt: new Date().toISOString() },
+      { revoked: false },
+      { checkedAt: new Date().toISOString() },
+      'active',
+      42,
+      true,
+    ]
+    for (const shape of shapes) {
+      const trace = traceBeneficiary(receipt, delegations, new Map(), {
+        revocationCheckPolicy: 'fail_closed',
+        resolveRevocation: () => shape as never,
+      })
+      assert.equal(
+        trace.verified, false,
+        `resolver returning ${JSON.stringify(shape) ?? typeof shape} was read as usable evidence`,
+      )
+    }
   })
 
   it('a revoked hop breaks the chain when the caller asks about revocation', () => {
