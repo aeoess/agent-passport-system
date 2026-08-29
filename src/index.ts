@@ -89,7 +89,8 @@ export {
   getReceipts, getRevocation, clearStores,
   scopeCovers, scopeAuthorizes
 } from './core/delegation.js'
-export type { RevocationCheckPolicy } from './core/delegation.js'
+export type { RevocationCheckPolicy, RevocationCheckOptions } from './core/delegation.js'
+export { DEFAULT_REVOCATION_FRESHNESS_MS } from './core/delegation.js'
 
 // ── Bilateral Completion Receipts ──
 export { createCompletionReceipt, verifyCompletionReceipt, linkPermitAndCompletion } from './core/completion.js'
@@ -1384,7 +1385,7 @@ export {
 export type {
   ApsTxt, PathOverride, GenerateApsTxtInput,
   ChainedGovernanceBlock,
-  VerifyApsTxtOptions, VerifyApsTxtResult,
+  VerifyApsTxtResult,
   ApsTxtEnforcementMode, ApsTxtEnforcementResult,
   ApsTxtRiskLevel, ApsTxtRiskResult,
 } from './core/aps-txt.js'

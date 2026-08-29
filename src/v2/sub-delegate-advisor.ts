@@ -22,7 +22,7 @@
  * advisor is authorized to be consulted, not to execute tools.
  */
 
-import { subDelegate, verifyDelegation } from '../core/delegation.js'
+import { subDelegate, verifyDelegation, type RevocationCheckOptions } from '../core/delegation.js'
 import { createDecisionLineageReceipt } from '../core/data-lifecycle.js'
 import type { Delegation } from '../types/passport.js'
 import type { DecisionLineageReceipt } from '../types/data-lifecycle.js'
@@ -121,6 +121,9 @@ export interface ConsultAdvisorOptions {
   /** Optional: governing purpose and human-readable explanation. */
   governingPurpose?: string
   explanation?: string
+  /** Revocation posture for the advisor-delegation check. Omitted leaves
+   *  the previous behaviour, signature and expiry only. */
+  revocation?: RevocationCheckOptions
 }
 
 export interface ConsultAdvisorResult {
@@ -141,10 +144,11 @@ export function consultAdvisor(opts: ConsultAdvisorOptions): ConsultAdvisorResul
     throw new Error('consultAdvisor: delegation is not an advisor delegation (spendLimitUnit !== invocations)')
   }
 
-  // Signature + expiry check. Revocation is enforced by the caller's
-  // DelegationStore (gateway) via opts.cachedRevocationState; without it,
-  // `verifyDelegation` cannot observe revocation state from this primitive.
-  const status = verifyDelegation(d)
+  // Signature + expiry check, plus whatever revocation posture the caller
+  // selected in opts.revocation. That comment used to promise the caller's
+  // DelegationStore state was honoured here while passing nothing through,
+  // so the promise was empty; the options are now actually threaded.
+  const status = verifyDelegation(d, opts.revocation)
   if (!status.valid || status.expired || status.revoked) {
     throw new Error(
       `consultAdvisor: delegation invalid — ${status.revoked ? 'revoked' : status.expired ? 'expired' : 'failed verification'}`

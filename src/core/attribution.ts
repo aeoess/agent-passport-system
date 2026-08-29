@@ -99,6 +99,14 @@ export function traceBeneficiary(
     const to = keyChain[i + 1]
     const isTail = i === keyChain.length - 2
 
+    // DELIBERATELY no revocation posture here, unlike every other
+    // verifyDelegation call site in the SDK. This walk asks a HISTORICAL
+    // question, "was this hop authentically signed when the receipt was
+    // produced", not a live authorization question. Threading a revocation
+    // policy through would make the attribution of a past action depend on
+    // present-day revocation state, so a later revocation would retroactively
+    // erase the record of who did what. Revocation belongs at the gate, not
+    // in the ledger.
     const matches = delegations
       .filter(d => d.delegatedBy === from && d.delegatedTo === to)
       .map(d => ({ del: d, valid: verifyDelegation(d).valid }))

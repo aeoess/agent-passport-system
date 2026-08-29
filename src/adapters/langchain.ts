@@ -8,7 +8,7 @@
  * behaviours supply them via the `onReceipt` / `onDenied` hooks.
  */
 
-import { scopeAuthorizes, verifyDelegation } from '../core/delegation.js'
+import { scopeAuthorizes, verifyDelegation, type RevocationCheckOptions } from '../core/delegation.js'
 import { verifyPassport } from '../verification/verify.js'
 import { sign } from '../crypto/keys.js'
 import { canonicalize, canonicalizeForWrite } from '../core/canonical.js'
@@ -38,6 +38,14 @@ export interface LangChainGovernanceConfig {
   scopeMapping?: Record<string, string>
   onReceipt?: (r: ActionReceipt) => void
   onDenied?: (info: { tool: string; reason: string }) => void
+  /** Revocation posture applied to the delegation check before every
+   *  governed call. This adapter is an execution gate: it verifies the
+   *  delegation immediately before the tool runs, which is exactly where a
+   *  caller who will not act on unknown revocation state says so. Pass
+   *  { revocationCheckPolicy: 'fail_closed', cachedRevocationState } to
+   *  refuse when revocation evidence is absent or stale. Omitted leaves the
+   *  previous behaviour, signature and expiry only. */
+  revocation?: RevocationCheckOptions
 }
 
 function buildLCReceipt(
@@ -86,7 +94,7 @@ export async function governLangChainTool(
   }
 
   // Delegation check
-  const dc = verifyDelegation(delegation)
+  const dc = verifyDelegation(delegation, config.revocation)
   if (!dc.valid) {
     const reason = `Delegation invalid: ${dc.errors.join(', ')}`
     if (config.onDenied) config.onDenied({ tool: call.name, reason })

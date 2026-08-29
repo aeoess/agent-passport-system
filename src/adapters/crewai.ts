@@ -8,7 +8,7 @@
  * need those behaviours supply them via the `onReceipt` / `onDenied` hooks.
  */
 
-import { scopeAuthorizes, verifyDelegation } from '../core/delegation.js'
+import { scopeAuthorizes, verifyDelegation, type RevocationCheckOptions } from '../core/delegation.js'
 import { verifyPassport } from '../verification/verify.js'
 import { sign } from '../crypto/keys.js'
 import { canonicalizeForWrite } from '../core/canonical.js'
@@ -27,6 +27,14 @@ export interface CrewGovernanceConfig {
   privateKey: string
   onReceipt?: (r: ActionReceipt) => void
   onDenied?: (info: { task: string; agent: string; reason: string }) => void
+  /** Revocation posture applied to the delegation check before every
+   *  governed call. This adapter is an execution gate: it verifies the
+   *  delegation immediately before the tool runs, which is exactly where a
+   *  caller who will not act on unknown revocation state says so. Pass
+   *  { revocationCheckPolicy: 'fail_closed', cachedRevocationState } to
+   *  refuse when revocation evidence is absent or stale. Omitted leaves the
+   *  previous behaviour, signature and expiry only. */
+  revocation?: RevocationCheckOptions
 }
 
 export interface GovernedTaskResult {
@@ -75,7 +83,7 @@ export function verifyCrewMember(
   const pc = verifyPassport(config.passport)
   if (!pc.valid) return { authorized: false, reason: `Passport invalid: ${pc.errors.join(', ')}`, scope: mainScope }
 
-  const dc = verifyDelegation(config.delegation)
+  const dc = verifyDelegation(config.delegation, config.revocation)
   if (!dc.valid) return { authorized: false, reason: `Delegation invalid: ${dc.errors.join(', ')}`, scope: mainScope }
 
   for (const scope of scopes) {
