@@ -303,4 +303,27 @@ describe('aps.txt: verification verdict is never a stand-in for "unchecked"', ()
     assert.ok(forged)
     assert.equal(verifyApsTxt(forged!, publisher.publicKey).valid, false)
   })
+  // M33: the key-to-DID binding check existed and worked, and deleting it
+  // caused ZERO test failures. A check nothing pins is a check that can be
+  // removed by anyone refactoring the function, which is how the signature
+  // check in this same file went unnoticed in the first place.
+  it('the publisher_did must be the DID of the key that verified the signature', () => {
+    const doc = signedDoc()
+    doc.publisher_did = 'did:aps:zSomeoneElseEntirely'
+    const result = verifyApsTxt(doc, publisher.publicKey)
+    assert.equal(result.valid, false, 'a document may not name a publisher other than its signer')
+    assert.equal(result.signatureChecked, true)
+    assert.ok(result.errors.some(e => e.includes('DID mismatch')), JSON.stringify(result.errors))
+  })
+
+  it('a correct publisher_did is required, not merely tolerated', () => {
+    const doc = signedDoc()
+    const expected = doc.publisher_did
+    assert.equal(verifyApsTxt(doc, publisher.publicKey).valid, true)
+    // Swapping in the attacker's DID must fail even though the signature and
+    // the key still agree with each other.
+    doc.publisher_did = `did:aps:z${'A'.repeat(20)}`
+    assert.notEqual(doc.publisher_did, expected)
+    assert.equal(verifyApsTxt(doc, publisher.publicKey).valid, false)
+  })
 })
