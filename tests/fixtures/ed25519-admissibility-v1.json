@@ -2,7 +2,7 @@
   "version": "ed25519-admissibility-v1",
   "description": "Ed25519 admissibility vectors for APS. expected_verification is the accept or reject that the two strict reference implementations were OBSERVED to agree on: libsodium through PyNaCl (agent-passport-python src/agent_passport/crypto.py) and ed25519-dalek verify_strict (agent-passport-system crates/aps-verifier-core). It records their observable answer, not a claim about how either one reaches it; the two do not implement the same internal checks. Agreement was established over a corpus that also contains the Wycheproof Ed25519 suite, and the two disagreed on nothing. A public key or an R whose decoded point has small order, and a scalar s that is not reduced modulo L, are inadmissible. The small_order_A_full_order_R group isolates the test on the public key: R there is a full order, canonically encoded point and s < L, so only a small order test on A refuses the signature. The small_order_R_honest_key group isolates the test on R in the same way.",
   "message_encoding": "message_utf8 and message_hex are the same bytes",
-  "count": 491,
+  "count": 495,
   "vectors": [
     {
       "id": "normal-0000",
@@ -4912,6 +4912,46 @@
       "message_hex": "7b225f74797065223a2268747470733a2f2f696e2d746f746f2e696f2f53746174656d656e742f7631222c22707265646963617465223a7b22616d6f756e74223a2231303030303030303030222c2261737365745f6c6f6361746f72223a2265726332303a307841306238363939316336323138623336633164313944346132653945623063453336303665423438222c2261747465737465645f6174223a22323032362d30342d32325431323a30303a30305a222c2261747465737465645f6279223a226469643a73696e743a6174746573746f722d303031222c226d6967726174696f6e5f6964223a226d69675f373839222c2270726f6f665f72656673223a5b7b22726f6f74223a22616263313233222c2274797065223a226d65726b6c65227d2c7b22616c67223a2265643235353139222c2274797065223a227369676e6174757265227d5d2c22726563697069656e74223a22307837343264333543633636333443303533323932356133623834344263396537353935663062456237222c227265636f766572795f68696e74223a6e756c6c2c22736f757263655f636861696e223a22657468657265756d222c227461726765745f636861696e223a22706f6c79676f6e227d2c2270726564696361746554797065223a2268747470733a2f2f73696e742e61692f707265646963617465732f6d6967726174696f6e2d6174746573746174696f6e2f76302e31222c227375626a656374223a5b7b22646967657374223a7b22736861323536223a2235653838343839386461323830343731353164306535366638646336323932373733363033643064366161626264643632613131656637323164313534326438227d2c226e616d65223a226d6967726174696f6e3a6d69675f373839227d5d7d",
       "public_key_hex": "16bd0f3e8181e93d58c23268ee0d5f4d5b70b3ce66fc246c0f5d7ec3dda9ab80",
       "signature_hex": "c4875b0dff3e7ca91afe5c2c994830fc5768cd3cc5a7bfd47e5853b4ed5963c9d6e33255053e30604dd1e277da93a360bbe5b7fa611eb40f86c56a6f3407160a",
+      "expected_verification": true
+    },
+    {
+      "id": "smallR-torsion-alias-A-order2",
+      "group": "small_order_R_torsion_alias_A",
+      "note": "RETRO-AUDIT C2. A is admissible (A = A0 + T, T of order 8, [8]A != identity) and R has order 2. A permissive verifier accepts this signature; only the small-order test on R refuses it. Narrowing that test to 'R != the identity encoding' admits it.",
+      "message_utf8": "aps retro C2: admissible torsion-aliased A, R of order 2, nonce 5",
+      "message_hex": "61707320726574726f2043323a2061646d69737369626c6520746f7273696f6e2d616c696173656420412c2052206f66206f7264657220322c206e6f6e63652035",
+      "public_key_hex": "5a2270d8a5187ed42d1de6358c1afc03e76eb8ab34f8a049ad2a6a8232efdffb",
+      "signature_hex": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7fd772325728c825606dad7617567cc742318d942526a316d21725397e41d12502",
+      "expected_verification": false
+    },
+    {
+      "id": "smallR-torsion-alias-A-order4",
+      "group": "small_order_R_torsion_alias_A",
+      "note": "RETRO-AUDIT C2. A is admissible (A = A0 + T, T of order 8, [8]A != identity) and R has order 4. A permissive verifier accepts this signature; only the small-order test on R refuses it. Narrowing that test to 'R != the identity encoding' admits it.",
+      "message_utf8": "aps retro C2: admissible torsion-aliased A, R of order 4, nonce 3",
+      "message_hex": "61707320726574726f2043323a2061646d69737369626c6520746f7273696f6e2d616c696173656420412c2052206f66206f7264657220342c206e6f6e63652033",
+      "public_key_hex": "5a2270d8a5187ed42d1de6358c1afc03e76eb8ab34f8a049ad2a6a8232efdffb",
+      "signature_hex": "0000000000000000000000000000000000000000000000000000000000000080fec44ae72733dbfcbc1b4ad2d290eaf91ab821dc0fadace0ccb768b62050ec06",
+      "expected_verification": false
+    },
+    {
+      "id": "smallR-torsion-alias-A-order8",
+      "group": "small_order_R_torsion_alias_A",
+      "note": "RETRO-AUDIT C2. A is admissible (A = A0 + T, T of order 8, [8]A != identity) and R has order 8. A permissive verifier accepts this signature; only the small-order test on R refuses it. Narrowing that test to 'R != the identity encoding' admits it.",
+      "message_utf8": "aps retro C2: admissible torsion-aliased A, R of order 8, nonce 24",
+      "message_hex": "61707320726574726f2043323a2061646d69737369626c6520746f7273696f6e2d616c696173656420412c2052206f66206f7264657220382c206e6f6e6365203234",
+      "public_key_hex": "5a2270d8a5187ed42d1de6358c1afc03e76eb8ab34f8a049ad2a6a8232efdffb",
+      "signature_hex": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac037ad35bd58683d1d5af0d35146919aa03541ade34dee432cc38be41048ec3216e04",
+      "expected_verification": false
+    },
+    {
+      "id": "torsion-alias-A-full-order-R-control",
+      "group": "torsion_alias_A_valid_R",
+      "note": "RETRO-AUDIT C2 positive control, and the first vector in the A=torsion row (RETRO-AUDIT C5). The SAME admissible torsion-aliased public key as the small_order_R_torsion_alias_A vectors, here with a full order canonical R and s < L. It must VERIFY, so the refusal of those three is attributable to the R half alone and not to the key. It also pins the documented limit that the guard admits every torsion alias of an honest key: one private key, eight admissible public keys.",
+      "message_utf8": "aps retro C2: admissible torsion-aliased A, full-order R, nonce 5",
+      "message_hex": "61707320726574726f2043323a2061646d69737369626c6520746f7273696f6e2d616c696173656420412c2066756c6c2d6f7264657220522c206e6f6e63652035",
+      "public_key_hex": "5a2270d8a5187ed42d1de6358c1afc03e76eb8ab34f8a049ad2a6a8232efdffb",
+      "signature_hex": "83262610dddec191d78de3ba87857738a573aff2cac52f11ae71f2fe46658a932e9fc6072ba30fdebcbc4687c16a606cccbe4890172dfa309ab5411db58f6208",
       "expected_verification": true
     }
   ],
