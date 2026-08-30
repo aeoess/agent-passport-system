@@ -1,5 +1,56 @@
 # Changelog
 
+## 5.0.1 (unreleased)
+
+### Behavior change
+
+- **`verifySocialContract` normalizes `trustedIssuers` like the other two
+  readers of the option.** It read `opts?.trustedIssuers ?? []` and then tested
+  `.length > 0`. `??` replaces only `null` and `undefined`, so every other
+  malformed shape reached `.length > 0`, evaluated `undefined > 0` to false,
+  and the caller's trust configuration was discarded without a word — while a
+  bare 64-character key string, which has a numeric `.length`, was read as a
+  configured anchor list. One input, three public entry points, three answers:
+  with `trustedIssuers: {}`, `verifyPassport` returned `valid: false`,
+  `checkPassportTrustPosture` returned `ok: false`, and `verifySocialContract`
+  returned `overall: true` with `issuerErrors: []`. The CLI was safe by
+  construction, because it builds an array from repeated `--trusted-issuer`
+  flags; a library consumer reading `overall` was not.
+
+  A malformed value is now neither "no anchors" nor "all anchors":
+  `issuerChecked` is true because a trust root was demanded, `issuerTrusted` is
+  false, `issuerErrors` names the option and says why, and the deprecated
+  `overall` accessor is false. `[]` and an omitted option are unchanged, and a
+  well-formed anchor list is unchanged.
+
+  Found by the retro-audit of Phase 2 (C1). The transferable part is not the
+  two-line fix: the original repair enumerated the known CALL SITES of the
+  guard and treated that as an enumeration of READERS of the option. A grep for
+  readers rather than for callers finds `contract.ts` immediately.
+  `tests/trust-anchor-shapes.test.ts` now asserts the property the enumeration
+  should have had — for any value of the option, no public entry point admits
+  where another refuses.
+
+### Test surface
+
+- **Ed25519 admissibility: the R half is pinned beyond `R = identity`.** Of the
+  50 fixture vectors carrying a valid public key and an inadmissible R, only 8
+  were LIVE — refused by the guard AND accepted by a permissive verifier — and
+  all 8 were `R = identity`. Four vectors are added: an admissible
+  torsion-aliased public key with R of order 2, 4 and 8, plus a positive
+  control with a full-order R under the same key so the refusals are
+  attributable to the R half. All four SDKs consume the same fixture and agree
+  on all 495 vectors. The new tests assert LIVENESS rather than counting
+  vectors.
+- **No test resolves a path through the user's home directory.**
+  `tests/reversibility-profile-parity.test.ts` read `~/agent-passport-python`
+  and `~/agent-passport-go` unconditionally, so four assertions ran against
+  whatever was checked out there and converted to skips under a hermetic
+  runner, with the same exit code either way. Both now require `APS_PY_REPO`
+  and `APS_GO_REPO` and skip when unset, and `tests/hermeticity.test.ts` keeps
+  it that way.
+
+
 ## 5.0.0 (2026-08-29)
 
 Five verification surfaces returned a permissive verdict when a check had not
@@ -76,8 +127,10 @@ Per AGENTS.md this bump is PROPOSED, not decided. A human owns the version.
   reaches for, and reaching for it silently admitted everyone through all six
   gates. The option is now normalized once, at the boundary, by
   `normalizeTrustAnchors`: anything that is not an array of non-empty strings
-  is graded malformed and denied with a reason, and neither guard tests
-  `.length` on a caller-supplied value again. A bare key string is refused
+  is graded malformed and denied with a reason, and no reader tests `.length`
+  on a caller-supplied value again. This sentence originally said "neither
+  guard", enumerating the two guards it was written for; there was a third
+  READER, `verifySocialContract`, and it was missed. See the 5.0.1 entry. A bare key string is refused
   too, since it has a numeric length and the membership test downstream was
   substring matching. Pre-existing, and older than the gate consolidation;
   what the consolidation changed is that the repair is one function rather

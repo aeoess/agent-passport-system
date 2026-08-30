@@ -22,8 +22,30 @@
 //
 // The lesson is not "fix the two guards to agree". It is that a security
 // option must be normalized ONCE, at the boundary, into a shape the guards
-// cannot disagree about. Both call sites now consume this function's output
-// and neither tests `.length` on a caller-supplied value again.
+// cannot disagree about.
+//
+// This header previously read "Both call sites now consume this function's
+// output". That sentence was true of the two guards it enumerated and false
+// as an enumeration of READERS: `contract.ts::verifySocialContract`, exported
+// from the package index and driven by the CLI, was a third reader of the
+// same option and still did `opts?.trustedIssuers ?? []` followed by
+// `.length > 0`. The retro-audit found it (C1) precisely because it grepped
+// for readers of the option instead of for callers of the guard. Do not
+// restate a coverage claim about call sites as a claim about readers.
+//
+// The enumeration, as of the C1 fix — three readers of `.trustedIssuers` in
+// `src/`, and all three consume this function:
+//
+//   src/verification/verify.ts:58         verifyPassport
+//   src/verification/trust-posture.ts:88  checkPassportTrustPosture
+//   src/contract.ts                       verifySocialContract
+//
+// Everything else that mentions the option either declares it in a type (the
+// five adapters and the relying-party middleware, which forward their whole
+// config object into checkPassportTrustPosture) or produces one (the CLI).
+// `tests/trust-anchor-shapes.test.ts` asserts the property the enumeration
+// should have had: for any value of the option, no public entry point admits
+// where another refuses. If a fourth reader is ever added, add it there too.
 
 /** A caller-supplied `trustedIssuers` value, resolved into something a guard
  *  can branch on without knowing what shape arrived. */

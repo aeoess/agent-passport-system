@@ -33,6 +33,7 @@ import assert from 'node:assert/strict'
 import {
   generateKeyPair, createDelegation, createPassport, signPassport,
   verifyPassport, checkPassportTrustPosture, normalizeTrustAnchors,
+  verifySocialContract,
 } from '../src/index.js'
 import { governMCPToolCall } from '../src/adapters/mcp.js'
 import { governLangChainTool } from '../src/adapters/langchain.js'
@@ -265,4 +266,120 @@ describe('N2: only the literal true is wildcard trust', () => {
     assert.ok('denied' in r, 'the string "false" was read as permission')
     assert.equal(executed, 0)
   })
+})
+
+// ══════════════════════════════════════════════════════════════════
+// N3: verifySocialContract is the THIRD reader of the same option.
+// ══════════════════════════════════════════════════════════════════
+// RETRO-AUDIT C1. Phase 2 enumerated the known CALL SITES of the guard
+// (verify.ts, trust-posture.ts) and stopped there. It never enumerated the
+// READERS of the option. `verifySocialContract` — exported at
+// src/index.ts:18, driven by the CLI — read `opts?.trustedIssuers ?? []` and
+// tested `.length > 0` on whatever arrived. `??` replaces only null and
+// undefined, so every other malformed shape reached `.length > 0`, evaluated
+// `undefined > 0` -> false, and the caller's trust configuration was
+// discarded in silence. Worse, a bare 64-character key STRING has a numeric
+// `.length`, so it passed `> 0` and was read as a configured anchor list.
+//
+// Three public entry points, three different answers for one input:
+//
+//   trustedIssuers: {}   verifyPassport            valid: false
+//                        checkPassportTrustPosture ok: false
+//                        verifySocialContract      overall: true, issuerErrors: []
+//
+// These tests assert the property the enumeration should have had: for any
+// value of the option, no public entry point admits where another refuses.
+
+describe('N3: verifySocialContract normalizes the same option the other readers do', () => {
+  it('a deliberate empty list still means "no trust root consulted"', () => {
+    const { passport } = attacker()
+    const r = verifySocialContract(passport, null, { trustedIssuers: [] })
+    assert.equal(r.issuerChecked, false)
+    assert.equal(r.issuerTrusted, false)
+    assert.deepEqual(r.issuerErrors, [], 'an empty list is a legitimate state, not a configuration error')
+  })
+
+  it('an omitted option still means "no trust root consulted"', () => {
+    const { passport } = attacker()
+    const r = verifySocialContract(passport, null)
+    assert.equal(r.issuerChecked, false)
+    assert.deepEqual(r.issuerErrors, [])
+  })
+
+  it('a real anchor list is still consulted', () => {
+    const issuer = generateKeyPair()
+    const { passport } = attacker()
+    const r = verifySocialContract(passport, null, { trustedIssuers: [issuer.publicKey] })
+    assert.equal(r.issuerChecked, true, 'a well-formed anchor list must still be read')
+    assert.equal(r.issuerTrusted, false, 'a self-signed passport carries no countersignature from that issuer')
+  })
+
+  for (const [label, value] of MALFORMED) {
+    it(`refuses trustedIssuers = ${label} instead of discarding it`, () => {
+      const { passport } = attacker()
+      const r = verifySocialContract(passport, null, { trustedIssuers: value as never })
+
+      // Neither "no anchors" nor "all anchors": the configuration error is
+      // reported, and it is reported on the issuer axis, not as a defect in
+      // the passport's own bytes.
+      assert.ok(r.issuerErrors.length > 0,
+        `${label} was discarded silently: issuerErrors is empty`)
+      assert.ok(r.issuerErrors.some(e => /trustedIssuers/.test(e)),
+        `the refusal must name the option: ${JSON.stringify(r.issuerErrors)}`)
+      assert.equal(r.issuerTrusted, false,
+        `${label} must never produce a trusted issuer`)
+      assert.equal(r.overall, false,
+        `${label} admitted a self-signed admin:everything passport through the deprecated accessor`)
+      assert.deepEqual(r.identity.errors, [],
+        'a caller configuration error is not a defect in the passport')
+    })
+  }
+
+  it('a bare key string is not read as a configured anchor list', () => {
+    // `'a'.repeat(64).length > 0` is true, so the old code reported
+    // issuerChecked: true and ran an anchored verify against a string, whose
+    // downstream membership test was substring matching.
+    const issuer = generateKeyPair()
+    const { passport } = attacker()
+    const r = verifySocialContract(passport, null, { trustedIssuers: issuer.publicKey as never })
+    assert.equal(r.issuerTrusted, false)
+    assert.equal(r.overall, false)
+    assert.ok(r.issuerErrors.some(e => /trustedIssuers/.test(e)), JSON.stringify(r.issuerErrors))
+  })
+})
+
+describe('N3: the three public entry points agree on every anchor shape', () => {
+  // The transferable lesson from the retro-audit: enumerate READERS of the
+  // option, not callers of the guard. This is that enumeration, asserted.
+  const EVERY_SHAPE: Array<[string, unknown]> = [
+    ['undefined', undefined],
+    ['null', null],
+    ['[] deliberate empty', []],
+    ...MALFORMED,
+  ]
+
+  for (const [label, value] of EVERY_SHAPE) {
+    it(`no entry point admits where another refuses: ${label}`, () => {
+      const { passport } = attacker()
+      const opts = { trustedIssuers: value as never }
+
+      const vp = verifyPassport(passport, opts)
+      const posture = checkPassportTrustPosture(passport, opts)
+      const vsc = verifySocialContract(passport, null, opts)
+
+      // None of the three may report a trusted issuer for a self-signed
+      // admin:everything passport, whatever shape the option arrived in.
+      assert.equal(posture.ok, false, `${label}: posture admitted`)
+      assert.equal(vsc.issuerTrusted, false, `${label}: verifySocialContract reported a trusted issuer`)
+
+      // And where verifyPassport rejects the configuration outright, the
+      // contract-level verdict must not read as trusted either.
+      if (!vp.valid && vp.errors.some(e => e.includes('trustedIssuers'))) {
+        assert.equal(vsc.overall, false,
+          `${label}: verifyPassport refused the configuration and verifySocialContract admitted`)
+        assert.ok(vsc.issuerErrors.length > 0,
+          `${label}: verifyPassport named the option and verifySocialContract said nothing`)
+      }
+    })
+  }
 })

@@ -22,6 +22,7 @@
 
 import { createPassport } from './core/passport.js'
 import { verifyPassport } from './verification/verify.js'
+import { normalizeTrustAnchors } from './verification/trust-anchors.js'
 import { attestFloor, verifyAttestation, loadFloor, evaluateCompliance } from './core/values.js'
 import { createDelegation, createReceipt } from './core/delegation.js'
 import {
@@ -124,14 +125,20 @@ export interface TrustVerification {
   identity: { valid: boolean; errors: string[]; warnings: string[] }
   values: { attested: boolean; valid: boolean; errors: string[] } | null
   /** Whether a trust root was consulted at all, i.e. whether the caller
-   *  supplied a non-empty trustedIssuers list. */
+   *  supplied a usable non-empty trustedIssuers list — or supplied a
+   *  malformed one, which is a demand for a trust check that could not be
+   *  honoured and is therefore never reported as "not asked". */
   issuerChecked: boolean
   /** Whether an issuer countersignature from one of those trusted issuers
-   *  verified. Always false when no trust root was consulted. */
+   *  verified. Always false when no trust root was consulted, and always
+   *  false when the trustedIssuers value was malformed. */
   issuerTrusted: boolean
-  /** Why the issuer check failed, when one ran. Kept out of
-   *  identity.errors so that a missing trust root never reads as a defect
-   *  in the passport itself. */
+  /** Why the issuer check failed, when one ran — including the case where
+   *  the trustedIssuers value itself was rejected, which is reported here
+   *  and names the option. Kept out of identity.errors so that a missing or
+   *  misconfigured trust root never reads as a defect in the passport
+   *  itself. An empty array with issuerChecked false is the only "no trust
+   *  root configured" state; a malformed value is distinguishable from it. */
   issuerErrors: string[]
   /** The passport's own signature, its validity window, and the values
    *  attestation when one was supplied. A property of the BYTES: it does
@@ -153,7 +160,12 @@ export interface VerifySocialContractOptions {
   /** Issuer public keys the caller trusts. When supplied and non-empty, the
    *  passport must carry a valid countersignature from one of them for
    *  `issuerTrusted` to be true. When omitted, no external trust root is
-   *  consulted, `issuerChecked` is false, and `issuerTrusted` is false. */
+   *  consulted, `issuerChecked` is false, and `issuerTrusted` is false.
+   *
+   *  Normalized through `normalizeTrustAnchors`, the same boundary the other
+   *  two readers of this option use. Anything that is not an array of
+   *  non-empty strings is a configuration error: it is refused and named in
+   *  `issuerErrors`, never coerced into "no anchors" and never read as one. */
   trustedIssuers?: string[]
 }
 
@@ -185,8 +197,21 @@ export function verifySocialContract(
   attestation?: FloorAttestation | null,
   opts?: VerifySocialContractOptions
 ): TrustVerification {
-  const trustedIssuers = opts?.trustedIssuers ?? []
-  const issuerChecked = trustedIssuers.length > 0
+  // RETRO-AUDIT C1. This was `opts?.trustedIssuers ?? []` followed by
+  // `.length > 0`. `??` replaces only null and undefined, so every other
+  // malformed shape reached `.length > 0`, evaluated `undefined > 0` -> false,
+  // and the caller's trust configuration was discarded in silence — while a
+  // bare 64-character key STRING has a numeric `.length` and was read as a
+  // configured anchor list. This is the third reader of the option; the other
+  // two are verification/verify.ts and verification/trust-posture.ts. All
+  // three normalize at the boundary now, so no shape can make them disagree.
+  const trustAnchors = normalizeTrustAnchors(opts?.trustedIssuers)
+
+  // A malformed value is neither "no anchors" nor "all anchors". The caller
+  // asked for a trust root and did not get one, so the check counts as run
+  // and failed — the same collapse checkPassportTrustPosture already makes,
+  // with the reason carried in issuerErrors rather than in the failure code.
+  const issuerChecked = trustAnchors.malformed || trustAnchors.anchors.length > 0
 
   // Structure first, deliberately WITHOUT anchors. verifyPassport folds the
   // issuer countersignature into its own `valid`, so passing anchors here
@@ -195,8 +220,8 @@ export function verifySocialContract(
 
   // Trust root second, as a separate question. Only asked when the caller
   // named anchors to ask it against.
-  const anchored = issuerChecked
-    ? verifyPassport(passport, { trustedIssuers })
+  const anchored = trustAnchors.anchors.length > 0
+    ? verifyPassport(passport, { trustedIssuers: trustAnchors.anchors })
     : undefined
 
   let values: TrustVerification['values'] = null
@@ -212,9 +237,11 @@ export function verifySocialContract(
   const issuerTrusted = anchored !== undefined && anchored.valid
   // Errors the anchored check raised that the unanchored one did not: the
   // issuer-trust failures, isolated from the passport's own problems.
-  const issuerErrors = anchored
-    ? anchored.errors.filter(e => !structural.errors.includes(e))
-    : []
+  const issuerErrors = trustAnchors.malformed
+    ? [`Invalid trustedIssuers option: ${trustAnchors.reason}`]
+    : anchored
+      ? anchored.errors.filter(e => !structural.errors.includes(e))
+      : []
   const structurallyValid = structural.valid && (!values || values.valid)
 
   const result = {

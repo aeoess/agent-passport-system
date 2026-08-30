@@ -132,6 +132,7 @@ permissive reading have to state their trust posture explicitly.
 | `verifyDelegation` with `cacheGraceMs: Infinity` and an unparseable `checkedAt` | graded `fresh`, satisfied `fail_closed` | graded `stale`, refused |
 | `verifyDelegation` with a typo'd policy such as `'FAIL_CLOSED'` | silently meant `fail_open` | throws |
 | any gate with `trustedIssuers: {}`, `new Set([...])`, `NaN`, `0` or `true` | admitted everyone silently | denies with a reason naming the option |
+| `verifySocialContract` with a malformed `trustedIssuers` | discarded the option; `overall: true`, `issuerErrors: []` | `issuerChecked: true`, `issuerTrusted: false`, `overall: false`, `issuerErrors` names the option (5.0.1) |
 | `verifyPassport` with a malformed `trustedIssuers` | ignored it, kept `valid: true` | `valid: false`, error names the option |
 | `GovernanceLoadPolicy.allowedIssuers: []` | skipped the check, admitted any issuer | admits none; write `['*']` (`ANY_ISSUER`) alone for wildcard trust |
 
@@ -157,7 +158,12 @@ Porting notes:
   or a bare key string is now a configuration error that denies, where it used
   to disable the issuer check silently. If you hold anchors in a Set, pass
   `[...mySet]`. `normalizeTrustAnchors` is exported if you want to validate a
-  value before handing it over.
+  value before handing it over. In 5.0.0 this held at `verifyPassport`,
+  `checkPassportTrustPosture`, the five adapter gates and the relying-party
+  middleware, but NOT at `verifySocialContract`, which was a third reader of
+  the option and was missed; 5.0.1 closes it. If you read
+  `TrustVerification.overall` — deprecated, and the field this affected — a
+  malformed anchor list used to leave it `true`.
 - **The same posture is now required at the five adapter gates.** If you call
   `governMCPToolCall`, `governLangChainTool`, `verifyCrewMember`,
   `verifyGonkaHost` or `verifyA2AIdentity`, add `trustedIssuers: [...]` or
