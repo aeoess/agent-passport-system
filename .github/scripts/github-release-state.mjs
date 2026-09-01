@@ -24,11 +24,22 @@ export function classifyGitHubReleaseResponse({ status, document }, expectedTag)
   if (document.tag_name !== expectedTag) {
     throw new Error(`GitHub release identity mismatch: expected tag ${expectedTag}`);
   }
+  if (document.name !== expectedTag || document.prerelease !== false) {
+    throw new Error(`GitHub release ${expectedTag} has unexpected title or prerelease state`);
+  }
   if (document.draft === true) {
     throw new Error(`GitHub release ${expectedTag} is an interrupted mutable draft; manual inspection is required`);
   }
   if (document.immutable !== true) {
     throw new Error(`GitHub release ${expectedTag} exists but is not immutable`);
+  }
+  if (document.author?.login !== 'github-actions[bot]'
+    || document.author?.id !== 41898282
+    || document.author?.type !== 'Bot') {
+    throw new Error(`GitHub release ${expectedTag} was not created by the repository release workflow`);
+  }
+  if (typeof document.published_at !== 'string' || !document.published_at) {
+    throw new Error(`GitHub release ${expectedTag} has no publication timestamp`);
   }
 
   const assets = document.assets;

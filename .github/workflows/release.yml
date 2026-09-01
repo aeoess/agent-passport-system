@@ -60,6 +60,7 @@ jobs:
             if (pkg.name !== 'agent-passport-system') throw new Error('unexpected package name');
             if (!/^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?$/.test(pkg.version)) throw new Error('invalid package version');
             if (pkg.repository?.url !== 'git+https://github.com/aeoess/agent-passport-system.git') throw new Error('repository URL does not match the trusted publisher');
+            if (Object.hasOwn(pkg, 'publishConfig')) throw new Error('publishConfig is forbidden');
             process.stdout.write(pkg.version);
           ")
           if [ "$tag_version" != "$pkg_version" ]; then
@@ -225,20 +226,40 @@ jobs:
         run: |
           set -euo pipefail
           out="agent-passport-system-${PACKAGE_VERSION}.sbom.spdx.json"
+          raw="$out.raw"
+          commit_time=$(git show -s --format=%cI "$GITHUB_SHA")
           sbom_root=$(mktemp -d)
           tar -xzf "./$TARBALL" -C "$sbom_root"
+          cp package-lock.json "$sbom_root/package/package-lock.json"
           cd "$sbom_root/package"
-          npm install --ignore-scripts --omit=dev --no-audit --no-fund
-          npm sbom --package-lock-only --sbom-format spdx --sbom-type library --omit dev > "$GITHUB_WORKSPACE/$out"
-          cd "$GITHUB_WORKSPACE"
-          SBOM="$out" PACKAGE_VERSION="$PACKAGE_VERSION" node --input-type=module -e "
+          node --input-type=module -e "
             import { readFileSync } from 'node:fs';
-            const doc = JSON.parse(readFileSync(process.env.SBOM, 'utf8'));
+            const manifest = JSON.parse(readFileSync('package.json', 'utf8'));
+            const lock = JSON.parse(readFileSync('package-lock.json', 'utf8'));
+            const root = lock.packages?.[''];
+            if (root?.name !== manifest.name || root?.version !== manifest.version) {
+              throw new Error('source lock identity does not match the exact packed artifact');
+            }
+            for (const field of ['dependencies', 'optionalDependencies', 'peerDependencies']) {
+              if (JSON.stringify(root[field] ?? {}) !== JSON.stringify(manifest[field] ?? {})) {
+                throw new Error('source lock ' + field + ' do not match the exact packed artifact');
+              }
+            }
+          "
+          npm sbom --package-lock-only --sbom-format spdx --sbom-type library --omit dev > "$GITHUB_WORKSPACE/$raw"
+          cd "$GITHUB_WORKSPACE"
+          COMMIT_TIME="$commit_time" SBOM_RAW="$raw" SBOM="$out" PACKAGE_VERSION="$PACKAGE_VERSION" node --input-type=module -e "
+            import { readFileSync, writeFileSync } from 'node:fs';
+            const doc = JSON.parse(readFileSync(process.env.SBOM_RAW, 'utf8'));
             const roots = (doc.packages ?? []).filter((item) => item.name === 'agent-passport-system' && item.versionInfo === process.env.PACKAGE_VERSION);
             if (roots.length !== 1 || !(doc.documentDescribes ?? []).includes(roots[0].SPDXID)) {
               throw new Error('SBOM does not describe the exact package name and version');
             }
+            doc.creationInfo.created = new Date(process.env.COMMIT_TIME).toISOString().replace('.000Z', 'Z');
+            doc.documentNamespace = 'https://spdx.org/spdxdocs/agent-passport-system-' + process.env.PACKAGE_VERSION + '-' + process.env.GITHUB_SHA;
+            writeFileSync(process.env.SBOM, JSON.stringify(doc, null, 2) + '\\n', { flag: 'wx' });
           "
+          rm "$raw"
           echo "path=$out" >> "$GITHUB_OUTPUT"
 
       - name: Assemble the immutable package handoff
@@ -309,6 +330,8 @@ jobs:
       - package
       - probe
     runs-on: ubuntu-latest
+    outputs:
+      github_release_state: ${{ steps.github-release.outputs.state }}
     permissions:
       contents: read
       id-token: write
@@ -330,6 +353,20 @@ jobs:
       - name: Verify the package handoff digests
         working-directory: release-bundle
         run: sha256sum -c SHA256SUMS
+
+      - name: Validate the exact privileged publish manifest
+        working-directory: release-bundle
+        env:
+          PACKAGE_VERSION: ${{ needs.authorize.outputs.version }}
+          TARBALL: ${{ needs.package.outputs.tarball }}
+        run: |
+          set -euo pipefail
+          tar -xOf "$TARBALL" package/package.json > packed-package.json
+          if tar -tzf "$TARBALL" | grep -qx 'package/.npmrc'; then
+            echo "::error::packed artifact contains a package-level npm configuration"
+            exit 1
+          fi
+          MANIFEST=packed-package.json node ../release-source/.github/scripts/release-manifest.mjs
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
         with:
@@ -392,8 +429,14 @@ jobs:
         if: steps.registry.outputs.state == 'absent'
         working-directory: release-bundle
         env:
+          NODE_TLS_REJECT_UNAUTHORIZED: '1'
+          NO_PROXY: registry.npmjs.org
+          NPM_CONFIG_HTTPS_PROXY: 'null'
+          NPM_CONFIG_PROXY: 'null'
+          NPM_CONFIG_REGISTRY: https://registry.npmjs.org/
+          NPM_CONFIG_STRICT_SSL: 'true'
           TARBALL: ${{ needs.package.outputs.tarball }}
-        run: npm publish "./$TARBALL" --access public --provenance
+        run: npm publish "./$TARBALL" --ignore-scripts --access public --provenance --registry=https://registry.npmjs.org/ --strict-ssl=true
 
       - name: Verify registry bytes and npm provenance after publication
         working-directory: release-bundle
@@ -434,7 +477,13 @@ jobs:
           SBOM: release-bundle/agent-passport-system-${{ needs.authorize.outputs.version }}.sbom.spdx.json
         run: |
           set -euo pipefail
-          gh attestation verify "$TARBALL" --repo "$GITHUB_REPOSITORY"
+          gh attestation verify "$TARBALL" \
+            --repo "$GITHUB_REPOSITORY" \
+            --bundle "${{ steps.attest.outputs.bundle-path }}" \
+            --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/release.yml" \
+            --source-digest "$GITHUB_SHA" \
+            --source-ref "$GITHUB_REF" \
+            --deny-self-hosted-runners
           renamed="agent-passport-system-${GITHUB_REF_NAME#v}.intoto.jsonl"
           mkdir public-release
           cp "$TARBALL" "$SBOM" public-release/
@@ -460,8 +509,19 @@ jobs:
           gh release verify-asset "$GITHUB_REF_NAME" "public-release/$TARBALL"
           gh release verify-asset "$GITHUB_REF_NAME" "public-release/$SBOM"
           gh release verify-asset "$GITHUB_REF_NAME" "public-release/$ATTESTATION"
+          gh attestation verify "public-release/$TARBALL" \
+            --repo "$GITHUB_REPOSITORY" \
+            --bundle "public-release/$ATTESTATION" \
+            --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/release.yml" \
+            --source-digest "$GITHUB_SHA" \
+            --source-ref "$GITHUB_REF" \
+            --deny-self-hosted-runners
           cmp --silent "release-bundle/$TARBALL" "public-release/$TARBALL" || {
             echo "::error::immutable GitHub Release tarball differs from the candidate"
+            exit 1
+          }
+          cmp --silent "release-bundle/$SBOM" "public-release/$SBOM" || {
+            echo "::error::immutable GitHub Release SBOM differs from the regenerated candidate"
             exit 1
           }
           cd public-release
@@ -519,6 +579,12 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: node ../release-source/.github/scripts/github-release-state.mjs
+
+      - name: Refuse a release created between trust boundaries
+        if: needs.publish.outputs.github_release_state == 'absent' && steps.github-release.outputs.state == 'immutable'
+        run: |
+          echo "::error::an immutable release appeared after the publish job; principal inspection is required"
+          exit 1
 
       - name: Create the GitHub Release with all assets when it is absent
         if: steps.github-release.outputs.state == 'absent'
