@@ -1,6 +1,6 @@
 # Changelog
 
-## 5.0.2 (unreleased)
+## 5.0.3 (unreleased)
 
 ### Release process
 
@@ -10,6 +10,18 @@
   create registry provenance for the new immutable version. It carries the
   same security remediation as `5.0.0`, whose registry entry cannot be amended
   with missing npm provenance.
+
+## 5.0.2 (not published)
+
+- Failed release attempt, never published. The tag `v5.0.2` was pushed on
+  2026-09-02 at `37db6b47` and the release workflow run `33692642859` passed
+  authorize, test, build, package, probe and attest, then failed in the
+  release job at `gh release create`: the command ran at the workspace root
+  while the sources were checked out under `release-source/`, so `gh`
+  attempted repository inference outside a git checkout and failed. Publish
+  was skipped. No GitHub Release and no npm version `5.0.2` exist. The tag
+  stays where it is as the record of that attempt; the workflow fix is #141
+  and the recovery version is `5.0.3`.
 
 ## 5.0.1 (not published)
 

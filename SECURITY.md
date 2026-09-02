@@ -80,7 +80,10 @@ evidence and cannot add npm provenance to an already published npm version. A
 first attempt at that patch release, tagged `v5.0.1` on 2026-09-02, failed in
 the release workflow before npm publication or GitHub Release creation (a
 release-workflow transport defect, fixed in #139); no `5.0.1` version exists on
-npm. If published through the corrected Trusted Publishing workflow, `5.0.2` is
+npm. A second attempt, tagged `v5.0.2` on 2026-09-02, passed packaging and
+attestation and failed at GitHub Release creation (a release-workflow
+repository-binding defect, fixed in #141); no `5.0.2` version exists on npm. If
+published through the corrected Trusted Publishing workflow, `5.0.3` is
 intended to be the first post-remediation patch release that restores the
 normal npm provenance property. Version-specific registry metadata is
 available from:
