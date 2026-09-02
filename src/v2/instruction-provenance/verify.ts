@@ -11,7 +11,7 @@
 // which is not part of the IPR envelope itself.
 // ══════════════════════════════════════════════════════════════════
 
-import { createPublicKey, verify as cryptoVerify } from 'node:crypto'
+import { verify as verifySignature } from '../../crypto/keys.js'
 import { existsSync, readdirSync, statSync } from 'node:fs'
 import { join, relative, resolve } from 'node:path'
 import {
@@ -29,7 +29,6 @@ import type {
   VerifyIPRInput,
 } from './types.js'
 
-const SPKI_ED25519_PREFIX = Buffer.from('302a300506032b6570032100', 'hex')
 
 const VALID_TIERS: ReadonlySet<AttestationTier> = new Set(['self-asserted', 'witnessed', 'verified'])
 const V0_2_PERMITTED_TIER: AttestationTier = 'self-asserted'
@@ -214,17 +213,18 @@ export function verifyActionTimeContextRoot(input: ActionTimeContextRootInput): 
 
 // ─── helpers ────────────────────────────────────────────────────────
 
-function verifyEd25519(message: string | Uint8Array, sigHex: string, publicKeyHex: string): boolean {
-  try {
-    const pub = Buffer.from(publicKeyHex, 'hex')
-    if (pub.length !== 32) return false
-    const derKey = Buffer.concat([SPKI_ED25519_PREFIX, pub])
-    const keyObj = createPublicKey({ key: derKey, format: 'der', type: 'spki' })
-    const msg = typeof message === 'string' ? Buffer.from(message, 'utf8') : Buffer.from(message)
-    return cryptoVerify(null, msg, keyObj, Buffer.from(sigHex, 'hex'))
-  } catch {
-    return false
-  }
+// This module used to carry its own copy of the Ed25519 primitive. A second
+// copy is a second admissibility policy, and this one had none: it accepted a
+// public key or an R that decodes to a small-order point, so a receipt signed
+// with the Edwards identity verified whatever its canonical bytes were. It now
+// delegates to the shared primitive in src/crypto/keys.ts, which enforces
+// Ed25519 admissibility, so there is one policy and one place to change it.
+// The parameter was `string | Uint8Array`, but the only call site passes the
+// canonical envelope string and the shared primitive signs UTF-8 bytes. Taking
+// bytes here would mean a lossy round-trip for anything that is not valid
+// UTF-8, so the type says what the function actually accepts.
+function verifyEd25519(message: string, sigHex: string, publicKeyHex: string): boolean {
+  return verifySignature(message, sigHex, publicKeyHex)
 }
 
 function isSortedByPath(files: readonly InstructionFile[]): boolean {

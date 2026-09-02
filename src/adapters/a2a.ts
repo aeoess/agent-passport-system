@@ -10,7 +10,7 @@
  * lifecycle hook) lives in the gateway.
  */
 
-import { verifyPassport } from '../verification/verify.js'
+import { checkPassportTrustPosture, type TrustPostureOptions } from '../verification/trust-posture.js'
 import type { A2AAgentCard } from '../types/a2a.js'
 import type { Delegation, SignedPassport } from '../types/passport.js'
 
@@ -119,15 +119,23 @@ export function a2aCardToPassportMeta(
   }
 }
 
-/** Verify an A2A agent has valid APS identity */
+/** Verify an A2A agent has valid APS identity.
+ *
+ *  Identity here means the passport verifies AND this verifier has a stated
+ *  basis for accepting whoever stands behind it. Without `opts`, a self-signed
+ *  passport is REFUSED: it used to return { valid: true, errors: [] } for a
+ *  passport an attacker minted for themselves, which is a claim of identity
+ *  rather than a verification of one. Pass `trustedIssuers`, or
+ *  `allowSelfSigned: true` on a closed network. */
 export function verifyA2AIdentity(
   card: A2AAgentCardV2,
   passport: SignedPassport,
+  opts: TrustPostureOptions = {},
 ): { valid: boolean; errors: string[] } {
   const errors: string[] = []
 
-  const pc = verifyPassport(passport)
-  if (!pc.valid) errors.push(...pc.errors)
+  const pc = checkPassportTrustPosture(passport, opts)
+  if (!pc.ok) errors.push(pc.detail ?? 'Passport rejected at the gate')
 
   const p = passport.passport
   if (card.name !== p.agentName && card.name !== p.agentId) {

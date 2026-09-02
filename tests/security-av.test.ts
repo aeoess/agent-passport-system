@@ -81,33 +81,45 @@ describe('Security: MoltyCel AV-2 through AV-5 (qntm#7)', () => {
     })
   })
 
-  // ── AV-2: verifyApsTxt strict option ──
-  describe('AV-2: verifyApsTxt strict mode', () => {
-    it('strict mode rejects unsigned aps.txt (no public key)', () => {
+  // ── AV-2: unsigned aps.txt is never valid ──
+  // These were the 'strict mode' tests. The strict option is gone: it gated
+  // the unsigned verdict, that verdict became unconditional, and what was
+  // left was a security-shaped option that changed only the length of the
+  // errors array. Every assertion below is the one it used to make; the
+  // behaviour it selected is now the only behaviour, which is strictly
+  // stronger than what MoltyCel's AV-2 report asked for.
+  describe('AV-2: unsigned aps.txt is rejected unconditionally', () => {
+    it('rejects unsigned aps.txt (no public key)', () => {
       const doc = makeApsTxt()
-      const result = verifyApsTxt(doc, undefined, { strict: true })
+      const result = verifyApsTxt(doc, undefined)
       assert.equal(result.valid, false)
       assert.equal(result.reason, 'UNSIGNED')
     })
 
-    it('strict mode rejects when signature fails', () => {
+    it('rejects when signature fails', () => {
       const doc = makeApsTxt()
-      const result = verifyApsTxt(doc, attacker.publicKey, { strict: true })
+      const result = verifyApsTxt(doc, attacker.publicKey)
       assert.equal(result.valid, false)
       assert.equal(result.reason, 'UNSIGNED')
     })
 
-    it('strict mode accepts valid signature', () => {
+    it('accepts valid signature', () => {
       const doc = makeApsTxt()
-      const result = verifyApsTxt(doc, publisher.publicKey, { strict: true })
+      const result = verifyApsTxt(doc, publisher.publicKey)
       assert.equal(result.valid, true)
       assert.equal(result.reason, undefined)
     })
 
-    it('default mode accepts unsigned (backward compat)', () => {
+    // Was 'default mode accepts unsigned (backward compat)', asserting
+    // valid === true when no key was supplied. That assertion pinned the
+    // defect: a verdict of valid stood in for "the signature was not
+    // checked". The default is now the same as strict for this case.
+    it('default mode rejects unsigned (no public key), same as strict', () => {
       const doc = makeApsTxt()
       const result = verifyApsTxt(doc)
-      assert.equal(result.valid, true)
+      assert.equal(result.valid, false)
+      assert.equal(result.reason, 'UNSIGNED')
+      assert.equal(result.signatureChecked, false)
     })
   })
 

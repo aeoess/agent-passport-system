@@ -109,11 +109,15 @@ describe('Agora — Signature Verification', () => {
       subject: 'Hi',
       content: 'I am registered.',
     });
-    // With empty registry
+    // With empty registry. The signature still verifies, but the identity
+    // check ran and failed, so the overall verdict is not valid. This
+    // assertion used to read `assert.ok(r1.valid)`, which pinned the defect:
+    // the registry error was reported and ignored at the same time.
     const emptyReg = createRegistry();
     const r1 = verifyAgoraMessage(msg, emptyReg);
-    assert.ok(r1.valid); // Signature is still valid
+    assert.ok(r1.signatureValid); // Signature is still valid
     assert.ok(!r1.knownAgent); // But not in registry
+    assert.ok(!r1.valid); // so the message does not verify overall
 
     // With agent registered
     const reg = registerAgent(emptyReg, {
@@ -277,5 +281,170 @@ describe('Agora — Full Feed Verification', () => {
     const result = verifyFeed(feed);
     assert.equal(result.valid, 0);
     assert.equal(result.invalid.length, 1);
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════
+// Invariant: a verification function cannot report overall valid while
+// simultaneously reporting load-bearing verification errors.
+// ══════════════════════════════════════════════════════════════════
+// verifyAgoraMessage ran the registry check, pushed 'Author not found in
+// agent registry' into errors, and then returned valid: signatureValid,
+// so the registry check never reached the verdict. The observable result
+// was {"valid":true, errors:["Author not found in agent registry"]}, and
+// verifyFeed counted such messages as valid with invalid: []. Overall
+// valid now reflects every predicate that ran, and the components are
+// reported separately so a caller can tell which one failed.
+
+describe('Agora: the verdict reflects every check that ran', () => {
+  function signedMessage(name: string) {
+    const agent = makeAgent(name);
+    return {
+      agent,
+      msg: createAgoraMessage({
+        ...agent,
+        topic: 'general',
+        type: 'discussion',
+        subject: 'Subject',
+        content: 'Content',
+      }),
+    };
+  }
+
+  it('valid is never true while errors are reported', () => {
+    const { msg } = signedMessage('unregistered');
+    const result = verifyAgoraMessage(msg, createRegistry());
+    assert.equal(
+      result.valid && result.errors.length > 0,
+      false,
+      `valid=${result.valid} with errors ${JSON.stringify(result.errors)}`,
+    );
+  });
+
+  it('an author absent from a supplied registry is not valid', () => {
+    const { msg } = signedMessage('stranger');
+    const result = verifyAgoraMessage(msg, createRegistry());
+    assert.equal(result.valid, false);
+    assert.equal(result.signatureValid, true, 'the signature itself is fine');
+    assert.equal(result.knownAgent, false);
+    assert.equal(result.registryChecked, true);
+    assert.ok(result.errors.some(e => e.includes('registry')));
+  });
+
+  it('a registered author with a good signature is valid', () => {
+    const { agent, msg } = signedMessage('member');
+    const registry = registerAgent(createRegistry(), {
+      agentId: agent.agentId,
+      agentName: agent.agentName,
+      publicKey: agent.publicKey,
+      joinedAt: new Date().toISOString(),
+      role: 'member',
+    });
+    const result = verifyAgoraMessage(msg, registry);
+    assert.equal(result.valid, true, result.errors.join(' | '));
+    assert.equal(result.signatureValid, true);
+    assert.equal(result.knownAgent, true);
+    assert.equal(result.registryChecked, true);
+    assert.deepEqual(result.errors, []);
+  });
+
+  it('with no registry the result says so rather than implying membership', () => {
+    const { msg } = signedMessage('anonymous');
+    const result = verifyAgoraMessage(msg);
+    assert.equal(result.registryChecked, false);
+    assert.equal(result.knownAgent, false);
+    assert.equal(result.signatureValid, true);
+    // Signature-only verification. Valid here means the message was not
+    // altered after signing, not that its author is a known participant.
+    assert.equal(result.valid, true);
+    assert.deepEqual(result.errors, []);
+  });
+
+  it('a tampered message from a registered author is not valid', () => {
+    const { agent, msg } = signedMessage('member-tamper');
+    const registry = registerAgent(createRegistry(), {
+      agentId: agent.agentId,
+      agentName: agent.agentName,
+      publicKey: agent.publicKey,
+      joinedAt: new Date().toISOString(),
+      role: 'member',
+    });
+    msg.content = 'rewritten after signing';
+    const result = verifyAgoraMessage(msg, registry);
+    assert.equal(result.valid, false);
+    assert.equal(result.signatureValid, false);
+    assert.equal(result.knownAgent, true, 'the author is still a registry member');
+  });
+
+  it('verifyFeed counts an unregistered author as invalid and names it', () => {
+    const { msg } = signedMessage('feed-stranger');
+    const feed = appendToFeed(createFeed(), msg);
+    const result = verifyFeed(feed, createRegistry());
+    assert.equal(result.total, 1);
+    assert.equal(result.valid, 0);
+    assert.equal(result.invalid.length, 1);
+    assert.ok(result.invalid[0].includes(msg.id));
+    assert.ok(result.invalid[0].includes('registry'));
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════
+// Invariant: the verdict and the errors never contradict each other,
+// in EITHER direction.
+// ══════════════════════════════════════════════════════════════════
+// Round 1 fixed "valid true while reporting errors". It introduced the
+// mirror image: registryChecked was `registry !== undefined`, so a null
+// registry counted as a registry that had been checked while the
+// membership lookup, guarded by `if (registry)`, never ran. The result was
+// valid=false with errors=[]: a refusal with no stated reason, which is the
+// same failure of legibility as an admission with a stated error.
+
+describe('Agora: a refusal always states its reason', () => {
+  function signedMessage(name: string) {
+    const agent = makeAgent(name);
+    return createAgoraMessage({
+      ...agent,
+      topic: 'general', type: 'discussion', subject: 'Subject', content: 'Content',
+    });
+  }
+
+  it('a null registry is no registry, not an empty one', () => {
+    const result = verifyAgoraMessage(signedMessage('null-reg'), null as never);
+    assert.equal(result.registryChecked, false);
+    assert.equal(result.valid, true, 'signature-only verdict, same as omitting the argument');
+    assert.deepEqual(result.errors, []);
+  });
+
+  it('null and omitted registries agree', () => {
+    const msg = signedMessage('agreement');
+    const omitted = verifyAgoraMessage(msg);
+    const nulled = verifyAgoraMessage(msg, null as never);
+    assert.equal(omitted.valid, nulled.valid);
+    assert.equal(omitted.registryChecked, nulled.registryChecked);
+  });
+
+  it('a malformed registry is a checked registry that failed, and says so', () => {
+    const result = verifyAgoraMessage(signedMessage('bad-reg'), { version: '1.0' } as never);
+    assert.equal(result.registryChecked, true);
+    assert.equal(result.knownAgent, false);
+    assert.equal(result.valid, false);
+    assert.ok(
+      result.errors.length > 0,
+      'a refusal with an empty errors array is the contradiction this suite exists to prevent',
+    );
+  });
+
+  it('no result ever refuses without a reason or admits with one', () => {
+    const cases: Array<[string, unknown]> = [
+      ['omitted', undefined],
+      ['null', null],
+      ['empty registry', createRegistry()],
+      ['malformed registry', { version: '1.0' }],
+      ['agents not an array', { version: '1.0', lastUpdated: '', agents: 'nope' }],
+    ];
+    for (const [label, registry] of cases) {
+      const r = verifyAgoraMessage(signedMessage('sweep'), registry as never);
+      assert.equal(r.valid, r.errors.length === 0, `${label}: valid=${r.valid} errors=${JSON.stringify(r.errors)}`);
+    }
   });
 });

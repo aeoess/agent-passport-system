@@ -55,15 +55,31 @@ Override `extractPassport` to read it from a verified session instead.
 
 ## Deny semantics
 
-| Reason            | Status | Meaning                                              |
-| ----------------- | ------ | ---------------------------------------------------- |
-| `NO_PASSPORT`     | 401    | No passport presented on the request.                |
-| `PASSPORT_INVALID`| 401    | Signature, validity window, or issuer-trust failed.  |
-| `MISSING_SCOPE`   | 403    | Passport is valid but lacks a required capability.    |
+| Reason             | Status | Meaning                                              |
+| ------------------ | ------ | ---------------------------------------------------- |
+| `NO_PASSPORT`      | 401    | No passport presented on the request.                |
+| `PASSPORT_INVALID` | 401    | Signature, validity window, or issuer-trust failed.  |
+| `UNTRUSTED_ISSUER` | 401    | The gate holds no trust anchor for this passport.    |
+| `MISSING_SCOPE`    | 403    | Passport is valid but lacks a required capability.    |
 
 Scope is checked against the passport's `capabilities[]`. All
 `requiredScopes` must be present by default (logical AND); set
 `anyScope: true` for logical OR.
+
+## Trust anchors
+
+A passport signature verifies under the public key inside the passport, so
+on its own it proves only that whoever holds that key wrote the passport,
+capabilities included. The gate will not treat that as an authorization by
+anyone you trust, so it needs one of two postures, stated explicitly:
+
+- `trustedIssuers: [issuerPublicKeyHex, ...]` — the passport must carry a
+  valid countersignature from one of those issuers.
+- `allowSelfSigned: true` — self-signed passports are accepted. Every
+  admit made this way carries a warning on the decision saying so.
+
+Neither one, or `trustedIssuers: []`, denies with `UNTRUSTED_ISSUER`. An
+empty anchor list is an empty anchor list, not a wildcard.
 
 ## Proof box
 

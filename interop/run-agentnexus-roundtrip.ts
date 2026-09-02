@@ -8,8 +8,8 @@
 // produced by the companion invocation path.
 
 import { readFileSync, statSync } from 'node:fs'
-import { createPublicKey, verify as nodeVerify } from 'node:crypto'
 import { canonicalizeJCS } from '../src/core/canonical-jcs.js'
+import { verify as verifySignature } from '../src/crypto/keys.js'
 
 type CheckStatus = 'pass' | 'fail' | 'n/a'
 
@@ -34,7 +34,6 @@ interface FixtureReport {
   pass: boolean
 }
 
-const ED25519_DER_PREFIX = Buffer.from('302a300506032b6570032100', 'hex')
 
 function b64urlToBytes(s: string): Buffer {
   const pad = s.length % 4 === 0 ? '' : '='.repeat(4 - (s.length % 4))
@@ -42,15 +41,16 @@ function b64urlToBytes(s: string): Buffer {
   return Buffer.from(b64, 'base64')
 }
 
+// This runner issues verdicts on a third party's artifacts, so it must apply
+// the same Ed25519 admissibility rule the SDK applies rather than its own. It
+// used to call node crypto directly, which accepts a public key or an R that
+// decodes to a small-order point.
 function verifyEd25519(canonical: string, signatureB64Url: string, publicKeyHex: string): boolean {
   try {
-    const pub = Buffer.from(publicKeyHex, 'hex')
-    if (pub.length !== 32) return false
-    const der = Buffer.concat([ED25519_DER_PREFIX, pub])
-    const key = createPublicKey({ key: der, format: 'der', type: 'spki' })
     const sig = b64urlToBytes(signatureB64Url)
     if (sig.length !== 64) return false
-    return nodeVerify(null, Buffer.from(canonical, 'utf8'), key, sig)
+    if (!/^[0-9a-fA-F]{64}$/.test(publicKeyHex)) return false
+    return verifySignature(canonical, sig.toString('hex'), publicKeyHex)
   } catch {
     return false
   }

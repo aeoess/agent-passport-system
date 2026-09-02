@@ -38,9 +38,18 @@ export interface AgoraMessageContent {
 }
 
 export interface AgoraVerification {
+  /** Overall verdict: every check that ran, passed. Never true while
+   *  `errors` is non-empty. */
   valid: boolean
   messageId: string
   authorKey: string
+  /** The Ed25519 signature verifies under the key the message itself
+   *  carries. Structural fact only: it says the message was not altered
+   *  after signing, not that the signer is any particular participant. */
+  signatureValid: boolean
+  /** Whether a registry was supplied to check the author against. When
+   *  false, no identity check ran and `knownAgent` reports nothing. */
+  registryChecked: boolean
   knownAgent: boolean           // whether author is in the registry
   errors: string[]
 }

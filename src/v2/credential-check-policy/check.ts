@@ -4,7 +4,7 @@
 // Credential Check Policy — verifyOnAccept and evaluateCredentialCheck
 // ══════════════════════════════════════════════════════════════════
 
-import { verifyDelegation } from '../../core/delegation.js'
+import { verifyDelegation, type RevocationCheckOptions } from '../../core/delegation.js'
 import type { Delegation } from '../../types/passport.js'
 import type {
   CredentialCheckPolicy,
@@ -36,9 +36,17 @@ export function verifyOnAccept(opts: {
   verifierId?: string
   /** Override the stamp timestamp (test fixtures). Defaults to now. */
   verifiedAt?: string
+  /** Revocation posture for this acceptance check. This is the moment a
+   *  verifying party decides to take a credential on, so it is the natural
+   *  place to require fresh revocation evidence: pass
+   *  { revocationCheckPolicy: 'fail_closed', cachedRevocationState } and an
+   *  acceptance stamp is only minted against evidence that is present and
+   *  fresh. Omitted leaves the previous behaviour, signature and expiry
+   *  only, so existing callers are unaffected. */
+  revocation?: RevocationCheckOptions
 }): { valid: boolean; errors: string[]; stamp?: AcceptanceStamp } {
   const errors: string[] = []
-  const status = verifyDelegation(opts.delegation)
+  const status = verifyDelegation(opts.delegation, opts.revocation)
 
   if (!status.valid) {
     errors.push(...(status.errors || ['Delegation signature invalid']))

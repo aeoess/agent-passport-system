@@ -8,6 +8,13 @@ import {
 } from '../src/index.js'
 import type { ActionReceipt, LangChainToolCall } from '../src/index.js'
 
+// The four governed-execution configs below declare allowSelfSigned. These
+// suites verify scope, receipts and rate limits on SELF-SIGNED passports, and
+// the adapter gates no longer admit a self-issued claim of authority without
+// the caller saying so. That posture is what these tests always relied on
+// implicitly; it is now written down. The trust-anchor axis itself is pinned
+// in tests/adapter-trust-posture.test.ts. No assertion here was changed.
+
 const pk = generateKeyPair()
 const ak = generateKeyPair()
 const { signedPassport } = createPassport({
@@ -25,7 +32,7 @@ describe('LangChain Adapter v2', () => {
     const r = await governLangChainTool(
       { name: 'search', args: { q: 'test' } },
       mockExec,
-      { passport: signedPassport, delegation: mkDel(['tools:search']), privateKey: ak.privateKey, onReceipt: r => receipts.push(r) },
+      { passport: signedPassport, allowSelfSigned: true, delegation: mkDel(['tools:search']), privateKey: ak.privateKey, onReceipt: r => receipts.push(r) },
     )
     assert.ok('output' in r && !('denied' in r))
     assert.deepStrictEqual(r.output, { ok: true, q: 'test' })
@@ -37,7 +44,7 @@ describe('LangChain Adapter v2', () => {
     const r = await governLangChainTool(
       { name: 'admin_delete', args: {} },
       mockExec,
-      { passport: signedPassport, delegation: mkDel(['tools:search']), privateKey: ak.privateKey },
+      { passport: signedPassport, allowSelfSigned: true, delegation: mkDel(['tools:search']), privateKey: ak.privateKey },
     )
     assert.ok('denied' in r && r.denied === true)
     assert.ok(r.reason.includes('not covered'))
@@ -47,7 +54,7 @@ describe('LangChain Adapter v2', () => {
     const del = { ...mkDel(['tools:search']), expiresAt: new Date(Date.now() - 1000).toISOString() }
     const r = await governLangChainTool(
       { name: 'search', args: {} }, mockExec,
-      { passport: signedPassport, delegation: del, privateKey: ak.privateKey },
+      { passport: signedPassport, allowSelfSigned: true, delegation: del, privateKey: ak.privateKey },
     )
     assert.ok('denied' in r && r.denied === true)
   })
@@ -62,7 +69,7 @@ describe('LangChain Adapter v2', () => {
 
   it('LangGraph middleware creation', async () => {
     const middleware = createLangGraphGovernance({
-      passport: signedPassport, delegation: mkDel(['tools:fetch']), privateKey: ak.privateKey,
+      passport: signedPassport, allowSelfSigned: true, delegation: mkDel(['tools:fetch']), privateKey: ak.privateKey,
     })
     const r = await middleware({ name: 'fetch', args: { url: 'x' } }, mockExec)
     assert.ok('output' in r)
@@ -71,7 +78,7 @@ describe('LangChain Adapter v2', () => {
   it('receipt signature verifies', async () => {
     const r = await governLangChainTool(
       { name: 'search', args: {} }, mockExec,
-      { passport: signedPassport, delegation: mkDel(['tools:search']), privateKey: ak.privateKey },
+      { passport: signedPassport, allowSelfSigned: true, delegation: mkDel(['tools:search']), privateKey: ak.privateKey },
     )
     assert.ok('receipt' in r)
     const { signature, ...rest } = r.receipt
@@ -82,7 +89,7 @@ describe('LangChain Adapter v2', () => {
     let called = false
     await governLangChainTool(
       { name: 'nope', args: {} }, mockExec,
-      { passport: signedPassport, delegation: mkDel(['tools:other']), privateKey: ak.privateKey, onDenied: () => { called = true } },
+      { passport: signedPassport, allowSelfSigned: true, delegation: mkDel(['tools:other']), privateKey: ak.privateKey, onDenied: () => { called = true } },
     )
     assert.ok(called)
   })
@@ -91,7 +98,7 @@ describe('LangChain Adapter v2', () => {
     let called = false
     await governLangChainTool(
       { name: 'search', args: {} }, mockExec,
-      { passport: signedPassport, delegation: mkDel(['tools:search']), privateKey: ak.privateKey, onReceipt: () => { called = true } },
+      { passport: signedPassport, allowSelfSigned: true, delegation: mkDel(['tools:search']), privateKey: ak.privateKey, onReceipt: () => { called = true } },
     )
     assert.ok(called)
   })
@@ -99,7 +106,7 @@ describe('LangChain Adapter v2', () => {
   it('empty args handling', async () => {
     const r = await governLangChainTool(
       { name: 'ping', args: {} }, mockExec,
-      { passport: signedPassport, delegation: mkDel(['tools:ping']), privateKey: ak.privateKey },
+      { passport: signedPassport, allowSelfSigned: true, delegation: mkDel(['tools:ping']), privateKey: ak.privateKey },
     )
     assert.ok('output' in r)
   })
@@ -109,7 +116,7 @@ describe('LangChain Adapter v2', () => {
   })
 
   it('batch sequential tool calls', async () => {
-    const cfg = { passport: signedPassport, delegation: mkDel(['tools:a', 'tools:b']), privateKey: ak.privateKey }
+    const cfg = { passport: signedPassport, allowSelfSigned: true, delegation: mkDel(['tools:a', 'tools:b']), privateKey: ak.privateKey }
     const r1 = await governLangChainTool({ name: 'a', args: {} }, mockExec, cfg)
     const r2 = await governLangChainTool({ name: 'b', args: {} }, mockExec, cfg)
     assert.ok('output' in r1 && 'output' in r2)

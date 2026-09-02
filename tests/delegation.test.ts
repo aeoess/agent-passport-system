@@ -560,3 +560,285 @@ describe('Timestamp Freshness (B-8)', () => {
     assert.equal(status.notYetValid, true)
   })
 })
+
+// ══════════════════════════════════════════════════════════════════
+// Invariant: the three revocation-check policies are genuinely distinct,
+// and fail_closed never accepts stale or absent revocation evidence.
+// ══════════════════════════════════════════════════════════════════
+// verifyDelegation read revocationCheckPolicy into a local and then
+// compared it against exactly one value, 'cache_grace'. 'fail_closed' and
+// 'fail_open' therefore ran the same code, so a caller who asked for
+// fail-closed revocation got fail-open revocation: a two-hour-old cached
+// "not revoked" was accepted, and so was having no revocation evidence at
+// all. The table below is the specification; every cell is asserted.
+
+describe('Delegation: revocation check policy is not decorative', () => {
+  const GRACE_MS = 300_000
+  const FRESH = () => new Date(Date.now() - 1_000).toISOString()
+  const STALE = () => new Date(Date.now() - 2 * 3_600_000).toISOString() // two hours
+
+  function live() {
+    return createDelegation({
+      delegatedTo: agentA.publicKey,
+      delegatedBy: human.publicKey,
+      scope: ['data:read'],
+      privateKey: human.privateKey,
+    })
+  }
+
+  // evidence → policy → expected admissibility of the delegation
+  const TABLE: Array<{
+    evidence: 'absent' | 'fresh_active' | 'fresh_revoked' | 'stale_active' | 'stale_revoked'
+    fail_open: boolean
+    cache_grace: boolean
+    fail_closed: boolean
+  }> = [
+    { evidence: 'absent',        fail_open: true,  cache_grace: true,  fail_closed: false },
+    { evidence: 'fresh_active',  fail_open: true,  cache_grace: true,  fail_closed: true },
+    { evidence: 'fresh_revoked', fail_open: false, cache_grace: false, fail_closed: false },
+    { evidence: 'stale_active',  fail_open: true,  cache_grace: false, fail_closed: false },
+    { evidence: 'stale_revoked', fail_open: false, cache_grace: false, fail_closed: false },
+  ]
+
+  function cacheFor(evidence: string) {
+    switch (evidence) {
+      case 'absent': return undefined
+      case 'fresh_active': return { revoked: false, checkedAt: FRESH() }
+      case 'fresh_revoked': return { revoked: true, checkedAt: FRESH() }
+      case 'stale_active': return { revoked: false, checkedAt: STALE() }
+      case 'stale_revoked': return { revoked: true, checkedAt: STALE() }
+      default: throw new Error(`unknown evidence ${evidence}`)
+    }
+  }
+
+  for (const row of TABLE) {
+    for (const policy of ['fail_open', 'cache_grace', 'fail_closed'] as const) {
+      it(`${policy} with ${row.evidence} revocation evidence: valid=${row[policy]}`, () => {
+        const status = verifyDelegation(live(), {
+          revocationCheckPolicy: policy,
+          cachedRevocationState: cacheFor(row.evidence),
+          cacheGraceMs: GRACE_MS,
+        })
+        assert.equal(status.valid, row[policy], status.errors.join(' | '))
+      })
+    }
+  }
+
+  it('fail_closed differs from fail_open on absent evidence', () => {
+    const d = live()
+    const open = verifyDelegation(d, { revocationCheckPolicy: 'fail_open' })
+    const closed = verifyDelegation(d, { revocationCheckPolicy: 'fail_closed' })
+    assert.notEqual(open.valid, closed.valid, 'fail_closed must not be a synonym for fail_open')
+  })
+
+  it('fail_closed differs from fail_open on two-hour-stale not-revoked evidence', () => {
+    const d = live()
+    const cached = { revoked: false, checkedAt: STALE() }
+    const open = verifyDelegation(d, { revocationCheckPolicy: 'fail_open', cachedRevocationState: cached })
+    const closed = verifyDelegation(d, { revocationCheckPolicy: 'fail_closed', cachedRevocationState: cached })
+    assert.equal(open.valid, true)
+    assert.equal(closed.valid, false)
+  })
+
+  it('fail_closed differs from cache_grace on absent evidence', () => {
+    const d = live()
+    const grace = verifyDelegation(d, { revocationCheckPolicy: 'cache_grace' })
+    const closed = verifyDelegation(d, { revocationCheckPolicy: 'fail_closed' })
+    assert.equal(grace.valid, true)
+    assert.equal(closed.valid, false)
+  })
+
+  it('fail_closed reports why it refused: the evidence, not a revocation it did not observe', () => {
+    const status = verifyDelegation(live(), { revocationCheckPolicy: 'fail_closed' })
+    assert.equal(status.valid, false)
+    assert.equal(status.revoked, false, 'absent evidence is not an observed revocation')
+    assert.equal(status.revocationEvidence, 'absent')
+    assert.ok(
+      status.errors.some(e => e.includes('revocation')),
+      `expected a revocation-evidence error, got ${JSON.stringify(status.errors)}`,
+    )
+  })
+
+  it('fail_closed labels stale evidence as stale rather than as a revocation', () => {
+    const status = verifyDelegation(live(), {
+      revocationCheckPolicy: 'fail_closed',
+      cachedRevocationState: { revoked: false, checkedAt: STALE() },
+      cacheGraceMs: GRACE_MS,
+    })
+    assert.equal(status.valid, false)
+    assert.equal(status.revoked, false)
+    assert.equal(status.revocationEvidence, 'stale')
+  })
+
+  it('fail_closed admits a delegation whose revocation evidence is fresh and clean', () => {
+    const status = verifyDelegation(live(), {
+      revocationCheckPolicy: 'fail_closed',
+      cachedRevocationState: { revoked: false, checkedAt: FRESH() },
+      cacheGraceMs: GRACE_MS,
+    })
+    assert.equal(status.valid, true, status.errors.join(' | '))
+    assert.equal(status.revocationEvidence, 'fresh')
+  })
+
+  it('the default policy is unchanged: no option means fail_open', () => {
+    const d = live()
+    assert.equal(verifyDelegation(d).valid, true)
+    assert.equal(verifyDelegation(d).valid, verifyDelegation(d, { revocationCheckPolicy: 'fail_open' }).valid)
+  })
+})
+
+// ══════════════════════════════════════════════════════════════════
+// Invariant: revocation evidence dated in the future is not fresh.
+// ══════════════════════════════════════════════════════════════════
+// The freshness gate was one-sided: `cacheAge = Date.now() - checkedAtMs`
+// then `cacheAge <= freshnessMs`. A future-dated checkedAt yields a
+// NEGATIVE age, which passed the bound, so checkedAt: '2999-01-01' made
+// fail_closed report valid=true, revocationEvidence='fresh', errors=[].
+// Evidence cannot have been gathered after the moment it is read.
+
+describe('Delegation: revocation evidence cannot be dated in the future', () => {
+  function live() {
+    return createDelegation({
+      delegatedTo: agentA.publicKey,
+      delegatedBy: human.publicKey,
+      scope: ['data:read'],
+      privateKey: human.privateKey,
+    })
+  }
+
+  it('a far-future checkedAt is not fresh and fail_closed refuses it', () => {
+    const status = verifyDelegation(live(), {
+      revocationCheckPolicy: 'fail_closed',
+      cachedRevocationState: { revoked: false, checkedAt: '2999-01-01T00:00:00.000Z' },
+    })
+    assert.equal(status.revocationEvidence, 'stale')
+    assert.equal(status.valid, false)
+    assert.ok(status.errors.some(e => e.includes('revocation')), status.errors.join(' | '))
+  })
+
+  it('a checkedAt one second in the future is not fresh either', () => {
+    const status = verifyDelegation(live(), {
+      revocationCheckPolicy: 'fail_closed',
+      cachedRevocationState: { revoked: false, checkedAt: new Date(Date.now() + 1_000).toISOString() },
+    })
+    assert.equal(status.revocationEvidence, 'stale')
+    assert.equal(status.valid, false)
+  })
+
+  it('cache_grace treats future-dated evidence as expired, the same as old evidence', () => {
+    const status = verifyDelegation(live(), {
+      revocationCheckPolicy: 'cache_grace',
+      cachedRevocationState: { revoked: false, checkedAt: '2999-01-01T00:00:00.000Z' },
+    })
+    assert.equal(status.valid, false)
+    assert.equal(status.revoked, true)
+  })
+
+  it('a future-dated REVOKED state still reads as revoked, never as admissible', () => {
+    for (const policy of ['fail_open', 'cache_grace', 'fail_closed'] as const) {
+      const status = verifyDelegation(live(), {
+        revocationCheckPolicy: policy,
+        cachedRevocationState: { revoked: true, checkedAt: '2999-01-01T00:00:00.000Z' },
+      })
+      assert.equal(status.valid, false, `${policy} admitted a future-dated revocation`)
+    }
+  })
+
+  // The unparseable-timestamp path needs its OWN case, and it needs an
+  // unbounded window. With the default 300000ms window an Infinity age is
+  // already outside the bound, so garbage graded stale for the wrong reason
+  // and every existing test passed either way. The defect only shows when the
+  // window is wide enough that Infinity <= window is true.
+  it('an unparseable checkedAt is stale even when the window is unbounded', () => {
+    const status = verifyDelegation(live(), {
+      revocationCheckPolicy: 'fail_closed',
+      cachedRevocationState: { revoked: false, checkedAt: 'not-a-date' },
+      cacheGraceMs: Infinity,
+    })
+    assert.equal(status.revocationEvidence, 'stale')
+    assert.equal(status.valid, false, 'garbage in checkedAt satisfied fail_closed')
+    assert.ok(status.errors.some(e => e.includes('revocation')), status.errors.join(' | '))
+  })
+
+  // Scope note, corrected after review: of the four windows below only
+  // Infinity can actually falsify the pre-fix code, because Infinity <=
+  // MAX_VALUE, <= 1e18 and <= 300000 are all false, so the sentinel graded
+  // those stale for an unrelated reason. The other three are regression
+  // breadth across window sizes, not four independent proofs of the claim.
+  it('an unreadable timestamp is stale at every window size, and provably so at an unbounded one', () => {
+    for (const cacheGraceMs of [Infinity, Number.MAX_VALUE, 1e18, 300_000]) {
+      for (const checkedAt of ['not-a-date', '', 'yesterday', 'NaN', '2026-13-45T99:99:99Z']) {
+        const status = verifyDelegation(live(), {
+          revocationCheckPolicy: 'fail_closed',
+          cachedRevocationState: { revoked: false, checkedAt },
+          cacheGraceMs,
+        })
+        assert.equal(
+          status.revocationEvidence, 'stale',
+          `checkedAt ${JSON.stringify(checkedAt)} with window ${cacheGraceMs} graded fresh`,
+        )
+        assert.equal(status.valid, false)
+      }
+    }
+  })
+
+  // The unreadable grade has its OWN error text. Without this the branch that
+  // produces it could be deleted and NaN comparison semantics would yield the
+  // same verdict, so the conditional would be unpinned even though the
+  // behaviour looked covered. That is the sentinel-versus-conditional trap
+  // this exact code already fell into once.
+  it('unreadable evidence is reported as unreadable, not as merely old', () => {
+    const status = verifyDelegation(live(), {
+      revocationCheckPolicy: 'fail_closed',
+      cachedRevocationState: { revoked: false, checkedAt: 'not-a-date' },
+      cacheGraceMs: Infinity,
+    })
+    assert.ok(
+      status.errors.some(e => e.includes('unreadable')),
+      `expected an unreadable-timestamp reason, got ${JSON.stringify(status.errors)}`,
+    )
+    assert.ok(
+      !status.errors.some(e => e.includes('older than')),
+      'an unreadable timestamp is not an old one',
+    )
+  })
+
+  it('genuinely old evidence is reported as old, not as unreadable', () => {
+    const status = verifyDelegation(live(), {
+      revocationCheckPolicy: 'fail_closed',
+      cachedRevocationState: { revoked: false, checkedAt: new Date(Date.now() - 2 * 3_600_000).toISOString() },
+      cacheGraceMs: 300_000,
+    })
+    assert.ok(status.errors.some(e => e.includes('older than')), JSON.stringify(status.errors))
+    assert.ok(!status.errors.some(e => e.includes('unreadable')))
+  })
+
+  it('cache_grace also refuses an unreadable timestamp under an unbounded window', () => {
+    const status = verifyDelegation(live(), {
+      revocationCheckPolicy: 'cache_grace',
+      cachedRevocationState: { revoked: false, checkedAt: 'not-a-date' },
+      cacheGraceMs: Infinity,
+    })
+    assert.equal(status.valid, false)
+    assert.equal(status.revoked, true, 'cache_grace converts unusable evidence into a revocation')
+  })
+
+  it('an unbounded window still admits genuinely fresh evidence', () => {
+    const status = verifyDelegation(live(), {
+      revocationCheckPolicy: 'fail_closed',
+      cachedRevocationState: { revoked: false, checkedAt: new Date().toISOString() },
+      cacheGraceMs: Infinity,
+    })
+    assert.equal(status.revocationEvidence, 'fresh')
+    assert.equal(status.valid, true, status.errors.join(' | '))
+  })
+
+  it('evidence checked right now is still fresh', () => {
+    const status = verifyDelegation(live(), {
+      revocationCheckPolicy: 'fail_closed',
+      cachedRevocationState: { revoked: false, checkedAt: new Date().toISOString() },
+    })
+    assert.equal(status.revocationEvidence, 'fresh')
+    assert.equal(status.valid, true, status.errors.join(' | '))
+  })
+})

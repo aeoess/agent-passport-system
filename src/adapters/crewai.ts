@@ -8,8 +8,8 @@
  * need those behaviours supply them via the `onReceipt` / `onDenied` hooks.
  */
 
-import { scopeAuthorizes, verifyDelegation } from '../core/delegation.js'
-import { verifyPassport } from '../verification/verify.js'
+import { scopeAuthorizes, verifyDelegation, type RevocationCheckOptions } from '../core/delegation.js'
+import { checkPassportTrustPosture } from '../verification/trust-posture.js'
 import { sign } from '../crypto/keys.js'
 import { canonicalizeForWrite } from '../core/canonical.js'
 import type { Delegation, ActionReceipt, SignedPassport } from '../types/passport.js'
@@ -27,6 +27,24 @@ export interface CrewGovernanceConfig {
   privateKey: string
   onReceipt?: (r: ActionReceipt) => void
   onDenied?: (info: { task: string; agent: string; reason: string }) => void
+  /** Trust anchors for this gate: issuer public keys whose countersignature
+   *  is accepted. A NON-EMPTY list requires a valid countersignature from one
+   *  of them. An empty list, or omitting it, means this gate holds no
+   *  anchors; it does not mean "trust anyone". */
+  trustedIssuers?: string[]
+  /** Explicit wildcard trust: admit a passport whose only authority is its
+   *  own signature. Required to admit a self-signed credential, because a
+   *  signature that verifies under a key the passport itself supplied is not
+   *  an authorization by a trusted issuer. Default false. */
+  allowSelfSigned?: boolean
+  /** Revocation posture applied to the delegation check before every
+   *  governed call. This adapter is an execution gate: it verifies the
+   *  delegation immediately before the tool runs, which is exactly where a
+   *  caller who will not act on unknown revocation state says so. Pass
+   *  { revocationCheckPolicy: 'fail_closed', cachedRevocationState } to
+   *  refuse when revocation evidence is absent or stale. Omitted leaves the
+   *  previous behaviour, signature and expiry only. */
+  revocation?: RevocationCheckOptions
 }
 
 export interface GovernedTaskResult {
@@ -72,10 +90,10 @@ export function verifyCrewMember(
   const scopes = crewTaskToScopes(task)
   const mainScope = scopes[0]
 
-  const pc = verifyPassport(config.passport)
-  if (!pc.valid) return { authorized: false, reason: `Passport invalid: ${pc.errors.join(', ')}`, scope: mainScope }
+  const pc = checkPassportTrustPosture(config.passport, config)
+  if (!pc.ok) return { authorized: false, reason: pc.detail ?? 'Passport rejected at the gate', scope: mainScope }
 
-  const dc = verifyDelegation(config.delegation)
+  const dc = verifyDelegation(config.delegation, config.revocation)
   if (!dc.valid) return { authorized: false, reason: `Delegation invalid: ${dc.errors.join(', ')}`, scope: mainScope }
 
   for (const scope of scopes) {

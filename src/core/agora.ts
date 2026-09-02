@@ -59,6 +59,27 @@ export function createAgoraMessage(opts: {
 
 // ── Verify a message signature ──
 
+/**
+ * Verify an agora message.
+ *
+ * Two independent predicates, reported separately and both folded into the
+ * verdict:
+ *
+ *   signatureValid — the Ed25519 signature verifies under the public key the
+ *     message carries. A structural fact about the bytes, not about who the
+ *     author is: the key is supplied by the object being verified.
+ *   knownAgent     — the author's key appears in the registry the caller
+ *     supplied. This is the identity check, and it only runs when a registry
+ *     is passed (`registryChecked` says whether it did).
+ *
+ * `valid` is true only when every check that ran, passed. It was previously
+ * set to signatureValid alone, so a message from an author absent from the
+ * registry came back valid with 'Author not found in agent registry' sitting
+ * in its own errors array.
+ *
+ * With no registry, `valid` is a signature-only verdict. It does not mean the
+ * author is a known participant; nothing checked that.
+ */
 export function verifyAgoraMessage(
   message: AgoraMessage,
   registry?: AgoraRegistry
@@ -81,9 +102,23 @@ export function verifyAgoraMessage(
     errors.push('Invalid Ed25519 signature')
   }
 
-  // Check if author is in registry
+  // Check if author is in registry.
+  //
+  // Three states, and the guard has to agree with the flag about which one
+  // we are in. `registry !== undefined` counted null as "checked" while the
+  // `if (registry)` body never ran, which produced valid=false with an empty
+  // errors array: a refusal with no stated reason.
+  //
+  //   absent            no registry to check against, signature-only verdict
+  //   usable            membership decides
+  //   present, unusable a registry WAS supplied and could not be read, which
+  //                     is a failed check, not a skipped one
+  const registryChecked = registry !== undefined && registry !== null
+  const usableRegistry = registryChecked && Array.isArray(registry.agents)
   let knownAgent = false
-  if (registry) {
+  if (registryChecked && !usableRegistry) {
+    errors.push('Agent registry supplied but unusable: agents is not an array')
+  } else if (usableRegistry) {
     knownAgent = registry.agents.some(
       a => a.publicKey === message.author.publicKey
     )
@@ -92,10 +127,19 @@ export function verifyAgoraMessage(
     }
   }
 
+  // Every predicate that ran has to reach the verdict, and every refusal has
+  // to have pushed a reason. Written out as the predicates themselves so that
+  // adding a check without adding it here is a visible omission; the
+  // equivalence with `errors.length === 0` is asserted in the test suite over
+  // every registry shape, in both directions.
+  const valid = signatureValid && (!registryChecked || knownAgent)
+
   return {
-    valid: signatureValid,
+    valid,
     messageId: message.id,
     authorKey: message.author.publicKey,
+    signatureValid,
+    registryChecked,
     knownAgent,
     errors,
   }

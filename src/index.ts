@@ -27,6 +27,10 @@ export type {
 
 // ── Layer 1: Identity & Accountability ──
 export { createPassport, signPassport, updatePassport, isExpired, isPassportValid, countersignPassport, verifyIssuerSignature, isIssuerVerified, isIssuerSigned } from './core/passport.js'
+export { checkPassportTrustPosture } from './verification/trust-posture.js'
+export type { TrustPostureOptions, TrustPostureResult, TrustPostureFailure } from './verification/trust-posture.js'
+export { normalizeTrustAnchors } from './verification/trust-anchors.js'
+export type { NormalizedTrustAnchors } from './verification/trust-anchors.js'
 export { canonicalize, canonicalJson, canonicalHash, normalizeTimestamp } from './core/canonical.js'
 
 // ── Scope Version Hash (MCP#1763) — bilateral receipt pre-commitment ──
@@ -89,7 +93,8 @@ export {
   getReceipts, getRevocation, clearStores,
   scopeCovers, scopeAuthorizes
 } from './core/delegation.js'
-export type { RevocationCheckPolicy } from './core/delegation.js'
+export type { RevocationCheckPolicy, RevocationCheckOptions } from './core/delegation.js'
+export { DEFAULT_REVOCATION_FRESHNESS_MS, REVOCATION_CHECK_POLICIES } from './core/delegation.js'
 
 // ── Bilateral Completion Receipts ──
 export { createCompletionReceipt, verifyCompletionReceipt, linkPermitAndCompletion } from './core/completion.js'
@@ -831,7 +836,7 @@ export {
   createGovernanceEnvelope, loadGovernanceArtifact,
   upgradeGovernanceArtifact, classifyGovernanceChange,
   validateCredentialLifecycle,
-  DEFAULT_LOAD_POLICY,
+  DEFAULT_LOAD_POLICY, ANY_ISSUER,
 } from './core/governance.js'
 
 export type {
@@ -1384,7 +1389,7 @@ export {
 export type {
   ApsTxt, PathOverride, GenerateApsTxtInput,
   ChainedGovernanceBlock,
-  VerifyApsTxtOptions, VerifyApsTxtResult,
+  VerifyApsTxtResult,
   ApsTxtEnforcementMode, ApsTxtEnforcementResult,
   ApsTxtRiskLevel, ApsTxtRiskResult,
 } from './core/aps-txt.js'

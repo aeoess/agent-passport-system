@@ -187,6 +187,12 @@ export interface DelegationStatus {
   depthExceeded: boolean
   revokedAt?: string
   errors: string[]
+  /** What revocation evidence the verifier actually had, reported separately
+   *  from `revoked` so that "no evidence" and "evidence says not revoked" are
+   *  never conflated. 'absent' means no cached revocation state was supplied,
+   *  'stale' means it was older than the freshness bound, 'fresh' means it was
+   *  within it. Set on every verifyDelegation result. */
+  revocationEvidence?: 'absent' | 'stale' | 'fresh'
 }
 
 // ── v1.4: Cascade Revocation ──
@@ -302,6 +308,16 @@ export interface VerificationResult {
   errors: string[]
   warnings: string[]
   passport?: AgentPassport
+  /** Whether an issuer-trust check ran at all, i.e. whether the caller
+   *  supplied a non-empty trustedIssuers list. */
+  issuerTrustChecked?: boolean
+  /** True when this passport verified on its OWN signature alone, with no
+   *  trust root consulted. `valid` is still true in that case, for backward
+   *  compatibility, so this field is the machine-readable form of the
+   *  'self-signed passports are accepted' warning: a caller that must not
+   *  act on a self-vouching credential branches on this rather than on
+   *  string-matching the warning text. */
+  selfSignedAccepted?: boolean
 }
 
 export interface Challenge {

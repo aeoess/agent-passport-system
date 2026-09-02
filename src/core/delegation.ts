@@ -131,6 +131,11 @@ export interface SubDelegateOptions {
   spendLimitUnit?: 'currency' | 'invocations'
   derivation_rights?: import('../types/passport.js').DerivationRights
   privateKey: string
+  /** Revocation posture for the PARENT check below. A sub-delegation mints
+   *  new authority from the parent, so a caller who requires fresh
+   *  revocation evidence before extending authority selects it here.
+   *  Omitted leaves the previous behaviour: signature and expiry only. */
+  revocation?: RevocationCheckOptions
 }
 
 export function subDelegate(opts: SubDelegateOptions): Delegation {
@@ -214,7 +219,7 @@ export function subDelegate(opts: SubDelegateOptions): Delegation {
   // Verify the parent's signature (and not-before / expiry) before minting a child. Previously
   // subDelegate checked only the parent's expiry timestamp, so a parent with a forged signature
   // could still mint an authority-bearing child. Parity with the Python sub_delegate parent check.
-  const parentStatus = verifyDelegation(parent)
+  const parentStatus = verifyDelegation(parent, opts.revocation)
   if (!parentStatus.valid) {
     throw new Error(`cannot sub-delegate from an invalid parent: ${parentStatus.errors.join(', ')}`)
   }
@@ -249,7 +254,52 @@ export function subDelegate(opts: SubDelegateOptions): Delegation {
 // REVOCATION CHECK POLICY (desiorac qntm#6)
 // ══════════════════════════════════════
 
+/** How a verifier treats the revocation evidence it was given.
+ *
+ *  - `fail_open`   (default, backward compatible): missing or stale revocation
+ *                  evidence does not block. Whatever cached state the caller
+ *                  supplies is taken at face value, however old it is.
+ *  - `cache_grace` cached evidence is honoured while it is inside the grace
+ *                  window and treated as a revocation once it is outside it.
+ *  - `fail_closed` the delegation is admissible only against revocation
+ *                  evidence that is present AND inside the freshness bound.
+ *                  Absent or stale evidence refuses; it does not assert that
+ *                  a revocation was observed, only that none can be ruled out.
+ *
+ *  The three are observably different on the same input, which is the point:
+ *  `fail_closed` used to be read into a local and never compared, so it ran
+ *  the `fail_open` path and accepted two-hour-old revocation state.
+ */
 export type RevocationCheckPolicy = 'fail_open' | 'fail_closed' | 'cache_grace'
+
+/** The complete set of accepted policy values, exported so a caller reading a
+ *  policy out of configuration can check it before handing it over. */
+export const REVOCATION_CHECK_POLICIES: readonly RevocationCheckPolicy[] =
+  Object.freeze(['fail_open', 'fail_closed', 'cache_grace'])
+
+/** Default freshness bound for cached revocation evidence, in milliseconds.
+ *  Used by `cache_grace` as the grace window and by `fail_closed` as the
+ *  maximum age of evidence it will accept. */
+export const DEFAULT_REVOCATION_FRESHNESS_MS = 300000
+
+/** The revocation posture a caller can select, as one object.
+ *
+ *  Every primitive in the SDK that verifies a delegation on the caller's
+ *  behalf accepts this, so selecting `fail_closed` is reachable from a
+ *  shipped entrypoint rather than only from a direct verifyDelegation call.
+ *  Omitting it everywhere leaves the previous behaviour exactly: the
+ *  policy defaults to `fail_open` and no revocation evidence is consulted. */
+export interface RevocationCheckOptions {
+  /** How to handle missing or stale revocation evidence. Default:
+   *  'fail_open' (backward compat). See RevocationCheckPolicy. */
+  revocationCheckPolicy?: RevocationCheckPolicy
+  /** Cached revocation state. The SDK holds no revocation registry, so this
+   *  is the entire evidence base; live lookups live in DelegationStore. */
+  cachedRevocationState?: { revoked: boolean; checkedAt: string }
+  /** Maximum accepted age of that evidence, in ms. Grace window for
+   *  'cache_grace', freshness bound for 'fail_closed'. Default 300000. */
+  cacheGraceMs?: number
+}
 
 // ══════════════════════════════════════
 // DELEGATION VERIFICATION — pure
@@ -258,13 +308,7 @@ export type RevocationCheckPolicy = 'fail_open' | 'fail_closed' | 'cache_grace'
 // is drawn exclusively from `opts.cachedRevocationState` — callers that need
 // live revocation enforcement (or ancestor-chain walks) use DelegationStore.
 
-export function verifyDelegation(delegation: Delegation, opts?: {
-  /** How to handle revocation check failures. Default: 'fail_open' (backward compat) */
-  revocationCheckPolicy?: RevocationCheckPolicy
-  /** Cached revocation state (for cache_grace mode or stateless verification) */
-  cachedRevocationState?: { revoked: boolean; checkedAt: string }
-  /** Cache grace period in ms (for cache_grace mode). Default: 300000 (5 min) */
-  cacheGraceMs?: number
+export function verifyDelegation(delegation: Delegation, opts?: RevocationCheckOptions & {
   /** Walk parent chain and check each ancestor's revocation status.
    *  No-op without a DelegationStore; the option is preserved for API
    *  compatibility but ancestor walks now require store.validateChain(). */
@@ -280,9 +324,25 @@ export function verifyDelegation(delegation: Delegation, opts?: {
       notYetValid: false,
       depthExceeded: false,
       errors: ['Invalid delegation: not an object'],
+      revocationEvidence: 'absent',
     }
   }
-  const policy = opts?.revocationCheckPolicy ?? 'fail_open'
+  // A policy value the SDK does not recognise is a caller configuration error,
+  // and it must not resolve to the most permissive branch by falling through
+  // every comparison. 'FAIL_CLOSED' used to return valid true with no error
+  // and no complaint: an integrator who typed the strictest setting in the
+  // wrong case silently got the weakest one. The policy is chosen by the
+  // integrator and never carried in the artifact being verified, so this can
+  // only ever fire on the caller's own configuration, which is why it is loud
+  // rather than a silent downgrade to fail_closed.
+  const requestedPolicy = opts?.revocationCheckPolicy
+  if (requestedPolicy !== undefined && !REVOCATION_CHECK_POLICIES.includes(requestedPolicy)) {
+    throw new Error(
+      `verifyDelegation: unknown revocationCheckPolicy ${JSON.stringify(requestedPolicy)}. ` +
+      `Expected one of ${REVOCATION_CHECK_POLICIES.join(', ')}.`,
+    )
+  }
+  const policy: RevocationCheckPolicy = requestedPolicy ?? 'fail_open'
   const errors: string[] = []
 
   const { signature, ...unsigned } = delegation
@@ -311,31 +371,80 @@ export function verifyDelegation(delegation: Delegation, opts?: {
     }
   }
 
-  // Revocation status from caller-supplied cache only. Without cached state
-  // the SDK cannot check revocation (registries live in DelegationStore); the
-  // result is the same as a clean registry lookup that returned nothing —
-  // revoked=false regardless of policy. The cache_grace path still honours
-  // TTL; fail_closed/fail_open only differ once a check *has* happened and
-  // produced an error, which is a gateway-side concern.
+  // Revocation status from caller-supplied cache only. The SDK holds no
+  // revocation registry (that lives in DelegationStore in the gateway), so
+  // `opts.cachedRevocationState` is the entire evidence base. What the three
+  // policies disagree about is what to do when that evidence is missing or
+  // old, and each of them now says something different about it.
+  //
+  // The evidence grade is computed first and reported on the result, so a
+  // caller can tell "no evidence" from "evidence says not revoked" without
+  // reading the policy back out of its own options.
+  const freshnessMs = opts?.cacheGraceMs ?? DEFAULT_REVOCATION_FRESHNESS_MS
+  const cached = opts?.cachedRevocationState
+  let revocationEvidence: 'absent' | 'stale' | 'fresh' = 'absent'
+  let evidenceUnreadable = false
+  if (cached) {
+    const checkedAtMs = new Date(cached.checkedAt).getTime()
+    if (!Number.isFinite(checkedAtMs)) {
+      evidenceUnreadable = true
+      // Graded BEFORE any window comparison, not by arithmetic on a sentinel.
+      // Mapping an unparseable timestamp to an Infinity age and comparing it
+      // against the window looked equivalent and was not: with
+      // cacheGraceMs: Infinity, Infinity <= Infinity passed, so
+      // checkedAt: 'not-a-date' graded FRESH and satisfied fail_closed. A
+      // timestamp that cannot be read is not evidence of when anything was
+      // checked, whatever the window is set to.
+      revocationEvidence = 'stale'
+    } else {
+      // The window is bounded on BOTH sides. Evidence dated after the moment
+      // it is read is not fresh either: a negative age used to pass the upper
+      // bound, so checkedAt in the year 2999 graded fresh. There is no future
+      // tolerance. A verifier whose clock lags the evidence source grades that
+      // evidence stale, which fail_closed refuses, which is the safe direction
+      // to be wrong in.
+      const cacheAge = Date.now() - checkedAtMs
+      revocationEvidence = cacheAge >= 0 && cacheAge <= freshnessMs ? 'fresh' : 'stale'
+    }
+  }
+
   let revoked = false
   let revokedAt: string | undefined
-  if (opts?.cachedRevocationState) {
-    if (policy === 'cache_grace') {
-      const cacheAge = Date.now() - new Date(opts.cachedRevocationState.checkedAt).getTime()
-      const graceMs = opts?.cacheGraceMs ?? 300000
-      if (cacheAge <= graceMs) {
-        revoked = opts.cachedRevocationState.revoked
-      } else {
-        revoked = true
-        errors.push('Revocation cache expired, treating as revoked')
-      }
+  if (cached) {
+    if (policy === 'cache_grace' && revocationEvidence === 'stale') {
+      // cache_grace converts expiry of the window into a revocation: the
+      // shipped behaviour, kept.
+      revoked = true
+      errors.push(evidenceUnreadable
+        ? 'Revocation cache timestamp is unreadable, treating as revoked'
+        : 'Revocation cache expired, treating as revoked')
     } else {
-      revoked = opts.cachedRevocationState.revoked
+      revoked = cached.revoked
     }
     if (revoked) {
-      revokedAt = opts.cachedRevocationState.checkedAt
-      errors.push(`Revoked (cached state checked ${opts.cachedRevocationState.checkedAt})`)
+      revokedAt = cached.checkedAt
+      errors.push(`Revoked (cached state checked ${cached.checkedAt})`)
     }
+  }
+
+  // fail_closed: admissibility requires revocation evidence that is present
+  // and inside the freshness bound. Absent or stale evidence refuses without
+  // claiming a revocation was observed — `revoked` stays false and the reason
+  // is reported as an evidence failure, because asserting a revocation the
+  // verifier never saw would be a different lie from the one being fixed.
+  if (policy === 'fail_closed' && revocationEvidence !== 'fresh') {
+    // Three distinct reasons, not two. The unreadable case gets its own message
+    // so that the branch producing it is OBSERVABLE: with a shared message the
+    // branch could be deleted and NaN comparison semantics would silently
+    // produce the same grade, which is the sentinel-versus-conditional trap
+    // this file already fell into once.
+    errors.push(
+      revocationEvidence === 'absent'
+        ? 'fail_closed: no revocation evidence supplied, revocation status unknown'
+        : evidenceUnreadable
+          ? 'fail_closed: revocation evidence timestamp is unreadable, revocation status unknown'
+          : `fail_closed: revocation evidence is stale (older than ${freshnessMs}ms), revocation status unknown`,
+    )
   }
 
   const depthExceeded = delegation.currentDepth > delegation.maxDepth
@@ -349,6 +458,7 @@ export function verifyDelegation(delegation: Delegation, opts?: {
     depthExceeded,
     revokedAt,
     errors,
+    revocationEvidence,
   }
 }
 
@@ -377,10 +487,15 @@ export interface CreateReceiptOptions {
   result: ActionReceipt['result']
   delegationChain: string[]
   privateKey: string
+  /** Revocation posture for the delegation check below. Minting a receipt
+   *  is the record that an action was taken under this delegation, so a
+   *  caller who will not act on unknown revocation state selects
+   *  fail_closed here. Omitted leaves the previous behaviour. */
+  revocation?: RevocationCheckOptions
 }
 
 export function createReceipt(opts: CreateReceiptOptions): ActionReceipt {
-  const status = verifyDelegation(opts.delegation)
+  const status = verifyDelegation(opts.delegation, opts.revocation)
   if (!status.valid) {
     throw new Error(`Cannot create receipt: delegation invalid — ${status.errors.join(', ')}`)
   }

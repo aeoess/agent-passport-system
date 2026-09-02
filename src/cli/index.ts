@@ -564,8 +564,11 @@ function fallbackManual(owner: string, repo: string, json: string, agentName: st
 function cmdVerify(): void {
   const file = args[1]
   if (!file) {
-    console.error('Usage: passport verify <passport.json>')
-    console.error('       passport verify <agent.json>')
+    console.error('Usage: passport verify <passport.json> [--trusted-issuer <hex> ...]')
+    console.error('       passport verify <agent.json>    [--trusted-issuer <hex> ...]')
+    console.error('')
+    console.error('Without --trusted-issuer nothing external vouches for the passport;')
+    console.error('the report says SELF-SIGNED rather than TRUSTED.')
     process.exit(1)
   }
 
@@ -580,13 +583,29 @@ function cmdVerify(): void {
   const passport: SignedPassport = data.passport || data
   const attestation: FloorAttestation | null = data.attestation || null
 
-  const trust = verifySocialContract(passport, attestation)
+  // --trusted-issuer may be repeated or comma-separated. Without it there is
+  // no trust root to check against and the report says so instead of
+  // printing TRUSTED over a passport that vouches for itself.
+  const trustedIssuers = (getFlags('--trusted-issuer'))
+    .flatMap(v => v.split(','))
+    .map(v => v.trim())
+    .filter(v => v.length > 0)
 
+  const trust = verifySocialContract(passport, attestation, { trustedIssuers })
+
+  // Four states, not two. The passport's own soundness and the presence of a
+  // trust root are separate axes, so a passport that verifies is never
+  // reported as a failure just because no issuer vouched for it.
   console.log('')
-  if (trust.overall) {
-    console.log('✅ TRUSTED')
+  if (!trust.structurallyValid) {
+    console.log('❌ DOES NOT VERIFY')
+  } else if (trust.issuerTrusted) {
+    console.log('✅ TRUSTED (countersigned by a trusted issuer)')
+  } else if (trust.issuerChecked) {
+    console.log('❌ NOT TRUSTED — the passport verifies, but no supplied issuer countersigned it')
   } else {
-    console.log('❌ NOT TRUSTED')
+    console.log('⚠️  SELF-SIGNED — verifies, but no trusted issuer vouches for it')
+    console.log('   Pass --trusted-issuer <issuer-public-key> to check against a trust root.')
   }
 
   console.log('')
@@ -594,6 +613,11 @@ function cmdVerify(): void {
   if (trust.identity.errors.length) {
     for (const e of trust.identity.errors) console.log(`    ✗ ${e}`)
   }
+  for (const w of trust.identity.warnings) console.log(`    ! ${w}`)
+  console.log(
+    `  Issuer:   ${trust.issuerTrusted ? '✓ trusted' : trust.issuerChecked ? '✗ NOT TRUSTED' : '— no trust root supplied'}`
+  )
+  for (const e of trust.issuerErrors) console.log(`    ✗ ${e}`)
 
   if (trust.values) {
     console.log(`  Values:   ${trust.values.valid ? '✓ attested' : '✗ INVALID'}`)
@@ -1108,7 +1132,11 @@ function cmdAgoraRead(): void {
 
   for (const msg of messages) {
     const v = verifyAgoraMessage(msg, registry)
-    const verifyIcon = v.valid ? (v.knownAgent ? '✅' : '⚠️') : '❌'
+    // Three states, not two: verified member, authentic signature from an
+    // author the registry does not list, and a signature that did not verify.
+    // A message from an unlisted author is no longer `valid`, so the middle
+    // state now reads off signatureValid rather than off valid.
+    const verifyIcon = !v.signatureValid ? '❌' : (v.knownAgent ? '✅' : '⚠️')
     const typeIcon = msg.type === 'announcement' ? '📢' :
                      msg.type === 'proposal' ? '📋' :
                      msg.type === 'request' ? '🔧' :
@@ -1252,7 +1280,7 @@ function cmdHelp(): void {
                --capabilities <cap1,cap2>
 
     verify     Verify another agent's passport
-               passport verify <agent.json or passport.json>
+               passport verify <agent.json or passport.json> [--trusted-issuer <hex>]
 
     verify-bundle  Verify an evidence bundle: passport verify-bundle <bundle.json> [--json] [--strict]
 
@@ -1294,6 +1322,16 @@ function getFlag(flag: string): string | undefined {
   const idx = args.indexOf(flag)
   if (idx === -1 || idx + 1 >= args.length) return undefined
   return args[idx + 1]
+}
+
+/** Every value given for a repeatable flag, in argv order. getFlag returns
+ *  only the first, which silently drops the rest of a trust-anchor list. */
+function getFlags(flag: string): string[] {
+  const values: string[] = []
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === flag && i + 1 < args.length) values.push(args[i + 1])
+  }
+  return values
 }
 
 /**

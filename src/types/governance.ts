@@ -59,6 +59,10 @@ export interface GovernanceApproval {
 export interface GovernanceVerification {
   valid: boolean
   errors: string[]
+  /** Non-fatal notes about how the policy was interpreted. Carries the
+   *  ignored-wildcard note, so a narrowed allowlist is legible rather than
+   *  silently applied. */
+  warnings: string[]
   contentIntegrity: boolean    // hash matches content
   signatureValid: boolean      // issuer signature valid
   chainValid: boolean          // version chain is consistent
@@ -67,10 +71,37 @@ export interface GovernanceVerification {
   weakeningApproved: boolean   // weakening changes have sufficient approvals
 }
 
+/** Wildcard entry for GovernanceLoadPolicy.allowedIssuers: accept an
+ *  artifact from any issuer.
+ *
+ *  It is honoured ONLY when it is the SOLE entry of the list. This is not a
+ *  style preference, it is the safety property: `['*']` is spread and
+ *  appended to, and a wildcard that survived concatenation would turn the
+ *  idiom an operator uses to HARDEN a policy
+ *
+ *      { ...DEFAULT_LOAD_POLICY,
+ *        allowedIssuers: [...DEFAULT_LOAD_POLICY.allowedIssuers, myKey] }
+ *
+ *  into one that disables the check. Naming any issuer alongside the
+ *  wildcard means the operator named issuers, so the list is read as a
+ *  closed allowlist of the named ones and the wildcard is dropped with a
+ *  warning on the result. */
+export const ANY_ISSUER = '*'
+
 export interface GovernanceLoadPolicy {
   requireSignature: boolean        // reject unsigned artifacts
   requireApprovals: number         // min approval count (0 = no requirement)
-  allowedIssuers: string[]         // empty = any issuer
+  /** Issuer public keys this policy accepts.
+   *
+   *    []                  accepts none, rejects every artifact
+   *    ['*']               accepts any issuer (ANY_ISSUER, sole entry only)
+   *    [k1, k2]            closed allowlist
+   *    ['*', k1]           closed allowlist of [k1]; the wildcard is
+   *                        dropped and reported in `warnings`
+   *
+   *  An empty list used to skip the check entirely, which made "no anchors"
+   *  and "all anchors" the same input. */
+  allowedIssuers: string[]
   allowExpired: boolean            // default false
   allowBreakingWithoutApproval: boolean  // default false
   // Gap 8B: Differential thresholds for governance weakening
@@ -82,7 +113,9 @@ export interface GovernanceLoadPolicy {
 export const DEFAULT_LOAD_POLICY: GovernanceLoadPolicy = {
   requireSignature: true,
   requireApprovals: 0,
-  allowedIssuers: [],
+  // The shipped default has always accepted any issuer. It now says so
+  // instead of expressing it as an empty allowlist.
+  allowedIssuers: [ANY_ISSUER],
   allowExpired: false,
   allowBreakingWithoutApproval: false,
   requireApprovalsForWeakening: 1,

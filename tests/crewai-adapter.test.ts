@@ -8,6 +8,13 @@ import {
 } from '../src/index.js'
 import type { ActionReceipt, CrewTask } from '../src/index.js'
 
+// The four governed-execution configs below declare allowSelfSigned. These
+// suites verify scope, receipts and rate limits on SELF-SIGNED passports, and
+// the adapter gates no longer admit a self-issued claim of authority without
+// the caller saying so. That posture is what these tests always relied on
+// implicitly; it is now written down. The trust-anchor axis itself is pinned
+// in tests/adapter-trust-posture.test.ts. No assertion here was changed.
+
 const pk = generateKeyPair()
 const ak = generateKeyPair()
 const { signedPassport } = createPassport({
@@ -23,7 +30,7 @@ describe('CrewAI Adapter v2', () => {
   it('crew member authorized for task', () => {
     const task: CrewTask = { description: 'Research', agent: 'researcher', tools: ['search'] }
     const r = verifyCrewMember('researcher', task, {
-      passport: signedPassport, delegation: mkDel(['crew:execute:researcher', 'tools:search']), privateKey: ak.privateKey,
+      passport: signedPassport, allowSelfSigned: true, delegation: mkDel(['crew:execute:researcher', 'tools:search']), privateKey: ak.privateKey,
     })
     assert.equal(r.authorized, true)
   })
@@ -31,7 +38,7 @@ describe('CrewAI Adapter v2', () => {
   it('crew member denied (scope mismatch)', () => {
     const task: CrewTask = { description: 'Delete', agent: 'admin', tools: ['rm'] }
     const r = verifyCrewMember('admin', task, {
-      passport: signedPassport, delegation: mkDel(['crew:execute:researcher']), privateKey: ak.privateKey,
+      passport: signedPassport, allowSelfSigned: true, delegation: mkDel(['crew:execute:researcher']), privateKey: ak.privateKey,
     })
     assert.equal(r.authorized, false)
   })
@@ -40,7 +47,7 @@ describe('CrewAI Adapter v2', () => {
     const del = { ...mkDel(['crew:execute:researcher']), expiresAt: new Date(Date.now() - 1000).toISOString() }
     const task: CrewTask = { description: 'Research', agent: 'researcher' }
     const r = verifyCrewMember('researcher', task, {
-      passport: signedPassport, delegation: del, privateKey: ak.privateKey,
+      passport: signedPassport, allowSelfSigned: true, delegation: del, privateKey: ak.privateKey,
     })
     assert.equal(r.authorized, false)
   })
@@ -60,7 +67,7 @@ describe('CrewAI Adapter v2', () => {
     const r = await governCrewTask(
       { description: 'Research AI', agent: 'researcher', tools: ['search'] },
       mockExec,
-      { passport: signedPassport, delegation: mkDel(['crew:execute:researcher', 'tools:search']), privateKey: ak.privateKey, onReceipt: r => receipts.push(r) },
+      { passport: signedPassport, allowSelfSigned: true, delegation: mkDel(['crew:execute:researcher', 'tools:search']), privateKey: ak.privateKey, onReceipt: r => receipts.push(r) },
     )
     assert.ok('output' in r && !('denied' in r))
     assert.ok(r.receipt.receiptId.startsWith('rcpt_crew_'))
@@ -71,7 +78,7 @@ describe('CrewAI Adapter v2', () => {
     const r = await governCrewTask(
       { description: 'Hack stuff', agent: 'hacker' },
       mockExec,
-      { passport: signedPassport, delegation: mkDel(['crew:execute:researcher']), privateKey: ak.privateKey },
+      { passport: signedPassport, allowSelfSigned: true, delegation: mkDel(['crew:execute:researcher']), privateKey: ak.privateKey },
     )
     assert.ok('denied' in r && r.denied === true)
     assert.ok(r.receipt.receiptId)
@@ -81,7 +88,7 @@ describe('CrewAI Adapter v2', () => {
     const r = await governCrewTask(
       { description: 'Research', agent: 'researcher', tools: ['search', 'browse'] },
       mockExec,
-      { passport: signedPassport, delegation: mkDel(['crew:execute:researcher', 'tools:search', 'tools:browse']), privateKey: ak.privateKey },
+      { passport: signedPassport, allowSelfSigned: true, delegation: mkDel(['crew:execute:researcher', 'tools:search', 'tools:browse']), privateKey: ak.privateKey },
     )
     assert.ok('toolReceipts' in r)
     assert.equal(r.toolReceipts.length, 2)
@@ -91,7 +98,7 @@ describe('CrewAI Adapter v2', () => {
     let info: { task: string; agent: string; reason: string } | null = null
     await governCrewTask(
       { description: 'X', agent: 'bad' }, mockExec,
-      { passport: signedPassport, delegation: mkDel(['crew:execute:good']), privateKey: ak.privateKey, onDenied: i => { info = i } },
+      { passport: signedPassport, allowSelfSigned: true, delegation: mkDel(['crew:execute:good']), privateKey: ak.privateKey, onDenied: i => { info = i } },
     )
     assert.ok(info)
     assert.equal(info!.agent, 'bad')
@@ -100,7 +107,7 @@ describe('CrewAI Adapter v2', () => {
   it('receipt signature verifies', async () => {
     const r = await governCrewTask(
       { description: 'Work', agent: 'worker' }, mockExec,
-      { passport: signedPassport, delegation: mkDel(['crew:execute:worker']), privateKey: ak.privateKey },
+      { passport: signedPassport, allowSelfSigned: true, delegation: mkDel(['crew:execute:worker']), privateKey: ak.privateKey },
     )
     const { signature, ...rest } = r.receipt
     assert.ok(verify(canonicalize(rest), signature, ak.publicKey))
@@ -113,9 +120,9 @@ describe('CrewAI Adapter v2', () => {
 
   it('multiple crew members different scopes', () => {
     const del = mkDel(['crew:execute:researcher', 'crew:execute:writer', 'tools:search'])
-    const r1 = verifyCrewMember('researcher', { description: 'R', agent: 'researcher', tools: ['search'] }, { passport: signedPassport, delegation: del, privateKey: ak.privateKey })
-    const r2 = verifyCrewMember('writer', { description: 'W', agent: 'writer' }, { passport: signedPassport, delegation: del, privateKey: ak.privateKey })
-    const r3 = verifyCrewMember('hacker', { description: 'H', agent: 'hacker' }, { passport: signedPassport, delegation: del, privateKey: ak.privateKey })
+    const r1 = verifyCrewMember('researcher', { description: 'R', agent: 'researcher', tools: ['search'] }, { passport: signedPassport, allowSelfSigned: true, delegation: del, privateKey: ak.privateKey })
+    const r2 = verifyCrewMember('writer', { description: 'W', agent: 'writer' }, { passport: signedPassport, allowSelfSigned: true, delegation: del, privateKey: ak.privateKey })
+    const r3 = verifyCrewMember('hacker', { description: 'H', agent: 'hacker' }, { passport: signedPassport, allowSelfSigned: true, delegation: del, privateKey: ak.privateKey })
     assert.ok(r1.authorized)
     assert.ok(r2.authorized)
     assert.ok(!r3.authorized)

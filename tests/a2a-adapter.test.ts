@@ -57,18 +57,28 @@ describe('A2A Adapter v2', () => {
     assert.deepStrictEqual(scopes, ['a2a:search', 'a2a:translate'])
   })
 
+  // verifyA2AIdentity no longer reports a self-signed passport as a verified
+  // identity without the caller saying self-signed credentials are acceptable;
+  // it used to return { valid: true, errors: [] } for a passport an attacker
+  // minted for themselves. This case is about card-to-passport MATCHING, so it
+  // states that posture and keeps both of its assertions. The refusal without
+  // a posture is pinned in tests/adapter-trust-posture.test.ts.
   it('verify matching passport and card', () => {
     const card = passportToA2ACard(signedPassport)
-    const r = verifyA2AIdentity(card, signedPassport)
+    const r = verifyA2AIdentity(card, signedPassport, { allowSelfSigned: true })
     assert.equal(r.valid, true)
     assert.equal(r.errors.length, 0)
   })
 
+  // The posture is stated so that the card mismatch is the ONLY reason this
+  // refuses. Without it the test would still pass, but partly because the
+  // passport is self-signed, which is not what this case is about.
   it('verify mismatched passport and card', () => {
     const card: A2AAgentCardV2 = { name: 'Wrong Agent' }
-    const r = verifyA2AIdentity(card, signedPassport)
+    const r = verifyA2AIdentity(card, signedPassport, { allowSelfSigned: true })
     assert.equal(r.valid, false)
     assert.ok(r.errors.some(e => e.includes('does not match')))
+    assert.equal(r.errors.length, 1, 'the card mismatch should be the only complaint')
   })
 
   it('embed trust signal with endpoint', () => {

@@ -141,14 +141,33 @@ describe('Fail-closed revocation policy', () => {
     assert.equal(status.valid, true)
   })
 
-  it('accepts explicit fail_closed policy parameter', () => {
+  // Was 'accepts explicit fail_closed policy parameter', asserting valid
+  // === true with no revocation evidence at all. That assertion pinned the
+  // defect: fail_closed accepted "we never checked" as "not revoked".
+  it('fail_closed refuses when there is no revocation evidence to check', () => {
     const delegation = createDelegation({
       scope: ['read'], maxDepth: 1,
       delegatedBy: parent.publicKey, delegatedTo: child.publicKey,
       privateKey: parent.privateKey, expiresAt: new Date(Date.now() + 86400000).toISOString(),
     })
     const status = verifyDelegation(delegation, { revocationCheckPolicy: 'fail_closed' })
-    assert.equal(status.valid, true) // not revoked, so still valid
+    assert.equal(status.valid, false)
+    assert.equal(status.revoked, false, 'refusing is not the same as observing a revocation')
+    assert.equal(status.revocationEvidence, 'absent')
+  })
+
+  it('fail_closed admits against fresh evidence that the delegation is live', () => {
+    const delegation = createDelegation({
+      scope: ['read'], maxDepth: 1,
+      delegatedBy: parent.publicKey, delegatedTo: child.publicKey,
+      privateKey: parent.privateKey, expiresAt: new Date(Date.now() + 86400000).toISOString(),
+    })
+    const status = verifyDelegation(delegation, {
+      revocationCheckPolicy: 'fail_closed',
+      cachedRevocationState: { revoked: false, checkedAt: new Date().toISOString() },
+    })
+    assert.equal(status.valid, true, status.errors.join(' | '))
+    assert.equal(status.revocationEvidence, 'fresh')
   })
 })
 

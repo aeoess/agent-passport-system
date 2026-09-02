@@ -13,7 +13,7 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { mkdtempSync, writeFileSync, existsSync, copyFileSync, rmSync } from 'node:fs'
-import { tmpdir, homedir } from 'node:os'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
   REVERSIBILITY_MAPPING_V0_DIGEST,
@@ -25,8 +25,18 @@ import {
 } from '../src/core/reversibility-fold.js'
 
 const GOLDEN_V0_DIGEST = 'sha256:12f270844b11c828eb42087c443e8d0272f60551cb098067028113e3b91f1d6b'
-const PY_SDK = join(homedir(), 'agent-passport-python')
-const GO_SDK = join(homedir(), 'agent-passport-go')
+
+// RETRO-AUDIT C7. These were `join(homedir(), 'agent-passport-python')` and
+// `join(homedir(), 'agent-passport-go')`, with no env override and no way to
+// say "not here". On a developer machine both paths exist, so the live parity
+// checks ran against whatever branch those unrelated checkouts were on — for
+// the run that produced this branch's green evidence, the PRE-REMEDIATION
+// base commits of both. Under a hermetic runner the same two checks skip.
+// Same exit code, four fewer assertions, nothing in the log saying so.
+//
+// The sibling checkout must be named. Unset means skip.
+const PY_SDK = process.env.APS_PY_REPO ?? ''
+const GO_SDK = process.env.APS_GO_REPO ?? ''
 
 function have(cmd: string, args: string[]): boolean {
   try {
@@ -71,8 +81,11 @@ describe('reversibility v0 profile digest - three-language parity (v4 s4)', () =
   })
 
   it('Python reproduces the same digest over the same content (or skips if the SDK is absent)', (t) => {
+    if (!PY_SDK) {
+      return t.skip('set APS_PY_REPO to an agent-passport-python checkout to run the live Python parity check')
+    }
     if (!have('python3', ['--version']) || !existsSync(join(PY_SDK, 'src/agent_passport/canonical.py'))) {
-      return t.skip('python3 or the agent-passport-python SDK is not available')
+      return t.skip('python3 or the agent-passport-python SDK is not available at APS_PY_REPO')
     }
     const dir = mkdtempSync(join(tmpdir(), 'rvparity-py-'))
     try {
@@ -88,8 +101,11 @@ describe('reversibility v0 profile digest - three-language parity (v4 s4)', () =
   })
 
   it('Go reproduces the same digest over the same content (or skips if the SDK is absent)', (t) => {
+    if (!GO_SDK) {
+      return t.skip('set APS_GO_REPO to an agent-passport-go checkout to run the live Go parity check')
+    }
     if (!have('go', ['version']) || !existsSync(join(GO_SDK, 'jcs/jcs.go'))) {
-      return t.skip('go or the agent-passport-go SDK is not available')
+      return t.skip('go or the agent-passport-go SDK is not available at APS_GO_REPO')
     }
     const dir = mkdtempSync(join(tmpdir(), 'rvparity-go-'))
     try {
@@ -155,8 +171,11 @@ func main() {
 
 describe('reversibility v0 effect-state hash - three-language parity (v4 s2)', () => {
   it('Python reproduces the same state hash over the same preimage (or skips)', (t) => {
+    if (!PY_SDK) {
+      return t.skip('set APS_PY_REPO to an agent-passport-python checkout to run the live Python parity check')
+    }
     if (!have('python3', ['--version']) || !existsSync(join(PY_SDK, 'src/agent_passport/canonical.py'))) {
-      return t.skip('python3 or the agent-passport-python SDK is not available')
+      return t.skip('python3 or the agent-passport-python SDK is not available at APS_PY_REPO')
     }
     const dir = mkdtempSync(join(tmpdir(), 'rvstate-py-'))
     try {
@@ -170,8 +189,11 @@ describe('reversibility v0 effect-state hash - three-language parity (v4 s2)', (
   })
 
   it('Go reproduces the same state hash over the same preimage (or skips)', (t) => {
+    if (!GO_SDK) {
+      return t.skip('set APS_GO_REPO to an agent-passport-go checkout to run the live Go parity check')
+    }
     if (!have('go', ['version']) || !existsSync(join(GO_SDK, 'jcs/jcs.go'))) {
-      return t.skip('go or the agent-passport-go SDK is not available')
+      return t.skip('go or the agent-passport-go SDK is not available at APS_GO_REPO')
     }
     const dir = mkdtempSync(join(tmpdir(), 'rvstate-go-'))
     try {
