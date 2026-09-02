@@ -323,7 +323,7 @@ jobs:
             console.log('packed tarball exports probe: ok');
           "
 
-  publish:
+  attest:
     needs:
       - authorize
       - test
@@ -354,49 +354,18 @@ jobs:
         working-directory: release-bundle
         run: sha256sum -c SHA256SUMS
 
-      - name: Validate the exact privileged publish manifest
-        working-directory: release-bundle
-        env:
-          PACKAGE_VERSION: ${{ needs.authorize.outputs.version }}
-          TARBALL: ${{ needs.package.outputs.tarball }}
-        run: |
-          set -euo pipefail
-          tar -xOf "$TARBALL" package/package.json > packed-package.json
-          if tar -tzf "$TARBALL" | grep -qx 'package/.npmrc'; then
-            echo "::error::packed artifact contains a package-level npm configuration"
-            exit 1
-          fi
-          MANIFEST=packed-package.json node ../release-source/.github/scripts/release-manifest.mjs
-
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
         with:
           node-version: '22'
-          registry-url: 'https://registry.npmjs.org'
           package-manager-cache: false
 
-      - name: Download and verify the pinned npm CLI
+      - name: Refuse an existing registry version without expected provenance
         working-directory: release-bundle
-        run: |
-          node --input-type=module -e "
-            import { createHash } from 'node:crypto';
-            import { writeFileSync } from 'node:fs';
-            const response = await fetch('https://registry.npmjs.org/npm/-/npm-11.5.1.tgz', {
-              redirect: 'error',
-              signal: AbortSignal.timeout(30_000),
-            });
-            if (response.status !== 200) throw new Error('npm CLI download returned HTTP ' + response.status);
-            const bytes = Buffer.from(await response.arrayBuffer());
-            const shasum = createHash('sha1').update(bytes).digest('hex');
-            const integrity = 'sha512-' + createHash('sha512').update(bytes).digest('base64');
-            if (shasum !== '83b06a00dae2a8e5d72dc951ddf56a2e0dbf2cc1') throw new Error('npm CLI sha1 mismatch');
-            if (integrity !== 'sha512-Iy5vXZ55m8tIaSCz6bqQf9+W5XbPfoyURsgWLjOkFglqHTep6RDZqRj2sfYGeRyZvGu2HuJWm0lux0rxPQ29lQ==') throw new Error('npm CLI integrity mismatch');
-            writeFileSync('npm-11.5.1.tgz', bytes, { flag: 'wx', mode: 0o600 });
-          "
-
-      - name: Install the pinned npm CLI without lifecycle scripts
-        run: |
-          npm install --global --ignore-scripts ./release-bundle/npm-11.5.1.tgz
-          test "$(npm --version)" = "11.5.1"
+        env:
+          PACKAGE_VERSION: ${{ needs.authorize.outputs.version }}
+          REQUIRE_PROVENANCE: 'true'
+          TARBALL: ${{ needs.package.outputs.tarball }}
+        run: node ../release-source/.github/scripts/release-registry.mjs
 
       - name: Classify any existing immutable GitHub Release
         id: github-release
@@ -405,64 +374,11 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: node ../release-source/.github/scripts/github-release-state.mjs
 
-      - name: Recheck the registry immediately before publication
-        id: registry
-        working-directory: release-bundle
-        env:
-          PACKAGE_VERSION: ${{ needs.authorize.outputs.version }}
-          TARBALL: ${{ needs.package.outputs.tarball }}
-        run: node ../release-source/.github/scripts/release-registry.mjs
-
-      - name: Refuse automatic repair of a disappeared registry version
-        if: needs.package.outputs.registry_state == 'identical' && steps.registry.outputs.state == 'absent'
-        run: |
-          echo "::error::an immutable registry version disappeared between jobs; automatic repair is forbidden"
-          exit 1
-
-      - name: Refuse a GitHub Release without its registry version
-        if: steps.github-release.outputs.state == 'immutable' && steps.registry.outputs.state == 'absent'
-        run: |
-          echo "::error::an immutable GitHub Release exists while the npm version is absent"
-          exit 1
-
-      - name: Publish the exact tarball through Trusted Publishing
-        if: steps.registry.outputs.state == 'absent'
-        working-directory: release-bundle
-        env:
-          NODE_TLS_REJECT_UNAUTHORIZED: '1'
-          NO_PROXY: registry.npmjs.org
-          NPM_CONFIG_HTTPS_PROXY: 'null'
-          NPM_CONFIG_PROXY: 'null'
-          NPM_CONFIG_REGISTRY: https://registry.npmjs.org/
-          NPM_CONFIG_STRICT_SSL: 'true'
-          TARBALL: ${{ needs.package.outputs.tarball }}
-        run: npm publish "./$TARBALL" --ignore-scripts --access public --provenance --registry=https://registry.npmjs.org/ --strict-ssl=true
-
-      - name: Verify registry bytes and npm provenance after publication
-        working-directory: release-bundle
-        env:
-          PACKAGE_VERSION: ${{ needs.authorize.outputs.version }}
-          REQUIRE_PRESENT: 'true'
-          REQUIRE_PROVENANCE: 'true'
-          TARBALL: ${{ needs.package.outputs.tarball }}
-        run: node ../release-source/.github/scripts/release-registry.mjs
-
-      - name: Verify registry signatures and attestations with npm
-        env:
-          PACKAGE_VERSION: ${{ needs.authorize.outputs.version }}
-        run: |
-          set -euo pipefail
-          verify_root=$(mktemp -d)
-          cd "$verify_root"
-          npm init -y >/dev/null
-          npm install --ignore-scripts --no-audit --no-fund "agent-passport-system@$PACKAGE_VERSION"
-          npm audit signatures
-
       - name: Reverify the exact tarball before attestation
         working-directory: release-bundle
         run: sha256sum -c SHA256SUMS
 
-      - name: Attest the exact published tarball
+      - name: Attest the exact release tarball
         id: attest
         if: steps.github-release.outputs.state == 'absent'
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4
@@ -540,7 +456,7 @@ jobs:
     needs:
       - authorize
       - package
-      - publish
+      - attest
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -581,9 +497,9 @@ jobs:
         run: node ../release-source/.github/scripts/github-release-state.mjs
 
       - name: Refuse a release created between trust boundaries
-        if: needs.publish.outputs.github_release_state == 'absent' && steps.github-release.outputs.state == 'immutable'
+        if: needs.attest.outputs.github_release_state == 'absent' && steps.github-release.outputs.state == 'immutable'
         run: |
-          echo "::error::an immutable release appeared after the publish job; principal inspection is required"
+          echo "::error::an immutable release appeared after the attestation job; principal inspection is required"
           exit 1
 
       - name: Create the GitHub Release with all assets when it is absent
@@ -625,3 +541,166 @@ jobs:
             echo "::error::immutable GitHub Release verification did not converge"
             exit 1
           fi
+
+  publish:
+    needs:
+      - authorize
+      - package
+      - release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Check out clean tagged publish controls
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 1
+          path: release-source
+          persist-credentials: false
+
+      - name: Download the exact package handoff
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-${{ github.sha }}
+          path: release-bundle
+
+      - name: Verify the package handoff digests
+        working-directory: release-bundle
+        run: sha256sum -c SHA256SUMS
+
+      - name: Validate the exact privileged publish manifest
+        working-directory: release-bundle
+        env:
+          PACKAGE_VERSION: ${{ needs.authorize.outputs.version }}
+          TARBALL: ${{ needs.package.outputs.tarball }}
+        run: |
+          set -euo pipefail
+          tar -xOf "$TARBALL" package/package.json > packed-package.json
+          if tar -tzf "$TARBALL" | grep -qx 'package/.npmrc'; then
+            echo "::error::packed artifact contains a package-level npm configuration"
+            exit 1
+          fi
+          MANIFEST=packed-package.json node ../release-source/.github/scripts/release-manifest.mjs
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+          package-manager-cache: false
+
+      - name: Download and verify the pinned npm CLI
+        working-directory: release-bundle
+        run: |
+          node --input-type=module -e "
+            import { createHash } from 'node:crypto';
+            import { writeFileSync } from 'node:fs';
+            const response = await fetch('https://registry.npmjs.org/npm/-/npm-11.5.1.tgz', {
+              redirect: 'error',
+              signal: AbortSignal.timeout(30_000),
+            });
+            if (response.status !== 200) throw new Error('npm CLI download returned HTTP ' + response.status);
+            const bytes = Buffer.from(await response.arrayBuffer());
+            const shasum = createHash('sha1').update(bytes).digest('hex');
+            const integrity = 'sha512-' + createHash('sha512').update(bytes).digest('base64');
+            if (shasum !== '83b06a00dae2a8e5d72dc951ddf56a2e0dbf2cc1') throw new Error('npm CLI sha1 mismatch');
+            if (integrity !== 'sha512-Iy5vXZ55m8tIaSCz6bqQf9+W5XbPfoyURsgWLjOkFglqHTep6RDZqRj2sfYGeRyZvGu2HuJWm0lux0rxPQ29lQ==') throw new Error('npm CLI integrity mismatch');
+            writeFileSync('npm-11.5.1.tgz', bytes, { flag: 'wx', mode: 0o600 });
+          "
+
+      - name: Install the pinned npm CLI without lifecycle scripts
+        run: |
+          npm install --global --ignore-scripts ./release-bundle/npm-11.5.1.tgz
+          test "$(npm --version)" = "11.5.1"
+
+      - name: Require the official immutable GitHub Release before npm publication
+        id: github-release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node release-source/.github/scripts/github-release-state.mjs
+
+      - name: Refuse npm publication without the official immutable GitHub Release
+        if: steps.github-release.outputs.state != 'immutable'
+        run: |
+          echo "::error::the official immutable GitHub Release must exist before npm publication"
+          exit 1
+
+      - name: Verify the immutable release assets against the exact candidate
+        env:
+          ATTESTATION: agent-passport-system-${{ needs.authorize.outputs.version }}.intoto.jsonl
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SBOM: agent-passport-system-${{ needs.authorize.outputs.version }}.sbom.spdx.json
+          TARBALL: ${{ needs.package.outputs.tarball }}
+        run: |
+          set -euo pipefail
+          mkdir immutable-release
+          gh release download "$GITHUB_REF_NAME" --dir immutable-release \
+            --pattern "$TARBALL" \
+            --pattern "$SBOM" \
+            --pattern "$ATTESTATION"
+          gh release verify "$GITHUB_REF_NAME"
+          gh release verify-asset "$GITHUB_REF_NAME" "immutable-release/$TARBALL"
+          gh release verify-asset "$GITHUB_REF_NAME" "immutable-release/$SBOM"
+          gh release verify-asset "$GITHUB_REF_NAME" "immutable-release/$ATTESTATION"
+          gh attestation verify "immutable-release/$TARBALL" \
+            --repo "$GITHUB_REPOSITORY" \
+            --bundle "immutable-release/$ATTESTATION" \
+            --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/release.yml" \
+            --source-digest "$GITHUB_SHA" \
+            --source-ref "$GITHUB_REF" \
+            --deny-self-hosted-runners
+          cmp --silent "release-bundle/$TARBALL" "immutable-release/$TARBALL" || {
+            echo "::error::immutable GitHub Release tarball differs from the publish candidate"
+            exit 1
+          }
+          cmp --silent "release-bundle/$SBOM" "immutable-release/$SBOM" || {
+            echo "::error::immutable GitHub Release SBOM differs from the publish candidate"
+            exit 1
+          }
+
+      - name: Recheck the registry immediately before publication
+        id: registry
+        working-directory: release-bundle
+        env:
+          PACKAGE_VERSION: ${{ needs.authorize.outputs.version }}
+          TARBALL: ${{ needs.package.outputs.tarball }}
+        run: node ../release-source/.github/scripts/release-registry.mjs
+
+      - name: Refuse automatic repair of a disappeared registry version
+        if: needs.package.outputs.registry_state == 'identical' && steps.registry.outputs.state == 'absent'
+        run: |
+          echo "::error::an immutable registry version disappeared between jobs; automatic repair is forbidden"
+          exit 1
+
+      - name: Publish the exact tarball through Trusted Publishing
+        if: steps.registry.outputs.state == 'absent'
+        working-directory: release-bundle
+        env:
+          NODE_TLS_REJECT_UNAUTHORIZED: '1'
+          NO_PROXY: registry.npmjs.org
+          NPM_CONFIG_HTTPS_PROXY: 'null'
+          NPM_CONFIG_PROXY: 'null'
+          NPM_CONFIG_REGISTRY: https://registry.npmjs.org/
+          NPM_CONFIG_STRICT_SSL: 'true'
+          TARBALL: ${{ needs.package.outputs.tarball }}
+        run: npm publish "./$TARBALL" --ignore-scripts --access public --provenance --registry=https://registry.npmjs.org/ --strict-ssl=true
+
+      - name: Verify registry bytes and npm provenance after publication
+        working-directory: release-bundle
+        env:
+          PACKAGE_VERSION: ${{ needs.authorize.outputs.version }}
+          REQUIRE_PRESENT: 'true'
+          REQUIRE_PROVENANCE: 'true'
+          TARBALL: ${{ needs.package.outputs.tarball }}
+        run: node ../release-source/.github/scripts/release-registry.mjs
+
+      - name: Verify registry signatures and attestations with npm
+        env:
+          PACKAGE_VERSION: ${{ needs.authorize.outputs.version }}
+        run: |
+          set -euo pipefail
+          verify_root=$(mktemp -d)
+          cd "$verify_root"
+          npm init -y >/dev/null
+          npm install --ignore-scripts --no-audit --no-fund "agent-passport-system@$PACKAGE_VERSION"
+          npm audit signatures

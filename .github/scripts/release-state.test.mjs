@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import {
@@ -255,4 +256,21 @@ test('version-tag ruleset fails closed on missing restrictions or extra bypasses
     }),
     /exactly one visible bypass actor/,
   );
+});
+
+test('the official immutable GitHub Release gates npm publication', () => {
+  const workflow = readFileSync(
+    new URL('../workflows/release.yml', import.meta.url),
+    'utf8',
+  );
+  const attestIndex = workflow.indexOf('\n  attest:\n');
+  const releaseIndex = workflow.indexOf('\n  release:\n');
+  const publishIndex = workflow.indexOf('\n  publish:\n');
+  assert.ok(attestIndex > 0 && attestIndex < releaseIndex && releaseIndex < publishIndex);
+
+  const publishJob = workflow.slice(publishIndex);
+  assert.match(publishJob, /    needs:\n(?:      - [a-z-]+\n)*      - release\n/);
+  assert.match(publishJob, /Require the official immutable GitHub Release before npm publication/);
+  assert.equal((workflow.match(/npm publish /g) ?? []).length, 1);
+  assert.equal((workflow.slice(0, publishIndex).match(/npm publish /g) ?? []).length, 0);
 });
