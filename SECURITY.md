@@ -76,8 +76,11 @@ was published on 2026-09-01 with the registry shasum
 without npm provenance. It contains the security remediation released as
 `5.0.0`; the exception concerns release provenance, not the fixed code. A
 GitHub repository artifact attestation over matching tarball bytes is separate
-evidence and cannot add npm provenance to an already published npm version. If
-published through the corrected Trusted Publishing workflow, `5.0.1` is
+evidence and cannot add npm provenance to an already published npm version. A
+first attempt at that patch release, tagged `v5.0.1` on 2026-09-02, failed in
+the release workflow before npm publication or GitHub Release creation (a
+release-workflow transport defect, fixed in #139); no `5.0.1` version exists on
+npm. If published through the corrected Trusted Publishing workflow, `5.0.2` is
 intended to be the first post-remediation patch release that restores the
 normal npm provenance property. Version-specific registry metadata is
 available from:
