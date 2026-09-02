@@ -196,9 +196,17 @@ jobs:
           PACKAGE_VERSION: ${{ needs.authorize.outputs.version }}
         run: |
           set -euo pipefail
-          pack_json=$(npm pack --ignore-scripts --json)
-          tarball=$(PACK_JSON="$pack_json" node --input-type=module -e "
-            const value = JSON.parse(process.env.PACK_JSON);
+          # The structured result lists every packed file (about 228 KB for
+          # this package), which exceeds Linux's 128 KiB single-argument limit
+          # when passed through the environment; the runner then fails with
+          # "Argument list too long" (E2BIG, exit 126). Write it to a file and
+          # read the file through the same-open-handle helper instead.
+          pack_json_path="$RUNNER_TEMP/npm-pack-result.json"
+          npm pack --ignore-scripts --json > "$pack_json_path"
+          tarball=$(PACK_JSON_PATH="$pack_json_path" node --input-type=module -e "
+            import { readOpenedRegularFile } from './.github/scripts/opened-regular-file.mjs';
+            const text = await readOpenedRegularFile(process.env.PACK_JSON_PATH, 'npm pack result is not a regular file', { encoding: 'utf8' });
+            const value = JSON.parse(text);
             if (!Array.isArray(value) || value.length !== 1 || typeof value[0]?.filename !== 'string') {
               throw new Error('npm pack did not return exactly one structured result');
             }
