@@ -15,6 +15,14 @@ concurrency:
 permissions:
   contents: read
 
+# Every gh release call in the probe, release and publish jobs runs from a
+# working directory that is not a git checkout (public-release, release-bundle,
+# immutable-release), so gh cannot infer the repository from git and fails with
+# "not a git repository"; the v5.0.2 release run failed at release creation on
+# exactly that. Name the repository once for the whole workflow.
+env:
+  GH_REPO: ${{ github.repository }}
+
 jobs:
   authorize:
     runs-on: ubuntu-latest
