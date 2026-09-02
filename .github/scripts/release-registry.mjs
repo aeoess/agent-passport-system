@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 
 import { createHash } from 'node:crypto';
-import { appendFile, lstat, readFile } from 'node:fs/promises';
+import { appendFile } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+
+import { readOpenedRegularFile } from './opened-regular-file.mjs';
 
 const PACKAGE_NAME = 'agent-passport-system';
 const PROVENANCE_PREDICATE = 'https://slsa.dev/provenance/v1';
@@ -82,7 +84,7 @@ function validateVersion(version) {
   }
 }
 
-async function loadArtifact(version, input) {
+export async function loadArtifact(version, input, options = {}) {
   if (!input || isAbsolute(input) || basename(input) !== input) {
     throw new Error('TARBALL must be a basename in the current working directory');
   }
@@ -91,16 +93,18 @@ async function loadArtifact(version, input) {
     throw new Error(`unexpected tarball name: expected ${expected}, got ${input}`);
   }
 
-  const fullPath = resolve(input);
-  if (dirname(fullPath) !== resolve('.')) {
+  const workingDirectory = resolve(options.cwd ?? '.');
+  const fullPath = resolve(workingDirectory, input);
+  if (dirname(fullPath) !== workingDirectory) {
     throw new Error('tarball resolved outside the current working directory');
   }
-  const stat = await lstat(fullPath);
-  if (!stat.isFile() || stat.isSymbolicLink()) {
-    throw new Error('tarball must be a regular, non-symlink file');
-  }
 
-  return artifactDigests(await readFile(fullPath));
+  const bytes = await readOpenedRegularFile(
+    fullPath,
+    'tarball must be a regular, non-symlink file',
+    options,
+  );
+  return artifactDigests(bytes);
 }
 
 async function fetchRegistryDocument(version) {

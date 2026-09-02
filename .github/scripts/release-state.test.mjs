@@ -1,15 +1,57 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import {
+  mkdtemp,
+  open,
+  readFile,
+  rename,
+  rm,
+  symlink,
+  writeFile,
+} from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { promisify } from 'node:util';
+import { execFile } from 'node:child_process';
 import test from 'node:test';
 
 import {
   artifactDigests,
   classifyRegistryResponse,
+  loadArtifact,
   ProvenanceUnavailableError,
 } from './release-registry.mjs';
 import { classifyGitHubReleaseResponse } from './github-release-state.mjs';
-import { validatePublishManifest } from './release-manifest.mjs';
+import { loadManifest, validatePublishManifest } from './release-manifest.mjs';
+import { readOpenedRegularFile } from './opened-regular-file.mjs';
 import { validateImmutableVersionTagRuleset } from './tag-ruleset-state.mjs';
+
+const execFileAsync = promisify(execFile);
+
+async function withTempDirectory(run) {
+  const directory = await mkdtemp(join(tmpdir(), 'aps-release-file-'));
+  try {
+    return await run(directory);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+}
+
+function swappingOpen(replacement) {
+  return async (path, flags) => {
+    const handle = await open(path, flags);
+    return {
+      async stat() {
+        const stat = await handle.stat();
+        await rename(path, `${path}.validated`);
+        await writeFile(path, replacement);
+        return stat;
+      },
+      readFile: (...args) => handle.readFile(...args),
+      close: () => handle.close(),
+    };
+  };
+}
 
 const version = '5.0.1';
 const bytes = Buffer.from('one packed artifact');
@@ -119,6 +161,131 @@ test('publish manifest admits package scripts but no privileged redirection', ()
     }, version),
     /publishConfig is forbidden/,
   );
+});
+
+test('regular release files work end to end through their opened handles', async () => {
+  await withTempDirectory(async (cwd) => {
+    const tarball = `agent-passport-system-${version}.tgz`;
+    const tarballBytes = Buffer.from('regular packed artifact');
+    await writeFile(join(cwd, tarball), tarballBytes);
+    assert.deepEqual(
+      await loadArtifact(version, tarball, { cwd }),
+      artifactDigests(tarballBytes),
+    );
+
+    const manifestName = 'package.json';
+    await writeFile(join(cwd, manifestName), JSON.stringify(publishManifest));
+    const manifest = await loadManifest(manifestName, { cwd });
+    assert.deepEqual(validatePublishManifest(manifest, version), {
+      name: 'agent-passport-system',
+      version,
+    });
+  });
+});
+
+test('release helpers reject symlink inputs', async () => {
+  await withTempDirectory(async (cwd) => {
+    await writeFile(join(cwd, 'artifact-target'), 'target bytes');
+    const tarball = `agent-passport-system-${version}.tgz`;
+    await symlink('artifact-target', join(cwd, tarball));
+    await assert.rejects(
+      loadArtifact(version, tarball, { cwd }),
+      /tarball must be a regular, non-symlink file/,
+    );
+
+    await writeFile(join(cwd, 'manifest-target'), JSON.stringify(publishManifest));
+    await symlink('manifest-target', join(cwd, 'package.json'));
+    await assert.rejects(
+      loadManifest('package.json', { cwd }),
+      /publish manifest must be a regular, non-symlink file/,
+    );
+  });
+});
+
+test('release helpers read the same opened objects they validated', async () => {
+  await withTempDirectory(async (cwd) => {
+    const tarball = `agent-passport-system-${version}.tgz`;
+    const validatedBytes = Buffer.from('validated artifact bytes');
+    const replacementBytes = Buffer.from('replacement pathname bytes');
+    await writeFile(join(cwd, tarball), validatedBytes);
+    assert.deepEqual(
+      await loadArtifact(version, tarball, {
+        cwd,
+        openFile: swappingOpen(replacementBytes),
+      }),
+      artifactDigests(validatedBytes),
+    );
+    assert.deepEqual(await readFile(join(cwd, tarball)), replacementBytes);
+
+    const replacementManifest = {
+      ...publishManifest,
+      publishConfig: { registry: 'https://attacker.invalid/' },
+    };
+    await writeFile(join(cwd, 'package.json'), JSON.stringify(publishManifest));
+    const manifest = await loadManifest('package.json', {
+      cwd,
+      openFile: swappingOpen(JSON.stringify(replacementManifest)),
+    });
+    assert.deepEqual(validatePublishManifest(manifest, version), {
+      name: 'agent-passport-system',
+      version,
+    });
+    assert.deepEqual(
+      JSON.parse(await readFile(join(cwd, 'package.json'), 'utf8')),
+      replacementManifest,
+    );
+  });
+});
+
+test('release file reads fail closed when no-follow support is unavailable', async () => {
+  await assert.rejects(
+    readOpenedRegularFile('/unused', 'must be regular', {
+      fsConstants: { O_RDONLY: 0, O_NONBLOCK: 4 },
+      openFile: async () => assert.fail('open must not run without O_NOFOLLOW'),
+    }),
+    /O_NOFOLLOW is unavailable; refusing an unsafe pathname-based fallback/,
+  );
+});
+
+test('FIFO inputs are rejected without blocking the privileged helper', {
+  skip: process.platform === 'win32',
+}, async () => {
+  await withTempDirectory(async (cwd) => {
+    const cases = [
+      {
+        name: `agent-passport-system-${version}.tgz`,
+        moduleUrl: new URL('./release-registry.mjs', import.meta.url).href,
+        source: `import { loadArtifact } from ${JSON.stringify(new URL('./release-registry.mjs', import.meta.url).href)}; await loadArtifact(${JSON.stringify(version)}, ${JSON.stringify(`agent-passport-system-${version}.tgz`)});`,
+        error: /tarball must be a regular, non-symlink file/,
+      },
+      {
+        name: 'package.json',
+        moduleUrl: new URL('./release-manifest.mjs', import.meta.url).href,
+        source: `import { loadManifest } from ${JSON.stringify(new URL('./release-manifest.mjs', import.meta.url).href)}; await loadManifest('package.json');`,
+        error: /publish manifest must be a regular, non-symlink file/,
+      },
+    ];
+
+    for (const fifoCase of cases) {
+      await execFileAsync('mkfifo', [fifoCase.name], { cwd });
+      await assert.rejects(
+        execFileAsync(process.execPath, [
+          '--input-type=module',
+          '--eval',
+          fifoCase.source,
+        ], {
+          cwd,
+          timeout: 2_000,
+          killSignal: 'SIGKILL',
+        }),
+        (error) => {
+          assert.equal(error.killed, false, `${fifoCase.moduleUrl} blocked while opening a FIFO`);
+          assert.match(error.stderr, fifoCase.error);
+          return true;
+        },
+      );
+    }
+  });
 });
 
 test('GitHub release control flow distinguishes 404 from ambiguity', () => {

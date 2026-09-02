@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 
-import { lstat, readFile } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+
+import { readOpenedRegularFile } from './opened-regular-file.mjs';
 
 const PACKAGE_NAME = 'agent-passport-system';
 const REPOSITORY_URL = 'git+https://github.com/aeoess/agent-passport-system.git';
@@ -28,20 +29,22 @@ function validateVersion(version) {
   }
 }
 
-async function loadManifest(input) {
+export async function loadManifest(input, options = {}) {
   if (!input || isAbsolute(input) || basename(input) !== input) {
     throw new Error('MANIFEST must be a basename in the current working directory');
   }
-  const fullPath = resolve(input);
-  if (dirname(fullPath) !== resolve('.')) {
+  const workingDirectory = resolve(options.cwd ?? '.');
+  const fullPath = resolve(workingDirectory, input);
+  if (dirname(fullPath) !== workingDirectory) {
     throw new Error('publish manifest resolved outside the current working directory');
   }
-  const stat = await lstat(fullPath);
-  if (!stat.isFile() || stat.isSymbolicLink()) {
-    throw new Error('publish manifest must be a regular, non-symlink file');
-  }
+  const text = await readOpenedRegularFile(
+    fullPath,
+    'publish manifest must be a regular, non-symlink file',
+    { ...options, encoding: 'utf8' },
+  );
   try {
-    return JSON.parse(await readFile(fullPath, 'utf8'));
+    return JSON.parse(text);
   } catch (error) {
     throw new Error(`publish manifest is not valid JSON: ${error.message}`);
   }
