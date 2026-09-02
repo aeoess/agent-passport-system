@@ -1,6 +1,6 @@
 # Changelog
 
-## 5.0.1 (unreleased)
+## 5.0.2 (unreleased)
 
 ### Release process
 
@@ -11,6 +11,18 @@
   same security remediation as `5.0.0`, whose registry entry cannot be amended
   with missing npm provenance.
 
+## 5.0.1 (not published)
+
+- Failed release attempt, never published. The tag `v5.0.1` was pushed on
+  2026-09-02 at `0bc21579` and the release workflow run `33690069810` passed
+  authorize, test and build, then failed in the package job while parsing the
+  structured `npm pack --json` result: it was passed through an environment
+  variable and exceeded Linux's single-argument limit ("Argument list too
+  long", exit 126). The failure occurred before the immutable package handoff,
+  probe, attestation, npm publication, or GitHub Release; those downstream
+  jobs were skipped. No GitHub Release and no npm version `5.0.1` exist.
+  The tag stays where it is as the record of that attempt; the workflow fix is
+  #139 and the recovery version is `5.0.2`.
 
 ## 5.0.0 (2026-08-29)
 
@@ -140,7 +152,7 @@ Per AGENTS.md this bump is PROPOSED, not decided. A human owns the version.
   is graded malformed and denied with a reason, and no reader tests `.length`
   on a caller-supplied value again. This sentence originally said "neither
   guard", enumerating the two guards it was written for; there was a third
-  READER, `verifySocialContract`, and it was missed. See the 5.0.1 entry. A bare key string is refused
+  READER, `verifySocialContract`, and it was missed. See the entry above in this release. A bare key string is refused
   too, since it has a numeric length and the membership test downstream was
   substring matching. Pre-existing, and older than the gate consolidation;
   what the consolidation changed is that the repair is one function rather

@@ -161,7 +161,7 @@ Porting notes:
   value before handing it over. In 5.0.0 this held at `verifyPassport`,
   `checkPassportTrustPosture`, the five adapter gates and the relying-party
   middleware, but NOT at `verifySocialContract`, which was a third reader of
-  the option and was missed; 5.0.1 closes it. If you read
+  the option and was missed; the 5.0.0 release closes it. If you read
   `TrustVerification.overall` — deprecated, and the field this affected — a
   malformed anchor list used to leave it `true`.
 - **The same posture is now required at the five adapter gates.** If you call
