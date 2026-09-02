@@ -2,7 +2,19 @@
 
 ## 5.0.1 (unreleased)
 
-### Behavior change
+### Release process
+
+- Release metadata and pipeline controls only. The package source and generated
+  SDK behavior are unchanged from `5.0.0`. This patch is reserved for
+  publication through the corrected Trusted Publishing workflow so npm can
+  create registry provenance for the new immutable version. It carries the
+  same security remediation as `5.0.0`, whose registry entry cannot be amended
+  with missing npm provenance.
+
+
+## 5.0.0 (2026-08-29)
+
+### Follow-up audit included in this release
 
 - **`verifySocialContract` normalizes `trustedIssuers` like the other two
   readers of the option.** It read `opts?.trustedIssuers ?? []` and then tested
@@ -50,8 +62,6 @@
   and `APS_GO_REPO` and skip when unset, and `tests/hermeticity.test.ts` keeps
   it that way.
 
-
-## 5.0.0 (2026-08-29)
 
 Five verification surfaces returned a permissive verdict when a check had not
 run. Each one now separates "checked and passed" from "not checked", and each

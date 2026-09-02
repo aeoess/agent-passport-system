@@ -62,17 +62,26 @@ The Agent Passport System operates under these assumptions:
 
 ## Verifying releases
 
-npm releases are published through Trusted Publishing (OIDC) with a SLSA
-build-provenance attestation signed via Sigstore, so no long-lived signing key
-exists on any distribution site. To verify what you installed:
+The normal npm release path uses Trusted Publishing (OIDC), which adds npm
+registry provenance without a long-lived publishing token. To verify registry
+signatures and npm provenance attestations in an installed dependency tree:
 
 ```
 npm audit signatures
 ```
 
-This checks registry signatures and build attestations for every package in
-your tree. Each release's attestation is also linked from the package page:
-https://www.npmjs.com/package/agent-passport-system
+The immutable `agent-passport-system@5.0.0` version is a dated exception. It
+was published on 2026-09-01 with the registry shasum
+`1f046763cf78b2b86a2966e49a89e9c1d78c9cf8` and a registry signature, but
+without npm provenance. It contains the security remediation released as
+`5.0.0`; the exception concerns release provenance, not the fixed code. A
+GitHub repository artifact attestation over matching tarball bytes is separate
+evidence and cannot add npm provenance to an already published npm version. If
+published through the corrected Trusted Publishing workflow, `5.0.1` is
+intended to be the first post-remediation patch release that restores the
+normal npm provenance property. Version-specific registry metadata is
+available from:
+https://www.npmjs.com/package/agent-passport-system?activeTab=versions
 
 ## Secrets policy
 
