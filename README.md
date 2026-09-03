@@ -1,12 +1,12 @@
 <p align="center">
-  <img src="docs/assets/banner-hero.png" alt="Agent Passport System banner. Governance infrastructure for the agent economy. Cryptographic identity, signed action receipts, beneficiary attribution." width="100%">
+  <img src="docs/assets/banner-hero.png" alt="Agent Passport System banner. Verifiable agent authority and action evidence. Cryptographic identity, scoped delegation, signed action receipts." width="100%">
 </p>
 
 APS lets a person or company give an AI agent limited authority to act on its behalf, and produces verifiable proof of what the agent does with it. Open protocol, Apache 2.0.
 
 [![npm version](https://img.shields.io/npm/v/agent-passport-system)](https://www.npmjs.com/package/agent-passport-system)
 [![license](https://img.shields.io/npm/l/agent-passport-system)](https://github.com/aeoess/agent-passport-system/blob/main/LICENSE)
-[![tests](https://img.shields.io/badge/tests-4499%20passing%20%2F%204500-brightgreen)](https://github.com/aeoess/agent-passport-system)
+[![tests](https://github.com/aeoess/agent-passport-system/actions/workflows/tests.yml/badge.svg)](https://github.com/aeoess/agent-passport-system/actions/workflows/tests.yml)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18749779.svg)](https://doi.org/10.5281/zenodo.18749779)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/13536/badge)](https://www.bestpractices.dev/projects/13536)
 [![OpenSSF Baseline](https://www.bestpractices.dev/projects/13536/baseline)](https://www.bestpractices.dev/projects/13536)
@@ -38,7 +38,7 @@ flowchart LR
 npm install agent-passport-system
 ```
 
-Also implemented in [Python](https://pypi.org/project/agent-passport-system/) and [Go](https://pkg.go.dev/github.com/aeoess/agent-passport-go), byte-parity-checked against this TypeScript reference.
+Also implemented in [Python](https://pypi.org/project/agent-passport-system/), [Go](https://pkg.go.dev/github.com/aeoess/agent-passport-go) and [Rust](https://crates.io/crates/agent-passport-system), each checked against this TypeScript reference through the conformance suite.
 
 Verify any receipt or evidence bundle in your browser at [agent-passport.org/verify.html](https://agent-passport.org/verify.html) (runs locally, nothing is uploaded). Machine-readable docs for agents are at [agent-passport.org/llms.txt](https://agent-passport.org/llms.txt).
 
@@ -74,7 +74,7 @@ What ships in every deployment.
 Every primitive in this README carries one of three labels so you know how much weight it can bear today.
 
 - **Canonical** -- stable, signed-bytes frozen, covered by conformance fixtures. Breaking these would break cross-implementation verification. Build on them.
-- **Production-Extension** -- shipped and tested, optional, additive to the canonical core. Safe in production; the surface may still grow.
+- **Stable extension** -- shipped and tested, optional, additive to the canonical core; the surface may still grow.
 - **Experimental** -- published for review and tested, but the shape may change. Pin a version before depending on it.
 
 Where enforcement sits:
@@ -249,9 +249,10 @@ The composition contract specifies how a verifier MUST cross-check per-request s
 
 ## Numbers
 
-4,500 tests. 8 protocol layers. Framework adapters for CrewAI, LangChain, ADK, A2A, MCP, OpenShell, IBAC, Gonka. Gateway evaluation under 2ms. Zero heavy dependencies. Apache-2.0.
-
-The test count is one number derived from the suite, not three guesses. The badge above, this section, and the `package.json` description all carry the same `4,500`, which is the `tests` total reported by `npm test`. When the suite grows, re-run `npm test`, read the `tests` line, and update all three to match.
+The test total is reported by `npm test` and by the tests badge above; it is not written into
+prose here or in `package.json`, so it cannot drift. Framework adapters for CrewAI, LangChain,
+ADK, A2A, MCP, OpenShell, IBAC, Gonka. Gateway evaluation under 2ms in the benchmarks under
+`benchmarks/`. Zero heavy dependencies. Apache-2.0.
 
 ## Papers
 
