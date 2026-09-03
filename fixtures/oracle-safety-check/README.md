@@ -92,7 +92,7 @@ in the conformance suite):
    `roles.evm_attester.address`;
 5. derive the composite-gate reason set from the observable signals (verdict,
    policy deny, evidence digest, inner verification, revocation, delegation
-   time window) and assert it **exactly equals** `expectReasons`;
+   expiry) and assert it **exactly equals** `expectReasons`;
 6. assert `allowed ⇔ (derived reasons empty)`.
    Flipping `oracle_input.verdict`, emptying `revocation`, replacing
    `expectReasons`, or flipping `expected` on any vector FAILS the run.
