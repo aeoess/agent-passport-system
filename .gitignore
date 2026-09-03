@@ -74,3 +74,6 @@ __pycache__/
 # Upstream fixture generator output: regenerated, not committed here. The
 # committed vectors live in the conformance suite (see the directory README).
 fixtures/oracle-safety-check/oracle-safety-check-v1/
+
+# Claude Code runtime residue (session locks, local settings)
+.claude/
