@@ -57,6 +57,7 @@ The Agent Passport System operates under these assumptions:
 | Package | Supported |
 |---------|-----------|
 | agent-passport-system >= 6.0.0 | ✅ |
+| agent-passport-system-mcp >= 6.0.0 | ✅ |
 | mingle-mcp >= 1.1.0 | ✅ |
 | Older versions | ❌ |
 
@@ -65,8 +66,9 @@ the 6.0.0 advisory, GHSA-r2fw-x6mg-f6h8, published at
 https://github.com/aeoess/agent-passport-system/security/advisories, describes
 the verification defects they carry.
 
-For `agent-passport-system-mcp` support and version information, see the MCP
-server repository's own security policy.
+`agent-passport-system-mcp` 6.0.0 and later target this SDK line; MCP releases
+before 6.0.0 target SDK 5.x. The MCP server repository carries its own security
+policy for the server itself.
 
 ## Verifying releases
 
