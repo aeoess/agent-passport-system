@@ -255,7 +255,7 @@ describe('Identity Pipeline: Bring Your Own Identity', () => {
       assert.ok(vp.holder.startsWith('did:key:z6Mk'));
 
       // 5. Verify VP
-      const vpResult = await verifyVerifiablePresentation(vp);
+      const vpResult = await verifyVerifiablePresentation(vp, { expectedChallenge: 'spiffe-nonce-001' });
       assert.equal(vpResult.valid, true);
 
       // 6. Verify the credential subject carries grade and evidence through

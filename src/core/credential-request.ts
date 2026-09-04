@@ -200,13 +200,15 @@ export async function fulfillCredentialRequest(
  * was defeated by rewriting the field it compared. One implementation cannot
  * drift from itself.
  *
- * `expectedChallenge` stays optional in the signature and is required in
- * effect for replay protection: omitting it verifies the response but compares
- * no nonce, and the result says so in `checks`.
+ * `expectedChallenge` is required. A credential response answers a request
+ * that carried a challenge, so a response verified against no challenge is a
+ * response to nothing in particular, and the nonce is what stops it being
+ * replayed. `expectedDomain` stays optional on the same terms as the
+ * presentation verifier it delegates to.
  */
 export async function verifyCredentialResponse(
   vp: VerifiablePresentation,
-  expectedChallenge?: string,
+  expectedChallenge: string,
   expectedDomain?: string,
 ): Promise<CredentialResponseResult> {
   const presentation = await verifyVerifiablePresentation(vp, {
@@ -214,9 +216,6 @@ export async function verifyCredentialResponse(
     expectedDomain,
   })
   const checks = [...presentation.checks]
-  if (expectedChallenge === undefined) {
-    checks.push('SKIP: no expected challenge supplied, so no replay check was made')
-  }
 
   if (!presentation.valid) {
     return { valid: false, claims: {}, checks }

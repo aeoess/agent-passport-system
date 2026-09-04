@@ -426,7 +426,8 @@ describe('Three-Signature Chain — Intent → Decision → Receipt', () => {
     assert.equal(v.envelopeSignatureValid, true)
 
     // Without the chain inputs the same receipt is not verified, and says so.
-    const envelopeOnly = verifyPolicyReceipt(policyReceipt, verifier.publicKey)
+    // Untyped-caller path: `chain` is required in the types now.
+    const envelopeOnly = verifyPolicyReceipt(policyReceipt, verifier.publicKey, undefined as never)
     assert.equal(envelopeOnly.valid, false)
     assert.equal(envelopeOnly.chainVerified, false)
     assert.equal(envelopeOnly.envelopeSignatureValid, true)
@@ -509,7 +510,7 @@ describe('Three-Signature Chain — Intent → Decision → Receipt', () => {
 
     // Verify with wrong key
     const other = generateKeyPair()
-    const v = verifyPolicyReceipt(policyReceipt, other.publicKey)
+    const v = verifyPolicyReceipt(policyReceipt, other.publicKey, undefined as never)
     assert.ok(!v.valid)
   })
 })

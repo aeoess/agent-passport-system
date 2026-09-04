@@ -153,6 +153,10 @@ describe('the envelope establishes nothing without caller-supplied trust', () =>
       evaluatorPublicKey: evaluator.publicKey,
       trustedSignerPublicKeys: [gateway.publicKey],
       expected: { allowedScope: ['commerce:purchase'] },
+      // A minimal envelope carries no decision, so the caller has none to
+      // supply; that is the case, and it is why the evaluator signature can
+      // never be established for one.
+      originalDecision: undefined as never,
     })
     assert.equal(result.valid, false)
     assert.equal(result.signerAuthority, 'rejected')
@@ -166,11 +170,15 @@ describe('the envelope establishes nothing without caller-supplied trust', () =>
     // evaluatorSignatureValid = true unconditionally, so a caller doing the
     // more careful thing got the weaker answer.
     const { envelope } = chain()
-    const without = verifyExecutionEnvelope(envelope, { trustedSignerPublicKeys: [gateway.publicKey] })
+    // Partial trust inputs, which the types now refuse: the point of the case
+    // is what an untyped caller gets, so the omission is made deliberate.
+    const without = verifyExecutionEnvelope(envelope, {
+      trustedSignerPublicKeys: [gateway.publicKey],
+    } as never)
     const withKey = verifyExecutionEnvelope(envelope, {
       trustedSignerPublicKeys: [gateway.publicKey],
       evaluatorPublicKey: evaluator.publicKey,
-    })
+    } as never)
     assert.equal(without.evaluatorSignatureValid, false)
     assert.equal(withKey.evaluatorSignatureValid, false)
     assert.equal(withKey.evaluatorAuthority, 'unresolved')
@@ -188,6 +196,7 @@ describe('the envelope establishes nothing without caller-supplied trust', () =>
         trustedSignerPublicKeys: [gateway.publicKey],
         evaluatorPublicKey: evaluator.publicKey,
         originalDecision: chain().decision,
+        expected: { actionId: envelope.action_id },
       })
       assert.equal(result.evaluatorSignatureValid, false, `accepted ${junk.slice(0, 16)}`)
       assert.equal(result.valid, false)
@@ -269,7 +278,11 @@ describe('every expected-context field is checked on its own', () => {
   it('states plainly when no context was checked at all', () => {
     const { intent, decision, envelope } = chain()
     const trust = fullTrust(intent, decision)
-    const result = verifyExecutionEnvelope(envelope, { ...trust, expected: undefined })
+    // `expected` is required in the types. An empty object satisfies the type
+    // and states nothing, which is the case worth pinning: a caller can hand
+    // over the shape without filling it in, and the result must say so rather
+    // than look like a context check that happened.
+    const result = verifyExecutionEnvelope(envelope, { ...trust, expected: {} })
     assert.equal(result.contextChecked, false)
     assert.equal(result.contextValid, false)
     assert.equal(result.valid, false)

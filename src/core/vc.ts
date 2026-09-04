@@ -175,7 +175,16 @@ export async function createPresentation(
   credentials: VerifiableCredential[],
   holderPrivateKey: string,
   holderPublicKey: string,
-  options?: { challenge?: string; domain?: string }
+  options: {
+    /** The verifier's nonce this presentation answers. REQUIRED, and required
+     *  at verification too. A presentation exists to prove a holder is
+     *  presenting to one verifier now; minting one with no challenge would
+     *  produce an artifact verifyPresentation can never accept, which is the
+     *  creator-verifier disagreement this SDK refuses to ship. */
+    challenge: string
+    /** The verifier this presentation is addressed to. Optional. */
+    domain?: string
+  }
 ): Promise<VerifiablePresentation> {
   const holderDID = createDID(holderPublicKey)
 
@@ -288,7 +297,13 @@ export async function verifyVC(
     )
     const proofOfPossession = verify(canonical, base64urlToHex(proof.proofValue), binding.publicKey)
     if (!proofOfPossession) {
-      return fail('Invalid signature', { keyAuthority: 'rejected' })
+      // The binding held: the DID does commit to this key. What failed is the
+      // signature over the bytes. Downgrading keyAuthority here would report
+      // "this key is not the issuer's" for a credential whose only problem is
+      // that it was altered, or that its proof covers different bytes than
+      // this verifier reconstructs — which is what a pre-branch credential
+      // looks like. Those are different findings and get different fields.
+      return fail('Invalid signature', { keyAuthority: 'verified' })
     }
 
     const issuerDID = claimedIssuer as string
@@ -355,15 +370,20 @@ export interface VerifyPresentationResult {
  */
 export async function verifyPresentation(
   presentation: VerifiablePresentation,
-  opts?: {
-    /** Refuse unless the presentation claims this exact holder. */
-    expectedHolder?: string
-    /** The nonce this verifier issued. When supplied, the proof must carry it;
-     *  a proof carrying none is refused, because a presentation that answers
-     *  no challenge answers any challenge. */
-    expectedChallenge?: string
-    /** The domain this verifier expects to be addressed as, on the same terms. */
+  opts: {
+    /** The nonce this verifier issued. REQUIRED. A presentation exists to
+     *  prove a holder is presenting to this verifier now; without a challenge
+     *  to answer, a signed presentation stays valid forever and replays for
+     *  anyone who has seen it, so there is no `valid: true` without one. */
+    expectedChallenge: string
+    /** The domain this verifier expects to be addressed as. Optional: the
+     *  challenge is already a per-verifier nonce, so the domain is defence in
+     *  depth rather than the binding itself. Compared exactly when supplied. */
     expectedDomain?: string
+    /** Refuse unless the presentation claims this exact holder. Optional: the
+     *  holder binding is checked either way and `holderDID` is returned so a
+     *  caller can allowlist after the fact. */
+    expectedHolder?: string
   }
 ): Promise<VerifyPresentationResult> {
   const claimedHolder = presentation?.holder ?? ''
@@ -404,19 +424,24 @@ export async function verifyPresentation(
     return fail(`Presentation signature error: ${err instanceof Error ? err.message : String(err)}`)
   }
   if (!proofOfPossession) {
-    return fail('Presentation signature invalid', { keyAuthority: 'rejected' })
+    // Binding held, bytes did not. See the note in verifyVC.
+    return fail('Presentation signature invalid', { keyAuthority: 'verified' })
   }
 
   // Replay context. Compared only after the signature is verified, so the
   // values compared are the signed ones.
   const bound = { proofOfPossession: true, keyAuthority: 'verified' as const, holderDID: claimedHolder }
-  if (opts?.expectedChallenge !== undefined) {
-    if (proof.challenge === undefined) {
-      return fail('Presentation carries no challenge but one was expected', bound)
-    }
-    if (proof.challenge !== opts.expectedChallenge) {
-      return fail('Presentation challenge does not match the expected challenge', bound)
-    }
+  // The expectation itself is required. An untyped caller reaching here with
+  // none is not making a weaker check, it is making none at all, so it gets a
+  // rejection rather than a pass.
+  if (typeof opts?.expectedChallenge !== 'string' || opts.expectedChallenge.length === 0) {
+    return fail('No expected challenge supplied: a presentation that answers no challenge answers any', bound)
+  }
+  if (proof.challenge === undefined) {
+    return fail('Presentation carries no challenge but one was expected', bound)
+  }
+  if (proof.challenge !== opts.expectedChallenge) {
+    return fail('Presentation challenge does not match the expected challenge', bound)
   }
   if (opts?.expectedDomain !== undefined) {
     if (proof.domain === undefined) {

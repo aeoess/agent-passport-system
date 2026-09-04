@@ -107,7 +107,7 @@ describe('F-02 binding: the proof key must belong to the claimed identity', () =
         proofValue: proofValue(body, attacker.privateKey),
       },
     }
-    const result = await verifyPresentation(vp as never)
+    const result = await verifyPresentation(vp as never, { expectedChallenge: 'nonce-binding' })
     assert.equal(result.valid, false)
     assert.equal(result.keyAuthority, 'rejected')
   })
@@ -207,7 +207,7 @@ describe('F-02 replay: challenge and domain are inside the signed bytes', () => 
 
   for (const surface of ['vc.ts', 'vc-wrapper.ts'] as const) {
     describe(surface, () => {
-      const mint = async (options?: { challenge?: string; domain?: string }) =>
+      const mint = async (options: { challenge: string; domain?: string }) =>
         surface === 'vc.ts'
           ? await createPresentation([], holder.privateKey, holder.publicKey, options)
           : await createVerifiablePresentation([], holder.privateKey, options)
@@ -246,18 +246,33 @@ describe('F-02 replay: challenge and domain are inside the signed bytes', () => 
       })
 
       it('refuses a domain that does not match the expectation', async () => {
-        const vp = await mint({ domain: 'verifier-a.example' })
-        assert.equal((await check(vp, { expectedDomain: 'verifier-b.example' })).valid, false)
+        const vp = await mint({ challenge: 'nonce-a', domain: 'verifier-a.example' })
+        assert.equal((await check(vp, {
+          expectedChallenge: 'nonce-a', expectedDomain: 'verifier-b.example',
+        })).valid, false)
       })
 
       it('refuses a proof carrying no challenge when one is expected', async () => {
-        const vp = await mint()
+        // The creator requires a challenge, so a proof without one has to be
+        // built by hand. That is exactly what an attacker presenting an
+        // unbound presentation would do.
+        const vp = JSON.parse(JSON.stringify(await mint({ challenge: 'nonce-a' })))
+        delete vp.proof.challenge
         assert.equal((await check(vp, { expectedChallenge: 'nonce-a' })).valid, false)
       })
 
       it('refuses a proof carrying no domain when one is expected', async () => {
-        const vp = await mint()
-        assert.equal((await check(vp, { expectedDomain: 'verifier-a.example' })).valid, false)
+        const vp = await mint({ challenge: 'nonce-a' })
+        assert.equal((await check(vp, {
+          expectedChallenge: 'nonce-a', expectedDomain: 'verifier-a.example',
+        })).valid, false)
+      })
+
+      it('refuses a verifier that states no challenge at all', async () => {
+        // Required in the types; an untyped caller reaching here is making no
+        // replay check, not a weaker one.
+        const vp = await mint({ challenge: 'nonce-a' })
+        assert.equal((await check(vp, {} as never)).valid, false)
       })
 
       it('refuses a created timestamp rewritten after signing', async () => {
@@ -293,15 +308,22 @@ describe('F-02 replay: challenge and domain are inside the signed bytes', () => 
     assert.equal((await verifyCredentialResponse(rewritten, 'wrong-challenge')).valid, false)
   })
 
-  it('verifyCredentialResponse says so when no replay check was made', async () => {
+  it('verifyCredentialResponse cannot be called without a challenge to compare', async () => {
     const agent = generateKeyPair()
     const request = createCredentialRequest(['grade'], 'did:key:z6MkVerifier', 'some-challenge')
     const vp = await fulfillCredentialRequest(request, {
       agentId: 'agent-noreplay', publicKey: agent.publicKey, grade: 1,
       expiresAt: '2027-01-01T00:00:00.000Z',
     }, agent.privateKey)
-    const result = await verifyCredentialResponse(vp)
-    assert.equal(result.valid, true)
-    assert.ok(result.checks.some(c => c.startsWith('SKIP: no expected challenge')))
+    // The challenge is required in the types. It used to be optional, and a
+    // call that omitted it verified the response while comparing no nonce,
+    // reporting the skip in `checks` — a response to nothing in particular,
+    // replayable by anyone who had seen it. An untyped caller reaching here
+    // now gets a rejection instead of a pass with a note.
+    const omitted = await verifyCredentialResponse(vp, undefined as never)
+    assert.equal(omitted.valid, false)
+
+    const supplied = await verifyCredentialResponse(vp, 'some-challenge')
+    assert.equal(supplied.valid, true)
   })
 })

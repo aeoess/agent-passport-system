@@ -42,7 +42,7 @@ import { createDelegation, verifyDelegation } from '../src/core/delegation.js'
 import { createDID } from '../src/core/did.js'
 import { toDIDKey } from '../src/core/did-interop.js'
 import type { PolicyDecision } from '../src/types/policy.js'
-import type { FloorAttestation } from '../src/types/values.js'
+import type { FloorAttestation } from '../src/types/passport.js'
 
 /** Values that are PRESENT and are not instants. Every surface must refuse
  *  these, whether the field is required or optional. */
@@ -214,7 +214,7 @@ const SURFACES: Surface[] = [
       // verifies no signature — it answers only the expiry question.
       artifact: createSAO(
         { record: 1 },
-        createTaintLabel('principal-a', 'chain-a', 'del-a', 'internal'),
+        createTaintLabel('principal-a', 'chain-a', 'del-a', 'same-context-only'),
         agent.privateKey,
         agent.publicKey,
       ) as unknown as Record<string, unknown>,
@@ -243,7 +243,7 @@ const SURFACES: Surface[] = [
         params: { q: 'x' },
         delegationId: 'del-ts',
         policyVersion: 'v1',
-        flowResult: { verdict: 'permitted', blockingLabels: [], reason: 'ok', taintSet: [], checkedAt: PAST },
+        flowResult: { verdict: 'permitted', blockingLabels: [], reason: 'ok', taintSet: { labels: [], principals: [], isCrossChain: false }, checkedAt: PAST },
         gatewayId: 'gateway-ts',
         gatewayPrivateKey: evaluator.privateKey,
       }) as unknown as Record<string, unknown>,
@@ -258,8 +258,9 @@ const SURFACES: Surface[] = [
       // isPassportValid answers the window question only; the passport
       // signature is verified by verifyPassport, not here.
       artifact: createPassport({
+        agentId: 'ts-agent-1',
         agentName: 'ts-agent', ownerAlias: 'ts-owner', mission: 'fixture',
-        capabilities: ['read'], runtime: { platform: 'node', models: ['none'] },
+        capabilities: ['read'], runtime: { platform: 'node', models: ['none'], toolsCount: 0, memoryType: 'none' },
       }).signedPassport.passport as unknown as Record<string, unknown>,
       resign: NOT_SIGNED_OVER,
     }),
@@ -299,8 +300,11 @@ const SURFACES: Surface[] = [
       // tests/execution-envelope.test.ts.
       resign: NOT_SIGNED_OVER,
     }),
+    // Only the freshness axis is asserted, and decisionFresh does not depend
+    // on any trust input. The options are required in the types, so the
+    // omission is made deliberate rather than implied.
     accepts: (e: never) =>
-      verifyExecutionEnvelope(e, { maxDecisionAgeMs: 3_600_000 }).decisionFresh,
+      verifyExecutionEnvelope(e, { maxDecisionAgeMs: 3_600_000 } as never).decisionFresh,
   },
   {
     name: 'verifyVC — credential.expirationDate',

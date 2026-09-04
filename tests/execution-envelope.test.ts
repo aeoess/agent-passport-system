@@ -15,6 +15,14 @@ import {
 } from '../src/index.js'
 import type { ActionIntent, PolicyDecision, PolicyReceipt } from '../src/types/policy.js'
 import type { Delegation } from '../src/types/passport.js'
+import type { VerifyEnvelopeOptions } from '../src/core/execution-envelope.js'
+
+/** A verifier given no trust inputs at all. The options are required in the
+ *  types, so reaching this path means an untyped caller; the cast makes that
+ *  deliberate and visible. Used where a case observes only the integrity
+ *  flags, which do not depend on trust inputs. */
+const NO_TRUST_INPUTS = {} as VerifyEnvelopeOptions
+
 
 const agent = generateKeyPair()
 const evaluator = generateKeyPair()
@@ -164,7 +172,7 @@ describe('Execution Envelope', () => {
     // The same envelope with nothing supplied is not a verification. It used
     // to return valid: true here, with evaluatorSignatureValid true on the
     // strength of the field being a non-empty string.
-    const unanchored = verifyExecutionEnvelope(envelope)
+    const unanchored = verifyExecutionEnvelope(envelope, NO_TRUST_INPUTS)
     assert.equal(unanchored.valid, false)
     assert.equal(unanchored.signatureValid, true)
     assert.equal(unanchored.signerAuthority, 'unresolved')
@@ -189,7 +197,7 @@ describe('Execution Envelope', () => {
     })
     // Tamper with the run_id
     const tampered = { ...envelope, run_id: 'TAMPERED' }
-    const result = verifyExecutionEnvelope(tampered)
+    const result = verifyExecutionEnvelope(tampered, NO_TRUST_INPUTS)
     assert.equal(result.signatureValid, false)
   })
 
@@ -208,7 +216,7 @@ describe('Execution Envelope', () => {
       signerPrivateKey: gateway.privateKey,
       signerPublicKey: gateway.publicKey
     })
-    const result = verifyExecutionEnvelope(envelope)
+    const result = verifyExecutionEnvelope(envelope, NO_TRUST_INPUTS)
     assert.equal(result.capabilityActive, false)
   })
 
@@ -236,7 +244,7 @@ describe('Execution Envelope', () => {
     assert.equal(envelope.run_id, 'run-005')
     assert.ok(envelope.signature.value)
     assert.equal(envelope.decision.verdict, 'permit')
-    const result = verifyExecutionEnvelope(envelope)
+    const result = verifyExecutionEnvelope(envelope, NO_TRUST_INPUTS)
     assert.equal(result.signatureValid, true)
   })
 })

@@ -95,10 +95,12 @@ describe('re-attack: identifiers that look equal without being equal', () => {
       receiptHash: 'sha256:x',
       signerPrivateKey: signer.privateKey, signerPublicKey: signer.publicKey,
     })
+    // Only the scope axis is under test; the other inputs are required in the
+    // types and deliberately absent.
     const result = verifyExecutionEnvelope(envelope, {
       trustedSignerPublicKeys: [signer.publicKey],
       expected: { allowedScope: ['commerce:purchase'] },
-    })
+    } as never)
     assert.equal(result.contextValid, false)
     assert.equal(result.valid, false)
   })
@@ -155,7 +157,12 @@ describe('re-attack: a signature that covers less than the verifier assumes', ()
     const forged = { ...full, proof: { ...proofConfig, proofValue: b64(overPrefix) } }
     const result = await verifyVC(forged as never)
     assert.equal(result.valid, false)
-    assert.equal(result.keyAuthority, 'rejected')
+    // The binding held: this proof really is the issuer's key. What failed is
+    // the signature, because it covers less than the verifier reconstructs.
+    // The two fields answer different questions and the result keeps them
+    // apart rather than reporting an honest issuer as the wrong key.
+    assert.equal(result.keyAuthority, 'verified')
+    assert.equal(result.proofOfPossession, false)
   })
 
   it('a presentation proof made before a credential was added does not verify', async () => {
@@ -313,7 +320,8 @@ describe('re-attack: stated limits, not defences', () => {
       receiptHash: 'sha256:x',
       signerPrivateKey: signer.privateKey, signerPublicKey: signer.publicKey,
     })
-    const result = verifyExecutionEnvelope(envelope, { trustedSignerPublicKeys: [signer.publicKey] })
+    const result = verifyExecutionEnvelope(
+      envelope, { trustedSignerPublicKeys: [signer.publicKey] } as never)
     assert.equal(result.capabilityActive, true)
     // and the envelope is still not valid, because nothing else was supplied.
     assert.equal(result.valid, false)

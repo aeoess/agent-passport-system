@@ -251,7 +251,11 @@ describe('verifyPolicyReceipt verifies the chain it names', () => {
 
   it('is not a verification when the chain is not supplied', async () => {
     const { policyReceipt } = await receiptFixture()
-    const result = verifyPolicyReceipt(policyReceipt, artifactSigner.publicKey)
+    // `chain` is required in the types, so reaching this path means an
+    // untyped caller; the cast makes that deliberate. It must reject rather
+    // than throw, because the reject verdict is what a caller branches on.
+    const result = verifyPolicyReceipt(
+      policyReceipt, artifactSigner.publicKey, undefined as never)
     assert.equal(result.valid, false)
     assert.equal(result.chainVerified, false)
     // The envelope is intact; that is a different and much smaller claim, and

@@ -308,18 +308,19 @@ export interface PolicyReceiptVerification {
  *     described actually happened, or that the evaluator was entitled to
  *     permit it.
  *
- * `chain` is syntactically optional and required in effect: a call that omits
- * it returns `valid: false` with `chainVerified: false`. Older callers passed
- * two arguments and received `valid: true` for a receipt whose three inner
- * signature strings were arbitrary non-empty text — the strings were tested
- * for presence, never verified, and the objects they were made over were never
- * seen. A relying party that only wants envelope integrity should say so by
- * name with {@link verifyPolicyReceiptEnvelope}.
+ * `chain` is required, in the types as well as at runtime. Older callers
+ * passed two arguments and received `valid: true` for a receipt whose three
+ * inner signature strings were arbitrary non-empty text: the strings were
+ * tested for presence, never verified, and the objects they were made over
+ * were never seen. An untyped caller that still omits it gets
+ * `valid: false` with `chainVerified: false` rather than an exception. A
+ * relying party that only wants envelope integrity should say so by name with
+ * {@link verifyPolicyReceiptEnvelope}.
  */
 export function verifyPolicyReceipt(
   policyReceipt: PolicyReceipt,
   verifierPublicKey: string,
-  chain?: PolicyReceiptChainInputs
+  chain: PolicyReceiptChainInputs
 ): PolicyReceiptVerification {
   const envelope = verifyPolicyReceiptEnvelope(policyReceipt, verifierPublicKey)
   const errors: string[] = [...envelope.errors]

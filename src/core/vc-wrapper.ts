@@ -210,7 +210,10 @@ export async function verifyVerifiableCredential(vc: VerifiableCredential): Prom
       checks.push('PASS: Ed25519 signature valid')
     } else {
       checks.push('FAIL: Ed25519 signature invalid')
-      return fail({ keyAuthority: 'rejected' })
+      // The binding held; the bytes did not. See the note in vc.ts on why
+      // keyAuthority is not downgraded here.
+      checks.push('NOTE: the issuer binding held; the signature over the bytes did not')
+      return fail({ keyAuthority: 'verified', issuerDID })
     }
   } catch (err) {
     checks.push(`FAIL: signature verification error — ${err instanceof Error ? err.message : String(err)}`)
@@ -251,12 +254,22 @@ export async function verifyVerifiableCredential(vc: VerifiableCredential): Prom
 /**
  * Wrap one or more VCs into a Verifiable Presentation for a verifier.
  * Uses did:key for the holder identifier.
- * Challenge and domain provide replay protection.
+ *
+ * The challenge is required and is inside the signed bytes, so the
+ * presentation is bound to the request it answers and cannot be readdressed.
  */
 export async function createVerifiablePresentation(
   credentials: VerifiableCredential[],
   holderPrivateKey: string,
-  options?: { challenge?: string; domain?: string },
+  options: {
+    /** The verifier's nonce this presentation answers. REQUIRED, on the same
+     *  terms as the twin in vc.ts: verifyVerifiablePresentation requires one,
+     *  so minting a presentation without it would produce an artifact this
+     *  SDK's own verifier can never accept. */
+    challenge: string
+    /** The verifier this presentation is addressed to. Optional. */
+    domain?: string
+  },
 ): Promise<VerifiablePresentation> {
   const holderPublicKey = publicKeyFromPrivate(holderPrivateKey)
   const holderDIDKey = toDIDKey(holderPublicKey)
@@ -303,14 +316,15 @@ export async function createVerifiablePresentation(
  */
 export async function verifyVerifiablePresentation(
   vp: VerifiablePresentation,
-  opts?: {
-    /** Refuse unless the presentation claims this exact holder. */
-    expectedHolder?: string
-    /** The nonce this verifier issued. A proof carrying none is refused when
-     *  one is expected: a presentation that answers no challenge answers any. */
-    expectedChallenge?: string
-    /** The domain this verifier expects to be addressed as. */
+  opts: {
+    /** The nonce this verifier issued. REQUIRED, on the same terms as the twin
+     *  in vc.ts: a presentation that answers no challenge answers any. */
+    expectedChallenge: string
+    /** The domain this verifier expects to be addressed as. Optional. */
     expectedDomain?: string
+    /** Refuse unless the presentation claims this exact holder. Optional: the
+     *  binding is checked either way and `holderDID` is returned. */
+    expectedHolder?: string
   },
 ): Promise<VPVerifyResult> {
   const checks: string[] = []
@@ -357,7 +371,7 @@ export async function verifyVerifiablePresentation(
     const sigValid = verify(canonical, base64urlToHex(vp.proof.proofValue), binding.publicKey)
     if (!sigValid) {
       checks.push('FAIL: presentation signature invalid')
-      return fail({ keyAuthority: 'rejected' })
+      return fail({ keyAuthority: 'verified', holderDID: claimedHolder })
     }
     checks.push('PASS: presentation signature valid')
   } catch (err) {
@@ -368,17 +382,20 @@ export async function verifyVerifiablePresentation(
   // Replay context, compared only after the signature verified, so the values
   // compared are the signed ones.
   const bound = { proofOfPossession: true, keyAuthority: 'verified' as const, holderDID: claimedHolder }
-  if (opts?.expectedChallenge !== undefined) {
-    if (vp.proof.challenge === undefined) {
-      checks.push('FAIL: presentation carries no challenge but one was expected')
-      return fail(bound)
-    }
-    if (vp.proof.challenge !== opts.expectedChallenge) {
-      checks.push('FAIL: presentation challenge does not match the expected challenge')
-      return fail(bound)
-    }
-    checks.push('PASS: challenge matches')
+  // The expectation itself is required; see the twin in vc.ts.
+  if (typeof opts?.expectedChallenge !== 'string' || opts.expectedChallenge.length === 0) {
+    checks.push('FAIL: no expected challenge supplied, so no replay check could be made')
+    return fail(bound)
   }
+  if (vp.proof.challenge === undefined) {
+    checks.push('FAIL: presentation carries no challenge but one was expected')
+    return fail(bound)
+  }
+  if (vp.proof.challenge !== opts.expectedChallenge) {
+    checks.push('FAIL: presentation challenge does not match the expected challenge')
+    return fail(bound)
+  }
+  checks.push('PASS: challenge matches')
   if (opts?.expectedDomain !== undefined) {
     if (vp.proof.domain === undefined) {
       checks.push('FAIL: presentation carries no domain but one was expected')

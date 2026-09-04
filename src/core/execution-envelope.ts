@@ -148,23 +148,34 @@ export interface ExpectedEnvelopeContext {
   verdict?: EnvelopeVerdict
 }
 
+/** Everything a relying party must bring for an envelope to be verifiable.
+ *
+ *  All four are required, in the types as well as at runtime, because the
+ *  contract cannot return `valid: true` without them: the envelope's own key
+ *  is its claim about itself, the evaluator's signed bytes are not in the
+ *  envelope at all, and an envelope is a statement about SOME agent and SOME
+ *  action until the caller says which. `maxDecisionAgeMs` is the one genuinely
+ *  optional member: a freshness window is a policy choice, and a caller that
+ *  states none is not claiming freshness. */
 export interface VerifyEnvelopeOptions {
   /** Public keys this relying party accepts as envelope signers. Normalized
    *  through the same helper every other trust-anchor option in the SDK uses,
    *  so a malformed value is a configuration error rather than either "no
-   *  anchors" or "all anchors". An empty or absent list means this verifier
-   *  holds no anchors; it does not mean trust anyone. */
-  trustedSignerPublicKeys?: string[]
+   *  anchors" or "all anchors". An empty list means this verifier holds no
+   *  anchors; it does not mean trust anyone. */
+  trustedSignerPublicKeys: string[]
   /** The PolicyDecision the envelope's decision block projects. Required to
    *  establish the evaluator signature: the envelope carries a hash, and
    *  Ed25519 here is not prehashed, so the signed bytes exist nowhere else. */
-  originalDecision?: PolicyDecision
+  originalDecision: PolicyDecision
   /** The evaluator key this relying party accepts. */
-  evaluatorPublicKey?: string
-  /** Maximum age of the decision in milliseconds. */
+  evaluatorPublicKey: string
+  /** What this envelope is expected to be about. At least one member must be
+   *  stated; an object with none reports `contextChecked: false` and fails. */
+  expected: ExpectedEnvelopeContext
+  /** Maximum age of the decision in milliseconds. Optional: a relying party
+   *  that states no window makes no freshness claim. */
   maxDecisionAgeMs?: number
-  /** What this envelope is expected to be about. */
-  expected?: ExpectedEnvelopeContext
 }
 
 /**
@@ -207,9 +218,15 @@ export interface VerifyEnvelopeOptions {
  */
 export function verifyExecutionEnvelope(
   envelope: ExecutionEnvelope,
-  opts?: VerifyEnvelopeOptions
+  opts: VerifyEnvelopeOptions
 ): EnvelopeVerification {
   const errors: string[] = []
+
+  // The options are required in the types. An untyped caller can still reach
+  // here with nothing, so the runtime treats that as the absence of every
+  // input rather than throwing: a verifier that throws is not a verifier that
+  // rejects, and the reject verdict is what a relying party branches on.
+  const given: Partial<VerifyEnvelopeOptions> = opts ?? {}
 
   // 1. Envelope integrity, under the key the envelope carries. This is proof
   //    of possession and nothing more: the key is the envelope's own claim
@@ -223,7 +240,7 @@ export function verifyExecutionEnvelope(
 
   // 2. Is the signer one this relying party accepts? The embedded key may only
   //    SELECT among the caller's keys; it may never establish trust.
-  const anchors = normalizeTrustAnchors(opts?.trustedSignerPublicKeys)
+  const anchors = normalizeTrustAnchors(given.trustedSignerPublicKeys)
   let signerAuthority: EnvelopeSignerAuthority
   if (anchors.malformed) {
     signerAuthority = 'rejected'
@@ -247,7 +264,7 @@ export function verifyExecutionEnvelope(
 
   // 4. Decision freshness.
   let decisionFresh = true
-  if (opts?.maxDecisionAgeMs) {
+  if (given.maxDecisionAgeMs) {
     const evaluatedAt = parseRfc3339(envelope.decision.evaluated_at)
     if (!evaluatedAt.ok) {
       // An evaluation time this verifier cannot read bounds no freshness window.
@@ -255,21 +272,21 @@ export function verifyExecutionEnvelope(
       errors.push(`Invalid decision evaluated_at (${evaluatedAt.reason})`)
     } else {
       const decisionAge = Date.now() - evaluatedAt.ms
-      if (decisionAge > opts.maxDecisionAgeMs) {
+      if (decisionAge > given.maxDecisionAgeMs) {
         decisionFresh = false
-        errors.push(`Decision too old: ${Math.round(decisionAge / 1000)}s > ${Math.round(opts.maxDecisionAgeMs / 1000)}s max`)
+        errors.push(`Decision too old: ${Math.round(decisionAge / 1000)}s > ${Math.round(given.maxDecisionAgeMs / 1000)}s max`)
       }
     }
   }
 
   // 5. Evaluator signature, over bytes the caller supplies.
-  const evaluator = verifyEvaluatorSignature(envelope, opts)
+  const evaluator = verifyEvaluatorSignature(envelope, given)
   const evaluatorAuthority = evaluator.authority
   const evaluatorSignatureValid = evaluatorAuthority === 'verified'
   errors.push(...evaluator.errors)
 
   // 6. Expected context.
-  const context = matchExpectedContext(envelope, opts?.expected)
+  const context = matchExpectedContext(envelope, given.expected)
   errors.push(...context.errors)
   if (!context.checked) {
     errors.push(
@@ -297,7 +314,7 @@ export function verifyExecutionEnvelope(
  *  decision block projects that decision faithfully. */
 function verifyEvaluatorSignature(
   envelope: ExecutionEnvelope,
-  opts?: VerifyEnvelopeOptions
+  opts: Partial<VerifyEnvelopeOptions>
 ): { authority: EnvelopeSignerAuthority; errors: string[] } {
   const errors: string[] = []
   const carried = envelope.decision.evaluator_signature
@@ -306,7 +323,7 @@ function verifyEvaluatorSignature(
     errors.push('Evaluator signature missing')
     return { authority: 'rejected', errors }
   }
-  if (!opts?.originalDecision || !opts?.evaluatorPublicKey) {
+  if (!opts.originalDecision || !opts.evaluatorPublicKey) {
     errors.push(
       'Evaluator signature not established: the original PolicyDecision and an evaluator ' +
       'key are both required. The envelope carries a hash of the decision, not the decision, ' +

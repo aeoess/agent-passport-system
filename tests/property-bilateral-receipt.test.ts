@@ -359,7 +359,7 @@ describe('v2.3 bilateral receipt — property tests', () => {
       assert.doesNotThrow(() => verifyPolicyReceiptEnvelope(policyReceipt, signer.publicKey))
       const envelope = verifyPolicyReceiptEnvelope(policyReceipt, signer.publicKey)
       assert.equal(envelope.valid, true, envelope.errors.join(', '))
-      const unchained = verifyPolicyReceipt(policyReceipt, signer.publicKey)
+      const unchained = verifyPolicyReceipt(policyReceipt, signer.publicKey, undefined as never)
       assert.equal(unchained.valid, false)
       assert.equal(unchained.chainVerified, false)
     })
@@ -382,7 +382,7 @@ describe('v2.3 bilateral receipt — property tests', () => {
       assert.equal(pr.delegation_depth, undefined)
       assert.equal(pr.epistemic_claims, undefined)
       assert.equal(verifyPolicyReceiptEnvelope(pr, signer.publicKey).valid, true)
-      assert.equal(verifyPolicyReceipt(pr, signer.publicKey).chainVerified, false)
+      assert.equal(verifyPolicyReceipt(pr, signer.publicKey, undefined as never).chainVerified, false)
     })
   })
 

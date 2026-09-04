@@ -377,9 +377,12 @@ describe('the envelope verifier normalizes the same way the passport readers do'
     ...MALFORMED,
   ]) {
     it(`no anchor shape admits a self-signed envelope: ${label}`, () => {
+      // The shape under test is the anchor list. The other three inputs are
+      // required in the types and are deliberately absent: a malformed anchor
+      // list must refuse whatever else the caller did or did not supply.
       const result = verifyExecutionEnvelope(selfSignedEnvelope(), {
         trustedSignerPublicKeys: value as never,
-      })
+      } as never)
       assert.equal(result.valid, false, `${label}: admitted`)
       assert.notEqual(result.signerAuthority, 'verified', `${label}: signer read as trusted`)
     })
@@ -388,7 +391,7 @@ describe('the envelope verifier normalizes the same way the passport readers do'
   it('a malformed option is a configuration error, not an empty anchor set', () => {
     const result = verifyExecutionEnvelope(selfSignedEnvelope(), {
       trustedSignerPublicKeys: new Set([signer.publicKey]) as never,
-    })
+    } as never)
     assert.equal(result.signerAuthority, 'rejected')
     assert.ok(result.errors.some(e => /trustedSignerPublicKeys/.test(e)), JSON.stringify(result.errors))
   })
@@ -398,7 +401,7 @@ describe('the envelope verifier normalizes the same way the passport readers do'
     // is reported as signatureValid. It is not authorization.
     const result = verifyExecutionEnvelope(selfSignedEnvelope(), {
       trustedSignerPublicKeys: [generateKeyPair().publicKey],
-    })
+    } as never)
     assert.equal(result.signatureValid, true)
     assert.equal(result.signerAuthority, 'rejected')
     assert.equal(result.valid, false)
