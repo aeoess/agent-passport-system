@@ -10,6 +10,7 @@
 import { randomBytes, createHash } from 'node:crypto'
 import { sign, verify } from '../crypto/keys.js'
 import { canonicalize, canonicalizeForWrite } from './canonical.js'
+import { parseRfc3339 } from './rfc3339.js'
 import type {
   TransformClass, LineageConfidence, DerivationReceipt, ParentArtifact,
   PostRevocationObligation, RevocationObligation, AffectedArtifact,
@@ -279,9 +280,14 @@ export function isRetentionExpired(
 
   if (ttl === null || ttl === undefined) return false // no limit
 
-  const accessTime = new Date(accessTimestamp).getTime()
+  // A TTL is in force, so the data has to be placed inside its window to be
+  // kept. An access timestamp this function cannot read states no instant and
+  // cannot place it there: the retention is treated as run out rather than as
+  // freshly started.
+  const accessTime = parseRfc3339(accessTimestamp)
+  if (!accessTime.ok) return true
   const now = Date.now()
-  return (now - accessTime) > ttl
+  return (now - accessTime.ms) > ttl
 }
 
 /**

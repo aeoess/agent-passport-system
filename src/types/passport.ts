@@ -312,11 +312,12 @@ export interface VerificationResult {
    *  supplied a non-empty trustedIssuers list. */
   issuerTrustChecked?: boolean
   /** True when this passport verified on its OWN signature alone, with no
-   *  trust root consulted. `valid` is still true in that case, for backward
-   *  compatibility, so this field is the machine-readable form of the
-   *  'self-signed passports are accepted' warning: a caller that must not
-   *  act on a self-vouching credential branches on this rather than on
-   *  string-matching the warning text. */
+   *  trust root consulted, which now happens only when the caller passed
+   *  `allowSelfSigned: true`. A bare `verifyPassport(passport)` is no longer
+   *  valid: a signature over a passport says who signed it, not who vouches
+   *  for it, and the verifying key is the one the passport carries. A caller
+   *  that must not act on a self-vouching credential branches on this rather
+   *  than on string-matching the warning text. */
   selfSignedAccepted?: boolean
 }
 

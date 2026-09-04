@@ -30,6 +30,10 @@ function makeFixture() {
   return { signedPassport, keyPair }
 }
 
+// These assert signature and validity-window handling, not authority, so
+// each verifyPassport call names allowSelfSigned explicitly. Keeping the two
+// questions separate is the point of the option.
+
 describe('bindWallet — happy path', () => {
   it('binds a Nano wallet, verifies binding, returns true', () => {
     const { signedPassport, keyPair } = makeFixture()
@@ -58,7 +62,7 @@ describe('bindWallet — happy path', () => {
       chain: 'nano',
       address: 'nano_3test',
     })
-    const result = verifyPassport(bound)
+    const result = verifyPassport(bound, { allowSelfSigned: true })
     assert.equal(result.valid, true, `passport should verify after binding: ${result.errors.join(', ')}`)
   })
 
@@ -101,7 +105,7 @@ describe('bindWallet — multi-chain', () => {
     assert.equal(new Set(sigs).size, 3, 'each binding_signature should be unique')
 
     // Passport itself still verifies after all three binds
-    assert.equal(verifyPassport(p).valid, true)
+    assert.equal(verifyPassport(p, { allowSelfSigned: true }).valid, true)
   })
 
   it('extensible chain string accepted (e.g. "polkadot")', () => {
@@ -238,7 +242,7 @@ describe('unbindWallet', () => {
     assert.ok(verifyUnbindEvent(unbindEvent, bound.passport.publicKey))
 
     // Passport itself still verifies after unbind
-    assert.equal(verifyPassport(unbound).valid, true)
+    assert.equal(verifyPassport(unbound, { allowSelfSigned: true }).valid, true)
   })
 
   it('throws when unbinding a wallet that is not currently bound', () => {
@@ -348,7 +352,7 @@ describe('bindWallet — Solana chain validation', () => {
     assert.equal(sol.bound_at, solAt, 'bound_at must be preserved exactly for Solana entries')
     assert.ok(verifyBoundWallet(p, 'solana', solAddr))
     assert.ok(verifyBoundWallet(p, 'ethereum', '0x1234567890abcdef1234567890abcdef12345678'))
-    assert.equal(verifyPassport(p).valid, true)
+    assert.equal(verifyPassport(p, { allowSelfSigned: true }).valid, true)
   })
 })
 

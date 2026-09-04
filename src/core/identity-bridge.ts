@@ -5,6 +5,7 @@
 // into APS attestations and delegation parameters.
 
 import crypto from 'node:crypto'
+import { formatRfc3339 } from './rfc3339.js'
 import type { ProviderAttestation } from '../types/attestation.js'
 
 // ── SPIFFE SVID Import ──
@@ -170,7 +171,17 @@ export function importOAuthToken(
 ): OAuthImportResult {
   if (!token.sub) throw new Error('OAuth token must have a sub claim')
   if (!token.iss) throw new Error('OAuth token must have an iss claim')
-  if (!token.exp || token.exp <= 0) throw new Error('OAuth token must have a valid exp claim')
+  // MAX_EXP_SECONDS is the last instant a four-digit RFC 3339 year can name.
+  // Beyond it `new Date(exp * 1000).toISOString()` emitted an expanded-year
+  // spelling that no APS verifier can read back, so the artifact was already
+  // unusable; the difference now is that the token is refused here, by this
+  // function's own contract, rather than producing one. `exp` is an
+  // attacker-supplied JWT claim, and milliseconds-where-seconds-were-expected
+  // is the ordinary way it lands out of range.
+  const MAX_EXP_SECONDS = 253402300799
+  if (!token.exp || token.exp <= 0 || token.exp > MAX_EXP_SECONDS) {
+    throw new Error('OAuth token must have a valid exp claim')
+  }
 
   const scopes = token.scope ? token.scope.split(' ').filter(Boolean) : []
   const delegationScope = mapOAuthScopes(scopes, scopeMapping)
@@ -182,7 +193,10 @@ export function importOAuthToken(
     .slice(0, 16)
 
   const agentId = `agent-oauth-${idHash}`
-  const expiresAt = new Date(token.exp * 1000).toISOString()
+  // exp is a NumericDate the caller already holds, so this is an emission, not
+  // an interpretation. Math.trunc keeps the whole-millisecond rounding the Date
+  // constructor applied, so a non-integer exp still renders the same instant.
+  const expiresAt = formatRfc3339(Math.trunc(token.exp * 1000))
 
   return { agentId, delegationScope, expiresAt }
 }

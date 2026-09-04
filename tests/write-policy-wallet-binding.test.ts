@@ -38,6 +38,10 @@ function freshPassport(): { passport: SignedPassport; privateKey: string } {
   return { passport: created.signedPassport, privateKey: created.keyPair.privateKey }
 }
 
+// These assert signature and validity-window handling, not authority, so
+// each verifyPassport call names allowSelfSigned explicitly. Keeping the two
+// questions separate is the point of the option.
+
 describe('Wallet binding write boundaries', () => {
   it('a safe bind produces the same signed bytes it always did', () => {
     const a = freshPassport()
@@ -51,7 +55,7 @@ describe('Wallet binding write boundaries', () => {
       sha(canonicalize(bound.passport)),
       sha(canonicalize(bound.passport)),
     )
-    assert.strictEqual(verifyPassport(bound).valid, true)
+    assert.strictEqual(verifyPassport(bound, { allowSelfSigned: true }).valid, true)
     assert.strictEqual(verifyBoundWallet(bound, 'ethereum', '0xabc'), true)
   })
 
@@ -111,9 +115,9 @@ describe('Wallet binding write boundaries', () => {
       signedAt: '2026-01-01T00:00:00.000Z',
     } as unknown as SignedPassport
 
-    assert.doesNotThrow(() => verifyPassport(preRule))
+    assert.doesNotThrow(() => verifyPassport(preRule, { allowSelfSigned: true }))
     assert.strictEqual(
-      verifyPassport(preRule).valid, true,
+      verifyPassport(preRule, { allowSelfSigned: true }).valid, true,
       'a passport signed before the rule existed must keep verifying',
     )
   })

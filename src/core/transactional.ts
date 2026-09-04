@@ -11,6 +11,7 @@
 import { createHash } from 'node:crypto'
 import { sign, verify } from '../crypto/keys.js'
 import { canonicalize, canonicalizeForWrite } from './canonical.js'
+import { parseRfc3339, formatRfc3339 } from './rfc3339.js'
 import type { FinalityState } from '../types/finality.js'
 import type { EscrowHold, EscrowFulfillmentCondition } from '../types/escrow.js'
 import type { DisputeArtifact, DisputeBond, DisputeOverlay,
@@ -38,7 +39,7 @@ export function createEscrowHold(input: {
     `${input.initiatorAgentId}:${input.counterpartyAgentId}:${Date.now()}`
   ).digest('hex').slice(0, 24)}`
 
-  const expiresAt = new Date(Date.now() + input.expiresInSeconds * 1000).toISOString()
+  const expiresAt = formatRfc3339(Date.now() + input.expiresInSeconds * 1000)
 
   const finality: FinalityState = { status: 'provisional', since: now }
 
@@ -89,7 +90,14 @@ export function verifyEscrowHold(
     errors.push('Invalid gateway signature')
   }
   if (escrow.amount.value <= 0) errors.push('Escrow amount must be positive')
-  if (new Date(escrow.expiresAt) <= new Date(escrow.createdAt)) {
+  // Both bounds arrive on the artifact. A window this verifier cannot read is
+  // not a window it can honour, so an unreadable bound is an error rather than
+  // an ordering check that silently passes.
+  const escrowExpiry = parseRfc3339(escrow.expiresAt)
+  const escrowCreated = parseRfc3339(escrow.createdAt)
+  if (!escrowExpiry.ok) errors.push(`Invalid expiresAt (${escrowExpiry.reason})`)
+  if (!escrowCreated.ok) errors.push(`Invalid createdAt (${escrowCreated.reason})`)
+  if (escrowExpiry.ok && escrowCreated.ok && escrowExpiry.ms <= escrowCreated.ms) {
     errors.push('Expiry must be after creation')
   }
   return { valid: errors.length === 0, errors }
@@ -120,7 +128,7 @@ export function createDisputeArtifact(input: {
     `${input.claimantId}:${input.challengedArtifactId}:${Date.now()}`
   ).digest('hex').slice(0, 24)}`
 
-  const resolutionTTL = new Date(Date.now() + input.resolutionTTLSeconds * 1000).toISOString()
+  const resolutionTTL = formatRfc3339(Date.now() + input.resolutionTTLSeconds * 1000)
   const finality: FinalityState = { status: 'provisional', since: now }
 
   const disputeData = {

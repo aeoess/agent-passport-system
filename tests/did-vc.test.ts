@@ -201,10 +201,15 @@ describe('W3C Verifiable Presentations', () => {
       { agentId: agent.publicKey, floorVersion: '0.1', principles: ['F-001'], attestedAt: new Date().toISOString() },
       agent.publicKey, agent.privateKey
     )
-    const vp = await createPresentation([passportVC, delegationVC, attestVC], agent.privateKey, agent.publicKey)
+    // A presentation answers a verifier's challenge. Both ends require one:
+    // minting without it would produce an artifact verifyPresentation can
+    // never accept.
+    const vp = await createPresentation(
+      [passportVC, delegationVC, attestVC], agent.privateKey, agent.publicKey,
+      { challenge: 'nonce-vp-happy-path' })
     assert.equal(publicKeyFromDID(vp.holder), agent.publicKey)
     assert.equal(vp.verifiableCredential.length, 3)
-    const result = await verifyPresentation(vp)
+    const result = await verifyPresentation(vp, { expectedChallenge: 'nonce-vp-happy-path' })
     assert.ok(result.valid, `VP verification failed: ${result.error}`)
     assert.ok(result.credentialResults.every(r => r.valid))
   })
@@ -220,11 +225,16 @@ describe('W3C Verifiable Presentations', () => {
     })
     const vc = await passportToVC(signedPassport.passport, agent.privateKey, agent.publicKey)
     // Attacker presents agent's VC under their own identity
-    const vp = await createPresentation([vc], attacker.privateKey, attacker.publicKey)
+    const vp = await createPresentation([vc], attacker.privateKey, attacker.publicKey,
+      { challenge: 'nonce-holder-mismatch' })
     assert.equal(publicKeyFromDID(vp.holder), attacker.publicKey)
-    // VCs verify fine (they're real), but holder doesn't match issuer
-    const result = await verifyPresentation(vp)
-    assert.ok(result.valid) // Presentation signature itself is valid
+    // The presentation is genuinely the attacker's and verifies as such. What
+    // it does not establish is that the attacker is the credential's subject:
+    // a holder may legitimately present a credential about someone else, so
+    // the relying party compares them itself. Stated in the scope of claim on
+    // verifyPresentation and pinned here.
+    const result = await verifyPresentation(vp, { expectedChallenge: 'nonce-holder-mismatch' })
+    assert.ok(result.valid)
     assert.notEqual(publicKeyFromDID(result.holderDID), agent.publicKey)
   })
 })

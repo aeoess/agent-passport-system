@@ -7,6 +7,7 @@
 // Review Q1: Hybrid Logical Clocks + NTP uncertainty bounds.
 // ══════════════════════════════════════════════════════════════════
 
+import { parseRfc3339 } from './rfc3339.js'
 import type {
   HybridTimestamp, TemporalBound, TemporalRights,
   TemporalOrdering, TemporalValidation, SessionBoundary,
@@ -122,19 +123,40 @@ export function isTemporalBoundExpired(bound: TemporalBound, nowEarliest?: numbe
  *  Returns a full validation result with status for each temporal aspect. */
 export function validateTemporalRights(rights: TemporalRights, now?: Date): TemporalValidation {
   const current = now ?? new Date()
+  const currentMs = current.getTime()
   const errors: string[] = []
 
-  const validFrom = new Date(rights.validFrom)
-  const validUntil = new Date(rights.validUntil)
-  const effective = rights.effectiveAt ? current >= new Date(rights.effectiveAt) : true
-  const valid = current >= validFrom && current <= validUntil && effective
+  // A window this validator cannot read is not a window it can honour. Every
+  // field below resolves an unreadable value to the answer its rejecting
+  // comparison would give, and records the reason. An ABSENT optional field
+  // keeps its previous meaning — absent and present-but-unreadable differ.
+  const validFrom = parseRfc3339(rights.validFrom)
+  const validUntil = parseRfc3339(rights.validUntil)
+  if (!validFrom.ok) errors.push(`Invalid validFrom (${validFrom.reason})`)
+  if (!validUntil.ok) errors.push(`Invalid validUntil (${validUntil.reason})`)
 
-  const inGracePeriod = !valid && rights.graceUntil
-    ? current <= new Date(rights.graceUntil) : false
-  const superseded = rights.supersededAt
-    ? current >= new Date(rights.supersededAt) : false
-  const challengeWindowOpen = rights.challengeUntil
-    ? current <= new Date(rights.challengeUntil) : false
+  const effectiveAt = rights.effectiveAt ? parseRfc3339(rights.effectiveAt) : null
+  if (effectiveAt && !effectiveAt.ok) errors.push(`Invalid effectiveAt (${effectiveAt.reason})`)
+  const effective = effectiveAt ? effectiveAt.ok && currentMs >= effectiveAt.ms : true
+
+  const valid = validFrom.ok && validUntil.ok
+    && currentMs >= validFrom.ms && currentMs <= validUntil.ms && effective
+
+  // Grace is only consulted when the window already failed, as before.
+  const graceUntil = !valid && rights.graceUntil ? parseRfc3339(rights.graceUntil) : null
+  if (graceUntil && !graceUntil.ok) errors.push(`Invalid graceUntil (${graceUntil.reason})`)
+  const inGracePeriod = graceUntil ? graceUntil.ok && currentMs <= graceUntil.ms : false
+
+  const supersededAt = rights.supersededAt ? parseRfc3339(rights.supersededAt) : null
+  if (supersededAt && !supersededAt.ok) errors.push(`Invalid supersededAt (${supersededAt.reason})`)
+  // The artifact asserts a replacement exists; an unreadable marker gives this
+  // validator no instant showing that replacement is still in the future.
+  const superseded = supersededAt ? !supersededAt.ok || currentMs >= supersededAt.ms : false
+
+  // An unreadable challenge deadline is not an open window — same as absent.
+  const challengeUntil = rights.challengeUntil ? parseRfc3339(rights.challengeUntil) : null
+  if (challengeUntil && !challengeUntil.ok) errors.push(`Invalid challengeUntil (${challengeUntil.reason})`)
+  const challengeWindowOpen = challengeUntil ? challengeUntil.ok && currentMs <= challengeUntil.ms : false
 
   if (!valid && !inGracePeriod) errors.push('Outside validity window')
   if (superseded) errors.push('Superseded by newer version')

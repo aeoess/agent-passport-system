@@ -19,6 +19,7 @@ import { createHash } from 'node:crypto'
 import { sign, verify } from '../crypto/keys.js'
 import { canonicalize, canonicalizeForWrite } from './canonical.js'
 import { buildMerkleRoot } from './attribution.js'
+import { parseRfc3339 } from './rfc3339.js'
 import { proveInclusion, verifyInclusion } from './receipt-ledger.js'
 import type { ReceiptBatch, ReceiptInclusionProof } from './receipt-ledger.js'
 import { verifyPassport } from '../verification/verify.js'
@@ -275,7 +276,10 @@ function authorityAxis(bundle: EvidenceBundle): ClaimAxisReport {
       outcomes.push({ state: 'UNKNOWN', detail: `member "${member.member_id}" is not structurally a signed passport` })
       continue
     }
-    const result = verifyPassport(member.payload)
+    // The ASSERTED detail below says "self-signed accepted, no trust anchors
+    // supplied", which is exactly this opt-in. A bundle member is evidence to
+    // be described, not a gate to be passed.
+    const result = verifyPassport(member.payload, { allowSelfSigned: true })
     if (result.valid) {
       outcomes.push({ state: 'ASSERTED', detail: `member "${member.member_id}" signature passes; self-signed accepted, no trust anchors supplied` })
       continue
@@ -347,13 +351,16 @@ function revocationAxis(bundle: EvidenceBundle, now: Date): ClaimAxisReport {
   const outcomes: ClaimAxisReport[] = []
   for (const member of observations) {
     const p = member.payload
+    // An observed_at this verifier cannot read carries no staleness window, so
+    // the observation is malformed against the F4 field set — never fresh.
+    const observedAt = parseRfc3339(isRecord(p) ? p.observed_at : undefined)
     const wellFormed = isRecord(p)
       && typeof p.authority_ref === 'string'
       && isRecord(p.status_source) && (p.status_source.kind === 'source' || p.status_source.kind === 'set')
-      && typeof p.observed_at === 'string' && !Number.isNaN(Date.parse(p.observed_at))
+      && observedAt.ok
       && typeof p.maximum_staleness_ms === 'number'
       && isRecord(p.decision) && (p.decision.effect === 'allow' || p.decision.effect === 'deny')
-    if (!wellFormed) {
+    if (!wellFormed || !observedAt.ok) {
       outcomes.push({ state: 'INVALID', detail: `observation "${member.member_id}" is malformed against the F4 field set` })
       continue
     }
@@ -389,7 +396,7 @@ function revocationAxis(bundle: EvidenceBundle, now: Date): ClaimAxisReport {
     // design. The observation's own age still gates STALE. Reporting VERIFIED
     // for an allow decision was a fail-open: an unavailable-fail-open
     // observation read as fresh-not-revoked.
-    const freshUntil = Date.parse(p.observed_at as string) + (p.maximum_staleness_ms as number)
+    const freshUntil = observedAt.ms + (p.maximum_staleness_ms as number)
     if (freshUntil >= now.getTime()) {
       outcomes.push({ state: 'EVALUATED', detail: `observation "${member.member_id}" records an allow decision; source freshness is not provable from the frozen record, so VERIFIED is unreachable` })
     } else {

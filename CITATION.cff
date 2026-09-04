@@ -6,7 +6,7 @@ authors:
   - family-names: "Pidlisnyi"
     given-names: "Tymofii"
     orcid: "https://orcid.org/0009-0002-4700-3594"
-version: 5.0.1
+version: 6.0.0
 url: "https://agent-passport.org"
 repository-code: "https://github.com/aeoess/agent-passport-system"
 license: Apache-2.0

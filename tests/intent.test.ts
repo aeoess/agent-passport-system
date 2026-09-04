@@ -33,6 +33,10 @@ function makePassport(agentId = 'agent-test') {
 // 1. assignRole
 // ══════════════════════════════════════
 
+// assignRole is an authority decision, so it now needs a trust input. These
+// cases assert the assignment shape rather than the trust question, so they
+// name the self-signed opt-in explicitly.
+
 describe('assignRole', () => {
   it('creates a signed role assignment for a valid passport', () => {
     const { signedPassport } = makePassport()
@@ -46,6 +50,7 @@ describe('assignRole', () => {
       scope: ['code_execution', 'web_search'],
       assignerPrivateKey: assigner.privateKey,
       assignerPublicKey: assigner.publicKey,
+      allowSelfSigned: true,
     })
 
     assert.equal(role.agentId, signedPassport.passport.agentId)
@@ -68,6 +73,7 @@ describe('assignRole', () => {
         signedPassport, role: r, autonomyLevel: 1,
         scope: ['test'], assignerPrivateKey: assigner.privateKey,
         assignerPublicKey: assigner.publicKey,
+        allowSelfSigned: true,
       })
       assert.equal(assignment.role, r)
     }
@@ -85,6 +91,7 @@ describe('assignRole', () => {
         signedPassport, role: 'operator', autonomyLevel: 1,
         scope: ['test'], assignerPrivateKey: assigner.privateKey,
         assignerPublicKey: assigner.publicKey,
+        allowSelfSigned: true,
       })
     }, /passport verification failed/)
   })

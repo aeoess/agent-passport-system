@@ -9,6 +9,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { sign, verify } from '../crypto/keys.js'
 import { canonicalize, canonicalizeForWrite } from './canonical.js'
 import { scopeAuthorizes } from './delegation.js'
+import { parseRfc3339, formatRfc3339 } from './rfc3339.js'
 
 // ══════════════════════════════════════
 // TYPES
@@ -156,10 +157,17 @@ export function verifyEscalationGrant(
     }
   }
 
-  // Verify temporal validity
+  // Verify temporal validity. The expiry arrives on the grant, so an expiry
+  // this verifier cannot read is not an expiry it can honour: it fails the
+  // temporal check rather than passing it.
   const now = Date.now()
-  const temporalValid = now < new Date(grant.expiresAt).getTime()
-  if (!temporalValid) errors.push('Grant has expired')
+  const grantExpiry = parseRfc3339(grant.expiresAt)
+  const temporalValid = grantExpiry.ok && now < grantExpiry.ms
+  if (!grantExpiry.ok) {
+    errors.push(`Invalid grant expiresAt (${grantExpiry.reason})`)
+  } else if (!temporalValid) {
+    errors.push('Grant has expired')
+  }
 
   // Trigger validation
   const triggerAccepted = grant.allowedTriggers.length > 0
@@ -223,8 +231,13 @@ export function activateEscalation(opts: {
     throw new Error('Requesting agent is not the grantee')
   }
 
-  // Validate grant not expired
-  if (Date.now() >= new Date(grant.expiresAt).getTime()) {
+  // Validate grant not expired. An expiry this gateway cannot read is not an
+  // expiry it can honour, so activation refuses instead of proceeding.
+  const grantExpiry = parseRfc3339(grant.expiresAt)
+  if (!grantExpiry.ok) {
+    throw new Error(`Escalation grant expiresAt is not a valid RFC 3339 instant (${grantExpiry.reason})`)
+  }
+  if (Date.now() >= grantExpiry.ms) {
     throw new Error('Escalation grant has expired')
   }
 
@@ -249,7 +262,7 @@ export function activateEscalation(opts: {
     }
   }
 
-  const expiresAt = new Date(Date.now() + grant.ceiling.maxDurationMs).toISOString()
+  const expiresAt = formatRfc3339(Date.now() + grant.ceiling.maxDurationMs)
 
   const signable = canonicalizeForWrite({
     escalationId, grantId: grant.grantId, requestId: request.requestId,
@@ -290,8 +303,12 @@ export function checkEscalatedAction(opts: {
     errors.push(`Escalation is ${escalation.status}, not active`)
   }
 
-  // Check not expired
-  if (Date.now() >= new Date(escalation.expiresAt).getTime()) {
+  // Check not expired. An expiry this check cannot read is not an expiry it
+  // can honour, so an unreadable value denies the action.
+  const escalationExpiry = parseRfc3339(escalation.expiresAt)
+  if (!escalationExpiry.ok) {
+    errors.push(`Invalid escalation expiresAt (${escalationExpiry.reason})`)
+  } else if (Date.now() >= escalationExpiry.ms) {
     errors.push('Escalation has expired')
   }
 
@@ -330,6 +347,10 @@ export function revokeEscalation(escalation: ActiveEscalation): ActiveEscalation
 
 export function isEscalationActive(escalation: ActiveEscalation): boolean {
   if (escalation.status !== 'active') return false
-  if (Date.now() >= new Date(escalation.expiresAt).getTime()) return false
+  // An expiry this check cannot read is not an expiry it can honour: an
+  // escalation with an unreadable window is not active.
+  const expiry = parseRfc3339(escalation.expiresAt)
+  if (!expiry.ok) return false
+  if (Date.now() >= expiry.ms) return false
   return true
 }

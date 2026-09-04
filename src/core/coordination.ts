@@ -8,6 +8,7 @@
 
 import { randomBytes } from 'node:crypto'
 import { canonicalize, canonicalizeForWrite } from './canonical.js'
+import { parseRfc3339 } from './rfc3339.js'
 import { sign, verify } from '../crypto/keys.js'
 import type {
   TaskBrief, TaskRoleSpec, DeliverableSpec,
@@ -394,17 +395,22 @@ export function completeTask(opts: {
 }): TaskCompletion {
   const deliverableIds = opts.unit.deliverables.map(d => d.deliverableId)
 
-  // Calculate metrics
-  const briefTime = new Date(opts.brief.createdAt).getTime()
+  // Calculate metrics. These are reported, not enforced: nothing in this
+  // module or its callers gates on TaskMetrics. A createdAt this code cannot
+  // read yields no interval to report, so the duration is reported as zero
+  // rather than as an invented elapsed time — the metric says "not measured"
+  // instead of carrying a number no clock produced.
+  const briefTime = parseRfc3339(opts.brief.createdAt)
   const now = Date.now()
-  const totalDuration = Math.floor((now - briefTime) / 1000)
+  const totalDuration = briefTime.ok ? Math.floor((now - briefTime.ms) / 1000) : 0
 
-  // Sum handoff/review times as coordination overhead
-  const reviewTimes = opts.unit.reviews.map(r => new Date(r.reviewedAt).getTime())
-  const handoffTimes = opts.unit.handoffs.map(h => new Date(h.handoffAt).getTime())
-  const overheadEvents = [...reviewTimes, ...handoffTimes].sort()
+  // Sum handoff/review times as coordination overhead. Only how many
+  // coordination events occurred feeds the estimate — the instants themselves
+  // were never compared — so the count is taken directly and no timestamp is
+  // interpreted here.
+  const overheadEventCount = opts.unit.reviews.length + opts.unit.handoffs.length
   // Rough estimate: each review/handoff = ~30s overhead
-  const coordinationOverhead = overheadEvents.length * 30
+  const coordinationOverhead = overheadEventCount * 30
 
   const taskWorkTime = totalDuration - coordinationOverhead
   const overheadRatio = taskWorkTime > 0 ? coordinationOverhead / taskWorkTime : 0

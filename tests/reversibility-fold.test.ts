@@ -39,6 +39,14 @@ import { createMinimalEnvelope, verifyExecutionEnvelope } from '../src/index.js'
 import { generateKeyPair, sign } from '../src/crypto/keys.js'
 import { canonicalize } from '../src/core/canonical.js'
 import { createHash } from 'node:crypto'
+import type { VerifyEnvelopeOptions } from '../src/core/execution-envelope.js'
+
+/** A verifier given no trust inputs at all. The options are required in the
+ *  types, so reaching this path means an untyped caller; the cast makes that
+ *  deliberate and visible. Used where a case observes only the integrity
+ *  flags, which do not depend on trust inputs. */
+const NO_TRUST_INPUTS = {} as VerifyEnvelopeOptions
+
 
 // A well-formed base element; individual tests override the fields under test.
 // effect_id is DETERMINISTIC (no mutable counter): derived from action_ref +
@@ -489,9 +497,16 @@ describe('reversibility-fold step 3b - optional effect_instantiation block on Ex
     const signer = generateKeyPair()
     const env = minimalEnvelope(signer)
     assert.equal(env.effect_instantiation, undefined)
-    const v = verifyExecutionEnvelope(env)
-    assert.equal(v.valid, true)
+    const v = verifyExecutionEnvelope(env, NO_TRUST_INPUTS)
+    // What this case is about is the SIGNATURE over the body: a blockless
+    // envelope's bytes still verify. It used to assert `valid` as well, which
+    // for a minimal envelope carrying the placeholder evaluator signature
+    // 'evsig' and no trust inputs at all was the fail-open the repair closed.
+    // A minimal envelope carries no decision, so its evaluator signature can
+    // never be established and `valid` is never true for one.
     assert.equal(v.signatureValid, true)
+    assert.equal(v.valid, false)
+    assert.equal(v.evaluatorAuthority, 'unresolved')
   })
 
   it('a receipt carrying a well-formed block validates', () => {
@@ -502,8 +517,9 @@ describe('reversibility-fold step 3b - optional effect_instantiation block on Ex
     const bodyWithBlock = { ...body, effect_instantiation: SAMPLE_BLOCK }
     const value = sign(canonicalize(bodyWithBlock), signer.privateKey)
     const envWithBlock = { ...bodyWithBlock, signature: { ...signature, value } }
-    const v = verifyExecutionEnvelope(envWithBlock)
-    assert.equal(v.valid, true)
+    const v = verifyExecutionEnvelope(envWithBlock, NO_TRUST_INPUTS)
+    // Same reasoning as the blockless case: the property under test is that
+    // the block sits inside the signed body, which is `signatureValid`.
     assert.equal(v.signatureValid, true)
     assert.deepEqual(envWithBlock.effect_instantiation, SAMPLE_BLOCK)
   })
@@ -513,7 +529,7 @@ describe('reversibility-fold step 3b - optional effect_instantiation block on Ex
     const env = minimalEnvelope(signer)
     // Tamper: attach a block but keep the original blockless signature.
     const tampered = { ...env, effect_instantiation: SAMPLE_BLOCK }
-    const v = verifyExecutionEnvelope(tampered)
+    const v = verifyExecutionEnvelope(tampered, NO_TRUST_INPUTS)
     assert.equal(v.signatureValid, false)
     assert.equal(v.valid, false)
   })
@@ -526,8 +542,8 @@ describe('reversibility-fold step 3b - optional effect_instantiation block on Ex
     const value = sign(canonicalize(bodyWithBlock), signer.privateKey)
     const envWithBlock = { ...bodyWithBlock, signature: { ...signature, value } }
 
-    const without = verifyExecutionEnvelope(env)
-    const withBlock = verifyExecutionEnvelope(envWithBlock)
+    const without = verifyExecutionEnvelope(env, NO_TRUST_INPUTS)
+    const withBlock = verifyExecutionEnvelope(envWithBlock, NO_TRUST_INPUTS)
     // Every existing validation aspect is identical whether or not the block is present.
     assert.equal(withBlock.capabilityActive, without.capabilityActive)
     assert.equal(withBlock.decisionFresh, without.decisionFresh)

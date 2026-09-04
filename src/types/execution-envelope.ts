@@ -91,18 +91,49 @@ export interface ExecutionEnvelope {
   }
 }
 
+/** Whether a signer was shown to be one the relying party accepts.
+ *  Mirrors `key_authority` in src/v2/identity-binding/types.ts, and for the
+ *  same reason: 'unresolved' means the verifier could not establish the fact,
+ *  which is not the same claim as having disproved it, and neither is an
+ *  acceptance. */
+export type EnvelopeSignerAuthority = 'verified' | 'unresolved' | 'rejected'
+
 /** Result of verifying an execution envelope */
 export interface EnvelopeVerification {
-  /** Overall validity */
+  /** The conjunction of every property below. True only when the envelope was
+   *  signed by a key the caller trusts, the evaluator signature was checked
+   *  against caller-supplied bytes and a caller-supplied key, the capability
+   *  was active, the decision was fresh, and every expected-context field the
+   *  caller stated matched. Never true on the envelope's self-consistency
+   *  alone. */
   valid: boolean
-  /** Envelope signature verified */
+  /** The envelope's bytes verify under the key the envelope itself carries.
+   *  This is integrity plus proof of possession, NOT authorization: the key is
+   *  the envelope's own claim about itself. True on some rejected results. */
   signatureValid: boolean
-  /** Evaluator signature verified */
+  /** Whether the key that signed the envelope is one the caller named as
+   *  trusted. 'unresolved' when the caller named none. */
+  signerAuthority: EnvelopeSignerAuthority
+  /** Whether the evaluator's signature over the original decision verified
+   *  under the evaluator key the caller supplied. Never true on the strength
+   *  of the field being a non-empty string. */
   evaluatorSignatureValid: boolean
+  /** Whether that check could be made at all. The envelope carries a hash of
+   *  the decision, not the decision, and Ed25519 here is not prehashed, so the
+   *  signed bytes cannot be reconstructed from the envelope: without the
+   *  original decision this is 'unresolved'. */
+  evaluatorAuthority: EnvelopeSignerAuthority
   /** Capability not revoked */
   capabilityActive: boolean
   /** Decision not expired (if expiry window provided) */
   decisionFresh: boolean
+  /** Whether the caller stated any expected context to match against. False
+   *  means the envelope's agent, action, scope, policy and evaluator were
+   *  read but not checked against anything. */
+  contextChecked: boolean
+  /** Whether every expected-context field the caller stated matched. Always
+   *  false when none was stated. */
+  contextValid: boolean
   /** Errors encountered */
   errors: string[]
 }

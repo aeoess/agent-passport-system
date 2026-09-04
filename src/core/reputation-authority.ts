@@ -15,6 +15,7 @@
 // ══════════════════════════════════════════════════════════════════
 
 import { canonicalize } from './canonical.js'
+import { parseRfc3339, formatRfc3339 } from './rfc3339.js'
 import { verify } from '../crypto/keys.js'
 import type {
   ScopedReputation, TierDefinition,
@@ -181,14 +182,19 @@ export function computeConfidence(
   // Floor of 0.5 means burst evidence still counts (half weight), not zero
   const spreadDays = opts?.temporalSpreadDays ?? DEFAULT_TEMPORAL_SPREAD_DAYS
   let temporalScore = 1.0
-  if (rep.firstObservedAt && rep.lastUpdatedAt) {
-    const firstMs = new Date(rep.firstObservedAt).getTime()
-    const lastMs = new Date(rep.lastUpdatedAt).getTime()
-    const spanDays = Math.max(0, (lastMs - firstMs) / (1000 * 60 * 60 * 24))
+  // A span is only a span if both ends are readable instants. An endpoint
+  // that is absent and one that is present but unparseable are the same
+  // thing to this calculation — no measurable span — and both land in the
+  // half-penalty branch below. Widening the span is what raises this
+  // sub-score, so an unreadable endpoint must never earn coverage.
+  const first = parseRfc3339(rep.firstObservedAt)
+  const last = parseRfc3339(rep.lastUpdatedAt)
+  if (first.ok && last.ok) {
+    const spanDays = Math.max(0, (last.ms - first.ms) / (1000 * 60 * 60 * 24))
     const coverage = Math.min(spanDays / spreadDays, 1.0)
     temporalScore = 0.5 + 0.5 * coverage
   } else if (rep.receiptCount > 0) {
-    // Has evidence but no temporal metadata — default to half penalty
+    // Has evidence but no readable temporal metadata — default to half penalty
     temporalScore = 0.5
   }
 
@@ -725,8 +731,15 @@ export function applyTemporalDecay(
   const newSigma = Math.min(maxSigma, Math.max(MIN_SIGMA, rep.sigma + sigmaDelta))
 
   // Advance lastUpdatedAt by elapsedSeconds without consulting wall clock.
-  const lastMs = new Date(rep.lastUpdatedAt).getTime()
-  const newLastUpdatedAt = new Date(lastMs + elapsedSeconds * 1000).toISOString()
+  // The stored instant is the base of that arithmetic, so a lastUpdatedAt
+  // this function cannot read is not a base it can advance — refuse, the
+  // way the elapsedSeconds guards above refuse, rather than emit a
+  // timestamp derived from an unreadable one.
+  const last = parseRfc3339(rep.lastUpdatedAt)
+  if (!last.ok) {
+    throw new Error(`applyTemporalDecay: lastUpdatedAt is not an RFC 3339 instant (${last.reason})`)
+  }
+  const newLastUpdatedAt = formatRfc3339(last.ms + elapsedSeconds * 1000)
 
   return {
     ...rep,
@@ -805,10 +818,13 @@ export function confidenceBreakdown(rep: ScopedReputation): ConfidenceBreakdown 
   }
 
   let temporal = 1.0
-  if (rep.firstObservedAt && rep.lastUpdatedAt) {
-    const firstMs = new Date(rep.firstObservedAt).getTime()
-    const lastMs = new Date(rep.lastUpdatedAt).getTime()
-    const spanDays = Math.max(0, (lastMs - firstMs) / (1000 * 60 * 60 * 24))
+  // Same span rule as computeConfidence: an endpoint that is absent and one
+  // that is present but unparseable both mean "no measurable span" and take
+  // the half-penalty branch, so composite stays reproducible from the parts.
+  const first = parseRfc3339(rep.firstObservedAt)
+  const last = parseRfc3339(rep.lastUpdatedAt)
+  if (first.ok && last.ok) {
+    const spanDays = Math.max(0, (last.ms - first.ms) / (1000 * 60 * 60 * 24))
     const coverage = Math.min(spanDays / DEFAULT_TEMPORAL_SPREAD_DAYS, 1.0)
     temporal = 0.5 + 0.5 * coverage
   } else if (rep.receiptCount > 0) {

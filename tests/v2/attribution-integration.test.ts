@@ -9,6 +9,7 @@ import {
   createCharter, verifyCharter,
   createCompletionReceipt, verifyCompletionReceipt,
   generateKeyPair, publicKeyFromPrivate,
+  toDIDKey,
 } from '../../src/index.js'
 import type {
   AttributionReceipt, ArtifactCitation,
@@ -35,10 +36,10 @@ function validReceipt(opts: { bindingContext: string; expiredAt?: number }): {
   const now = Date.now()
   const expiresWall = opts.expiredAt ?? (now + 5 * 60_000)
   const unsigned = createAttributionReceipt({
-    citer: 'did:aps:citer',
+    citer: toDIDKey(citer.publicKey),
     citer_public_key: citer.publicKey,
     citer_private_key: citer.privateKey,
-    cited_principal: 'did:aps:cited',
+    cited_principal: toDIDKey(cited.publicKey),
     cited_principal_public_key: cited.publicKey,
     citation_content: `claim-for-${opts.bindingContext}`,
     binding_context: opts.bindingContext,
@@ -103,6 +104,10 @@ function makeCharter(citations?: ArtifactCitation[]) {
   })
 }
 
+// Each party is named by the did:key its own key commits to. Opaque
+// identifiers bind to nothing, and verification now refuses what it cannot
+// bind; see attribution-consent-binding.test.ts.
+
 describe('verifyCharter — AttributionConsent integration', () => {
   it('charter without citations: verify passes unchanged', () => {
     const charter = makeCharter()
@@ -139,10 +144,10 @@ describe('verifyCharter — AttributionConsent integration', () => {
     const citer = generateKeyPair()
     const cited = generateKeyPair()
     const unsigned = createAttributionReceipt({
-      citer: 'did:aps:citer',
+      citer: toDIDKey(citer.publicKey),
       citer_public_key: citer.publicKey,
       citer_private_key: citer.privateKey,
-      cited_principal: 'did:aps:cited',
+      cited_principal: toDIDKey(cited.publicKey),
       cited_principal_public_key: cited.publicKey,
       citation_content: 'stale-claim',
       binding_context: 'charter:old',
@@ -230,10 +235,10 @@ describe('integration: multi-citation artifact surfaces failing receipt', () => 
     const citer = generateKeyPair()
     const cited = generateKeyPair()
     const badUnsigned = createAttributionReceipt({
-      citer: 'did:aps:citer',
+      citer: toDIDKey(citer.publicKey),
       citer_public_key: citer.publicKey,
       citer_private_key: citer.privateKey,
-      cited_principal: 'did:aps:cited',
+      cited_principal: toDIDKey(cited.publicKey),
       cited_principal_public_key: cited.publicKey,
       citation_content: 'stale',
       binding_context: 'charter:multi',

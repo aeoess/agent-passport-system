@@ -11,6 +11,7 @@
 // ══════════════════════════════════════════════════════════════════
 
 import { canonicalize, canonicalizeForWrite } from './canonical.js'
+import { parseRfc3339, formatRfc3339 } from './rfc3339.js'
 import { sign, verify, publicKeyFromPrivate } from '../crypto/keys.js'
 import { createDID, hexToMultibase, multibaseToHex } from './did.js'
 import type { AgentPassport, KeyPair, CascadeRevocationResult } from '../types/passport.js'
@@ -107,7 +108,7 @@ export function announceKeyRotation(
   const delayMs = mode === 'emergency'
     ? 0
     : (options.activationDelayMs ?? DEFAULT_PLANNED_OVERLAP_MS)
-  const activationTime = new Date(now.getTime() + delayMs).toISOString()
+  const activationTime = formatRfc3339(now.getTime() + delayMs)
   const announcedAt = now.toISOString()
 
   // Find the current active key to verify old key ownership
@@ -199,10 +200,22 @@ export function activateKeyRotation(
   }
 
   const currentTime = now ?? new Date()
-  const activationTime = new Date(doc.pendingRotation.activationTime)
-  if (currentTime < activationTime) {
+  // An activation time this function cannot read is not an activation time it
+  // can honour: refuse the activation instead of comparing against NaN, which
+  // is false in both directions and would let the rotation complete early.
+  const activation = parseRfc3339(doc.pendingRotation.activationTime)
+  if (!activation.ok) {
     throw new Error(
-      `Activation time not reached. Current: ${currentTime.toISOString()}, activation: ${activationTime.toISOString()}`
+      `Invalid pendingRotation.activationTime: ${activation.reason}`
+    )
+  }
+  if (currentTime.getTime() < activation.ms) {
+    throw new Error(
+      // The activation time is echoed as the document wrote it. Rendering it
+      // through formatRfc3339 would throw for an instant parseRfc3339 accepts
+      // but four-digit years cannot name, turning a rejected rotation into an
+      // internal error on attacker-supplied input.
+      `Activation time not reached. Current: ${currentTime.toISOString()}, activation: ${doc.pendingRotation.activationTime}`
     )
   }
 
@@ -299,8 +312,10 @@ export function isKeyActive(
   // If there's a pending planned rotation and activation time has passed,
   // the old key should be considered inactive (Gateway enforces this server-side)
   if (doc.pendingRotation && doc.pendingRotation.newKeyId !== vm.id) {
-    const activationTime = new Date(doc.pendingRotation.activationTime)
-    if (currentTime >= activationTime) {
+    // An activation time this check cannot read is not an overlap window it can
+    // honour: the superseded key is reported inactive rather than active.
+    const activation = parseRfc3339(doc.pendingRotation.activationTime)
+    if (!activation.ok || currentTime.getTime() >= activation.ms) {
       return false
     }
   }

@@ -149,9 +149,11 @@ test('The Agent Social Contract — Full Stack', async (t) => {
     }
   })
 
-  // Verify both passports
-  const verA = verifyPassport(agentA.signedPassport)
-  const verB = verifyPassport(agentB.signedPassport)
+  // Verify both passports. These are self-minted in the walkthrough and nobody
+  // countersigned them, so the opt-in is named: this step is asserting the
+  // signature holds, not that anyone vouches for the agent.
+  const verA = verifyPassport(agentA.signedPassport, { allowSelfSigned: true })
+  const verB = verifyPassport(agentB.signedPassport, { allowSelfSigned: true })
   assert.ok(verA.valid, 'Agent A passport valid')
   assert.ok(verB.valid, 'Agent B passport valid')
   console.log('  ✓ Agent Alpha created — capabilities:', agentA.signedPassport.passport.capabilities.join(', '))

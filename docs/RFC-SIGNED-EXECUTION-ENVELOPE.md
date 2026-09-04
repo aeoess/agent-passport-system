@@ -21,7 +21,7 @@ This RFC proposes a minimal signed execution envelope that any governance engine
 
 1. **Minimal fields.** Only what a verifier needs to independently check the governance chain.
 2. **Engine-agnostic.** No dependency on any specific policy engine, trust model, or delegation scheme.
-3. **Cryptographically verifiable.** Every envelope is signed. Verifiers need nothing beyond the public key and the envelope itself.
+3. **Cryptographically verifiable, against inputs the relying party supplies.** Every envelope is signed, and its own signature is checkable from the envelope plus a public key. The key has to be the relying party's: `signature.public_key` is the envelope's claim about itself, and an attacker signs their own envelope with their own key. The evaluator signature needs more than a key. The envelope carries `decision.decision_hash`, not the decision, and the signature was made over the decision's canonical form; the bytes are not in the envelope and cannot be derived from a hash, so a verifier that wants to check it must be handed the original `PolicyDecision`. An envelope alone establishes integrity and proof of possession, never authorization.
 4. **Composable, not prescriptive.** Engines can embed additional engine-specific metadata. The envelope defines the interop surface, not the internal implementation.
 
 ## Envelope Schema (v0.1)
@@ -98,7 +98,7 @@ This RFC proposes a minimal signed execution envelope that any governance engine
 
 This field determines what a verifier can and cannot do with the decision:
 
-- **`deterministic`**: The decision can be replayed. Given the same intent, policy version, and context, the same verdict is guaranteed. Verifiers can independently recompute and confirm. (Example: APS FloorValidatorV1, YAML-based policy engines, Cedar/OPA evaluators)
+- **`deterministic`**: The decision can be replayed. Given the same intent, policy version, and context, the same verdict is guaranteed. Replay needs those inputs, and the envelope carries none of them: not the intent body, not the principles evaluated, not the policy. A verifier holding them separately can recompute; a verifier holding only the envelope cannot. Note also that `evaluation_method` is written by whoever builds the envelope and is bound to nothing the evaluator signed, so it is a hint about how to treat the decision, not a claim the decision makes. (Example: APS FloorValidatorV1, YAML-based policy engines, Cedar/OPA evaluators)
 - **`probabilistic`**: The decision was produced by a non-deterministic evaluator (e.g., LLM-based reasoning). The verdict is a good-faith assessment, not a reproducible computation. Verifiers can check the signature but cannot replay the evaluation. (Example: LLM-based advisory layer, F-006/F-007 in APS)
 
 Different trust levels apply. A `deterministic` decision with a valid signature is independently verifiable. A `probabilistic` decision with a valid signature proves that *an evaluation happened*, but not that the same evaluation would produce the same result.
@@ -107,12 +107,13 @@ Different trust levels apply. A `deterministic` decision with a valid signature 
 
 Any system consuming these envelopes should enforce at minimum:
 
-| Rule | Envelope check |
-|------|---------------|
-| No privileged action without verified governance | `signature.value` must verify against `signature.public_key` |
-| No delegation on stale or revoked credentials | `capability_ref.revocation_status` must be `active` |
-| No execution without policy evaluation | `decision.decision_hash` must be non-null and `decision.evaluator_signature` must verify |
-| Deny on expired evaluation | `decision.evaluated_at` must be within acceptable time window |
+| Rule | Envelope check | What the consumer must supply |
+|------|---------------|-------------------------------|
+| No privileged action without verified governance | `signature.value` must verify against `signature.public_key`, AND that key must be one the consumer accepts | its own set of trusted signer keys. Verifying against the carried key alone establishes only that the envelope is internally consistent |
+| No delegation on stale or revoked credentials | `capability_ref.revocation_status` must be `active` | nothing, but note this is a literal the emitter wrote at emission time. It is not a live revocation check, and a consumer that needs one has to make it |
+| No execution without policy evaluation | `decision.evaluator_signature` must verify over the decision it was made on | the original `PolicyDecision` and the evaluator's key. `decision_hash` cannot substitute: it is computed over the decision INCLUDING its signature, so it commits to different bytes than the signature does, and Ed25519 here is not prehashed. A non-empty `evaluator_signature` is not evidence of anything |
+| Deny on expired evaluation | `decision.evaluated_at` must be within an acceptable window | the window. An `evaluated_at` that is not a parseable instant must deny; it bounds no window |
+| Act only on the envelope you asked for | agent, run, action, scope, policy, evaluator and verdict must match what the consumer expects | those expectations. An envelope is a statement that SOME agent was permitted SOME action; that it is the one in front of you is not something it can assert about itself |
 
 ## Mapping to Existing Implementations
 
@@ -157,7 +158,7 @@ Guardian's decision-artifact-centric model maps naturally: their independent dec
 | `attestation` | `attestation_ref` |
 | `timestamp` | `timestamp` |
 
-The envelope in this RFC is a strict superset of Kelisi808's 7-field proposal, adding the decision metadata needed for independent verification.
+The envelope in this RFC is a strict superset of Kelisi808's 7-field proposal, adding decision metadata that lets a verifier holding the decision confirm the envelope describes it. It does not make the decision independently verifiable from the envelope alone: see Design Principle 3 and the gate-rule table for what the consumer has to bring.
 
 ## Open Questions
 

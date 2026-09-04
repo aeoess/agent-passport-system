@@ -13,6 +13,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { readFileSync } from 'node:fs'
 import { sign, verify } from '../crypto/keys.js'
 import { canonicalize, canonicalizeForWrite } from './canonical.js'
+import { parseRfc3339 } from './rfc3339.js'
 import { scopeAuthorizes } from './delegation.js'
 import { ENFORCEMENT_ESCALATION_ORDER } from '../types/passport.js'
 import type {
@@ -214,7 +215,8 @@ export function attestFloor(
   expiresInDays: number = 365
 ): FloorAttestation {
   const now = new Date()
-  const expiry = new Date(now)
+  const expiry = new Date()
+  expiry.setTime(now.getTime())
   expiry.setDate(expiry.getDate() + expiresInDays)
 
   const attestation: Omit<FloorAttestation, 'signature'> = {
@@ -246,7 +248,10 @@ export function verifyAttestation(
     errors.push('Invalid attestation signature')
   }
 
-  if (new Date(attestation.expiresAt) < new Date()) {
+  const expiry = parseRfc3339(attestation.expiresAt)
+  if (!expiry.ok) {
+    errors.push(`Invalid attestation expiresAt (${expiry.reason})`)
+  } else if (expiry.ms < Date.now()) {
     errors.push('Attestation expired')
   }
 
@@ -391,10 +396,12 @@ export function negotiateCommonGround(
 ): SharedGround {
   const reasons: string[] = []
 
-  if (new Date(attestationA.expiresAt) < new Date()) {
+  const expiryA = parseRfc3339(attestationA.expiresAt)
+  if (!expiryA.ok || expiryA.ms < Date.now()) {
     reasons.push(`Agent ${passportA.agentId} attestation expired`)
   }
-  if (new Date(attestationB.expiresAt) < new Date()) {
+  const expiryB = parseRfc3339(attestationB.expiresAt)
+  if (!expiryB.ok || expiryB.ms < Date.now()) {
     reasons.push(`Agent ${passportB.agentId} attestation expired`)
   }
 

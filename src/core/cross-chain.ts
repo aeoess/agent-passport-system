@@ -17,6 +17,7 @@
 import { createHash, randomBytes } from 'node:crypto'
 import { sign, verify } from '../crypto/keys.js'
 import { canonicalize, canonicalizeForWrite } from './canonical.js'
+import { parseRfc3339, formatRfc3339 } from './rfc3339.js'
 import type {
   TaintLabel, TaintUsage, TaintSet,
   SignedAuthorityObject, CrossChainPermit,
@@ -97,7 +98,7 @@ export function createSAO(
     monitorSignature,
     monitorPublicKey,
     createdAt: now.toISOString(),
-    expiresAt: new Date(now.getTime() + expiresInMinutes * 60000).toISOString()
+    expiresAt: formatRfc3339(now.getTime() + expiresInMinutes * 60000)
   }
 }
 
@@ -124,7 +125,10 @@ export function verifySAO(sao: SignedAuthorityObject): boolean {
  * Check if an SAO has expired.
  */
 export function isSAOExpired(sao: SignedAuthorityObject): boolean {
-  return new Date(sao.expiresAt) < new Date()
+  const expiry = parseRfc3339(sao.expiresAt)
+  // An expiry this verifier cannot read is not an expiry it can honour.
+  if (!expiry.ok) return true
+  return expiry.ms < Date.now()
 }
 
 // ── Execution Frame ──
@@ -214,9 +218,11 @@ export function closeFrame(frame: ExecutionFrame): ExecutionFrame {
  */
 export function isFrameExpired(frame: ExecutionFrame): boolean {
   if (frame.ttlMinutes <= 0) return false
-  const startedAt = new Date(frame.startedAt).getTime()
+  const startedAt = parseRfc3339(frame.startedAt)
+  // A start time this verifier cannot read bounds no window.
+  if (!startedAt.ok) return true
   const now = Date.now()
-  return (now - startedAt) > frame.ttlMinutes * 60_000
+  return (now - startedAt.ms) > frame.ttlMinutes * 60_000
 }
 
 /**
@@ -322,7 +328,7 @@ export function createCrossChainPermit(opts: {
   sourcePrivateKey: string
 }): Omit<CrossChainPermit, 'destinationSignature'> & { destinationSignature: '' } {
   const now = new Date()
-  const expiresAt = new Date(now.getTime() + (opts.expiresInHours ?? 24) * 3600000).toISOString()
+  const expiresAt = formatRfc3339(now.getTime() + (opts.expiresInHours ?? 24) * 3600000)
 
   const permitBody = {
     sourceContext: {
@@ -378,9 +384,17 @@ export function countersignPermit(
 /**
  * Verify a cross-chain permit: both signatures valid + not expired + not revoked.
  */
+/** True when the permit carries a readable expiry that has not passed. An
+ *  expiry this code cannot read never selects a permit. */
+function permitUnexpired(permit: CrossChainPermit): boolean {
+  const expiry = parseRfc3339(permit.expiresAt)
+  return expiry.ok && expiry.ms > Date.now()
+}
+
 export function verifyCrossChainPermit(permit: CrossChainPermit): boolean {
   if (permit.revoked) return false
-  if (new Date(permit.expiresAt) < new Date()) return false
+  const expiry = parseRfc3339(permit.expiresAt)
+  if (!expiry.ok || expiry.ms < Date.now()) return false
   if (!permit.destinationSignature) return false
 
   const permitBody = {
@@ -484,7 +498,7 @@ export function checkDataFlow(opts: {
   for (const foreignPrincipal of foreignPrincipals) {
     const permit = opts.permits.find(p =>
       !p.revoked &&
-      new Date(p.expiresAt) > new Date() &&
+      permitUnexpired(p) &&
       p.sourceContext.principalId === foreignPrincipal &&
       p.destinationContext.principalId === opts.actionPrincipalId &&
       p.destinationContext.allowedScopes.some(s =>
@@ -511,7 +525,7 @@ export function checkDataFlow(opts: {
   // All foreign principals have valid permits
   const matchedPermit = opts.permits.find(p =>
     !p.revoked &&
-    new Date(p.expiresAt) > new Date() &&
+    permitUnexpired(p) &&
     p.sourceContext.principalId === foreignPrincipals[0] &&
     p.destinationContext.principalId === opts.actionPrincipalId
   )
@@ -545,12 +559,24 @@ export function deriveSAO(
   const allLabels = sourceSAOs.flatMap(s => [s.taint])
   const mergedTaint = mergeTaints(...allLabels)
 
+  // The derived window is the tightest of its sources'. A source whose expiry
+  // cannot be read bounds nothing, and skipping it handed the derivation the
+  // full default window instead. It contributes the tightest bound there is:
+  // the derived object is born already expired, so every downstream expiry
+  // check refuses it. Throwing here would be the other way to fail closed, but
+  // expiresAt is outside the monitor signature, so anyone on the path could
+  // turn a composition call into an uncaught exception by rewriting a string.
   let earliestExpiry = Infinity
+  let unreadableSource = false
   for (const s of sourceSAOs) {
-    const t = new Date(s.expiresAt).getTime()
-    if (t < earliestExpiry) earliestExpiry = t
+    const t = parseRfc3339(s.expiresAt)
+    if (!t.ok) { unreadableSource = true; break }
+    if (t.ms < earliestExpiry) earliestExpiry = t.ms
   }
-  const expiry = Math.min(earliestExpiry, Date.now() + expiresInMinutes * 60000)
+  const derivedAtMs = Date.now()
+  const expiry = unreadableSource
+    ? derivedAtMs - 1
+    : Math.min(earliestExpiry, derivedAtMs + expiresInMinutes * 60000)
 
   const primaryLabel = sourceSAOs[0].taint
   const allPrincipalIds = [...new Set(sourceSAOs.map(s => s.taint.principalId))]
@@ -585,7 +611,7 @@ export function deriveSAO(
     monitorSignature,
     monitorPublicKey,
     createdAt: now.toISOString(),
-    expiresAt: new Date(expiry).toISOString()
+    expiresAt: formatRfc3339(expiry)
   }
 }
 
@@ -609,7 +635,7 @@ export function createExecutionReceipt(opts: {
   expiresInMinutes?: number
 }): ExecutionReceipt {
   const now = new Date()
-  const expiry = new Date(now.getTime() + (opts.expiresInMinutes ?? 60) * 60000)
+  const expiryMs = now.getTime() + (opts.expiresInMinutes ?? 60) * 60000
   const paramsHash = createHash('sha256').update(canonicalizeForWrite(opts.params)).digest('hex')
   const principals = opts.frame.frameTaint.principals
   const taintSetHash = createHash('sha256').update(principals.sort().join(',')).digest('hex')
@@ -629,7 +655,7 @@ export function createExecutionReceipt(opts: {
     policyVersion: opts.policyVersion,
     nonce: randomBytes(16).toString('hex'),
     timestamp: now.toISOString(),
-    expiresAt: expiry.toISOString(),
+    expiresAt: formatRfc3339(expiryMs),
     gatewayId: opts.gatewayId
   }
 
@@ -650,7 +676,9 @@ export function verifyExecutionReceipt(
   const sigValid = verify(canonical, gatewaySignature, gatewayPublicKey)
 
   if (!sigValid) return { valid: false, expired: false, error: 'Invalid gateway signature' }
-  if (new Date(receipt.expiresAt) < new Date()) return { valid: false, expired: true, error: 'Receipt expired' }
+  const expiry = parseRfc3339(receipt.expiresAt)
+  if (!expiry.ok) return { valid: false, expired: true, error: `Invalid receipt expiresAt (${expiry.reason})` }
+  if (expiry.ms < Date.now()) return { valid: false, expired: true, error: 'Receipt expired' }
   return { valid: true, expired: false }
 }
 

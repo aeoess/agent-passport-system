@@ -20,15 +20,21 @@
 // ══════════════════════════════════════════════════════════════════
 
 import type { AttestationFreshness } from '../types/passport.js'
+import { parseRfc3339 } from './rfc3339.js'
 
 /**
  * Seconds elapsed since the evidence was produced (`validAt`).
  * Returns 0 if validAt is in the future (clock skew); never negative.
+ * A `validAt` that is not an RFC 3339 instant dates the evidence to nothing,
+ * so it reports the maximum age rather than an age of zero: evidence whose
+ * production time cannot be read is treated as maximally stale by every
+ * staleness window that consumes this number.
  */
 export function computeEvidenceAge(freshness: AttestationFreshness, now?: Date): number {
-  const then = new Date(freshness.validAt).getTime()
+  const validAt = parseRfc3339(freshness.validAt)
+  if (!validAt.ok) return Number.MAX_SAFE_INTEGER
   const current = (now ?? new Date()).getTime()
-  const ageMs = current - then
+  const ageMs = current - validAt.ms
   return ageMs < 0 ? 0 : Math.floor(ageMs / 1000)
 }
 

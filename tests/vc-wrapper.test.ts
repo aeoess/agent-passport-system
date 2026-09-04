@@ -12,6 +12,10 @@ import {
   verifyVerifiablePresentation,
 } from '../src/core/vc-wrapper.js';
 
+/** Every presentation answers a challenge: both ends require one, so a
+ *  presentation minted without it could never verify. */
+const CHALLENGE = 'nonce-vc-wrapper-suite';
+
 function makePassport(overrides?: Record<string, unknown>) {
   const kp = generateKeyPair();
   return {
@@ -157,7 +161,10 @@ describe('verifyVerifiableCredential', () => {
     const { input } = makePassport({ evidence: [att] });
     const vc = await passportToVerifiableCredential(input, issuer.privateKey);
     const result = await verifyVerifiableCredential(vc);
-    assert.ok(result.checks.some(c => c.includes('1 evidence attachment(s) present')));
+    // Evidence is reported as PRESENT, never as PASS: this verifier does not
+    // check an infrastructure attestation, and the checks array now says so.
+    assert.ok(result.checks.some(c => c.startsWith('PRESENT: 1 evidence attachment(s)')));
+    assert.ok(result.checks.every(c => !(c.startsWith('PASS') && c.includes('evidence'))));
   });
 
   it('rejects VC with missing proof', async () => {
@@ -182,7 +189,7 @@ describe('createVerifiablePresentation', () => {
     const { input } = makePassport({ publicKey: holder.publicKey });
     const vc = await passportToVerifiableCredential(input, issuer.privateKey);
 
-    const vp = await createVerifiablePresentation([vc], holder.privateKey);
+    const vp = await createVerifiablePresentation([vc], holder.privateKey, { challenge: CHALLENGE });
 
     assert.deepEqual(vp.type, ['VerifiablePresentation']);
     assert.ok(vp.holder.startsWith('did:key:z6Mk'));
@@ -216,7 +223,7 @@ describe('createVerifiablePresentation', () => {
     const vc1 = await passportToVerifiableCredential(p1.input, issuer.privateKey);
     const vc2 = await passportToVerifiableCredential(p2.input, issuer.privateKey);
 
-    const vp = await createVerifiablePresentation([vc1, vc2], holder.privateKey);
+    const vp = await createVerifiablePresentation([vc1, vc2], holder.privateKey, { challenge: CHALLENGE });
     assert.equal(vp.verifiableCredential.length, 2);
   });
 });
@@ -227,9 +234,9 @@ describe('verifyVerifiablePresentation', () => {
     const holder = generateKeyPair();
     const { input } = makePassport({ publicKey: holder.publicKey });
     const vc = await passportToVerifiableCredential(input, issuer.privateKey);
-    const vp = await createVerifiablePresentation([vc], holder.privateKey);
+    const vp = await createVerifiablePresentation([vc], holder.privateKey, { challenge: CHALLENGE });
 
-    const result = await verifyVerifiablePresentation(vp);
+    const result = await verifyVerifiablePresentation(vp, { expectedChallenge: CHALLENGE });
 
     assert.equal(result.valid, true);
     assert.equal(result.credentials.length, 1);
@@ -242,13 +249,25 @@ describe('verifyVerifiablePresentation', () => {
     const holder = generateKeyPair();
     const { input } = makePassport({ publicKey: holder.publicKey });
     const vc = await passportToVerifiableCredential(input, issuer.privateKey);
-    const vp = await createVerifiablePresentation([vc], holder.privateKey);
+    const vp = await createVerifiablePresentation([vc], holder.privateKey, { challenge: CHALLENGE });
 
-    // Tamper with holder
+    // Tamper with holder. The rewritten holder no longer matches the DID the
+    // proof's verificationMethod names, so this is refused at the binding step
+    // before any signature is checked. Previously the binding did not exist and
+    // the only thing that caught this was the signature over the body.
     (vp as any).holder = toDIDKey(issuer.publicKey);
-    const result = await verifyVerifiablePresentation(vp);
+    const result = await verifyVerifiablePresentation(vp, { expectedChallenge: CHALLENGE });
     assert.equal(result.valid, false);
-    assert.ok(result.checks.some(c => c.includes('FAIL') && c.includes('presentation signature')));
+    assert.equal(result.keyAuthority, 'rejected');
+    assert.ok(result.checks.some(c => c.includes('FAIL') && c.includes('holder binding')));
+
+    // And a holder rewritten to a DID that does still match the proof's
+    // verificationMethod is caught by the signature, as before.
+    const vp2 = await createVerifiablePresentation([vc], holder.privateKey, { challenge: CHALLENGE });
+    (vp2 as any).id = 'urn:aps:presentation:tampered';
+    const result2 = await verifyVerifiablePresentation(vp2, { expectedChallenge: CHALLENGE });
+    assert.equal(result2.valid, false);
+    assert.ok(result2.checks.some(c => c.includes('FAIL') && c.includes('presentation signature')));
   });
 
   it('detects tampered credential inside VP', async () => {
@@ -261,8 +280,8 @@ describe('verifyVerifiablePresentation', () => {
     (vc.credentialSubject as any).grade = 99;
 
     // Re-create VP with tampered VC (VP signature is over the tampered content, so VP proof is valid)
-    const vp = await createVerifiablePresentation([vc], holder.privateKey);
-    const result = await verifyVerifiablePresentation(vp);
+    const vp = await createVerifiablePresentation([vc], holder.privateKey, { challenge: CHALLENGE });
+    const result = await verifyVerifiablePresentation(vp, { expectedChallenge: CHALLENGE });
 
     assert.equal(result.valid, false);
     assert.ok(result.checks.some(c => c.includes('FAIL: credential[0]')));
@@ -275,9 +294,9 @@ describe('verifyVerifiablePresentation', () => {
     const p2 = makePassport({ publicKey: holder.publicKey, agentId: 'multi-2' });
     const vc1 = await passportToVerifiableCredential(p1.input, issuer.privateKey);
     const vc2 = await passportToVerifiableCredential(p2.input, issuer.privateKey);
-    const vp = await createVerifiablePresentation([vc1, vc2], holder.privateKey);
+    const vp = await createVerifiablePresentation([vc1, vc2], holder.privateKey, { challenge: CHALLENGE });
 
-    const result = await verifyVerifiablePresentation(vp);
+    const result = await verifyVerifiablePresentation(vp, { expectedChallenge: CHALLENGE });
     assert.equal(result.valid, true);
     assert.equal(result.credentials.length, 2);
     assert.ok(result.checks.some(c => c.includes('credential[0]') && c.includes('verified')));
@@ -291,7 +310,7 @@ describe('verifyVerifiablePresentation', () => {
       holder: 'did:key:z6Mk123',
       verifiableCredential: [],
     } as any;
-    const result = await verifyVerifiablePresentation(vp);
+    const result = await verifyVerifiablePresentation(vp, { expectedChallenge: CHALLENGE });
     assert.equal(result.valid, false);
     assert.ok(result.checks.some(c => c.includes('missing required VP fields')));
   });
@@ -333,7 +352,10 @@ describe('round-trip: passport → VC → VP → verify', () => {
     });
 
     // 5. Verify VP
-    const vpResult = await verifyVerifiablePresentation(vp);
+    const vpResult = await verifyVerifiablePresentation(vp, {
+      expectedChallenge: 'challenge-xyz',
+      expectedDomain: 'gateway.aeoess.com',
+    });
     assert.equal(vpResult.valid, true);
     assert.equal(vpResult.credentials.length, 1);
 

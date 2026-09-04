@@ -239,7 +239,13 @@ export function epochToDelegationExpiry(
   // Assume ~6 second block time (Cosmos SDK default)
   const blocksRemaining = epochDurationBlocks * epochsValid
   const secondsRemaining = blocksRemaining * 6
-  return new Date(Date.now() + secondsRemaining * 1000)
+  // The instant is computed here rather than parsed from anything, so the Date
+  // is set from that number instead of constructed from an argument. Same
+  // returned instant; this file interprets no timestamp string at all.
+  const expiresAtMs = Date.now() + secondsRemaining * 1000
+  const expiresAt = new Date()
+  expiresAt.setTime(expiresAtMs)
+  return expiresAt
 }
 
 /** Validate PoC (Proof-of-Compute) participation receipt */

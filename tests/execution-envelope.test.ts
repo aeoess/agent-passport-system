@@ -15,6 +15,14 @@ import {
 } from '../src/index.js'
 import type { ActionIntent, PolicyDecision, PolicyReceipt } from '../src/types/policy.js'
 import type { Delegation } from '../src/types/passport.js'
+import type { VerifyEnvelopeOptions } from '../src/core/execution-envelope.js'
+
+/** A verifier given no trust inputs at all. The options are required in the
+ *  types, so reaching this path means an untyped caller; the cast makes that
+ *  deliberate and visible. Used where a case observes only the integrity
+ *  flags, which do not depend on trust inputs. */
+const NO_TRUST_INPUTS = {} as VerifyEnvelopeOptions
+
 
 const agent = generateKeyPair()
 const evaluator = generateKeyPair()
@@ -119,9 +127,11 @@ describe('Execution Envelope', () => {
   })
 
   it('verifies a valid envelope', () => {
+    const intent = createMockIntent()
+    const decision = createMockDecision()
     const envelope = createExecutionEnvelope({
-      intent: createMockIntent(),
-      decision: createMockDecision(),
+      intent,
+      decision,
       receipt: createMockReceipt(),
       delegation: createMockDelegation(),
       runId: 'run-002',
@@ -133,10 +143,41 @@ describe('Execution Envelope', () => {
       signerPrivateKey: gateway.privateKey,
       signerPublicKey: gateway.publicKey
     })
-    const result = verifyExecutionEnvelope(envelope)
-    assert.equal(result.valid, true)
+
+    // The relying party states what it trusts and what it expects. The
+    // envelope cannot supply any of this about itself: the key it carries is
+    // its own claim, and the bytes its evaluator signature was made over are
+    // not in it at all.
+    const result = verifyExecutionEnvelope(envelope, {
+      trustedSignerPublicKeys: [gateway.publicKey],
+      originalDecision: decision,
+      evaluatorPublicKey: evaluator.publicKey,
+      expected: {
+        agentDid: `did:aps:${agent.publicKey}`,
+        actionId: intent.intentId,
+        evaluatorDid: `did:aps:${evaluator.publicKey}`,
+        allowedScope: ['commerce:purchase', 'data:read'],
+        verdict: 'permit',
+      },
+    })
+    assert.equal(result.valid, true, result.errors.join('; '))
     assert.equal(result.signatureValid, true)
+    assert.equal(result.signerAuthority, 'verified')
+    assert.equal(result.evaluatorSignatureValid, true)
+    assert.equal(result.evaluatorAuthority, 'verified')
     assert.equal(result.capabilityActive, true)
+    assert.equal(result.contextChecked, true)
+    assert.equal(result.contextValid, true)
+
+    // The same envelope with nothing supplied is not a verification. It used
+    // to return valid: true here, with evaluatorSignatureValid true on the
+    // strength of the field being a non-empty string.
+    const unanchored = verifyExecutionEnvelope(envelope, NO_TRUST_INPUTS)
+    assert.equal(unanchored.valid, false)
+    assert.equal(unanchored.signatureValid, true)
+    assert.equal(unanchored.signerAuthority, 'unresolved')
+    assert.equal(unanchored.evaluatorAuthority, 'unresolved')
+    assert.equal(unanchored.contextChecked, false)
   })
 
   it('rejects tampered envelope', () => {
@@ -156,7 +197,7 @@ describe('Execution Envelope', () => {
     })
     // Tamper with the run_id
     const tampered = { ...envelope, run_id: 'TAMPERED' }
-    const result = verifyExecutionEnvelope(tampered)
+    const result = verifyExecutionEnvelope(tampered, NO_TRUST_INPUTS)
     assert.equal(result.signatureValid, false)
   })
 
@@ -175,7 +216,7 @@ describe('Execution Envelope', () => {
       signerPrivateKey: gateway.privateKey,
       signerPublicKey: gateway.publicKey
     })
-    const result = verifyExecutionEnvelope(envelope)
+    const result = verifyExecutionEnvelope(envelope, NO_TRUST_INPUTS)
     assert.equal(result.capabilityActive, false)
   })
 
@@ -203,7 +244,7 @@ describe('Execution Envelope', () => {
     assert.equal(envelope.run_id, 'run-005')
     assert.ok(envelope.signature.value)
     assert.equal(envelope.decision.verdict, 'permit')
-    const result = verifyExecutionEnvelope(envelope)
+    const result = verifyExecutionEnvelope(envelope, NO_TRUST_INPUTS)
     assert.equal(result.signatureValid, true)
   })
 })

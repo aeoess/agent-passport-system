@@ -24,6 +24,7 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { sign, verify } from '../crypto/keys.js'
 import { canonicalize, canonicalizeForWrite } from './canonical.js'
+import { parseRfc3339 } from './rfc3339.js'
 import type {
   ExecutionAttestation,
   ExecutionAttestationVerification,
@@ -51,11 +52,56 @@ function sha256(input: string): string {
 //   3. Compare parameter hashes to detect drift
 //   4. Classify drift severity using rules
 //   5. Sign the attestation with attestor's key
+//
+// The two caller-supplied timestamps are checked before anything is signed:
+// both must be readable instants, and completion must not precede start.
+// verifyExecutionAttestation reads them as instants, so a spelling it cannot
+// read fails the timing check permanently: the attestation is signed, immutable
+// and unverifiable, and the attestor learns that only when a relying party
+// rejects it. Zone-less values are the ordinary way this happens — Python's
+// datetime.isoformat() emits one — and a local time names no instant, so there
+// is nothing to normalize it into. They are refused here instead, at the one
+// moment the caller can still fix the input.
+//
+// Refusing rather than rewriting is deliberate. No normalization convention
+// governs this artifact (the one that exists, normalizeTimestamp in
+// core/canonical.ts, governs action_ref preimages), and silently rewriting a
+// caller's value into bytes the attestor then signs would put an instant in the
+// record that the attestor never wrote.
 export function createExecutionAttestation(
   input: CreateExecutionAttestationInput,
   attestorPrivateKey: string,
   opts?: { driftRules?: DriftClassificationRule[]; executionContext?: string }
 ): ExecutionAttestation {
+  const instants: Record<string, number> = {}
+  for (const [field, value] of [
+    ['executionStartedAt', input.executionStartedAt],
+    ['executionCompletedAt', input.executionCompletedAt],
+  ] as const) {
+    const parsed = parseRfc3339(value)
+    if (!parsed.ok) {
+      throw new Error(
+        `createExecutionAttestation: ${field} must be an RFC 3339 instant ` +
+        `(YYYY-MM-DDTHH:MM:SS[.fff](Z|+HH:MM)), got ${JSON.stringify(value)} (${parsed.reason})`,
+      )
+    }
+    instants[field] = parsed.ms
+  }
+
+  // The verifier's timing check requires completion at or after start. Minting
+  // an attestation that fails it produces the same signed, immutable,
+  // permanently unverifiable artifact an unreadable spelling produced, and for
+  // the same reason: the attestor learns only when a relying party rejects it.
+  // Equal instants are allowed, matching the verifier's `end >= start`.
+  if (instants.executionCompletedAt < instants.executionStartedAt) {
+    throw new Error(
+      'createExecutionAttestation: executionCompletedAt is before executionStartedAt ' +
+      `(${JSON.stringify(input.executionStartedAt)} to ` +
+      `${JSON.stringify(input.executionCompletedAt)}). An execution cannot complete ` +
+      'before it starts, and verifyExecutionAttestation refuses the ordering.',
+    )
+  }
+
   const rules = opts?.driftRules ?? DEFAULT_DRIFT_RULES
   const context = opts?.executionContext ?? input.executionContext ?? '*'
 
@@ -141,13 +187,21 @@ export function verifyExecutionAttestation(
     errors.push(`Match flag inconsistent: hashes ${parameterMatch ? 'match' : 'differ'} but match=${attestation.match}`)
   }
 
-  // 4. Timing sanity
-  const start = new Date(attestation.executionStartedAt).getTime()
-  const end = new Date(attestation.executionCompletedAt).getTime()
-  const attested = new Date(attestation.attestedAt).getTime()
-  const timingValid = end >= start && attested >= start
-  if (!timingValid) {
-    errors.push('Timing invalid: execution completed before start or attested before start')
+  // 4. Timing sanity. A timestamp this verifier cannot read states no instant,
+  //    so the ordering it would have to satisfy cannot be confirmed and the
+  //    check fails — an unreadable clock is never a passing clock.
+  const start = parseRfc3339(attestation.executionStartedAt)
+  const end = parseRfc3339(attestation.executionCompletedAt)
+  const attested = parseRfc3339(attestation.attestedAt)
+  let timingValid: boolean
+  if (!start.ok || !end.ok || !attested.ok) {
+    timingValid = false
+    errors.push('Timing invalid: executionStartedAt, executionCompletedAt or attestedAt is not an RFC 3339 instant')
+  } else {
+    timingValid = end.ms >= start.ms && attested.ms >= start.ms
+    if (!timingValid) {
+      errors.push('Timing invalid: execution completed before start or attested before start')
+    }
   }
 
   return {

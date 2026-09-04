@@ -47,7 +47,8 @@ function defaultReputation() {
 
 function makePassport(keyPair: KeyPair, name: string, owner: string, metadata: Record<string, unknown>): AgentPassport {
   const now = new Date()
-  const expiry = new Date(now)
+  const expiry = new Date()
+  expiry.setTime(now.getTime())
   expiry.setDate(expiry.getDate() + 30)
   return {
     version: '1.0.0',

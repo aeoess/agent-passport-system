@@ -208,7 +208,8 @@ export type {
 export {
   createActionIntent, verifyActionIntent,
   evaluateIntent, verifyPolicyDecision,
-  createPolicyReceipt, verifyPolicyReceipt,
+  createPolicyReceipt, verifyPolicyReceipt, verifyPolicyReceiptEnvelope,
+  type PolicyReceiptChainInputs, type PolicyReceiptVerification,
   createPolicyReceiptWithDecisionReceipt,
   FloorValidatorV1,
   requestAction,
@@ -557,6 +558,9 @@ export {
   verifyVC, verifyPresentation
 } from './core/vc.js'
 
+export type { VerifyVCResult, VerifyPresentationResult } from './core/vc.js'
+export type { KeyAuthority } from './core/vc-proof.js'
+
 export type {
   DIDDocument, VerificationMethod, ServiceEndpoint,
   DIDResolutionResult,
@@ -751,9 +755,13 @@ export {
 } from './core/execution-envelope.js'
 
 export type {
-  ExecutionEnvelope, EnvelopeVerification,
+  ExecutionEnvelope, EnvelopeVerification, EnvelopeSignerAuthority,
   EvaluationMethod, EnvelopeVerdict, RevocationStatus
 } from './types/execution-envelope.js'
+
+export type {
+  VerifyEnvelopeOptions, ExpectedEnvelopeContext,
+} from './core/execution-envelope.js'
 
 
 // ── Execution Attestation (Checkpoint 3 — what ACTUALLY ran) ──

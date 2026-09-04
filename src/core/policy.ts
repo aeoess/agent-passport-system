@@ -21,6 +21,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { createHash } from 'crypto'
 import { sign, verify } from '../crypto/keys.js'
 import { canonicalize, canonicalizeForWrite } from './canonical.js'
+import { parseRfc3339 } from './rfc3339.js'
 import { scopeAuthorizes } from './delegation.js'
 import { computeActionRefForWrite } from './action-ref.js'
 import type { EnforcementMode } from '../types/passport.js'
@@ -113,7 +114,8 @@ export function evaluateIntent(opts: {
   )
 
   const now = new Date()
-  const expires = new Date(now)
+  const expires = new Date()
+  expires.setTime(now.getTime())
   expires.setMinutes(expires.getMinutes() + (opts.decisionTTLMinutes ?? 5))
 
   const decision: Omit<PolicyDecision, 'signature'> = {
@@ -143,7 +145,10 @@ export function verifyPolicyDecision(
   if (!verify(canonicalize(unsigned), signature, decision.evaluatorPublicKey)) {
     errors.push('Invalid decision signature')
   }
-  if (new Date(decision.expiresAt) < new Date()) {
+  const expiry = parseRfc3339(decision.expiresAt)
+  if (!expiry.ok) {
+    errors.push(`Invalid decision expiresAt (${expiry.reason})`)
+  } else if (expiry.ms < Date.now()) {
     errors.push('Policy decision expired')
   }
   if (!decision.intentId) errors.push('Missing intentId')
@@ -255,19 +260,187 @@ export function createPolicyReceiptWithDecisionReceipt(opts: {
   return { policyReceipt, decisionReceipt }
 }
 
+/** The three source objects a PolicyReceipt names but does not carry, with
+ *  the trust anchor for each. The receipt holds only ids and copies of the
+ *  three signature strings (see {@link PolicyReceipt}), so the preimages the
+ *  chain signatures were made over are not present in it and cannot be
+ *  reconstructed from it. Chain verification therefore takes them from the
+ *  relying party, which is also where the three anchors belong. */
+export interface PolicyReceiptChainInputs {
+  intent: ActionIntent
+  decision: PolicyDecision
+  receipt: ActionReceipt
+  /** Agent whose intent signature this relying party accepts. */
+  intentSignerPublicKey: string
+  /** Evaluator whose decision signature this relying party accepts. */
+  decisionSignerPublicKey: string
+  /** Executor whose action-receipt signature this relying party accepts. */
+  receiptSignerPublicKey: string
+}
+
+export interface PolicyReceiptVerification {
+  /** The conjunction of envelope integrity and full-chain verification.
+   *  False whenever `chain` was not supplied: a receipt whose chain was never
+   *  checked has not been verified, and saying otherwise is the defect this
+   *  function had. */
+  valid: boolean
+  /** The receipt envelope was signed by `verifierPublicKey`. */
+  envelopeSignatureValid: boolean
+  /** The three inner signatures were verified against the supplied anchors,
+   *  over the supplied source objects, and every id links up. */
+  chainVerified: boolean
+  errors: string[]
+}
+
+/**
+ * Verify a policy receipt AND the three-signature chain it attests to.
+ *
+ * SCOPE OF CLAIM.
+ *   Establishes, when `valid` is true: the receipt envelope was signed by
+ *     `verifierPublicKey`; the intent, decision and action receipt supplied by
+ *     the caller were signed by the three anchors the caller supplied; the
+ *     decision decides that intent; the receipt records that intent; and the
+ *     three signature strings the receipt carries are the signatures on those
+ *     three objects.
+ *   Does NOT establish: that the four keys are the right ones, that they
+ *     belong to four different parties (see the note in
+ *     {@link verifyDecisionArtifact} on the same subject), that the action
+ *     described actually happened, or that the evaluator was entitled to
+ *     permit it.
+ *
+ * `chain` is required, in the types as well as at runtime. Older callers
+ * passed two arguments and received `valid: true` for a receipt whose three
+ * inner signature strings were arbitrary non-empty text: the strings were
+ * tested for presence, never verified, and the objects they were made over
+ * were never seen. An untyped caller that still omits it gets
+ * `valid: false` with `chainVerified: false` rather than an exception. A
+ * relying party that only wants envelope integrity should say so by name with
+ * {@link verifyPolicyReceiptEnvelope}.
+ */
 export function verifyPolicyReceipt(
   policyReceipt: PolicyReceipt,
+  verifierPublicKey: string,
+  chain: PolicyReceiptChainInputs
+): PolicyReceiptVerification {
+  const envelope = verifyPolicyReceiptEnvelope(policyReceipt, verifierPublicKey)
+  const errors: string[] = [...envelope.errors]
+
+  if (!chain) {
+    errors.push(
+      'Chain not verified: the intent, decision and action receipt, and a trust anchor for each, ' +
+      'are required. Use verifyPolicyReceiptEnvelope for an envelope-integrity check.'
+    )
+    return {
+      valid: false,
+      envelopeSignatureValid: envelope.envelopeSignatureValid,
+      chainVerified: false,
+      errors
+    }
+  }
+
+  const chainErrors = policyChainMismatches(policyReceipt, chain)
+  errors.push(...chainErrors)
+
+  return {
+    valid: errors.length === 0,
+    envelopeSignatureValid: envelope.envelopeSignatureValid,
+    chainVerified: chainErrors.length === 0,
+    errors
+  }
+}
+
+/**
+ * Verify only that the receipt envelope was signed by the given key.
+ *
+ * SCOPE OF CLAIM.
+ *   Establishes: the bytes of this PolicyReceipt were signed by
+ *     `verifierPublicKey` and have not been altered since.
+ *   Does NOT establish: anything about the intent, decision or action receipt
+ *     the envelope names. Their signatures are copied into `chain` as strings
+ *     and are not checked here — the objects they were made over are not in
+ *     the receipt. Use {@link verifyPolicyReceipt} with chain inputs for that.
+ *
+ * This is the honest name for what the two-argument call used to do.
+ */
+export function verifyPolicyReceiptEnvelope(
+  policyReceipt: PolicyReceipt,
   verifierPublicKey: string
-): { valid: boolean; errors: string[] } {
+): { valid: boolean; envelopeSignatureValid: boolean; errors: string[] } {
   const errors: string[] = []
   const { signature, ...unsigned } = policyReceipt
-  if (!verify(canonicalize(unsigned), signature, verifierPublicKey)) {
+  const envelopeSignatureValid = verify(canonicalize(unsigned), signature, verifierPublicKey)
+  if (!envelopeSignatureValid) {
     errors.push('Invalid policy receipt signature')
   }
-  if (!policyReceipt.chain.intentSignature) errors.push('Missing intent signature in chain')
-  if (!policyReceipt.chain.decisionSignature) errors.push('Missing decision signature in chain')
-  if (!policyReceipt.chain.receiptSignature) errors.push('Missing receipt signature in chain')
-  return { valid: errors.length === 0, errors }
+  return { valid: envelopeSignatureValid, envelopeSignatureValid, errors }
+}
+
+/** Verify the three inner signatures against the caller's anchors and check
+ *  that every id in the receipt links the objects it names. One entry per
+ *  failure; empty means the chain holds. */
+function policyChainMismatches(
+  policyReceipt: PolicyReceipt,
+  chain: PolicyReceiptChainInputs
+): string[] {
+  const errors: string[] = []
+  const { intent, decision, receipt } = chain
+
+  // Each inner signature is verified over its own object, against the anchor
+  // the caller named — never against a key the object carries about itself.
+  const { signature: intentSig, ...unsignedIntent } = intent
+  if (!verify(canonicalize(unsignedIntent), intentSig, chain.intentSignerPublicKey)) {
+    errors.push('Intent signature does not verify under the supplied intent signer')
+  }
+  const { signature: decisionSig, ...unsignedDecision } = decision
+  if (!verify(canonicalize(unsignedDecision), decisionSig, chain.decisionSignerPublicKey)) {
+    errors.push('Decision signature does not verify under the supplied decision signer')
+  }
+  const { signature: receiptSig, ...unsignedReceipt } = receipt
+  if (!verify(canonicalize(unsignedReceipt), receiptSig, chain.receiptSignerPublicKey)) {
+    errors.push('Action receipt signature does not verify under the supplied receipt signer')
+  }
+
+  // The signature strings the receipt copied must be the signatures on those
+  // objects. Without this a receipt could carry three real signatures taken
+  // from some other chain.
+  if (policyReceipt.chain.intentSignature !== intentSig) {
+    errors.push('Receipt carries an intent signature that is not the supplied intent\'s')
+  }
+  if (policyReceipt.chain.decisionSignature !== decisionSig) {
+    errors.push('Receipt carries a decision signature that is not the supplied decision\'s')
+  }
+  if (policyReceipt.chain.receiptSignature !== receiptSig) {
+    errors.push('Receipt carries an action-receipt signature that is not the supplied receipt\'s')
+  }
+
+  // Linkage. Each id must name the object presented for it, and the decision
+  // must decide the intent presented rather than some other one.
+  if (policyReceipt.intentId !== intent.intentId) {
+    errors.push('Receipt intentId does not name the supplied intent')
+  }
+  if (policyReceipt.decisionId !== decision.decisionId) {
+    errors.push('Receipt decisionId does not name the supplied decision')
+  }
+  if (policyReceipt.receiptId !== receipt.receiptId) {
+    errors.push('Receipt receiptId does not name the supplied action receipt')
+  }
+  if (decision.intentId !== intent.intentId) {
+    errors.push('Decision does not decide the supplied intent: intentId mismatch')
+  }
+
+  // A receipt is proof of a permitted action. A denied decision has no
+  // receipt to attest to; createPolicyReceipt refuses to build one, and a
+  // verifier must refuse to accept one built another way.
+  if (decision.verdict === 'deny') {
+    errors.push('Receipt attests to a denied decision')
+  }
+
+  const expiry = parseRfc3339(decision.expiresAt)
+  if (!expiry.ok) {
+    errors.push(`Invalid decision expiresAt (${expiry.reason})`)
+  }
+
+  return errors
 }
 
 // ══════════════════════════════════════
@@ -479,7 +652,10 @@ export class FloorValidatorV1 implements PolicyValidator {
 
   private checkAuditability(ctx: ValidationContext): PrincipleEvaluation {
     const reasons: string[] = []
-    if (new Date(ctx.delegation.expiresAt) < new Date()) {
+    const delegationExpiry = parseRfc3339(ctx.delegation.expiresAt)
+    if (!delegationExpiry.ok) {
+      reasons.push(`Invalid delegation expiresAt (${delegationExpiry.reason})`)
+    } else if (delegationExpiry.ms < Date.now()) {
       reasons.push('Delegation expired')
     }
     if (ctx.delegation.currentDepth > ctx.delegation.maxDepth) {

@@ -22,6 +22,14 @@ import {
   sign, canonicalize,
 } from '../src/index.js'
 import type { EntityBinding } from '../src/index.js'
+import type { VerifyEnvelopeOptions } from '../src/core/execution-envelope.js'
+
+/** A verifier given no trust inputs at all. The options are required in the
+ *  types, so reaching this path means an untyped caller; the cast makes that
+ *  deliberate and visible. Used where a case observes only the integrity
+ *  flags, which do not depend on trust inputs. */
+const NO_TRUST_INPUTS = {} as VerifyEnvelopeOptions
+
 
 const TEST_INVITE_TOKEN = 'p2F2AWR0eXBlZmRpcmVjdGVzdWl0ZWVRU1AtMWdjb252X2lkUGFwcy1zZWxmdGVzdC3ik_FraW52aXRlX3NhbHRYIE-llgXnGHyYZkXYnOA4qhMM0hrt5vn9zkuk1r_i-EhlbWludml0ZV9zZWNyZXRYIJKCRdT9C9H-uXk7qkL7uOo76r7Qv8iIaCHhNcqZOsVlbWludml0ZXJfaWtfcGtYIAA4dILpwJnnR5Cv22SX54s-3WQRrSaQh2WrECudSkLy'
 
@@ -156,7 +164,7 @@ describe('Campaign 7 — Three-Spec Composition', () => {
 
     // --- Spec 3: APS Governance (Envelope + Decision Lineage) ---
     // Verify the execution envelope (key is embedded in envelope.signature.public_key)
-    const envCheck = verifyExecutionEnvelope(received.envelope)
+    const envCheck = verifyExecutionEnvelope(received.envelope, NO_TRUST_INPUTS)
     assert.equal(envCheck.signatureValid, true, 'Envelope signature valid')
     assert.equal(envCheck.capabilityActive, true, 'Capability not revoked')
 
@@ -236,7 +244,7 @@ describe('Campaign 7 — Three-Spec Composition', () => {
     })
 
     // Envelope embeds real agent's key — verify passes
-    const realCheck = verifyExecutionEnvelope(envelope)
+    const realCheck = verifyExecutionEnvelope(envelope, NO_TRUST_INPUTS)
     assert.equal(realCheck.signatureValid, true)
 
     // Impersonator's DID resolves to a DIFFERENT key
@@ -308,7 +316,7 @@ describe('Campaign 7 — Three-Spec Composition', () => {
       signerPublicKey: agent.publicKey,
     })
 
-    const check = verifyExecutionEnvelope(envelope)
+    const check = verifyExecutionEnvelope(envelope, NO_TRUST_INPUTS)
     assert.equal(check.signatureValid, true, 'Same key flows through all three specs')
     assert.equal(envelope.signature.public_key, resolvedKey, 'One key, three specs, one identity')
   })

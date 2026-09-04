@@ -7,6 +7,7 @@ import { randomBytes } from 'node:crypto'
 import { sign } from '../crypto/keys.js'
 import { canonicalize, canonicalizeForWrite } from './canonical.js'
 import { scopeAuthorizes } from './delegation.js'
+import { parseRfc3339 } from './rfc3339.js'
 import type {
   Obligation, ObligationAction, EvidenceRequirement,
   PenaltySpec, RecurrenceSpec, ObligationBundle,
@@ -166,8 +167,15 @@ export function resolveObligation(opts: {
 }): ObligationResolution {
   const { obligation } = opts
   const now = new Date()
-  const deadlineTime = new Date(obligation.deadline).getTime()
-  const latencyDelta = now.getTime() - deadlineTime
+  // The outcome below is decided without reading the deadline; this parse feeds
+  // only `gatewayLatencyDelta`, a reported measurement. A deadline the gateway
+  // cannot read yields no measurement, so the field is OMITTED, which is what
+  // the shipped code did in this case and what the field's optionality means.
+  // Writing a sentinel instead would put a specific latency the gateway never
+  // measured inside the bytes it signs. The raw deadline is copied onto the
+  // signed resolution either way, so a reader can see which case this is.
+  const deadline = parseRfc3339(obligation.deadline)
+  const latencyDelta = deadline.ok ? now.getTime() - deadline.ms : undefined
 
   let outcome: ObligationOutcome
   let penaltyExecuted = false
@@ -212,7 +220,7 @@ export function resolveObligation(opts: {
     outcome,
     deadline: obligation.deadline,
     detectedAt: now.toISOString(),
-    gatewayLatencyDelta: latencyDelta > 0 ? latencyDelta : undefined,
+    gatewayLatencyDelta: latencyDelta !== undefined && latencyDelta > 0 ? latencyDelta : undefined,
     escalationPending: opts.escalationPending || false,
     escalationId: opts.escalationId,
     attemptEvidence,
@@ -253,9 +261,23 @@ export function scheduleNextRecurrence(opts: {
 }): Obligation | null {
   const rec = opts.obligation.action.recurring
   if (!rec || rec.frequency === 'once') return null
-  if (rec.until && new Date(rec.until) < new Date()) return null
+  // An end bound this scheduler cannot read is not a bound it can honour, so it
+  // ends the series instead of recurring past it. An ABSENT `until` keeps the
+  // shipped semantics: no end bound, keep recurring.
+  if (rec.until) {
+    const until = parseRfc3339(rec.until)
+    if (!until.ok || until.ms < Date.now()) return null
+  }
 
-  const current = new Date(opts.obligation.deadline)
+  // The next deadline is derived from this one, so an unreadable deadline yields
+  // no next instance rather than an obligation dated off an instant nobody can
+  // read. The local-calendar arithmetic below is unchanged — setHours/setDate/
+  // setMonth walk the host calendar exactly as before; only the parse in front
+  // of it is strict.
+  const deadline = parseRfc3339(opts.obligation.deadline)
+  if (!deadline.ok) return null
+  const current = new Date()
+  current.setTime(deadline.ms)
   const interval = rec.interval || 1
   switch (rec.frequency) {
     case 'hourly': current.setHours(current.getHours() + interval); break

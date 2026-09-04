@@ -20,6 +20,8 @@ import { sign, verify, canonicalize, createDID } from '../index.js'
 // Write-policy canonicalizer imported directly: it is an internal helper and is
 // deliberately NOT re-exported from the public barrel above.
 import { canonicalizeForWrite } from './canonical.js'
+import { bindVerificationMethod, proofSigningInput, type KeyAuthority } from './vc-proof.js'
+import { parseRfc3339 } from './rfc3339.js'
 
 // ═══════════════════════════════════════
 // Types
@@ -444,11 +446,17 @@ export function verifyGovernanceBinding(
 
 /**
  * Check if a governance block has expired.
- * Returns true if the block has an expires_at field and it's in the past.
+ * Returns true if the block has an expires_at field and it's in the past, or
+ * if that field cannot be read as an RFC 3339 instant.
  */
 export function isGovernanceBlockExpired(block: GovernanceBlock): boolean {
   if (!block.expires_at) return false // no expiry = never expires
-  return new Date(block.expires_at) < new Date()
+  // expires_at arrives on the block, so it is publisher-supplied. An expiry a
+  // consumer cannot read is not an expiry it can honour: treat an unreadable
+  // value as expired rather than as open-ended.
+  const expiry = parseRfc3339(block.expires_at)
+  if (!expiry.ok) return true
+  return expiry.ms < Date.now()
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -516,36 +524,97 @@ export function createVerifiedGovernanceCredential(input: {
     },
   }
 
-  const proofPayload = canonicalizeForWrite(credential)
-  const proofValue = sign(proofPayload, privateKey)
-
-  return {
-    ...credential,
-    proof: {
-      type: 'Ed25519Signature2020',
-      created: now,
-      verificationMethod: `${publisherDid}#key-1`,
-      proofPurpose: 'assertionMethod',
-      proofValue,
-    },
+  // The proof configuration is inside the bytes it signs, so `created`,
+  // `verificationMethod`, `type` and `proofPurpose` cannot be rewritten after
+  // issuance. Signer and verifier rebuild the same input through one helper
+  // and must change together.
+  const proofConfig: Omit<VerifiedGovernanceCredential['proof'], 'proofValue'> = {
+    type: 'Ed25519Signature2020',
+    created: now,
+    verificationMethod: `${publisherDid}#key-1`,
+    proofPurpose: 'assertionMethod',
   }
+  const proofValue = sign(
+    proofSigningInput(
+      credential as unknown as Record<string, unknown>,
+      proofConfig as unknown as Record<string, unknown>,
+      canonicalizeForWrite,
+    ),
+    privateKey,
+  )
+
+  return { ...credential, proof: { ...proofConfig, proofValue } }
 }
 
 /**
  * Verify a Verified Governance Credential.
  * Checks: signature valid, block hash matches, not expired.
  */
+export interface GovernanceCredentialVerification {
+  /** The conjunction of every property below. */
+  valid: boolean
+  /** The credential's bytes and its proof configuration verify under the key
+   *  the caller supplied. Integrity plus proof of possession. */
+  proofOfPossession: boolean
+  /** Whether that key is the one the DID in `issuer` commits to. The caller
+   *  chooses which key to verify against; this says whether the credential's
+   *  own claim about who issued it agrees with that choice. */
+  keyAuthority: KeyAuthority
+  errors: string[]
+}
+
+/**
+ * Verify a Verified Governance Credential.
+ *
+ * SCOPE OF CLAIM.
+ *   Establishes, when `valid` is true: the credential and its proof
+ *     configuration are unaltered since signing and verify under
+ *     `publicKey`; the DID in `issuer` is the one that key commits to; the
+ *     credential's block hash matches the block supplied; and the credential
+ *     has not expired.
+ *   Does NOT establish: that the issuer is one this relying party trusts,
+ *     which is the caller's choice of `publicKey`; that the governed content
+ *     is what the block says; or that the terms are being honoured.
+ *
+ * The issuer binding is the check verifyGovernanceBlock already makes on
+ * `source_did` and this path did not. The verification key comes from the
+ * caller, which is the right way round, but nothing related it to
+ * `credential.issuer`, so any other holder of a key the relying party accepts
+ * could mint a credential naming a different publisher as its issuer.
+ *
+ * The proof configuration is inside the signed bytes as of this change, using
+ * the same helper as vc.ts and vc-wrapper.ts. It used to be attached after the
+ * body was signed, so `created`, `verificationMethod`, `type` and
+ * `proofPurpose` were rewritable without invalidating `proofValue`.
+ */
 export function verifyGovernanceCredential(
   credential: VerifiedGovernanceCredential,
   block: GovernanceBlock,
   publicKey: string
-): { valid: boolean; errors: string[] } {
+): GovernanceCredentialVerification {
   const errors: string[] = []
 
-  // 1. Verify the proof signature
-  const { proof, ...credentialWithoutProof } = credential
-  const proofPayload = canonicalize(credentialWithoutProof)
-  if (!verify(proofPayload, proof.proofValue, publicKey)) {
+  // 1. Bind the claimed issuer to the key this verification runs under.
+  const binding = bindVerificationMethod(credential.issuer, credential.proof?.verificationMethod)
+  let keyAuthority: KeyAuthority = binding.keyAuthority
+  if (binding.keyAuthority === 'verified') {
+    if (binding.publicKey !== publicKey) {
+      keyAuthority = 'rejected'
+      errors.push('Credential issuer does not commit to the key this verification was given')
+    }
+  } else {
+    errors.push(`Credential issuer binding failed: ${binding.reason}`)
+  }
+
+  // 2. Verify the proof over the body AND the proof configuration.
+  const proof = credential.proof
+  const proofPayload = proofSigningInput(
+    credential as unknown as Record<string, unknown>,
+    proof as unknown as Record<string, unknown>,
+    canonicalize,
+  )
+  const proofOfPossession = verify(proofPayload, proof.proofValue, publicKey)
+  if (!proofOfPossession) {
     errors.push('Credential proof signature invalid')
   }
 
@@ -558,10 +627,17 @@ export function verifyGovernanceCredential(
     errors.push('Governance block hash mismatch — block was modified after credential issuance')
   }
 
-  // 3. Check expiry (AV-3)
-  if (credential.expirationDate && new Date(credential.expirationDate) < new Date()) {
-    errors.push('Governance credential has expired')
+  // 3. Check expiry (AV-3). An expirationDate this verifier cannot read is not
+  // an expiry it can honour, so a present-but-unreadable value is refused here;
+  // an absent one still means the credential carries no expiry.
+  if (credential.expirationDate) {
+    const expiry = parseRfc3339(credential.expirationDate)
+    if (!expiry.ok) {
+      errors.push(`Governance credential has an unreadable expirationDate (${expiry.reason})`)
+    } else if (expiry.ms < Date.now()) {
+      errors.push('Governance credential has expired')
+    }
   }
 
-  return { valid: errors.length === 0, errors }
+  return { valid: errors.length === 0, proofOfPossession, keyAuthority, errors }
 }

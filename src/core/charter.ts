@@ -11,6 +11,7 @@
 import { v4 as uuidv4 } from 'uuid'
 import { sign, verify } from '../crypto/keys.js'
 import { canonicalize, canonicalizeForWrite } from './canonical.js'
+import { parseRfc3339, formatRfc3339 } from './rfc3339.js'
 import { createHash } from 'crypto'
 import type {
   CharterCore, CharterStatus, CharterSignature,
@@ -597,7 +598,7 @@ export function createApprovalRequest(
   timeoutSeconds: number,
 ): ApprovalRequest {
   const now = new Date().toISOString()
-  const expiresAt = new Date(Date.now() + timeoutSeconds * 1000).toISOString()
+  const expiresAt = formatRfc3339(Date.now() + timeoutSeconds * 1000)
 
   return {
     requestId: 'approval_' + uuidv4().slice(0, 12),
@@ -633,7 +634,13 @@ export function addApprovalSignature(
   if (request.status !== 'pending') {
     throw new Error(`Cannot sign ${request.status} approval request`)
   }
-  if (new Date(request.expiresAt) < new Date()) {
+  // A deadline this signer cannot read is not a window it can sign inside of,
+  // so an unreadable expiresAt refuses the signature the way a past one does.
+  const expiry = parseRfc3339(request.expiresAt)
+  if (!expiry.ok) {
+    throw new Error(`Approval request has an unreadable expiresAt (${expiry.reason})`)
+  }
+  if (expiry.ms < Date.now()) {
     throw new Error('Approval request has expired')
   }
   if (request.signatures.some(s => s.publicKey === signerPublicKey)) {
@@ -662,7 +669,10 @@ export function evaluateApprovalRequest(
   request: ApprovalRequest,
   policy: ApprovalPolicy,
 ): { request: ApprovalRequest; evaluation: ApprovalEvaluation } {
-  const expired = new Date(request.expiresAt) < new Date()
+  // An expiry this evaluator cannot read is not a window it can hold open, so
+  // an unreadable expiresAt evaluates as expired.
+  const expiry = parseRfc3339(request.expiresAt)
+  const expired = !expiry.ok || expiry.ms < Date.now()
 
   if (policy.type === 'threshold' && policy.threshold) {
     // Approval signatures are produced over approvalSignContent(request)

@@ -118,6 +118,10 @@ export function governComposioAction(opts: {
   recoveryPolicy?: RecoveryPolicy
   onDenied?: (event: DenialEvent) => void
   onReceipt?: (receipt: ActionReceipt) => void
+  /** Issuer keys whose countersignature this gate accepts. A deployment
+   *  supplies these; the example defaults to the self-signed opt-in below so
+   *  it runs without an issuer, which is not what a real gate should do. */
+  trustedIssuers?: string[]
 }): GovernedAction {
   const { passport, delegation, privateKey, action } = opts
 
@@ -128,8 +132,17 @@ export function governComposioAction(opts: {
       const scope = toolToScope(action.name)
       const timestamp = new Date().toISOString()
 
-      // Gate 1: Passport valid
-      const passportCheck = verifyPassport(passport, passport.passport.publicKey)
+      // Gate 1: Passport valid.
+      // The second argument is verifyPassport's OPTIONS object. It previously
+      // received the passport's own public key, which is not an option shape
+      // at all: the value was ignored and the call fell into the permissive
+      // branch. A gate names its trust input, or names the opt-in.
+      const passportCheck = verifyPassport(
+        passport,
+        opts.trustedIssuers && opts.trustedIssuers.length > 0
+          ? { trustedIssuers: opts.trustedIssuers }
+          : { allowSelfSigned: true },
+      )
       if (!passportCheck.valid) {
         const reason = `Passport invalid: ${passportCheck.errors.join(', ')}`
         return emitDenial(opts, action.name, scope, reason, timestamp)

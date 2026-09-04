@@ -15,6 +15,9 @@
 //
 //   - Key not in doc                                → reject
 //   - Key retired BEFORE the receipt was signed     → reject (compromise)
+//   - Key retired, retiredAt unreadable             → reject (nothing places
+//                                                     the retirement after
+//                                                     signing)
 //   - Key retired AFTER the receipt was signed      → accept (legitimate
 //                                                     post-rotation
 //                                                     verification)
@@ -25,6 +28,7 @@
 // ══════════════════════════════════════════════════════════════════
 
 import { multibaseToHex } from './did.js'
+import { parseRfc3339 } from './rfc3339.js'
 import type {
   RotatableDIDDocument,
   RotatableVerificationMethod,
@@ -71,8 +75,9 @@ export function buildDidUri(agentId: string, keyRef: string): string {
 export interface ResolveVerificationMethodResult {
   method: RotatableVerificationMethod
   /** True when the key was retired BEFORE the receipt was signed
-   *  (compromise mode — verifier MUST reject). False when the key is
-   *  active OR was retired AFTER the receipt was signed (legitimate
+   *  (compromise mode — verifier MUST reject), and also when the document
+   *  carries a `retiredAt` that cannot be read as an instant. False when the
+   *  key is active OR was retired AFTER the receipt was signed (legitimate
    *  post-rotation verification). */
   retired: boolean
 }
@@ -117,15 +122,29 @@ export function resolveVerificationMethod(
   const _issued = issuedAtMs ?? _now
 
   if (method.retiredAt) {
-    const retiredAtMs = Date.parse(method.retiredAt)
-    if (Number.isFinite(retiredAtMs) && retiredAtMs <= _issued) {
+    const retiredAt = parseRfc3339(method.retiredAt)
+    if (!retiredAt.ok) {
+      // The document asserts this key was retired but gives no readable
+      // instant, so nothing here places the retirement after signing. A
+      // retirement this resolver cannot read is not one it can clear.
+      return { method, retired: true }
+    }
+    // The caller's clocks are the other half of the comparison and they are
+    // plain numbers, so a NaN or an infinity arriving from an upstream parse
+    // would make every relational test below false and clear the retirement
+    // by the same mechanism an unreadable string used to. Both operands have
+    // to be instants before either can bound the other.
+    if (!Number.isFinite(_now) || !Number.isFinite(_issued)) {
+      return { method, retired: true }
+    }
+    if (retiredAt.ms <= _issued) {
       // Retired before (or at exactly) the signing instant — reject.
       // The "<= " is deliberate: a key retired at the same millisecond
       // as the signature is treated as compromised.
       return { method, retired: true }
     }
-    // retiredAt > issuedAtMs OR malformed retiredAt: accept the signature
-    // as a legitimate pre-rotation issuance verifying post-rotation.
+    // retiredAt > issuedAtMs: accept the signature as a legitimate
+    // pre-rotation issuance verifying post-rotation.
     return { method, retired: false }
   }
   return { method, retired: false }

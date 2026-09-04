@@ -986,9 +986,11 @@ function cmdStatus(): void {
   console.log(`  Agent:        ${agent.agentId}`)
   console.log(`  Key:          ${agent.publicKey.slice(0, 16)}...`)
 
-  // Verify identity
-  const idCheck = verifyPassport(agent.passport)
-  console.log(`  Identity:     ${idCheck.valid ? '✓ valid' : '✗ INVALID'}`)
+  // Verify identity. This is a local status line, not a gate: it reports
+  // whether the passport's own signature holds, which is integrity, so it
+  // names the opt-in and labels the answer for what it is.
+  const idCheck = verifyPassport(agent.passport, { allowSelfSigned: true })
+  console.log(`  Identity:     ${idCheck.valid ? '✓ signature valid (self-signed, no trust anchor)' : '✗ INVALID'}`)
 
   // Check attestation
   if (agent.attestation) {

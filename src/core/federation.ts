@@ -6,6 +6,7 @@
 
 import { sign, verify } from '../crypto/keys.js'
 import { canonicalize, canonicalizeForWrite } from './canonical.js'
+import { formatRfc3339 } from './rfc3339.js'
 import { createHash } from 'crypto'
 import type { ForeignReceiptEnvelope, VouchedReputation } from '../types/federation.js'
 import type { GatewayImportPolicy } from '../types/gateway.js'
@@ -79,7 +80,9 @@ export interface VouchReputationOptions {
 export function vouchReputation(opts: VouchReputationOptions): VouchedReputation {
   const now = new Date().toISOString()
   const ttl = opts.ttlSeconds ?? 86400 * 30
-  const expiresAt = new Date(Date.now() + ttl * 1000).toISOString()
+  // Emission: the instant is already a number here, so it is rendered
+  // directly rather than round-tripped through a Date. Same bytes.
+  const expiresAt = formatRfc3339(Date.now() + ttl * 1000)
 
   const rep: Omit<VouchedReputation, 'originGatewaySignature'> = {
     agentId: opts.agentId,

@@ -408,9 +408,29 @@ describe('Three-Signature Chain — Intent → Decision → Receipt', () => {
     assert.equal(policyReceipt.chain.decisionSignature, decision.signature)
     assert.equal(policyReceipt.chain.receiptSignature, receipt.signature)
 
-    // Verify the policy receipt itself
-    const v = verifyPolicyReceipt(policyReceipt, verifier.publicKey)
+    // Verify the receipt AND the chain it attests to. The three inner
+    // signatures are checked against the three trust anchors this relying
+    // party names, over the three source objects — the receipt carries only
+    // ids and copies of the signature strings, so the objects have to come
+    // from the caller. Verifying the envelope alone, which is what the
+    // two-argument call used to do and report as `valid`, establishes
+    // nothing about the chain.
+    const v = verifyPolicyReceipt(policyReceipt, verifier.publicKey, {
+      intent, decision, receipt,
+      intentSignerPublicKey: agent.publicKey,
+      decisionSignerPublicKey: evaluator.publicKey,
+      receiptSignerPublicKey: agent.publicKey
+    })
     assert.ok(v.valid, `Expected valid but got errors: ${v.errors}`)
+    assert.equal(v.chainVerified, true)
+    assert.equal(v.envelopeSignatureValid, true)
+
+    // Without the chain inputs the same receipt is not verified, and says so.
+    // Untyped-caller path: `chain` is required in the types now.
+    const envelopeOnly = verifyPolicyReceipt(policyReceipt, verifier.publicKey, undefined as never)
+    assert.equal(envelopeOnly.valid, false)
+    assert.equal(envelopeOnly.chainVerified, false)
+    assert.equal(envelopeOnly.envelopeSignatureValid, true)
   })
 
   it('[ADVERSARIAL] cannot create policy receipt for denied intent', () => {
@@ -490,7 +510,7 @@ describe('Three-Signature Chain — Intent → Decision → Receipt', () => {
 
     // Verify with wrong key
     const other = generateKeyPair()
-    const v = verifyPolicyReceipt(policyReceipt, other.publicKey)
+    const v = verifyPolicyReceipt(policyReceipt, other.publicKey, undefined as never)
     assert.ok(!v.valid)
   })
 })

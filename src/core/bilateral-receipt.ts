@@ -19,6 +19,7 @@ import { createHash, randomUUID } from 'node:crypto'
 import { sign, verify } from '../crypto/keys.js'
 import { canonicalize, canonicalizeForWrite } from './canonical.js'
 import { isRecord } from './is-record.js'
+import { parseRfc3339 } from './rfc3339.js'
 import type {
   BilateralReceipt,
   BilateralReceiptVerification,
@@ -183,12 +184,20 @@ export function verifyBilateralReceipt(
     errors.push('Gateway signature present but no public key provided')
   }
 
-  // Timing sanity
-  const req = new Date(receipt.requestedAt).getTime()
-  const comp = new Date(receipt.completedAt).getTime()
-  const agreed = new Date(receipt.agreedAt).getTime()
-  const timingValid = comp >= req && agreed >= req
-  if (!timingValid) errors.push('Timing invalid')
+  // Timing sanity. A timestamp this verifier cannot read states no instant, so
+  // the ordering it would have to satisfy cannot be confirmed — an unreadable
+  // clock is never a passing clock.
+  const req = parseRfc3339(receipt.requestedAt)
+  const comp = parseRfc3339(receipt.completedAt)
+  const agreed = parseRfc3339(receipt.agreedAt)
+  let timingValid: boolean
+  if (!req.ok || !comp.ok || !agreed.ok) {
+    timingValid = false
+    errors.push('Timing invalid: requestedAt, completedAt or agreedAt is not an RFC 3339 instant')
+  } else {
+    timingValid = comp.ms >= req.ms && agreed.ms >= req.ms
+    if (!timingValid) errors.push('Timing invalid')
+  }
 
   return {
     valid: errors.length === 0,
@@ -264,12 +273,17 @@ export function checkCompromiseWindow(opts: {
   revocationReason: RevocationReason
   compromisedSince?: string
 }): CompromiseWindowCheck {
-  const proof = new Date(opts.proofTimestamp).getTime()
-  const revoked = new Date(opts.revokedAt).getTime()
+  // 'safe' is the only status that clears a proof, and it is reached solely by
+  // placing the proof strictly before another instant. A timestamp this check
+  // cannot read states no instant, so no such ordering can be established and
+  // the proof is not cleared.
+  const proof = parseRfc3339(opts.proofTimestamp)
+  const revoked = parseRfc3339(opts.revokedAt)
+  const instantsReadable = proof.ok && revoked.ok
 
   // Non-compromise revocations: pre-revocation proofs are safe
   if (opts.revocationReason !== 'compromise') {
-    if (proof < revoked) {
+    if (proof.ok && revoked.ok && proof.ms < revoked.ms) {
       return {
         status: 'safe',
         reason: `Proof predates ${opts.revocationReason} revocation`,
@@ -279,7 +293,9 @@ export function checkCompromiseWindow(opts: {
     }
     return {
       status: 'error',
-      reason: `Proof created after ${opts.revocationReason} revocation`,
+      reason: instantsReadable
+        ? `Proof created after ${opts.revocationReason} revocation`
+        : 'proofTimestamp or revokedAt is not an RFC 3339 instant',
       proofTimestamp: opts.proofTimestamp,
       revokedAt: opts.revokedAt,
     }
@@ -287,8 +303,8 @@ export function checkCompromiseWindow(opts: {
 
   // Compromise revocation: check the window
   if (opts.compromisedSince) {
-    const breachStart = new Date(opts.compromisedSince).getTime()
-    if (proof < breachStart) {
+    const breachStart = parseRfc3339(opts.compromisedSince)
+    if (proof.ok && revoked.ok && breachStart.ok && proof.ms < breachStart.ms) {
       return {
         status: 'safe',
         reason: 'Proof predates known compromise start',
@@ -299,7 +315,9 @@ export function checkCompromiseWindow(opts: {
     }
     return {
       status: 'error',
-      reason: 'Proof created within known compromise window',
+      reason: instantsReadable && breachStart.ok
+        ? 'Proof created within known compromise window'
+        : 'proofTimestamp, revokedAt or compromisedSince is not an RFC 3339 instant',
       proofTimestamp: opts.proofTimestamp,
       revokedAt: opts.revokedAt,
       compromisedSince: opts.compromisedSince,
