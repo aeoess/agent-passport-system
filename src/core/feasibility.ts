@@ -8,6 +8,7 @@ import type { Delegation } from '../types/passport.js'
 import type { TaskRoleSpec } from '../types/coordination.js'
 import type { FeasibilityIssue, FeasibilityResult } from '../types/feasibility.js'
 import { scopeCovers } from './delegation.js'
+import { parseRfc3339 } from './rfc3339.js'
 
 function result(issues: FeasibilityIssue[]): FeasibilityResult {
   const errorCount = issues.filter(i => i.severity === 'error').length
@@ -192,11 +193,32 @@ export function lintTaskFeasibility(opts: {
     }
   }
 
+  // Both temporal checks below read the same delegation window, so it is parsed
+  // once. A timestamp this linter cannot read is not a window it can clear: each
+  // check raises its own error-severity issue instead of comparing against an
+  // unreadable instant, where every comparison answers false and the mission
+  // lints as feasible. The codes are the existing ones so a caller that already
+  // treats them as fatal keeps working.
+  const delegationExpiry = parseRfc3339(delegation.expiresAt)
+
   // 3. Delegation expires before task deadline
   if (opts.taskDeadline) {
-    const delegationExpiry = new Date(delegation.expiresAt)
-    const deadline = new Date(opts.taskDeadline)
-    if (delegationExpiry < deadline) {
+    const deadline = parseRfc3339(opts.taskDeadline)
+    if (!delegationExpiry.ok) {
+      issues.push({
+        code: 'DELEGATION_EXPIRES_BEFORE_DEADLINE',
+        severity: 'error',
+        message: `Delegation expiresAt ${delegation.expiresAt} is not a readable timestamp (${delegationExpiry.reason}) — it cannot be shown to outlast task deadline ${opts.taskDeadline}`,
+        field: 'expiresAt',
+      })
+    } else if (!deadline.ok) {
+      issues.push({
+        code: 'DELEGATION_EXPIRES_BEFORE_DEADLINE',
+        severity: 'error',
+        message: `Task deadline ${opts.taskDeadline} is not a readable timestamp (${deadline.reason}) — the delegation cannot be shown to outlast it`,
+        field: 'taskDeadline',
+      })
+    } else if (delegationExpiry.ms < deadline.ms) {
       issues.push({
         code: 'DELEGATION_EXPIRES_BEFORE_DEADLINE',
         severity: 'error',
@@ -207,7 +229,14 @@ export function lintTaskFeasibility(opts: {
   }
 
   // 4. Delegation already expired
-  if (new Date(delegation.expiresAt) < new Date()) {
+  if (!delegationExpiry.ok) {
+    issues.push({
+      code: 'DELEGATION_EXPIRED',
+      severity: 'error',
+      message: `Delegation expiresAt ${delegation.expiresAt} is not a readable timestamp (${delegationExpiry.reason}) — treated as expired`,
+      field: 'expiresAt',
+    })
+  } else if (delegationExpiry.ms < Date.now()) {
     issues.push({
       code: 'DELEGATION_EXPIRED',
       severity: 'error',

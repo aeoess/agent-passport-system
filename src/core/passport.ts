@@ -4,6 +4,7 @@
 
 import { generateKeyPair, sign, verify, publicKeyFromPrivate } from '../crypto/keys.js'
 import { canonicalize, canonicalizeForWrite } from './canonical.js'
+import { parseRfc3339 } from './rfc3339.js'
 import type {
   AgentPassport, SignedPassport, KeyPair,
   CreatePassportOptions, ReputationScore, IssuerSignature
@@ -57,7 +58,8 @@ export function createPassport(options: CreatePassportOptions): {
     expiresAt = options.validityWindow.notAfter
     notBefore = options.validityWindow.notBefore || createdAt
   } else {
-    const expiry = new Date(now)
+    const expiry = new Date()
+    expiry.setTime(now.getTime())
     expiry.setDate(expiry.getDate() + (options.expiresInDays || DEFAULT_EXPIRY_DAYS))
     createdAt = now.toISOString()
     expiresAt = expiry.toISOString()
@@ -109,7 +111,12 @@ export function updatePassport(
 }
 
 export function isExpired(passport: AgentPassport): boolean {
-  return new Date(passport.expiresAt) < new Date()
+  // An expiry this SDK cannot read is not an expiry it can honour: a passport
+  // whose expiresAt is not an RFC 3339 instant counts as expired, never as
+  // one that has no readable limit and is therefore still good.
+  const expiry = parseRfc3339(passport.expiresAt)
+  if (!expiry.ok) return true
+  return expiry.ms < Date.now()
 }
 
 /**
@@ -118,11 +125,23 @@ export function isExpired(passport: AgentPassport): boolean {
  * For session passports (no notBefore), checks only expiry.
  */
 export function isPassportValid(passport: AgentPassport): { valid: boolean, reason?: string } {
-  const now = new Date()
-  if (passport.notBefore && now < new Date(passport.notBefore)) {
-    return { valid: false, reason: 'NOT_YET_VALID' }
+  const now = Date.now()
+  // A window edge that cannot be read cannot place `now` inside the window,
+  // so an unreadable edge fails the check rather than being skipped over.
+  if (passport.notBefore) {
+    const notBefore = parseRfc3339(passport.notBefore)
+    if (!notBefore.ok) {
+      return { valid: false, reason: 'INVALID_NOT_BEFORE' }
+    }
+    if (now < notBefore.ms) {
+      return { valid: false, reason: 'NOT_YET_VALID' }
+    }
   }
-  if (now > new Date(passport.expiresAt)) {
+  const expiresAt = parseRfc3339(passport.expiresAt)
+  if (!expiresAt.ok) {
+    return { valid: false, reason: 'INVALID_EXPIRES_AT' }
+  }
+  if (now > expiresAt.ms) {
     return { valid: false, reason: 'EXPIRED' }
   }
   return { valid: true }

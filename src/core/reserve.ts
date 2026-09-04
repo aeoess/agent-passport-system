@@ -7,6 +7,7 @@
 import { v4 as uuidv4 } from 'uuid'
 import { sign, verify } from '../crypto/keys.js'
 import { canonicalize, canonicalizeForWrite } from './canonical.js'
+import { parseRfc3339, formatRfc3339 } from './rfc3339.js'
 import type {
   ReserveAttestation, ReserveAssuranceClass,
   ReserveAttestationLiability,
@@ -33,7 +34,7 @@ export interface CreateReserveAttestationOptions {
 export function createReserveAttestation(opts: CreateReserveAttestationOptions): ReserveAttestation {
   const now = new Date().toISOString()
   const ttl = opts.ttlSeconds ?? 86400
-  const expiresAt = new Date(Date.now() + ttl * 1000).toISOString()
+  const expiresAt = formatRfc3339(Date.now() + ttl * 1000)
 
   const attestation: Omit<ReserveAttestation, 'signature'> = {
     attestationId: 'res_' + uuidv4().slice(0, 12),
@@ -77,9 +78,16 @@ export function verifyReserveAttestation(att: ReserveAttestation): ReserveAttest
   } catch { signatureValid = false }
   if (!signatureValid) errors.push('Invalid attestation signature')
 
-  // Expiry check
-  const notExpired = new Date(att.expiresAt) > new Date()
-  if (!notExpired) errors.push('Attestation expired')
+  // Expiry check. The expiry arrives on the attestation, so an expiry this
+  // verifier cannot read is not an expiry it can honour: unreadable is not
+  // "not expired".
+  const expiry = parseRfc3339(att.expiresAt)
+  const notExpired = expiry.ok && expiry.ms > Date.now()
+  if (!expiry.ok) {
+    errors.push(`Invalid attestation expiresAt (${expiry.reason})`)
+  } else if (!notExpired) {
+    errors.push('Attestation expired')
+  }
 
   return {
     valid: errors.length === 0,

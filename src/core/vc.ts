@@ -5,6 +5,7 @@
 // Pure translation layer: no changes to core protocol.
 
 import { canonicalize, canonicalizeForWrite } from './canonical.js'
+import { parseRfc3339 } from './rfc3339.js'
 import { sign, verify, publicKeyFromPrivate } from '../crypto/keys.js'
 import { createDID, publicKeyFromDID } from './did.js'
 import type { AgentPassport, Delegation, ActionReceipt } from '../types/passport.js'
@@ -222,10 +223,18 @@ export async function verifyVC(credential: VerifiableCredential): Promise<{
 
     const isValid = await verify(canonical, sigHex, publicKey)
 
-    // Check expiration
+    // Check expiration. An expirationDate this verifier cannot read is not an
+    // expiry it can honour, so it fails the credential instead of passing it.
     if (credential.expirationDate) {
-      const expiry = new Date(credential.expirationDate)
-      if (expiry < new Date()) {
+      const expiry = parseRfc3339(credential.expirationDate)
+      if (!expiry.ok) {
+        return {
+          valid: false,
+          issuerDID,
+          error: `Credential has an invalid expirationDate (${expiry.reason})`
+        }
+      }
+      if (expiry.ms < Date.now()) {
         return { valid: false, issuerDID, error: 'Credential has expired' }
       }
     }

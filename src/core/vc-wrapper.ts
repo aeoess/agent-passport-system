@@ -9,6 +9,7 @@
 //        → vc.ts (W3C Verifiable Credentials)
 
 import { canonicalize, canonicalizeForWrite } from './canonical.js'
+import { parseRfc3339 } from './rfc3339.js'
 import { sign, verify, publicKeyFromPrivate } from '../crypto/keys.js'
 import { toDIDKey, fromDIDKey } from './did-interop.js'
 import { hexToMultibase } from './did.js'
@@ -135,9 +136,14 @@ export async function verifyVerifiableCredential(vc: VerifiableCredential): Prom
   }
   checks.push('PASS: type includes VerifiableCredential')
 
-  // Check expiration
+  // Check expiration. An expirationDate this verifier cannot read is not an
+  // expiry it can honour, so it fails rather than reporting "not expired".
   if (vc.expirationDate) {
-    if (new Date(vc.expirationDate) < new Date()) {
+    const expiry = parseRfc3339(vc.expirationDate)
+    if (!expiry.ok) {
+      checks.push(`FAIL: credential has an invalid expirationDate (${expiry.reason})`)
+      valid = false
+    } else if (expiry.ms < Date.now()) {
       checks.push('FAIL: credential expired')
       valid = false
     } else {

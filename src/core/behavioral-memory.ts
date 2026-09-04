@@ -5,6 +5,7 @@
 import { v4 as uuidv4 } from 'uuid'
 import { sign, verify } from '../crypto/keys.js'
 import { canonicalize, canonicalizeForWrite } from './canonical.js'
+import { parseRfc3339, formatRfc3339 } from './rfc3339.js'
 import type { BehavioralMemoryObject, BMOExportBundle } from '../types/behavioral-memory.js'
 
 export function createBehavioralMemoryObject(opts: {
@@ -26,7 +27,8 @@ export function createBehavioralMemoryObject(opts: {
     derivation_source: opts.derivation_source,
     retention_policy: {
       ttl: opts.retention_ttl,
-      expires_at: new Date(now.getTime() + opts.retention_ttl * 1000).toISOString(),
+      // Emission from an instant already held as a number. Same bytes.
+      expires_at: formatRfc3339(now.getTime() + opts.retention_ttl * 1000),
     },
     relational_entities: opts.relational_entities,
     portable: opts.portable,
@@ -46,9 +48,11 @@ export function verifyBehavioralMemoryObject(bmo: BehavioralMemoryObject, public
 export function isBMOExpired(bmo: BehavioralMemoryObject): boolean {
   const expiresAt = bmo.retention_policy?.expires_at
   if (!expiresAt) return true // missing expiry = expired
-  const d = new Date(expiresAt)
-  if (isNaN(d.getTime())) return true // invalid date = expired
-  return d < new Date()
+  // An expiry this reader cannot parse is not an expiry it can honour, so
+  // the retention window is treated as elapsed rather than as unbounded.
+  const expiry = parseRfc3339(expiresAt)
+  if (!expiry.ok) return true // unreadable expiry = expired
+  return expiry.ms < Date.now()
 }
 
 export function exportBehavioralMemory(

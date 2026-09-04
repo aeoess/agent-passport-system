@@ -11,6 +11,7 @@
 import { v4 as uuidv4 } from 'uuid'
 import { sign, verify, publicKeyFromPrivate } from '../crypto/keys.js'
 import { canonicalize, canonicalizeForWrite } from './canonical.js'
+import { parseRfc3339 } from './rfc3339.js'
 import { buildMerkleRoot, generateMerkleProof, verifyMerkleProof } from './attribution.js'
 import type { MerkleProof } from '../types/passport.js'
 import type {
@@ -135,9 +136,19 @@ export function verifySourceReceipt(receipt: SourceReceipt): SourceReceiptVerifi
   const termsValid = receipt.dataTerms.allowedPurposes.length > 0
   if (!termsValid) errors.push('DataTerms must have at least one allowed purpose')
 
-  // Expiry check
-  const notExpired = !receipt.expiresAt || new Date(receipt.expiresAt) > new Date()
-  if (!notExpired) errors.push('Source receipt expired')
+  // Expiry check. An absent expiresAt is no expiry at all and still means the
+  // receipt does not lapse. A present one this verifier cannot read is not an
+  // expiry it can honour, so it cannot be the thing that keeps the receipt
+  // alive either.
+  const expiry = receipt.expiresAt ? parseRfc3339(receipt.expiresAt) : null
+  const notExpired = expiry === null || (expiry.ok && expiry.ms > Date.now())
+  if (!notExpired) {
+    errors.push(
+      expiry !== null && !expiry.ok
+        ? `Source receipt expiresAt is not an RFC 3339 instant (${expiry.reason})`
+        : 'Source receipt expired'
+    )
+  }
 
   // Revocation check
   const notRevoked = !receipt.revokedAt
@@ -242,9 +253,10 @@ export function verifyDataAccessReceipt(receipt: DataAccessReceipt): AccessRecei
   const sourceReceiptExists = !!receipt.sourceReceiptId && receipt.sourceReceiptId.startsWith('srcr_')
   if (!sourceReceiptExists) errors.push('Missing or malformed sourceReceiptId')
 
-  // Temporal validity
-  const ts = new Date(receipt.timestamp)
-  const temporalValid = !isNaN(ts.getTime()) && ts <= new Date()
+  // Temporal validity. A timestamp this verifier cannot read states no
+  // instant, so it cannot be shown to sit at or before now.
+  const ts = parseRfc3339(receipt.timestamp)
+  const temporalValid = ts.ok && ts.ms <= Date.now()
   if (!temporalValid) errors.push('Invalid or future timestamp')
 
   return {
@@ -278,9 +290,15 @@ export function checkTermsCompliance(opts: {
     hardViolations.push(`Source revoked at ${opts.sourceReceipt.revokedAt}`)
   }
 
-  // Expired terms
-  if (terms.expiresAt && new Date(terms.expiresAt) <= new Date()) {
-    hardViolations.push(`Terms expired at ${terms.expiresAt}`)
+  // Expired terms. An expiresAt this check cannot read is not an expiry it can
+  // honour, so the terms cannot be shown to still be in force.
+  if (terms.expiresAt) {
+    const termsExpiry = parseRfc3339(terms.expiresAt)
+    if (!termsExpiry.ok) {
+      hardViolations.push(`Terms expiresAt is not an RFC 3339 instant: ${terms.expiresAt}`)
+    } else if (termsExpiry.ms <= Date.now()) {
+      hardViolations.push(`Terms expired at ${terms.expiresAt}`)
+    }
   }
 
   // Excluded agent

@@ -12,6 +12,7 @@
 import { createDelegation, scopeAuthorizes } from '../core/delegation.js'
 import { sign } from '../crypto/keys.js'
 import { canonicalizeForWrite } from '../core/canonical.js'
+import { parseRfc3339 } from '../core/rfc3339.js'
 import type { Delegation, ActionReceipt, SignedPassport } from '../types/passport.js'
 
 // ── Types ──
@@ -113,8 +114,14 @@ export function evaluateIBACTuples(
     const prefix = VERB_PREFIX[verb] || `data:${verb}`
     const scope = `${prefix}:${tuple.resource}`
 
-    // Check expiry
-    if (new Date(delegation.expiresAt) <= new Date()) {
+    // Check expiry. An expiry this adapter cannot read is not an expiry it can
+    // honour, so it denies on the same branch a real expiry denies on; the reason
+    // says which of the two it was.
+    const expiry = parseRfc3339(delegation.expiresAt)
+    if (!expiry.ok) {
+      return { tuple, authorized: false, scope, reason: `Delegation expiresAt is not a readable timestamp (${expiry.reason})` }
+    }
+    if (expiry.ms <= Date.now()) {
       return { tuple, authorized: false, scope, reason: 'Delegation expired' }
     }
 

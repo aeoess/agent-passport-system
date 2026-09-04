@@ -24,6 +24,7 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { sign, verify } from '../crypto/keys.js'
 import { canonicalize, canonicalizeForWrite } from './canonical.js'
+import { parseRfc3339 } from './rfc3339.js'
 import type {
   ExecutionAttestation,
   ExecutionAttestationVerification,
@@ -141,13 +142,21 @@ export function verifyExecutionAttestation(
     errors.push(`Match flag inconsistent: hashes ${parameterMatch ? 'match' : 'differ'} but match=${attestation.match}`)
   }
 
-  // 4. Timing sanity
-  const start = new Date(attestation.executionStartedAt).getTime()
-  const end = new Date(attestation.executionCompletedAt).getTime()
-  const attested = new Date(attestation.attestedAt).getTime()
-  const timingValid = end >= start && attested >= start
-  if (!timingValid) {
-    errors.push('Timing invalid: execution completed before start or attested before start')
+  // 4. Timing sanity. A timestamp this verifier cannot read states no instant,
+  //    so the ordering it would have to satisfy cannot be confirmed and the
+  //    check fails — an unreadable clock is never a passing clock.
+  const start = parseRfc3339(attestation.executionStartedAt)
+  const end = parseRfc3339(attestation.executionCompletedAt)
+  const attested = parseRfc3339(attestation.attestedAt)
+  let timingValid: boolean
+  if (!start.ok || !end.ok || !attested.ok) {
+    timingValid = false
+    errors.push('Timing invalid: executionStartedAt, executionCompletedAt or attestedAt is not an RFC 3339 instant')
+  } else {
+    timingValid = end.ms >= start.ms && attested.ms >= start.ms
+    if (!timingValid) {
+      errors.push('Timing invalid: execution completed before start or attested before start')
+    }
   }
 
   return {

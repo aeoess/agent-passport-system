@@ -5,6 +5,7 @@
 // into APS attestations and delegation parameters.
 
 import crypto from 'node:crypto'
+import { formatRfc3339 } from './rfc3339.js'
 import type { ProviderAttestation } from '../types/attestation.js'
 
 // ── SPIFFE SVID Import ──
@@ -182,7 +183,10 @@ export function importOAuthToken(
     .slice(0, 16)
 
   const agentId = `agent-oauth-${idHash}`
-  const expiresAt = new Date(token.exp * 1000).toISOString()
+  // exp is a NumericDate the caller already holds, so this is an emission, not
+  // an interpretation. Math.trunc keeps the whole-millisecond rounding the Date
+  // constructor applied, so a non-integer exp still renders the same instant.
+  const expiresAt = formatRfc3339(Math.trunc(token.exp * 1000))
 
   return { agentId, delegationScope, expiresAt }
 }

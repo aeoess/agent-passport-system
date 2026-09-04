@@ -20,6 +20,7 @@
 import { randomBytes } from 'node:crypto'
 import { sign, verify as ed25519Verify } from '../crypto/keys.js'
 import { canonicalize, canonicalizeForWrite } from './canonical.js'
+import { formatRfc3339 } from './rfc3339.js'
 import { verifyPassport } from '../verification/verify.js'
 import { scopeAuthorizes } from './delegation.js'
 import { verifyBoundWallet } from '../v2/wallet-binding/bind.js'
@@ -228,7 +229,7 @@ export function requestHumanApproval(opts: {
   expiresInMinutes?: number
 }): HumanApprovalRequest {
   const now = new Date()
-  const expiresAt = new Date(now.getTime() + (opts.expiresInMinutes || 30) * 60 * 1000)
+  const expiresAtMs = now.getTime() + (opts.expiresInMinutes || 30) * 60 * 1000
 
   return {
     requestId: `approval-${randomBytes(8).toString('hex')}`,
@@ -239,7 +240,7 @@ export function requestHumanApproval(opts: {
     delegationId: opts.delegationId,
     reason: opts.reason,
     createdAt: now.toISOString(),
-    expiresAt: expiresAt.toISOString(),
+    expiresAt: formatRfc3339(expiresAtMs),
     status: 'pending',
   }
 }

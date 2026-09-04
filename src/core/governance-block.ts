@@ -20,6 +20,7 @@ import { sign, verify, canonicalize, createDID } from '../index.js'
 // Write-policy canonicalizer imported directly: it is an internal helper and is
 // deliberately NOT re-exported from the public barrel above.
 import { canonicalizeForWrite } from './canonical.js'
+import { parseRfc3339 } from './rfc3339.js'
 
 // ═══════════════════════════════════════
 // Types
@@ -444,11 +445,17 @@ export function verifyGovernanceBinding(
 
 /**
  * Check if a governance block has expired.
- * Returns true if the block has an expires_at field and it's in the past.
+ * Returns true if the block has an expires_at field and it's in the past, or
+ * if that field cannot be read as an RFC 3339 instant.
  */
 export function isGovernanceBlockExpired(block: GovernanceBlock): boolean {
   if (!block.expires_at) return false // no expiry = never expires
-  return new Date(block.expires_at) < new Date()
+  // expires_at arrives on the block, so it is publisher-supplied. An expiry a
+  // consumer cannot read is not an expiry it can honour: treat an unreadable
+  // value as expired rather than as open-ended.
+  const expiry = parseRfc3339(block.expires_at)
+  if (!expiry.ok) return true
+  return expiry.ms < Date.now()
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -558,9 +565,16 @@ export function verifyGovernanceCredential(
     errors.push('Governance block hash mismatch — block was modified after credential issuance')
   }
 
-  // 3. Check expiry (AV-3)
-  if (credential.expirationDate && new Date(credential.expirationDate) < new Date()) {
-    errors.push('Governance credential has expired')
+  // 3. Check expiry (AV-3). An expirationDate this verifier cannot read is not
+  // an expiry it can honour, so a present-but-unreadable value is refused here;
+  // an absent one still means the credential carries no expiry.
+  if (credential.expirationDate) {
+    const expiry = parseRfc3339(credential.expirationDate)
+    if (!expiry.ok) {
+      errors.push(`Governance credential has an unreadable expirationDate (${expiry.reason})`)
+    } else if (expiry.ms < Date.now()) {
+      errors.push('Governance credential has expired')
+    }
   }
 
   return { valid: errors.length === 0, errors }

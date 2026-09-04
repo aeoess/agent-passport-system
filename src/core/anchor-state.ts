@@ -12,6 +12,8 @@
 // Auto-batching: configurable window (N seconds or N receipts).
 // ══════════════════════════════════════════════════════════════════
 
+import { parseRfc3339 } from './rfc3339.js'
+
 /** External anchor state for a receipt or batch.
  *  unanchored: exists only in gateway memory
  *  batched_pending: included in a Merkle batch, root not yet anchored externally
@@ -92,7 +94,13 @@ export function shouldAutoBatch(
 
   // Time interval trigger
   if (config.maxIntervalSeconds > 0 && lastBatchTime) {
-    const elapsed = (Date.now() - new Date(lastBatchTime).getTime()) / 1000
+    // Non-gating: this picks a commit moment, it accepts nothing. An
+    // unreadable lastBatchTime counts as maximally stale so the batch commits
+    // now; the alternative — NaN — parks the pending receipts indefinitely.
+    const last = parseRfc3339(lastBatchTime)
+    const elapsed = last.ok
+      ? (Date.now() - last.ms) / 1000
+      : Number.POSITIVE_INFINITY
     if (elapsed >= config.maxIntervalSeconds) {
       return { trigger: true, reason: 'max_interval' }
     }

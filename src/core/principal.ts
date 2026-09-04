@@ -9,6 +9,7 @@ import { createHash } from 'node:crypto'
 import { generateKeyPair, sign, verify } from '../crypto/keys.js'
 import { canonicalize, canonicalizeForWrite } from './canonical.js'
 import { createDID, publicKeyFromDID } from './did.js'
+import { parseRfc3339 } from './rfc3339.js'
 import type { KeyPair, SignedPassport } from '../types/passport.js'
 import type {
   PrincipalIdentity, PrincipalEndorsement, PrincipalDisclosure,
@@ -61,7 +62,8 @@ export function endorseAgent(options: {
   expiresInDays?: number
 }): PrincipalEndorsement {
   const now = new Date()
-  const expiry = new Date(now)
+  const expiry = new Date()
+  expiry.setTime(now.getTime())
   expiry.setDate(expiry.getDate() + (options.expiresInDays || 365))
 
   const endorsementId = `endorsement-${uuidv4().slice(0, 8)}`
@@ -92,9 +94,16 @@ export function endorseAgent(options: {
  */
 export function verifyEndorsement(endorsement: PrincipalEndorsement): EndorsementVerification {
   const errors: string[] = []
-  const expired = new Date(endorsement.expiresAt) < new Date()
+  // An expiry this verifier cannot read is not an expiry it can honour, so an
+  // unparseable expiresAt fails the endorsement instead of passing the check.
+  const expiry = parseRfc3339(endorsement.expiresAt)
+  const expired = !expiry.ok || expiry.ms < Date.now()
 
-  if (expired) errors.push('Endorsement has expired')
+  if (!expiry.ok) {
+    errors.push(`Invalid expiresAt (${expiry.reason})`)
+  } else if (expired) {
+    errors.push('Endorsement has expired')
+  }
   if (endorsement.revoked) errors.push('Endorsement has been revoked')
 
   // Reconstruct the signed payload (everything except revoked/revokedAt/revokedReason/signature)
@@ -251,13 +260,17 @@ export function createFleet(principal: PrincipalIdentity): FleetRecord {
  * Add an endorsed agent to the fleet.
  */
 export function addToFleet(fleet: FleetRecord, endorsement: PrincipalEndorsement): FleetRecord {
+  // Same rule as verifyEndorsement: an expiry the fleet cannot read is not one
+  // it can honour, so the agent is recorded as expired rather than as active.
+  const expiry = parseRfc3339(endorsement.expiresAt)
+  const expired = !expiry.ok || expiry.ms < Date.now()
   const agent: FleetAgent = {
     agentId: endorsement.agentId,
     agentPublicKey: endorsement.agentPublicKey,
     endorsementId: endorsement.endorsementId,
     relationship: endorsement.relationship,
     status: endorsement.revoked ? 'revoked' :
-            new Date(endorsement.expiresAt) < new Date() ? 'expired' : 'active',
+            expired ? 'expired' : 'active',
     endorsedAt: endorsement.endorsedAt
   }
   return {

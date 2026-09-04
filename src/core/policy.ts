@@ -21,6 +21,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { createHash } from 'crypto'
 import { sign, verify } from '../crypto/keys.js'
 import { canonicalize, canonicalizeForWrite } from './canonical.js'
+import { parseRfc3339 } from './rfc3339.js'
 import { scopeAuthorizes } from './delegation.js'
 import { computeActionRefForWrite } from './action-ref.js'
 import type { EnforcementMode } from '../types/passport.js'
@@ -113,7 +114,8 @@ export function evaluateIntent(opts: {
   )
 
   const now = new Date()
-  const expires = new Date(now)
+  const expires = new Date()
+  expires.setTime(now.getTime())
   expires.setMinutes(expires.getMinutes() + (opts.decisionTTLMinutes ?? 5))
 
   const decision: Omit<PolicyDecision, 'signature'> = {
@@ -143,7 +145,10 @@ export function verifyPolicyDecision(
   if (!verify(canonicalize(unsigned), signature, decision.evaluatorPublicKey)) {
     errors.push('Invalid decision signature')
   }
-  if (new Date(decision.expiresAt) < new Date()) {
+  const expiry = parseRfc3339(decision.expiresAt)
+  if (!expiry.ok) {
+    errors.push(`Invalid decision expiresAt (${expiry.reason})`)
+  } else if (expiry.ms < Date.now()) {
     errors.push('Policy decision expired')
   }
   if (!decision.intentId) errors.push('Missing intentId')
@@ -479,7 +484,10 @@ export class FloorValidatorV1 implements PolicyValidator {
 
   private checkAuditability(ctx: ValidationContext): PrincipleEvaluation {
     const reasons: string[] = []
-    if (new Date(ctx.delegation.expiresAt) < new Date()) {
+    const delegationExpiry = parseRfc3339(ctx.delegation.expiresAt)
+    if (!delegationExpiry.ok) {
+      reasons.push(`Invalid delegation expiresAt (${delegationExpiry.reason})`)
+    } else if (delegationExpiry.ms < Date.now()) {
       reasons.push('Delegation expired')
     }
     if (ctx.delegation.currentDepth > ctx.delegation.maxDepth) {

@@ -8,6 +8,7 @@
 import { v4 as uuidv4 } from 'uuid'
 import { sign, verify } from '../crypto/keys.js'
 import { canonicalize, canonicalizeForWrite } from './canonical.js'
+import { parseRfc3339 } from './rfc3339.js'
 import { createHash } from 'crypto'
 import type {
   GovernanceArtifact, GovernanceApproval, GovernanceVerification,
@@ -112,9 +113,20 @@ export function verifyGovernanceArtifact(
   } catch { signatureValid = false }
   if (!signatureValid) errors.push('Invalid issuer signature')
 
-  // 3. Expiry check
-  const notExpired = !artifact.expiresAt || new Date(artifact.expiresAt) > new Date()
-  if (!notExpired) errors.push('Artifact expired')
+  // 3. Expiry check. An expiry this verifier cannot read is not an expiry it
+  // can honour, so a present-but-unparseable expiresAt fails the check the same
+  // way a past one does. An absent expiresAt still means "never expires".
+  let notExpired = true
+  if (artifact.expiresAt) {
+    const expiry = parseRfc3339(artifact.expiresAt)
+    if (!expiry.ok) {
+      notExpired = false
+      errors.push(`Invalid expiresAt (${expiry.reason})`)
+    } else if (expiry.ms <= Date.now()) {
+      notExpired = false
+      errors.push('Artifact expired')
+    }
+  }
 
   // 4. Version chain consistency
   let chainValid = true
@@ -127,7 +139,18 @@ export function verifyGovernanceArtifact(
       chainValid = false
       errors.push('Previous version mismatch')
     }
-    if (new Date(artifact.createdAt) < new Date(previousArtifact.createdAt)) {
+    // Both createdAt values arrive on artifacts. An ordering this verifier
+    // cannot read is not an ordering it can attest to, so an unreadable
+    // timestamp breaks the chain instead of passing it.
+    const created = parseRfc3339(artifact.createdAt)
+    const previousCreated = parseRfc3339(previousArtifact.createdAt)
+    if (!created.ok) {
+      chainValid = false
+      errors.push(`Invalid createdAt (${created.reason})`)
+    } else if (!previousCreated.ok) {
+      chainValid = false
+      errors.push(`Invalid previous artifact createdAt (${previousCreated.reason})`)
+    } else if (created.ms < previousCreated.ms) {
       chainValid = false
       errors.push('New artifact predates previous version')
     }
@@ -381,11 +404,24 @@ export function validateCredentialLifecycle(
   policy: CredentialLifecyclePolicy,
   currentTime: { sessionStartedAt: string; credentialIssuedAt: string; now?: string },
 ): { valid: boolean; reason?: string } {
-  const now = new Date(currentTime.now || new Date().toISOString())
+  // Every instant below gates the lifecycle decision. A timestamp this
+  // validator cannot read is not a time it can measure against, so an
+  // unreadable field fails the check rather than skipping past it.
+  let nowMs = Date.now()
+  if (currentTime.now) {
+    const parsedNow = parseRfc3339(currentTime.now)
+    if (!parsedNow.ok) {
+      return { valid: false, reason: `Invalid now (${parsedNow.reason})` }
+    }
+    nowMs = parsedNow.ms
+  }
 
   // (a) Session duration check
-  const sessionStart = new Date(currentTime.sessionStartedAt)
-  const sessionDurationSec = (now.getTime() - sessionStart.getTime()) / 1000
+  const sessionStart = parseRfc3339(currentTime.sessionStartedAt)
+  if (!sessionStart.ok) {
+    return { valid: false, reason: `Invalid sessionStartedAt (${sessionStart.reason})` }
+  }
+  const sessionDurationSec = (nowMs - sessionStart.ms) / 1000
   if (sessionDurationSec > policy.maxSessionDurationSeconds) {
     return {
       valid: false,
@@ -394,8 +430,11 @@ export function validateCredentialLifecycle(
   }
 
   // (b) Credential TTL check
-  const issued = new Date(currentTime.credentialIssuedAt)
-  const credentialAgeSec = (now.getTime() - issued.getTime()) / 1000
+  const issued = parseRfc3339(currentTime.credentialIssuedAt)
+  if (!issued.ok) {
+    return { valid: false, reason: `Invalid credentialIssuedAt (${issued.reason})` }
+  }
+  const credentialAgeSec = (nowMs - issued.ms) / 1000
   if (credentialAgeSec > policy.credentialTTLSeconds) {
     return {
       valid: false,

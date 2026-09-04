@@ -30,6 +30,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { sign, verify } from '../crypto/keys.js'
 import { canonicalize } from '../core/canonical.js'
 import { isRecord } from '../core/is-record.js'
+import { parseRfc3339, formatRfc3339 } from './rfc3339.js'
 import type {
   Delegation, ActionReceipt, RevocationRecord, DelegationStatus,
   CascadeRevocationResult, DelegationChainValidation,
@@ -89,7 +90,10 @@ export function createDelegation(opts: CreateDelegationOptions): Delegation {
   // 24h) and never setHours (which truncates fractional hours). expiresInHours of 0
   // yields immediate expiry; a negative duration yields a past expiry, consistent
   // with feasibility.ts. This matches the cross-chain.ts expiry pattern.
-  const expiresAtIso = opts.expiresAt ?? new Date(now.getTime() + (opts.expiresInHours ?? 24) * 3600000).toISOString()
+  // Math.trunc reproduces the Date constructor's truncation toward zero, so a
+  // fractional expiresInHours whose millisecond product is not an integer (0.017h is
+  // 61200.00000000001ms) emits exactly the instant it emitted before.
+  const expiresAtIso = opts.expiresAt ?? formatRfc3339(Math.trunc(now.getTime() + (opts.expiresInHours ?? 24) * 3600000))
 
   const delegation: Omit<Delegation, 'signature'> = {
     delegationId: 'del_' + uuidv4().slice(0, 12),
@@ -206,13 +210,17 @@ export function subDelegate(opts: SubDelegateOptions): Delegation {
   }
 
   // Temporal narrowing (creation-time). Capture now ONCE and reuse it for both the
-  // expiry guard and the cap so the result is deterministic. The finite guard comes
-  // first: a NaN expiry would slip past the `<= 0` reject (NaN <= 0 is false).
+  // expiry guard and the cap so the result is deterministic. The parse guard comes
+  // first: an expiry that does not parse is refused outright rather than compared,
+  // because every comparison against an unreadable instant answers false and would
+  // let the `<= 0` reject through. A parent window this code cannot read is not a
+  // window it can narrow a child against.
   const now = Date.now()
-  const parentExpiryMs = Date.parse(parent.expiresAt)
-  if (!Number.isFinite(parentExpiryMs)) {
-    throw new Error('cannot sub-delegate: parent delegation has an invalid expiresAt')
+  const parentExpiry = parseRfc3339(parent.expiresAt)
+  if (!parentExpiry.ok) {
+    throw new Error(`cannot sub-delegate: parent delegation has an invalid expiresAt (${parentExpiry.reason})`)
   }
+  const parentExpiryMs = parentExpiry.ms
   if (parentExpiryMs - now <= 0) {
     throw new Error('cannot sub-delegate from an expired parent delegation')
   }
@@ -227,7 +235,7 @@ export function subDelegate(opts: SubDelegateOptions): Delegation {
   // Passed to createDelegation as an absolute expiresAt (not a duration), so it is
   // never re-based on a later now(), which is what let the child outlive the parent
   // by the compute gap.
-  const childExpiresAt = new Date(Math.min(now + 24 * 3600000, parentExpiryMs)).toISOString()
+  const childExpiresAt = formatRfc3339(Math.min(now + 24 * 3600000, parentExpiryMs))
 
   return createDelegation({
     delegatedTo: opts.delegatedTo,
@@ -350,22 +358,30 @@ export function verifyDelegation(delegation: Delegation, opts?: RevocationCheckO
   const sigValid = verify(canonical, signature, delegation.delegatedBy)
   if (!sigValid) errors.push('Invalid delegation signature')
 
+  // An expiry this verifier cannot read is not an expiry it can honour: the
+  // delegation is graded expired and the reason is reported, rather than being
+  // compared against the clock and answering "not expired" for every value that
+  // is not an instant at all.
   let expired = false
-  const expiryDate = new Date(delegation.expiresAt)
-  if (isNaN(expiryDate.getTime())) {
-    errors.push(`Invalid expiresAt: "${delegation.expiresAt}"`)
+  const expiry = parseRfc3339(delegation.expiresAt)
+  if (!expiry.ok) {
+    errors.push(`Invalid expiresAt (${expiry.reason})`)
     expired = true
-  } else if (expiryDate < new Date()) {
+  } else if (expiry.ms < Date.now()) {
     errors.push('Delegation expired')
     expired = true
   }
 
+  // notBefore is optional: absent leaves the window open at the lower end, which
+  // is the shipped semantics. Present but unreadable is an error, and it does NOT
+  // set notYetValid — the verifier saw no evidence that the window has opened,
+  // which is a different claim from having seen a start date still in the future.
   let notYetValid = false
   if (delegation.notBefore) {
-    const notBeforeDate = new Date(delegation.notBefore)
-    if (isNaN(notBeforeDate.getTime())) {
-      errors.push(`Invalid notBefore: "${delegation.notBefore}"`)
-    } else if (notBeforeDate > new Date()) {
+    const notBefore = parseRfc3339(delegation.notBefore)
+    if (!notBefore.ok) {
+      errors.push(`Invalid notBefore (${notBefore.reason})`)
+    } else if (notBefore.ms > Date.now()) {
       errors.push(`Delegation not yet valid (notBefore: ${delegation.notBefore})`)
       notYetValid = true
     }
@@ -385,8 +401,8 @@ export function verifyDelegation(delegation: Delegation, opts?: RevocationCheckO
   let revocationEvidence: 'absent' | 'stale' | 'fresh' = 'absent'
   let evidenceUnreadable = false
   if (cached) {
-    const checkedAtMs = new Date(cached.checkedAt).getTime()
-    if (!Number.isFinite(checkedAtMs)) {
+    const checkedAt = parseRfc3339(cached.checkedAt)
+    if (!checkedAt.ok) {
       evidenceUnreadable = true
       // Graded BEFORE any window comparison, not by arithmetic on a sentinel.
       // Mapping an unparseable timestamp to an Infinity age and comparing it
@@ -403,7 +419,7 @@ export function verifyDelegation(delegation: Delegation, opts?: RevocationCheckO
       // tolerance. A verifier whose clock lags the evidence source grades that
       // evidence stale, which fail_closed refuses, which is the safe direction
       // to be wrong in.
-      const cacheAge = Date.now() - checkedAtMs
+      const cacheAge = Date.now() - checkedAt.ms
       revocationEvidence = cacheAge >= 0 && cacheAge <= freshnessMs ? 'fresh' : 'stale'
     }
   }

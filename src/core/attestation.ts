@@ -6,6 +6,7 @@
 import { createHash, randomBytes } from 'crypto'
 import { sign, verify, publicKeyFromPrivate } from '../crypto/keys.js'
 import { canonicalize, canonicalizeForWrite } from './canonical.js'
+import { parseRfc3339, formatRfc3339 } from './rfc3339.js'
 import type {
   PassportGrade, AttestationFlag, EvidenceQuality,
   IssuanceChallenge, IssuanceChallengeResponse,
@@ -36,14 +37,14 @@ export function createIssuanceChallenge(
   }
 ): IssuanceChallenge {
   const now = new Date()
-  const expiry = new Date(now.getTime() + (options?.expiresInSeconds ?? 300) * 1000)
+  const expiryMs = now.getTime() + (options?.expiresInSeconds ?? 300) * 1000
 
   return {
     challengeId: `ic_${sha256Hex(randomBytes(32).toString('hex')).slice(0, 24)}`,
     nonce: sha256Hex(randomBytes(32).toString('hex')).slice(0, 32),
     requiredPublicKeyHash: publicKeyHash,
     requestedAttestationClasses: options?.requestedClasses ?? ['runtime'],
-    expiresAt: expiry.toISOString(),
+    expiresAt: formatRfc3339(expiryMs),
     issuedAt: now.toISOString(),
   }
 }
@@ -58,8 +59,18 @@ export function verifyRuntimeAttestation(
 ): SignalVerificationResult {
   const now = new Date()
 
-  // Check freshness
-  if (new Date(attestation.expiresAt) < now) {
+  // Check freshness. An expiry this verifier cannot read is not an expiry it
+  // can honour, so an unreadable expiresAt fails the same way a lapsed one does.
+  const expiry = parseRfc3339(attestation.expiresAt)
+  if (!expiry.ok) {
+    return {
+      signalKey: 'runtime_attestation',
+      status: 'failed',
+      detail: `Runtime attestation expiresAt is not an RFC 3339 instant (${expiry.reason})`,
+      verifiedAt: now.toISOString(),
+    }
+  }
+  if (expiry.ms < now.getTime()) {
     return {
       signalKey: 'runtime_attestation',
       status: 'failed',
@@ -336,7 +347,9 @@ export function createWorkspaceManifest(
   // Sort entries deterministically by path hash
   const manifestEntries: WorkspaceManifestEntry[] = entries
     .map(e => {
-      const hourFloor = new Date(e.lastModified)
+      // Local-calendar clone of the entry's own timestamp, floored to the hour.
+      const hourFloor = new Date()
+      hourFloor.setTime(e.lastModified.getTime())
       hourFloor.setMinutes(0, 0, 0)
       return {
         pathHash: sha256Hex(e.path),
@@ -380,7 +393,9 @@ export function createEmptyEvidenceRecord(
 // ── isChallengeFresh ──
 // Check if an issuance challenge is still valid.
 export function isChallengeFresh(challenge: IssuanceChallenge): boolean {
-  return new Date(challenge.expiresAt) > new Date()
+  // An expiry this checker cannot read is not an expiry it can honour.
+  const expiry = parseRfc3339(challenge.expiresAt)
+  return expiry.ok && expiry.ms > Date.now()
 }
 
 // ── isGradeAtLeast ──
@@ -394,6 +409,18 @@ export function isGradeAtLeast(grade: PassportGrade, minimum: PassportGrade): bo
 // Enables composable trust: security test results, cloud attestations, or any third-party
 // verification report feeds into the IssuanceEvidenceRecord as Tier 2 evidence.
 // Connected to msaleme's machine-readable attestation schema (A2A #1696).
+// A JWT NumericDate claim (iat/exp) arrives on an untrusted payload. A claim
+// that is not a finite epoch-seconds value inside the representable range
+// denotes no instant, so it is refused here rather than emitted as a timestamp.
+// Truncation toward zero matches the time-value clip the Date constructor applied.
+function numericDateToRfc3339(claim: unknown, field: string): string {
+  const seconds = Number(claim)
+  if (!Number.isFinite(seconds)) {
+    throw new RangeError(`importProviderAttestation: ${field} is not a numeric date (${String(claim)})`)
+  }
+  return formatRfc3339(Math.trunc(seconds * 1000))
+}
+
 export function importProviderAttestation(
   input: {
     /** JWS compact serialization (header.payload.signature) OR raw JSON string OR object */
@@ -443,8 +470,8 @@ export function importProviderAttestation(
     nonce: payload.nonce ? String(payload.nonce) : undefined,
     publicKeyHash: payload.public_key ? sha256Hex(String(payload.public_key)) : undefined,
     verificationMethod: input.verificationMethod || String(payload.verification_method || 'jwt'),
-    issuedAt: String(payload.iat ? new Date(Number(payload.iat) * 1000).toISOString() : payload.issued_at || new Date().toISOString()),
-    expiresAt: payload.exp ? new Date(Number(payload.exp) * 1000).toISOString() : (payload.expires_at ? String(payload.expires_at) : undefined),
+    issuedAt: String(payload.iat ? numericDateToRfc3339(payload.iat, 'iat') : payload.issued_at || new Date().toISOString()),
+    expiresAt: payload.exp ? numericDateToRfc3339(payload.exp, 'exp') : (payload.expires_at ? String(payload.expires_at) : undefined),
     signature,
     freshness: input.freshness,
   }

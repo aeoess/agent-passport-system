@@ -25,6 +25,7 @@
 //   hook), not by construction.
 
 import { canonicalHashJCSForWrite } from '../../core/canonical-jcs.js'
+import { formatRfc3339 } from '../../core/rfc3339.js'
 import { computeDelegationChainRootForWrite } from '../../decisionReceipt.js'
 import { createDelegationRef } from '../../core/reanchor.js'
 import { sign, publicKeyFromPrivate } from '../../crypto/keys.js'
@@ -51,7 +52,12 @@ export function verifiedIdJagGrant(grant: IdJagClaims, verification: IdJagVerifi
 }
 
 function numericDateToIso(seconds: number): string {
-  return new Date(seconds * 1000).toISOString()
+  // Emission, not interpretation: a NumericDate from the caller-verified grant
+  // is rendered into the descriptor. formatRfc3339 is byte-identical to
+  // toISOString() across the representable range and takes a number, so no
+  // string can be reparsed here, and like toISOString() it raises RangeError on
+  // an instant outside that range.
+  return formatRfc3339(seconds * 1000)
 }
 
 /** Project the scope claim to APS scope tokens. Baseline only; RAR never widens it. */

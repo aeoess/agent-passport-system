@@ -13,6 +13,7 @@
 import { createHash } from 'node:crypto'
 import { sign, verify } from '../crypto/keys.js'
 import { canonicalize, canonicalizeForWrite } from './canonical.js'
+import { parseRfc3339 } from './rfc3339.js'
 import type { ActionIntent, PolicyDecision, PolicyReceipt } from '../types/policy.js'
 import type { Delegation } from '../types/passport.js'
 import type {
@@ -159,10 +160,17 @@ export function verifyExecutionEnvelope(
   // 3. Check decision freshness
   let decisionFresh = true
   if (opts?.maxDecisionAgeMs) {
-    const decisionAge = Date.now() - new Date(envelope.decision.evaluated_at).getTime()
-    if (decisionAge > opts.maxDecisionAgeMs) {
+    const evaluatedAt = parseRfc3339(envelope.decision.evaluated_at)
+    if (!evaluatedAt.ok) {
+      // An evaluation time this verifier cannot read bounds no freshness window.
       decisionFresh = false
-      errors.push(`Decision too old: ${Math.round(decisionAge / 1000)}s > ${Math.round(opts.maxDecisionAgeMs / 1000)}s max`)
+      errors.push(`Invalid decision evaluated_at (${evaluatedAt.reason})`)
+    } else {
+      const decisionAge = Date.now() - evaluatedAt.ms
+      if (decisionAge > opts.maxDecisionAgeMs) {
+        decisionFresh = false
+        errors.push(`Decision too old: ${Math.round(decisionAge / 1000)}s > ${Math.round(opts.maxDecisionAgeMs / 1000)}s max`)
+      }
     }
   }
 

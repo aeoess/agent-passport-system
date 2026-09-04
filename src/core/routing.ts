@@ -12,6 +12,7 @@
 import { randomBytes } from 'node:crypto'
 import { sign, verify } from '../crypto/keys.js'
 import { canonicalize, canonicalizeForWrite } from './canonical.js'
+import { parseRfc3339 } from './rfc3339.js'
 import { scopeCovers } from './delegation.js'
 import type { Delegation } from '../types/passport.js'
 import type {
@@ -101,9 +102,12 @@ export function checkDelegationScope(
 // ═══════════════════════════════════════
 
 export function isAdvertisementFresh(ad: CapabilityAdvertisement, now?: Date): boolean {
-  const timestamp = new Date(ad.lastAdvertised).getTime()
+  // A lastAdvertised this router cannot read is not a freshness claim it can
+  // honour — the advertisement is stale, and stale advertisements do not route.
+  const advertised = parseRfc3339(ad.lastAdvertised)
+  if (!advertised.ok) return false
   const current = (now || new Date()).getTime()
-  return (current - timestamp) / 1000 <= ad.advertisementTTL
+  return (current - advertised.ms) / 1000 <= ad.advertisementTTL
 }
 
 // ═══════════════════════════════════════

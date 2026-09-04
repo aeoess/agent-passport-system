@@ -5,6 +5,7 @@
 import { verify } from '../crypto/keys.js'
 import { canonicalize } from '../core/canonical.js'
 import { isRecord } from '../core/is-record.js'
+import { parseRfc3339, formatRfc3339 } from '../core/rfc3339.js'
 import { normalizeTrustAnchors } from './trust-anchors.js'
 import { isExpired } from '../core/passport.js'
 import type { SignedPassport, VerificationResult, Challenge } from '../types/passport.js'
@@ -120,13 +121,25 @@ export function verifyPassport(
   if (opts?.clock?.allowedClockSkewMs !== undefined) {
     const skewMs = opts.clock.allowedClockSkewMs
     const nowMs = (opts.clock.now ?? new Date()).getTime()
-    const expMs = Date.parse(passport.expiresAt)
-    if (!Number.isNaN(expMs) && expMs < nowMs - skewMs) {
+    // An expiry this verifier cannot read is not an expiry it can honour: the
+    // skewed path reports the unreadable value and fails the passport, rather
+    // than comparing it against the clock, where a value that is not an instant
+    // answers "not expired" and the expiry check is skipped altogether.
+    const expiry = parseRfc3339(passport.expiresAt)
+    if (!expiry.ok) {
+      errors.push(`Invalid expiresAt (${expiry.reason})`)
+    } else if (expiry.ms < nowMs - skewMs) {
       errors.push(`Passport expired at ${passport.expiresAt}`)
     }
+    // notBefore is optional: absent leaves the lower edge of the window open,
+    // which is the shipped semantics. Present but unreadable is an error — the
+    // verifier has seen no evidence that the window has opened, which is a
+    // different claim from having seen a start date still in the future.
     if (passport.notBefore) {
-      const nbfMs = Date.parse(passport.notBefore)
-      if (!Number.isNaN(nbfMs) && nbfMs > nowMs + skewMs) {
+      const notBefore = parseRfc3339(passport.notBefore)
+      if (!notBefore.ok) {
+        errors.push(`Invalid notBefore (${notBefore.reason})`)
+      } else if (notBefore.ms > nowMs + skewMs) {
         errors.push(`Passport not valid before ${passport.notBefore}`)
       }
     }
@@ -153,7 +166,14 @@ export function verifyPassport(
   // threw TypeError instead of this function's documented contract of
   // always returning {valid: false, errors: [...]} for malformed input.
   for (const delegation of Array.isArray(passport.delegations) ? passport.delegations : []) {
-    if (new Date(delegation.expiresAt) < new Date()) {
+    // A delegation expiry this verifier cannot read is not an expiry it can
+    // honour, so an unreadable value warns on the same footing as an elapsed
+    // one and names the reason, instead of passing silently as a delegation
+    // with no limit the verifier could find.
+    const delegationExpiry = parseRfc3339(delegation.expiresAt)
+    if (!delegationExpiry.ok) {
+      warnings.push(`Delegation to ${delegation.delegatedTo} has an invalid expiresAt (${delegationExpiry.reason}) — treated as expired`)
+    } else if (delegationExpiry.ms < Date.now()) {
       warnings.push(`Delegation to ${delegation.delegatedTo} has expired`)
     }
     if (delegation.spendLimit && delegation.spentAmount &&
@@ -180,7 +200,7 @@ export function createChallenge(expiresInSeconds = 300): Challenge {
     challengeId: uuidv4(),
     nonce: randomBytes(32).toString('hex'),
     timestamp: new Date().toISOString(),
-    expiresAt: new Date(Date.now() + expiresInSeconds * 1000).toISOString()
+    expiresAt: formatRfc3339(Date.now() + expiresInSeconds * 1000)
   }
 }
 
@@ -189,8 +209,12 @@ export function verifyChallenge(
   signatureHex: string,
   publicKeyHex: string
 ): boolean {
-  // Check expiry
-  if (new Date(challenge.expiresAt) < new Date()) return false
+  // Check expiry. An expiry this function cannot read is not one it can
+  // honour: an unparseable expiresAt fails the challenge rather than comparing
+  // false in both directions and leaving only the signature check.
+  const expiry = parseRfc3339(challenge.expiresAt)
+  if (!expiry.ok) return false
+  if (expiry.ms < Date.now()) return false
   // Verify signature over the nonce
   return verify(challenge.nonce, signatureHex, publicKeyHex)
 }
