@@ -157,7 +157,10 @@ describe('verifyVerifiableCredential', () => {
     const { input } = makePassport({ evidence: [att] });
     const vc = await passportToVerifiableCredential(input, issuer.privateKey);
     const result = await verifyVerifiableCredential(vc);
-    assert.ok(result.checks.some(c => c.includes('1 evidence attachment(s) present')));
+    // Evidence is reported as PRESENT, never as PASS: this verifier does not
+    // check an infrastructure attestation, and the checks array now says so.
+    assert.ok(result.checks.some(c => c.startsWith('PRESENT: 1 evidence attachment(s)')));
+    assert.ok(result.checks.every(c => !(c.startsWith('PASS') && c.includes('evidence'))));
   });
 
   it('rejects VC with missing proof', async () => {
@@ -244,11 +247,23 @@ describe('verifyVerifiablePresentation', () => {
     const vc = await passportToVerifiableCredential(input, issuer.privateKey);
     const vp = await createVerifiablePresentation([vc], holder.privateKey);
 
-    // Tamper with holder
+    // Tamper with holder. The rewritten holder no longer matches the DID the
+    // proof's verificationMethod names, so this is refused at the binding step
+    // before any signature is checked. Previously the binding did not exist and
+    // the only thing that caught this was the signature over the body.
     (vp as any).holder = toDIDKey(issuer.publicKey);
     const result = await verifyVerifiablePresentation(vp);
     assert.equal(result.valid, false);
-    assert.ok(result.checks.some(c => c.includes('FAIL') && c.includes('presentation signature')));
+    assert.equal(result.keyAuthority, 'rejected');
+    assert.ok(result.checks.some(c => c.includes('FAIL') && c.includes('holder binding')));
+
+    // And a holder rewritten to a DID that does still match the proof's
+    // verificationMethod is caught by the signature, as before.
+    const vp2 = await createVerifiablePresentation([vc], holder.privateKey);
+    (vp2 as any).id = 'urn:aps:presentation:tampered';
+    const result2 = await verifyVerifiablePresentation(vp2);
+    assert.equal(result2.valid, false);
+    assert.ok(result2.checks.some(c => c.includes('FAIL') && c.includes('presentation signature')));
   });
 
   it('detects tampered credential inside VP', async () => {

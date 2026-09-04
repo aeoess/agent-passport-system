@@ -26,6 +26,7 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { generateKeyPair, sign } from '../src/crypto/keys.js'
 import { canonicalizeForWrite } from '../src/core/canonical.js'
+import { proofSigningInput } from '../src/core/vc-proof.js'
 import { verifyPolicyDecision } from '../src/core/policy.js'
 import { verifyAttestation } from '../src/core/values.js'
 import {
@@ -321,18 +322,9 @@ const SURFACES: Surface[] = [
  *  the expiry check and not a signature the mutation invalidated. */
 function resignCredential(method: 'did:aps' | 'did:key') {
   return (c: Record<string, unknown>): Record<string, unknown> => {
-    const { proof, ...body } = c
+    const { proof: _old, ...body } = c
     const did = method === 'did:key' ? toDIDKey(agent.publicKey) : createDID(agent.publicKey)
-    return {
-      ...body,
-      proof: {
-        type: 'Ed25519Signature2020',
-        created: PAST,
-        verificationMethod: `${did}#key-1`,
-        proofPurpose: 'assertionMethod',
-        proofValue: Buffer.from(sign(canonicalizeForWrite(body), agent.privateKey), 'hex').toString('base64url'),
-      },
-    }
+    return { ...body, proof: credentialProof(body, did) }
   }
 }
 
@@ -340,8 +332,9 @@ function resignCredential(method: 'did:aps' | 'did:key') {
  *  through passportToVC so the expiry can be set directly; the proof is real. */
 function vcFixture(expirationDate: string, method: 'did:aps' | 'did:key' = 'did:aps'): Record<string, unknown> {
   // vc.ts resolves a did:aps identifier, vc-wrapper.ts a did:key one. The
-  // fixture uses each module's own DID constructor so it cannot drift from
-  // the form that module accepts.
+  // fixture uses each module's own DID constructor so it cannot drift from the
+  // form that module accepts, and the issuer is the key that signs, so the
+  // credential passes the identity binding and the only variable is the expiry.
   const did = method === 'did:key' ? toDIDKey(agent.publicKey) : createDID(agent.publicKey)
   const body = {
     '@context': ['https://www.w3.org/ns/credentials/v2'],
@@ -352,15 +345,22 @@ function vcFixture(expirationDate: string, method: 'did:aps' | 'did:key' = 'did:
     expirationDate,
     credentialSubject: { id: did, role: 'fixture' },
   }
+  return { ...body, proof: credentialProof(body, did) }
+}
+
+/** The proof configuration is inside the signed bytes, so the fixture builds it
+ *  the way the shipped signer does. */
+function credentialProof(body: Record<string, unknown>, did: string): Record<string, unknown> {
+  const proofConfig = {
+    type: 'Ed25519Signature2020',
+    created: PAST,
+    verificationMethod: `${did}#key-1`,
+    proofPurpose: 'assertionMethod',
+  }
+  const canonical = proofSigningInput(body, proofConfig, canonicalizeForWrite)
   return {
-    ...body,
-    proof: {
-      type: 'Ed25519Signature2020',
-      created: PAST,
-      verificationMethod: `${did}#key-1`,
-      proofPurpose: 'assertionMethod',
-      proofValue: Buffer.from(sign(canonicalizeForWrite(body), agent.privateKey), 'hex').toString('base64url'),
-    },
+    ...proofConfig,
+    proofValue: Buffer.from(sign(canonical, agent.privateKey), 'hex').toString('base64url'),
   }
 }
 

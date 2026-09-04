@@ -7,7 +7,8 @@
 import { canonicalize, canonicalizeForWrite } from './canonical.js'
 import { parseRfc3339 } from './rfc3339.js'
 import { sign, verify, publicKeyFromPrivate } from '../crypto/keys.js'
-import { createDID, publicKeyFromDID } from './did.js'
+import { createDID } from './did.js'
+import { bindVerificationMethod, proofSigningInput, type KeyAuthority } from './vc-proof.js'
 import type { AgentPassport, Delegation, ActionReceipt } from '../types/passport.js'
 import type {
   VerifiableCredential, VerifiablePresentation, LinkedDataProof,
@@ -190,7 +191,8 @@ export async function createPresentation(
     presentation as unknown as Record<string, unknown>,
     holderPrivateKey,
     holderDID,
-    'authentication'
+    'authentication',
+    options
   )
 
   return { ...presentation, proof }
@@ -198,30 +200,98 @@ export async function createPresentation(
 
 // ── Verification ──
 
-/**
- * Verify a Verifiable Credential's proof.
- * Checks Ed25519 signature against the issuer's public key.
- */
-export async function verifyVC(credential: VerifiableCredential): Promise<{
+/** Proof purposes a credential may carry. `capabilityDelegation` is here
+ *  because delegationToVC() emits it; anything else is a proof made for a
+ *  different job and is refused rather than repurposed. */
+const CREDENTIAL_PURPOSES: ReadonlySet<string> = new Set(['assertionMethod', 'capabilityDelegation'])
+
+export interface VerifyVCResult {
+  /** Integrity AND identity binding: the credential's bytes verify under a key
+   *  the claimed issuer DID commits to. NOT an authorization decision — see
+   *  the note on issuerDID. */
   valid: boolean
+  /** The issuer the credential claims, echoed back so the relying party can
+   *  allowlist it. Meaningful only when `valid` is true; before the binding
+   *  check this field named an issuer nobody had shown had signed anything. */
   issuerDID: string
+  /** The proof verifies under the key its own verificationMethod names. True
+   *  on some rejected results: a forged credential can be internally
+   *  consistent and still not be the issuer's. */
+  proofOfPossession: boolean
+  /** Whether that key was shown to belong to the claimed issuer. */
+  keyAuthority: KeyAuthority
   error?: string
-}> {
+}
+
+/**
+ * Verify a Verifiable Credential.
+ *
+ * SCOPE OF CLAIM.
+ *   Establishes, when `valid` is true: the credential's bytes and its proof
+ *     configuration are unaltered since signing, and the signing key is the
+ *     one the DID in `issuer` commits to; the proof was made for a credential
+ *     purpose; and the credential has not expired.
+ *   Does NOT establish: that the issuer is one this relying party trusts —
+ *     that is an allowlist decision, and `issuerDID` is returned so the caller
+ *     can make it; that the claims inside are true; or that the credential has
+ *     not been revoked.
+ *
+ * The key is no longer taken from `proof.verificationMethod` on its own. That
+ * field is part of the document the presenter wrote, so verifying under it
+ * established only that whoever assembled the credential held some key. A
+ * credential naming a trusted issuer and carrying an attacker's proof
+ * verified, and returned the trusted issuer's DID.
+ *
+ * Only self-certifying DID methods can be bound without resolving a DID
+ * document, and this surface resolves none. A credential whose issuer uses any
+ * other method now returns keyAuthority 'unresolved' and `valid: false`.
+ */
+export async function verifyVC(
+  credential: VerifiableCredential,
+  opts?: {
+    /** Refuse unless the credential claims this exact issuer. Optional: the
+     *  binding is checked either way, and `issuerDID` is returned for callers
+     *  that allowlist after the fact. */
+    expectedIssuer?: string
+  }
+): Promise<VerifyVCResult> {
+  const fail = (error: string, over: Partial<VerifyVCResult> = {}): VerifyVCResult => ({
+    valid: false, issuerDID: '', proofOfPossession: false, keyAuthority: 'rejected', error, ...over
+  })
+
   try {
-    const issuerDID = typeof credential.issuer === 'string'
+    const claimedIssuer = typeof credential.issuer === 'string'
       ? credential.issuer
-      : credential.issuer.id
+      : credential.issuer?.id
+    const proof = credential.proof
 
-    // Extract public key from the verification method DID
-    const vmDID = credential.proof.verificationMethod.split('#')[0]
-    const publicKey = publicKeyFromDID(vmDID)
+    if (!proof || typeof proof !== 'object') return fail('Credential carries no proof')
+    if (proof.type !== 'Ed25519Signature2020') {
+      return fail(`Unsupported proof type ${String(proof.type)}`)
+    }
+    if (!CREDENTIAL_PURPOSES.has(proof.proofPurpose)) {
+      return fail(`Proof purpose ${String(proof.proofPurpose)} is not a credential purpose`)
+    }
+    if (opts?.expectedIssuer !== undefined && claimedIssuer !== opts.expectedIssuer) {
+      return fail(`Credential issuer ${String(claimedIssuer)} is not the expected ${opts.expectedIssuer}`)
+    }
 
-    // Reconstruct the credential without proof for verification
-    const { proof, ...credentialWithoutProof } = credential
-    const canonical = canonicalize(credentialWithoutProof as unknown as Record<string, unknown>)
-    const sigHex = base64urlToHex(proof.proofValue)
+    const binding = bindVerificationMethod(claimedIssuer, proof.verificationMethod)
+    if (binding.keyAuthority !== 'verified') {
+      return fail(`Issuer binding failed: ${binding.reason}`, { keyAuthority: binding.keyAuthority })
+    }
 
-    const isValid = await verify(canonical, sigHex, publicKey)
+    const canonical = proofSigningInput(
+      credential as unknown as Record<string, unknown>,
+      proof as unknown as Record<string, unknown>,
+      canonicalize
+    )
+    const proofOfPossession = verify(canonical, base64urlToHex(proof.proofValue), binding.publicKey)
+    if (!proofOfPossession) {
+      return fail('Invalid signature', { keyAuthority: 'rejected' })
+    }
+
+    const issuerDID = claimedIssuer as string
 
     // Check expiration. An expirationDate this verifier cannot read is not an
     // expiry it can honour, so it fails the credential instead of passing it.
@@ -229,65 +299,146 @@ export async function verifyVC(credential: VerifiableCredential): Promise<{
       const expiry = parseRfc3339(credential.expirationDate)
       if (!expiry.ok) {
         return {
-          valid: false,
-          issuerDID,
+          valid: false, issuerDID, proofOfPossession: true, keyAuthority: 'verified',
           error: `Credential has an invalid expirationDate (${expiry.reason})`
         }
       }
       if (expiry.ms < Date.now()) {
-        return { valid: false, issuerDID, error: 'Credential has expired' }
+        return {
+          valid: false, issuerDID, proofOfPossession: true, keyAuthority: 'verified',
+          error: 'Credential has expired'
+        }
       }
     }
 
-    return { valid: isValid, issuerDID, error: isValid ? undefined : 'Invalid signature' }
+    return { valid: true, issuerDID, proofOfPossession: true, keyAuthority: 'verified' }
   } catch (err) {
-    return {
-      valid: false,
-      issuerDID: '',
-      error: `Verification failed: ${err instanceof Error ? err.message : String(err)}`
-    }
+    return fail(`Verification failed: ${err instanceof Error ? err.message : String(err)}`)
   }
 }
 
-/**
- * Verify a Verifiable Presentation and all contained credentials.
- */
-export async function verifyPresentation(presentation: VerifiablePresentation): Promise<{
+export interface VerifyPresentationResult {
   valid: boolean
+  /** The holder the presentation claims, returned for allowlisting on the
+   *  same terms as issuerDID above. */
   holderDID: string
+  proofOfPossession: boolean
+  keyAuthority: KeyAuthority
+  /** The challenge carried in the verified proof, when the proof was accepted.
+   *  Consuming it — refusing a nonce already spent — is relying-party state
+   *  and does not belong in a stateless verifier, so it is handed back rather
+   *  than enforced here. */
+  challenge?: string
+  /** The domain carried in the verified proof, on the same terms. */
+  domain?: string
   credentialResults: Array<{ id: string; valid: boolean; error?: string }>
   error?: string
-}> {
-  // Verify presentation proof
-  const vmDID = presentation.proof.verificationMethod.split('#')[0]
-  const publicKey = publicKeyFromDID(vmDID)
-  const { proof, ...presentationWithoutProof } = presentation
-  const canonical = canonicalize(presentationWithoutProof as unknown as Record<string, unknown>)
-  const sigHex = base64urlToHex(proof.proofValue)
+}
 
-  const presentationValid = await verify(canonical, sigHex, publicKey)
-  if (!presentationValid) {
-    return {
-      valid: false,
-      holderDID: presentation.holder,
-      credentialResults: [],
-      error: 'Presentation signature invalid'
+/**
+ * Verify a Verifiable Presentation and every credential it carries.
+ *
+ * SCOPE OF CLAIM.
+ *   Establishes, when `valid` is true: the presentation and its proof
+ *     configuration are unaltered since signing; the signing key is the one
+ *     the DID in `holder` commits to; the proof was made for authentication;
+ *     it carries the challenge and domain the caller expected, when the caller
+ *     expected any; and every contained credential passes verifyVC.
+ *   Does NOT establish: that the holder is entitled to present these
+ *     credentials — a presentation binds the presenter to the bytes, not the
+ *     credentials to the presenter; that the challenge has not already been
+ *     spent, which is the caller's to track; or that the holder is trusted.
+ *
+ * The challenge and domain are now inside the signed bytes. They used to be
+ * attached to the proof after signing, so a presentation minted for one
+ * verifier could be readdressed to another without invalidating it.
+ */
+export async function verifyPresentation(
+  presentation: VerifiablePresentation,
+  opts?: {
+    /** Refuse unless the presentation claims this exact holder. */
+    expectedHolder?: string
+    /** The nonce this verifier issued. When supplied, the proof must carry it;
+     *  a proof carrying none is refused, because a presentation that answers
+     *  no challenge answers any challenge. */
+    expectedChallenge?: string
+    /** The domain this verifier expects to be addressed as, on the same terms. */
+    expectedDomain?: string
+  }
+): Promise<VerifyPresentationResult> {
+  const holderDID = presentation?.holder ?? ''
+  const fail = (error: string, over: Partial<VerifyPresentationResult> = {}): VerifyPresentationResult => ({
+    valid: false, holderDID, proofOfPossession: false, keyAuthority: 'rejected',
+    credentialResults: [], error, ...over
+  })
+
+  const proof = presentation?.proof
+  if (!proof || typeof proof !== 'object') return fail('Presentation carries no proof')
+  if (proof.type !== 'Ed25519Signature2020') {
+    return fail(`Unsupported proof type ${String(proof.type)}`)
+  }
+  if (proof.proofPurpose !== 'authentication') {
+    return fail(`Proof purpose ${String(proof.proofPurpose)} is not authentication`)
+  }
+  if (opts?.expectedHolder !== undefined && holderDID !== opts.expectedHolder) {
+    return fail(`Presentation holder ${holderDID} is not the expected ${opts.expectedHolder}`)
+  }
+
+  const binding = bindVerificationMethod(holderDID, proof.verificationMethod)
+  if (binding.keyAuthority !== 'verified') {
+    return fail(`Holder binding failed: ${binding.reason}`, { keyAuthority: binding.keyAuthority })
+  }
+
+  let proofOfPossession: boolean
+  try {
+    const canonical = proofSigningInput(
+      presentation as unknown as Record<string, unknown>,
+      proof as unknown as Record<string, unknown>,
+      canonicalize
+    )
+    proofOfPossession = verify(canonical, base64urlToHex(proof.proofValue), binding.publicKey)
+  } catch (err) {
+    return fail(`Presentation signature error: ${err instanceof Error ? err.message : String(err)}`)
+  }
+  if (!proofOfPossession) {
+    return fail('Presentation signature invalid', { keyAuthority: 'rejected' })
+  }
+
+  // Replay context. Compared only after the signature is verified, so the
+  // values compared are the signed ones.
+  const bound = { proofOfPossession: true, keyAuthority: 'verified' as const }
+  if (opts?.expectedChallenge !== undefined) {
+    if (proof.challenge === undefined) {
+      return fail('Presentation carries no challenge but one was expected', bound)
+    }
+    if (proof.challenge !== opts.expectedChallenge) {
+      return fail('Presentation challenge does not match the expected challenge', bound)
+    }
+  }
+  if (opts?.expectedDomain !== undefined) {
+    if (proof.domain === undefined) {
+      return fail('Presentation carries no domain but one was expected', bound)
+    }
+    if (proof.domain !== opts.expectedDomain) {
+      return fail('Presentation domain does not match the expected domain', bound)
     }
   }
 
-  // Verify each credential
   const credentialResults = await Promise.all(
-    presentation.verifiableCredential.map(async (vc) => {
+    (presentation.verifiableCredential ?? []).map(async (vc) => {
       const result = await verifyVC(vc)
       return { id: vc.id, valid: result.valid, error: result.error }
     })
   )
-
   const allValid = credentialResults.every(r => r.valid)
 
   return {
     valid: allValid,
-    holderDID: presentation.holder,
+    holderDID,
+    proofOfPossession: true,
+    keyAuthority: 'verified',
+    challenge: proof.challenge,
+    domain: proof.domain,
     credentialResults,
     error: allValid ? undefined : 'One or more credentials failed verification'
   }
@@ -295,22 +446,39 @@ export async function verifyPresentation(presentation: VerifiablePresentation): 
 
 // ── Proof Helpers ──
 
+/** Build a proof whose configuration is inside the bytes it signs.
+ *
+ *  The signed input is the document with its `proof` member set to this
+ *  proof's configuration, which is everything except `proofValue`. So
+ *  `created`, `proofPurpose`, `verificationMethod`, `challenge` and `domain`
+ *  are all covered. Previously only the document body was signed and the proof
+ *  was attached afterwards, which left every one of those fields rewritable
+ *  without invalidating the signature. verifyVC and verifyPresentation rebuild
+ *  exactly this input; the two must change together or nothing verifies. */
 async function createProof(
   data: Record<string, unknown> | Omit<VerifiableCredential, 'proof'>,
   privateKey: string,
   did: string,
-  purpose: LinkedDataProof['proofPurpose']
+  purpose: LinkedDataProof['proofPurpose'],
+  options?: { challenge?: string; domain?: string }
 ): Promise<LinkedDataProof> {
-  const canonical = canonicalizeForWrite(data as Record<string, unknown>)
-  const sig = await sign(canonical, privateKey)
-
-  return {
+  const proofConfig: Omit<LinkedDataProof, 'proofValue'> = {
     type: 'Ed25519Signature2020',
     created: new Date().toISOString(),
     verificationMethod: `${did}#key-1`,
     proofPurpose: purpose,
-    proofValue: hexToBase64url(sig)
+    ...(options?.challenge !== undefined ? { challenge: options.challenge } : {}),
+    ...(options?.domain !== undefined ? { domain: options.domain } : {})
   }
+
+  const canonical = proofSigningInput(
+    data as Record<string, unknown>,
+    proofConfig as unknown as Record<string, unknown>,
+    canonicalizeForWrite
+  )
+  const sig = await sign(canonical, privateKey)
+
+  return { ...proofConfig, proofValue: hexToBase64url(sig) }
 }
 
 // ── Encoding (shared with did.ts but kept local to avoid circular deps) ──

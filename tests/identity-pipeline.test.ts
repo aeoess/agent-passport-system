@@ -165,7 +165,10 @@ describe('Credential Request Protocol', () => {
 
       const result = await verifyCredentialResponse(vp, 'wrong-challenge');
       assert.equal(result.valid, false);
-      assert.ok(result.checks.some(c => c.includes('FAIL: challenge mismatch')));
+      // The challenge is now compared only after the presentation signature
+      // verified, so the value compared is the signed one. Verification is
+      // delegated to verifyVerifiablePresentation, which words the rejection.
+      assert.ok(result.checks.some(c => c.includes('FAIL') && c.includes('challenge does not match')));
     });
 
     it('rejects tampered credential in response', async () => {
@@ -414,7 +417,8 @@ describe('Identity Pipeline: Bring Your Own Identity', () => {
       assert.equal(result.valid, true);
       assert.ok(result.checks.some(c => c.includes('PASS: challenge matches')));
       assert.ok(result.checks.some(c => c.includes('PASS: presentation signature valid')));
-      assert.ok(result.checks.some(c => c.includes('PASS: credential[0] signature valid')));
+      assert.ok(result.checks.some(c => c.includes('PASS: credential[0]') && c.includes('verified')));
+      assert.ok(result.checks.some(c => c.includes('PASS: proof key is the one the holder DID commits to')));
 
       // ── Verifier Extracts Claims ──
       assert.equal(result.claims.grade, 2);

@@ -557,6 +557,9 @@ export {
   verifyVC, verifyPresentation
 } from './core/vc.js'
 
+export type { VerifyVCResult, VerifyPresentationResult } from './core/vc.js'
+export type { KeyAuthority } from './core/vc-proof.js'
+
 export type {
   DIDDocument, VerificationMethod, ServiceEndpoint,
   DIDResolutionResult,

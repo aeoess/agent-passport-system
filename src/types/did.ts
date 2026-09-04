@@ -58,6 +58,15 @@ export interface LinkedDataProof {
   created: string
   verificationMethod: string           // did:aps:<key>#key-1
   proofPurpose: 'assertionMethod' | 'authentication' | 'capabilityDelegation' | 'capabilityInvocation'
+  /** Verifier-supplied nonce this proof answers. Bound into the signed bytes
+   *  along with the rest of the proof configuration, so it cannot be rewritten
+   *  to readdress the proof to a different verifier. Consumption (refusing a
+   *  nonce already seen) is relying-party state and is not done here; the
+   *  verified value is returned so the caller can consume it. */
+  challenge?: string
+  /** Verifier-supplied domain this proof is addressed to. Bound into the
+   *  signed bytes on the same terms as `challenge`. */
+  domain?: string
   proofValue: string                   // base64url-encoded Ed25519 signature
 }
 

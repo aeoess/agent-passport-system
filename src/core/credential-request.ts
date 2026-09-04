@@ -4,10 +4,11 @@
 // Selective disclosure: verifier requests specific claims,
 // agent presents a VC containing only those claims.
 
-import { canonicalize, canonicalizeForWrite } from './canonical.js'
-import { parseRfc3339 } from './rfc3339.js'
-import { sign, verify, publicKeyFromPrivate } from '../crypto/keys.js'
-import { toDIDKey, fromDIDKey } from './did-interop.js'
+import { canonicalizeForWrite } from './canonical.js'
+import { proofSigningInput } from './vc-proof.js'
+import { verifyVerifiablePresentation } from './vc-wrapper.js'
+import { sign, publicKeyFromPrivate } from '../crypto/keys.js'
+import { toDIDKey } from './did-interop.js'
 import { hexToMultibase } from './did.js'
 import type { VerifiableCredential, VerifiablePresentation, LinkedDataProof } from '../types/did.js'
 import type { ProviderAttestation } from '../types/attestation.js'
@@ -179,104 +180,51 @@ export async function fulfillCredentialRequest(
 }
 
 /**
- * Verify a credential response VP and extract the requested claims.
+ * Verify a credential response and extract the requested claims.
  *
- * Checks:
- * 1. VP proof is valid
- * 2. Challenge matches (replay protection)
- * 3. Each contained VC proof is valid
- * 4. Credential is not expired
- * 5. Extracts claims from credentialSubject
+ * SCOPE OF CLAIM.
+ *   Establishes, when `valid` is true: everything
+ *     {@link verifyVerifiablePresentation} establishes — presentation and
+ *     credential integrity, holder and issuer binding, proof purpose, expiry,
+ *     and that the response answers the challenge and domain the caller
+ *     expected.
+ *   Does NOT establish: that the challenge has not already been spent, which
+ *     is the verifier's own state to keep; that the holder is entitled to
+ *     present these credentials; or that the extracted claims are true.
+ *
+ * The verification is delegated rather than repeated. This module carried its
+ * own copy of the presentation and credential checks, with the same two
+ * defects: the verification key came from the proof rather than from the
+ * claimed issuer or holder, and the challenge it compared was outside the
+ * signed bytes, so the replay protection this function's own header advertised
+ * was defeated by rewriting the field it compared. One implementation cannot
+ * drift from itself.
+ *
+ * `expectedChallenge` stays optional in the signature and is required in
+ * effect for replay protection: omitting it verifies the response but compares
+ * no nonce, and the result says so in `checks`.
  */
 export async function verifyCredentialResponse(
   vp: VerifiablePresentation,
   expectedChallenge?: string,
+  expectedDomain?: string,
 ): Promise<CredentialResponseResult> {
-  const checks: string[] = []
-  let valid = true
+  const presentation = await verifyVerifiablePresentation(vp, {
+    expectedChallenge,
+    expectedDomain,
+  })
+  const checks = [...presentation.checks]
+  if (expectedChallenge === undefined) {
+    checks.push('SKIP: no expected challenge supplied, so no replay check was made')
+  }
 
-  // Check required fields
-  if (!vp.holder || !vp.proof || !vp.verifiableCredential) {
-    checks.push('FAIL: missing required VP fields')
+  if (!presentation.valid) {
     return { valid: false, claims: {}, checks }
   }
-  checks.push('PASS: required VP fields present')
 
-  // Verify challenge if expected
-  const proof = vp.proof as LinkedDataProof & { challenge?: string; domain?: string }
-  if (expectedChallenge) {
-    if (proof.challenge === expectedChallenge) {
-      checks.push('PASS: challenge matches')
-    } else {
-      checks.push(`FAIL: challenge mismatch — expected "${expectedChallenge}", got "${proof.challenge}"`)
-      valid = false
-    }
-  }
-
-  // Verify VP proof
-  try {
-    const vmDID = vp.proof.verificationMethod.split('#')[0]
-    const publicKey = vmDID.startsWith('did:key:') ? fromDIDKey(vmDID) : vmDID.split(':').pop()!
-    const { proof: vpProof, ...vpWithoutProof } = vp
-    const canonical = canonicalize(vpWithoutProof as unknown as Record<string, unknown>)
-    const sigHex = base64urlToHex(vpProof.proofValue)
-    const sigValid = verify(canonical, sigHex, publicKey)
-
-    if (sigValid) {
-      checks.push('PASS: presentation signature valid')
-    } else {
-      checks.push('FAIL: presentation signature invalid')
-      valid = false
-    }
-  } catch (err) {
-    checks.push(`FAIL: presentation signature error — ${err instanceof Error ? err.message : String(err)}`)
-    valid = false
-  }
-
-  // Verify each credential and extract claims
+  // Claims are extracted only from a response that verified end to end.
   const claims: Record<string, unknown> = {}
-
-  for (let i = 0; i < vp.verifiableCredential.length; i++) {
-    const vc = vp.verifiableCredential[i]
-
-    // Verify VC proof
-    try {
-      const vmDID = vc.proof.verificationMethod.split('#')[0]
-      const publicKey = vmDID.startsWith('did:key:') ? fromDIDKey(vmDID) : vmDID.split(':').pop()!
-      const { proof: vcProof, ...vcWithoutProof } = vc
-      const canonical = canonicalize(vcWithoutProof as unknown as Record<string, unknown>)
-      const sigHex = base64urlToHex(vcProof.proofValue)
-      const sigValid = verify(canonical, sigHex, publicKey)
-
-      if (sigValid) {
-        checks.push(`PASS: credential[${i}] signature valid`)
-      } else {
-        checks.push(`FAIL: credential[${i}] signature invalid`)
-        valid = false
-        continue
-      }
-    } catch (err) {
-      checks.push(`FAIL: credential[${i}] signature error — ${err instanceof Error ? err.message : String(err)}`)
-      valid = false
-      continue
-    }
-
-    // Check expiration. An expirationDate this verifier cannot read is not an
-    // expiry it can honour, so it fails rather than reporting "not expired".
-    if (vc.expirationDate) {
-      const expiry = parseRfc3339(vc.expirationDate)
-      if (!expiry.ok) {
-        checks.push(`FAIL: credential[${i}] has an invalid expirationDate (${expiry.reason})`)
-        valid = false
-      } else if (expiry.ms < Date.now()) {
-        checks.push(`FAIL: credential[${i}] expired`)
-        valid = false
-      } else {
-        checks.push(`PASS: credential[${i}] not expired`)
-      }
-    }
-
-    // Extract claims
+  for (const vc of presentation.credentials) {
     const subject = vc.credentialSubject as Record<string, unknown>
     for (const [key, value] of Object.entries(subject)) {
       if (key !== 'id' && value !== undefined) {
@@ -285,13 +233,17 @@ export async function verifyCredentialResponse(
     }
   }
 
-  return { valid, claims, checks }
+  return { valid: true, claims, checks }
 }
 
 // ── Proof Helpers ──
 
 import crypto from 'node:crypto'
 
+/** Build a proof whose configuration is inside the bytes it signs, matching
+ *  the twins in vc.ts and vc-wrapper.ts. The challenge this module puts on a
+ *  response used to be attached after signing, which is what made the replay
+ *  check in verifyCredentialResponse defeatable by rewriting it. */
 async function createProof(
   data: Record<string, unknown>,
   privateKey: string,
@@ -299,21 +251,21 @@ async function createProof(
   purpose: LinkedDataProof['proofPurpose'],
   options?: { challenge?: string; domain?: string },
 ): Promise<LinkedDataProof> {
-  const canonical = canonicalizeForWrite(data as Record<string, unknown>)
-  const sig = sign(canonical, privateKey)
-
-  const proof: LinkedDataProof & { challenge?: string; domain?: string } = {
+  const proofConfig: Omit<LinkedDataProof, 'proofValue'> = {
     type: 'Ed25519Signature2020',
     created: new Date().toISOString(),
     verificationMethod: `${did}#key-1`,
     proofPurpose: purpose,
-    proofValue: hexToBase64url(sig),
+    ...(options?.challenge !== undefined ? { challenge: options.challenge } : {}),
+    ...(options?.domain !== undefined ? { domain: options.domain } : {}),
   }
 
-  if (options?.challenge) proof.challenge = options.challenge
-  if (options?.domain) proof.domain = options.domain
-
-  return proof
+  const canonical = proofSigningInput(
+    data,
+    proofConfig as unknown as Record<string, unknown>,
+    canonicalizeForWrite,
+  )
+  return { ...proofConfig, proofValue: hexToBase64url(sign(canonical, privateKey)) }
 }
 
 // ── Encoding ──
@@ -326,9 +278,6 @@ function hexToBytes(hex: string): Uint8Array {
   return bytes
 }
 
-function bytesToHex(bytes: Uint8Array): string {
-  return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('')
-}
 
 function hexToBase64url(hex: string): string {
   const bytes = hexToBytes(hex)
@@ -336,8 +285,3 @@ function hexToBase64url(hex: string): string {
   return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
 
-function base64urlToHex(b64url: string): string {
-  const base64 = b64url.replace(/-/g, '+').replace(/_/g, '/')
-  const buf = Buffer.from(base64, 'base64')
-  return bytesToHex(new Uint8Array(buf))
-}
