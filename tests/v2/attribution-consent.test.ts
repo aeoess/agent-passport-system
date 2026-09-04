@@ -10,6 +10,7 @@ import {
   verifyAttributionConsent,
   checkArtifactCitations,
   generateKeyPair,
+  toDIDKey,
   createHybridTimestamp,
 } from '../../src/index.js'
 import type {
@@ -37,10 +38,10 @@ function fixture(overrides: Partial<{
   const cited = generateKeyPair()
   const now = Date.now()
   const params = {
-    citer: 'did:aps:citer-agent',
+    citer: toDIDKey(citer.publicKey),
     citer_public_key: citer.publicKey,
     citer_private_key: citer.privateKey,
-    cited_principal: 'did:aps:cited-principal',
+    cited_principal: toDIDKey(cited.publicKey),
     cited_principal_public_key: cited.publicKey,
     citation_content: overrides.citationContent ?? 'Douglas supports scoped-committer model',
     binding_context: overrides.bindingContext ?? 'charter:governance-v3',
@@ -50,6 +51,10 @@ function fixture(overrides: Partial<{
   const receipt = createAttributionReceipt(params)
   return { citer, cited, receipt, params }
 }
+
+// Each party is named by the did:key its own key commits to. Opaque
+// identifiers bind to nothing, and verification now refuses what it cannot
+// bind; see attribution-consent-binding.test.ts.
 
 describe('createAttributionReceipt', () => {
   it('produces a receipt with a stable sha256 id and citer_signature', () => {
@@ -66,10 +71,10 @@ describe('createAttributionReceipt', () => {
     const k1 = generateKeyPair()
     const k2 = generateKeyPair()
     const base = {
-      citer: 'did:aps:a',
+      citer: toDIDKey(k1.publicKey),
       citer_public_key: k1.publicKey,
       citer_private_key: k1.privateKey,
-      cited_principal: 'did:aps:b',
+      cited_principal: toDIDKey(k2.publicKey),
       cited_principal_public_key: k2.publicKey,
       citation_content: 'same',
       binding_context: 'ctx',
@@ -84,8 +89,8 @@ describe('createAttributionReceipt', () => {
   it('rejects empty citation_content', () => {
     const k = generateKeyPair()
     assert.throws(() => createAttributionReceipt({
-      citer: 'did:a', citer_public_key: k.publicKey, citer_private_key: k.privateKey,
-      cited_principal: 'did:b', cited_principal_public_key: k.publicKey,
+      citer: toDIDKey(k.publicKey), citer_public_key: k.publicKey, citer_private_key: k.privateKey,
+      cited_principal: toDIDKey(k.publicKey), cited_principal_public_key: k.publicKey,
       citation_content: '', binding_context: 'ctx',
       created_at: stampAt(1), expires_at: stampAt(2, 2),
     }), /citation_content/)
@@ -361,8 +366,9 @@ describe('smoke: hybrid timestamp integration', () => {
       wallClockLatest: created.wallClockLatest + 60_000,
     }
     const r = createAttributionReceipt({
-      citer: 'did:a', citer_public_key: citer.publicKey, citer_private_key: citer.privateKey,
-      cited_principal: 'did:b', cited_principal_public_key: cited.publicKey,
+      citer: toDIDKey(citer.publicKey), citer_public_key: citer.publicKey,
+      citer_private_key: citer.privateKey,
+      cited_principal: toDIDKey(cited.publicKey), cited_principal_public_key: cited.publicKey,
       citation_content: 'c', binding_context: 'ctx',
       created_at: created, expires_at: expires,
     })

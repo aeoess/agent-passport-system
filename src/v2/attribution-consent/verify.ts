@@ -4,6 +4,7 @@
 
 import { createHash } from 'node:crypto'
 import { verify } from '../../crypto/keys.js'
+import { bindVerificationMethod } from '../../core/vc-proof.js'
 import { compareTimestamps, createHybridTimestamp } from '../../core/time.js'
 import { receiptCore } from './create.js'
 import type {
@@ -14,6 +15,42 @@ import type {
 
 function fail(reason: string): AttributionConsentResult {
   return { valid: false, reason }
+}
+
+/**
+ * Bind a named party to the key sitting beside it, or say why it could not be.
+ *
+ * The receipt names each party twice, as a DID and as a key, and the
+ * signatures are checked against the keys the receipt carries. Without this,
+ * the principal whose consent is being proved supplies the key that proves it.
+ *
+ * Uses `bindVerificationMethod` from the credential surfaces and nothing else,
+ * including its canonicality round-trip, so one signer cannot hold two
+ * identities. A DID that commits to no key cannot be bound without a DID
+ * document, and this SDK resolves none here, so it is refused rather than
+ * assumed. The `keyAuthority` vocabulary is the one those surfaces already
+ * use: `unresolved` for a method that is not self-certifying, `rejected` for
+ * one that commits to a different key. Neither is an acceptance.
+ */
+function bindingFailure(
+  party: 'citer' | 'cited_principal',
+  did: unknown,
+  publicKey: unknown,
+): string | null {
+  if (typeof publicKey !== 'string' || publicKey.length === 0) {
+    return `${party}_public_key missing`
+  }
+  const binding = bindVerificationMethod(did, did)
+  if (binding.keyAuthority !== 'verified') {
+    return `${party} binding ${binding.keyAuthority}: ${binding.reason}`
+  }
+  if (binding.publicKey !== publicKey) {
+    return (
+      `${party} binding rejected: the DID commits to a different key than the ` +
+      `${party}_public_key beside it`
+    )
+  }
+  return null
 }
 
 /** Verify an AttributionReceipt end-to-end:
@@ -33,6 +70,15 @@ export function verifyAttributionConsent(
   const core = receiptCore(receipt)
   const expectedId = createHash('sha256').update(core).digest('hex')
   if (expectedId !== receipt.id) return fail('receipt id does not match canonical core — tampered')
+
+  // Whose key. Each party's DID must commit to the key beside it, before any
+  // signature made with that key is allowed to mean anything.
+  const citerProblem = bindingFailure('citer', receipt.citer, receipt.citer_public_key)
+  if (citerProblem !== null) return fail(citerProblem)
+  const citedProblem = bindingFailure(
+    'cited_principal', receipt.cited_principal, receipt.cited_principal_public_key,
+  )
+  if (citedProblem !== null) return fail(citedProblem)
 
   try {
     if (!verify(core, receipt.citer_signature, receipt.citer_public_key)) {

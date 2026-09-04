@@ -5,10 +5,24 @@
 // ══════════════════════════════════════════════════════════════════
 // Triggered by the Apr 14 A2A#1734 pattern: an agent cited a third-party
 // principal's scoped position as support for a broader governance claim
-// the cited principal never made. This primitive makes that impossible
-// inside binding artifacts (charters, settlements, completion receipts):
-// a citation without a signed AttributionReceipt is rejected by
-// checkArtifactCitations().
+// the cited principal never made.
+//
+// WHAT THIS ESTABLISHES. A citation is accepted only when the artifact
+// presents an AttributionReceipt whose cited_principal consented, where
+// consenting means a signature by the key that principal's DID commits to.
+// Each party is named twice, as a DID and as a key, and the two are bound:
+// without that, the principal whose consent is being proved would be
+// supplying the key that proves it, and naming any victim would cost an
+// attacker nothing. Binding uses the self-certifying rule from the
+// credential surfaces, so a DID that commits to no key is refused rather
+// than assumed; this SDK resolves no DID documents here.
+//
+// WHAT IT DOES NOT ESTABLISH. That the citation is a fair reading of what
+// the principal said, only that they signed this citation_content. And it
+// binds nothing that does not call checkArtifactCitations(): verifyCharter()
+// and verifyCompletionReceipt() do. SettlementStatement declares a citations
+// field that nothing checks, so a settlement carrying citations is not gated
+// by this primitive today.
 // ══════════════════════════════════════════════════════════════════
 
 import type { HybridTimestamp } from '../../types/time.js'
