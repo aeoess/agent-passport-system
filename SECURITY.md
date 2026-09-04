@@ -4,6 +4,7 @@
 
 If you discover a security vulnerability in the Agent Passport System, please report it responsibly.
 
+**Report privately:** https://github.com/aeoess/agent-passport-system/security/advisories
 **Email:** security@aeoess.com
 **Response time:** We aim to acknowledge within 48 hours and provide a fix timeline within 7 days.
 
@@ -55,10 +56,17 @@ The Agent Passport System operates under these assumptions:
 
 | Package | Supported |
 |---------|-----------|
-| agent-passport-system >= 1.13.0 | ✅ |
-| agent-passport-system-mcp >= 2.8.0 | ✅ |
+| agent-passport-system >= 6.0.0 | ✅ |
 | mingle-mcp >= 1.1.0 | ✅ |
 | Older versions | ❌ |
+
+Every `agent-passport-system` version from 1.5.1 through 5.0.3 is unsupported;
+the advisory for 6.0.0, published at
+https://github.com/aeoess/agent-passport-system/security/advisories, describes
+the verification defects they carry.
+
+For `agent-passport-system-mcp` support and version information, see the MCP
+server repository's own security policy.
 
 ## Verifying releases
 

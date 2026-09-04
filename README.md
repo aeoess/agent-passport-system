@@ -270,6 +270,7 @@ ADK, A2A, MCP, OpenShell, IBAC, Gonka. Gateway evaluation under 2ms in the bench
 ## Security and conformance
 
 - [Threat model](/THREAT_MODEL.md) -- actors, assets, trust boundaries, what APS prevents and what it does not, verifier responsibilities.
+- [Verification boundary](https://github.com/aeoess/agent-passport-system/blob/main/docs/verification-boundary.md) -- which verification APIs establish authority from caller-supplied trust, and the trust input each one takes.
 - [Conformance fixtures](tests/conformance/README.md) -- golden valid and negative receipt fixtures every verifier must agree on.
 - [Payment Safety Profile](docs/PAYMENT-SAFETY-PROFILE.md) -- the mandatory profile for agent-initiated payments.
 - [MCP Authorization Profile](docs/MCP-AUTHORIZATION-PROFILE.md) -- aps-mcp-1 pre-dispatch authorization for `tools/call`, including the mcp-use adapter.

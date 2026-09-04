@@ -89,9 +89,17 @@ Design principles, as instantiated here:
   transfer. No operation widens authority downstream.
 - **Complete mediation.** Every gated action passes the gateway's evaluation;
   an agent cannot self-permit, and the decision carries its own signature.
-- **Fail-safe defaults.** Verification fails closed. Malformed or unverifiable
-  input yields an explicit invalid result rather than a pass, and the top-level
-  verifier's never-throws contract is guarded by test.
+- **Fail-safe defaults, for the verifiers where it is established.** The
+  authority-aware verifiers named in `docs/verification-boundary.md` fail
+  closed: a malformed or unreadable input yields an explicit invalid result
+  rather than a pass, and the top-level verifier's never-throws contract is
+  guarded by test. What establishes that is the 6.0.0 suite: table-driven
+  timestamp tests over those verifiers, an attacker-side test for each defect
+  the 6.0.0 advisory lists that the fixed implementation refuses, and
+  adversarial tests written against the repaired code after the fix. Some
+  lower-level helpers authenticate an artifact against a key the artifact
+  carries; they establish integrity, not signer authority, and an integrity-only
+  result must not be used as an authorization decision.
 - **Economy of mechanism.** One signature suite (Ed25519), pinned canonical
   byte forms covered by conformance fixtures, and two runtime dependencies.
 - **Separation of privilege.** Principal, agent, gateway, and issuer sign with
@@ -99,11 +107,15 @@ Design principles, as instantiated here:
 
 Common implementation weaknesses, as countered:
 
-- **Untrusted input.** Every externally supplied structure is validated before
-  use; decoders bound declared lengths against the bytes actually present. The
-  parsers are fuzzed continuously (seven Jazzer.js harnesses via ClusterFuzzLite,
-  with found-bug inputs kept as regression seeds) and property-tested with
-  fast-check.
+- **Untrusted input.** Decoders bound declared lengths against the bytes
+  actually present. The parsers are fuzzed continuously (seven Jazzer.js
+  harnesses via ClusterFuzzLite, with found-bug inputs kept as regression seeds)
+  and property-tested with fast-check. The claim is scoped to what those runs
+  cover: validation before use is established for the verifiers named in
+  `docs/verification-boundary.md` and for the parsers under the fuzz harnesses,
+  not for every externally supplied structure the package accepts. Before 6.0.0
+  several verifiers read a timestamp they could not parse and treated it as no
+  bound at all.
 - **Injection and dynamic execution.** No eval, no dynamic code loading. Only
   the CLI invokes external programs, by explicit exec of fixed binaries; the
   library spawns nothing.

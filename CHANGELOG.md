@@ -1,6 +1,130 @@
 # Changelog
 
-## 5.0.3 (unreleased)
+## 6.0.0 ({{RELEASE_DATE}})
+
+Security release. The full cross-SDK account, including the affected version
+ranges and the severity assessment, is in the security advisory for this
+release. [The verification boundary](https://github.com/aeoess/agent-passport-system/blob/main/docs/verification-boundary.md)
+names the verification APIs that establish authority from caller-supplied trust,
+and the trust input each takes.
+
+Several exported verification functions returned a successful verification
+result (`valid: true` or an equivalent) without establishing all of the trust,
+linkage, context and temporal conditions the result implied. In the affected
+paths the verification key came from the artifact itself, the claimed identity
+was not bound to the key that signed, chained artifacts were not linked to the
+artifacts they claimed to derive from, or an unreadable timestamp compared as
+neither expired nor stale. A relying party that treated those results as
+authorization could accept an artifact an attacker produced with keys the
+attacker controls.
+
+This release changes what the affected functions establish. Trust anchors and
+the expected challenge are caller-supplied where the result claims authority;
+the presentation domain is signed, and a caller that uses domain as a
+relying-party boundary compares it through the expected-domain option.
+Identities are bound to keys. Chains are linked. Invalid time fails closed.
+Creators refuse to mint artifacts their own verifiers reject. The credential,
+presentation, policy-receipt and execution-envelope surfaces require the new
+inputs in their public types; the passport surfaces keep an optional options
+argument and return `valid: false` without it.
+
+### Affected surfaces
+
+One row per exported surface and defect class; a surface with two defect classes
+appears twice. Copied from the security advisory for this release.
+
+| exported name | module path | defect class | consumer change |
+|---|---|---|---|
+| `verifyExecutionEnvelope` | src/core/execution-envelope.ts | artifact key used as trust root | a new required input: trustedSignerPublicKeys, originalDecision, evaluatorPublicKey and expected |
+| `verifyDecisionArtifact` | src/core/decision-semantics.ts | artifact key used as trust root | new required inputs: `keys` ({ intentSignerPublicKey, decisionSignerPublicKey, artifactSignerPublicKey }), `originalIntent` and `originalDecision` |
+| `verifyPolicyReceipt` | src/core/policy.ts | chain not linked | a new required input: the PolicyReceiptChainInputs third argument |
+| `verifyPolicyReceiptEnvelope` | src/core/policy.ts | chain not linked | a new opt-in: callers wanting envelope-only integrity now call this surface by name |
+| `verifyVC` | src/core/vc.ts | identity not bound to key | reissue: credentials issued before the fixed version no longer verify |
+| `verifyVerifiableCredential` | src/core/vc-wrapper.ts | identity not bound to key | reissue: credentials issued before the fixed version no longer verify |
+| `verifyPresentation` | src/core/vc.ts | identity not bound to key | a new required input: opts.expectedChallenge |
+| `verifyVerifiablePresentation` | src/core/vc-wrapper.ts | identity not bound to key | a new required input: opts.expectedChallenge |
+| `verifyCredentialResponse` | src/core/credential-request.ts | identity not bound to key | a new required input: expectedChallenge is positional and required |
+| `passportToVC` | src/core/vc.ts | identity not bound to key | reissue: the emitted signed preimage changed |
+| `delegationToVC` | src/core/vc.ts | identity not bound to key | reissue: the emitted signed preimage changed |
+| `floorAttestationToVC` | src/core/vc.ts | identity not bound to key | reissue: the emitted signed preimage changed |
+| `receiptToVC` | src/core/vc.ts | identity not bound to key | reissue: the emitted signed preimage changed |
+| `passportToVerifiableCredential` | src/core/vc-wrapper.ts | identity not bound to key | reissue: the emitted signed preimage changed |
+| `createPresentation` | src/core/vc.ts | creator and verifier disagree | a new required input: options.challenge |
+| `createVerifiablePresentation` | src/core/vc-wrapper.ts | creator and verifier disagree | a new required input: options.challenge |
+| `verifyGovernanceCredential` | src/core/governance-block.ts | identity not bound to key | reissue: governance credentials signed before the fixed version no longer verify |
+| `createVerifiedGovernanceCredential` | src/core/governance-block.ts | identity not bound to key | reissue: the emitted signed preimage changed |
+| `verifyAttributionConsent` | src/v2/attribution-consent/verify.ts | identity not bound to key | reissue: receipts naming parties by non-self-certifying identifiers must be reissued under did:key |
+| `checkArtifactCitations` | src/v2/attribution-consent/verify.ts | identity not bound to key | reissue: cited receipts must name their parties with self-certifying DIDs |
+| `verifyPassport` | src/verification/verify.ts | authority false accept | a new opt-in: pass trustedIssuers for issuer-authority verification; allowSelfSigned: true is an explicit integrity-only opt-in and not a substitute for issuer trust in an authorization gate |
+| `checkPassportGate` | src/core/commerce.ts | authority false accept | a new opt-in: the second opts argument carrying trustedIssuers or allowSelfSigned |
+| `assignRole` | src/core/intent.ts | authority false accept | a new opt-in: trustedIssuers or allowSelfSigned on the opts object |
+| `governIBACIntent` | src/adapters/ibac.ts | authority false accept | a success governance receipt is no longer signed for an expired delegation; per-tuple answers are unchanged |
+| `evaluateIBACTuples` | src/adapters/ibac.ts | invalid time fails open | none |
+| `createExecutionAttestation` | src/core/execution-attestation.ts | creator and verifier disagree | none for callers already passing RFC 3339 instants in order |
+| `verifyExecutionAttestation` | src/core/execution-attestation.ts | invalid time fails open | none for RFC 3339 instants with an explicit offset or Z; attestations carrying zone-less, +0000 or space-separated spellings must be reissued; zone-less and space-separated spellings no longer verify |
+| `normalizeTimestamp` | src/core/canonical.ts | invalid time fails open | none for timestamps carrying an offset; a zone-less value now throws |
+| `verifyReceiptContext` | src/v2/offline-verifier/context.ts | invalid time fails open | RejectReason gains INVALID_TIMESTAMP; exhaustive switches over RejectReason must add a case |
+| `resolveVerificationMethod` | src/core/did-uri.ts | invalid time fails open | none |
+| `deriveSAO` | src/core/cross-chain.ts | invalid time fails open | none |
+| `verifyDelegation` | src/core/delegation.ts | invalid time fails open | none |
+| `isExpired` | src/core/passport.ts | invalid time fails open | none |
+| `isPassportValid` | src/core/passport.ts | invalid time fails open | none |
+| `verifyChallenge` | src/verification/verify.ts | invalid time fails open | none |
+| `computeEvidenceAge` | src/core/freshness.ts | invalid time fails open | none |
+| `validateTemporalRights` | src/core/time.ts | invalid time fails open | none |
+| `verifyRuntimeAttestation` | src/core/attestation.ts | invalid time fails open | none |
+| `addApprovalSignature` | src/core/charter.ts | invalid time fails open | none |
+| `evaluateApprovalRequest` | src/core/charter.ts | invalid time fails open | none |
+| `isRetentionExpired` | src/core/data-lifecycle.ts | invalid time fails open | none |
+| `isSAOExpired` | src/core/cross-chain.ts | invalid time fails open | none |
+| `isFrameExpired` | src/core/cross-chain.ts | invalid time fails open | none |
+| `verifyCrossChainPermit` | src/core/cross-chain.ts | invalid time fails open | none |
+| `verifyExecutionReceipt` | src/core/cross-chain.ts | invalid time fails open | none |
+| `checkTermsCompliance` | src/core/data-source.ts | invalid time fails open | none |
+| `activateEscalation` | src/core/escalation.ts | invalid time fails open | none |
+| `checkEscalatedAction` | src/core/escalation.ts | invalid time fails open | none |
+| `isEscalationActive` | src/core/escalation.ts | invalid time fails open | none |
+| `verifyGovernanceArtifact` | src/core/governance.ts | invalid time fails open | none |
+| `validateCredentialLifecycle` | src/core/governance.ts | invalid time fails open | none |
+| `activateKeyRotation` | src/core/key-rotation.ts | invalid time fails open | none |
+| `isKeyActive` | src/core/key-rotation.ts | invalid time fails open | none |
+| `scheduleNextRecurrence` | src/core/obligations.ts | invalid time fails open | none |
+| `verifyEndorsement` | src/core/principal.ts | invalid time fails open | none |
+| `addToFleet` | src/core/principal.ts | invalid time fails open | none |
+| `verifyEscrowHold` | src/core/transactional.ts | invalid time fails open | none |
+| `verifyAttestation` | src/core/values.ts | invalid time fails open | none |
+| `negotiateCommonGround` | src/core/values.ts | invalid time fails open | none |
+| `lintTaskFeasibility` | src/core/feasibility.ts | invalid time fails open | none |
+| `verifyPolicyDecision` | src/core/policy.ts | invalid time fails open | none |
+| `isGovernanceBlockExpired` | src/core/governance-block.ts | invalid time fails open | none |
+| `importOAuthToken` | src/core/identity-bridge.ts | creator and verifier disagree | none: only out-of-range exp values now throw |
+| `createDelegation` | src/core/delegation.ts | creator and verifier disagree | none: only durations past year 9999 now throw |
+| `createApprovalRequest` | src/core/charter.ts | creator and verifier disagree | none: only timeouts past year 9999 now throw |
+
+### Migration
+
+| package | old call shape | new call shape | unmigrated call | artifacts reissued |
+|---|---|---|---|---|
+| typescript | `verifyPassport(signed) with no options returned valid: true on a self-minted passport` | `verifyPassport(signed, { trustedIssuers: [...] }) or verifyPassport(signed, { allowSelfSigned: true })` | valid false: opts stays optional so the call still compiles; result reports issuerTrustChecked false and selfSignedAccepted false | no: passport bytes unchanged; a countersignature is needed only to pass the trustedIssuers path |
+| typescript | `checkPassportGate(signedPassport)` | `checkPassportGate(signedPassport, { trustedIssuers: [...] }) or { allowSelfSigned: true }` | valid false: the passport_valid check reports passed false, so the commerce preflight is not permitted | no: no artifact changes; caller supplies the trust input |
+| typescript | `assignRole({ signedPassport, role, autonomyLevel, scope, assignerPrivateKey, assignerPublicKey })` | `same opts object plus trustedIssuers: [...] or allowSelfSigned: true` | exception: throws 'Cannot assign role: passport verification failed' | no: no artifact changes; caller supplies the trust input |
+| typescript | `verifyVC / verifyVerifiablePresentation over a proof signed on the document body only, proof configuration attached after signing` | `same calls; proofSigningInput places created, proofPurpose, verificationMethod, challenge and domain inside the signed bytes` | valid false: no dual-verification path: artifacts issued before the fixed version do not verify | yes: every VC and VP issued before the fixed version must be reissued |
+| typescript | `verifyPolicyReceipt(receipt, verifierPublicKey) with chain omitted` | `verifyPolicyReceipt(receipt, verifierPublicKey, chain: PolicyReceiptChainInputs), or verifyPolicyReceiptEnvelope(receipt, verifierPublicKey) for envelope integrity only` | compile error: the third parameter is no longer optional; an untyped JS caller gets valid false with a chain-not-verified error | no: receipts unchanged; the caller must now present the intent, decision and action receipt plus an anchor for each |
+| typescript | `createPresentation(creds, priv, pub) or createVerifiablePresentation(creds, priv) with options omitted or {}` | `createPresentation(creds, priv, pub, { challenge }) and createVerifiablePresentation(creds, priv, { challenge })` | compile error: the options parameter is required; an untyped caller gets an exception from assertPresentationProofOptions | yes: a presentation carrying no challenge does not verify in the fixed version and must be reissued |
+| typescript | `verifyPresentation(vp), verifyVerifiablePresentation(vp), verifyCredentialResponse(vp) with no expected challenge` | `verifyPresentation(vp, { expectedChallenge }), verifyVerifiablePresentation(vp, { expectedChallenge }), verifyCredentialResponse(vp, expectedChallenge)` | compile error: the opts object and the second positional argument are now required | no: verifier side only; the verifier must issue and pass its own nonce |
+| typescript | `verifyExecutionEnvelope(envelope) with no opts, or opts whose five members were all optional` | `verifyExecutionEnvelope(envelope, { trustedSignerPublicKeys, originalDecision, evaluatorPublicKey, expected }) with optional maxDecisionAgeMs` | compile error: opts and four of its members are required; an untyped caller reaching it with nothing gets valid false rather than a throw | no: envelope bytes unchanged; thirteen existing in-repo call sites passed no options and all now get false |
+| typescript | `normalizeTimestamp('2026-04-05T03:39:31') returned an address that moved with the host timezone; date-only and hour 24 were also accepted` | `normalizeTimestamp(ts) with RFC 3339 carrying an explicit offset or Z (lowercase t and z accepted)` | exception: throws naming the rule; zone-less, date-only, impossible calendar dates, hour 24, whitespace-padded and non-string all rejected | no for conforming input: every offset-bearing input produces the identical address; an action_ref derived on a past run from a zone-less timestamp cannot be recomputed at all |
+| typescript | `verifyAttributionConsent(receipt) accepted citer and cited_principal as opaque identifiers with any key beside them` | `same call, with each party named by a did:key or a multibase did:aps that commits to the key beside it` | valid false: reason carries 'unresolved' or 'rejected'; checkArtifactCitations, verifyCharter and verifyCompletionReceipt inherit the refusal | yes: receipts whose parties are opaque identifiers must be reissued under did:key; the signed preimage and receipt id did not move |
+| typescript | `verifyVC / verifyVerifiablePresentation bound an issuer or holder named by did:web, SPIFFE, an OAuth-derived DID, or the hex form from createDIDHex` | `same calls, with issuer and holder named by did:key or the multibase did:aps from createDID` | valid false: keyAuthority reports 'unresolved' because the method does not self-certify and this SDK resolves no DID documents | yes: credentials whose issuer or holder uses a non-self-certifying method must be reissued under createDID |
+| typescript | `verifyExecutionAttestation accepted zone-less, +0000 and space-separated ISO timestamp spellings` | `same call, with RFC 3339 carrying an explicit offset or Z` | valid false: the attestation no longer verifies on its timestamps | yes: attestations carrying those spellings must be reissued |
+| typescript | `createExecutionAttestation(input, attestorPrivateKey) minted attestations with unreadable timestamps or with executionCompletedAt before executionStartedAt` | `same call with RFC 3339 instants and completion at or after start (equal instants allowed)` | exception: throws naming the rule at creation instead of minting a signed artifact the verifier would refuse | no: it refuses to mint; already-minted bad artifacts were rejected by the verifier before and after |
+| typescript | `createDelegation, createApprovalRequest and importOAuthToken emitted an ISO expanded-year timestamp for durations or an exp landing past year 9999` | `same calls with a duration or exp that lands inside four-digit years` | exception: RangeError from formatRfc3339, and importOAuthToken raises its own documented error | no: an expanded-year timestamp was never readable by this SDK's own verifiers |
+| typescript | `consumers matching the checks[] string 'PASS: N evidence attachment(s) present' (two other check strings also reworded)` | `match 'PRESENT: N evidence attachment(s), not verified here'; this verifier does not check evidence` | warning only: the valid verdict is unchanged; only string matching on checks[] stops matching | no: no artifact changes |
+| typescript | `verifyDecisionArtifact(artifact, { intentSignerPublicKey, decisionSignerPublicKey, artifactSignerPublicKey })` | `verifyDecisionArtifact(artifact, { intentSignerPublicKey, decisionSignerPublicKey, artifactSignerPublicKey }, originalIntent, originalDecision)` | compile error: two new required parameters; each inner signature is verified under the caller's anchor and the decision must reference the intent | no |
+| typescript | `verifyGovernanceCredential(credential, block, publicKey)` over a credential whose proof signed the body only | the same call over a credential produced by the fixed `createVerifiedGovernanceCredential`, whose proof configuration is signed and whose proof key must bind to the issuer | valid false | yes: governance credentials issued before the fixed version are reissued |
+| typescript | `floorAttestationToVC`, `receiptToVC`, `delegationToVC`, `passportToVC` | the same calls; the credentials they emit carry the new signed preimage | n/a: creators | yes: credentials they produced before the fixed version are reissued |
+
+## 5.0.3 (released)
 
 ### Release process
 

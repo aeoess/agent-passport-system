@@ -1,6 +1,6 @@
 {
   "name": "agent-passport-system",
-  "version": "5.0.3",
+  "version": "6.0.0",
   "description": "Enforcement and accountability layer for AI agents. Bring your own identity (did:key, did:web, SPIFFE, OAuth, did:aps). Gateway enforcement, monotonic narrowing, cascade revocation, earned reputation, wallet binding, attribution, signed receipts.",
   "type": "module",
   "main": "dist/src/index.js",
@@ -93,6 +93,8 @@
     "src/v2/payment-rails/conformance/binding-fixtures/**",
     "values/",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "SECURITY.md",
+    "docs/verification-boundary.md"
   ]
 }
