@@ -96,8 +96,8 @@ Output: Merkle root + inclusion proofs. 100K receipts provable with ~17 hashes.
 
 Setup: `npx agent-passport-system-mcp setup` (auto-configures Claude Desktop + Cursor)
 
-**Identity & trust (12 tools):**
-generate_keys, identify, issue_passport, verify_issuer, verify_passport, create_principal, endorse_agent, get_passport_grade, list_issuance_records, get_behavioral_sequence, verify_endorsement, revoke_endorsement
+**Identity & trust (11 tools):**
+generate_keys, identify, issue_passport, verify_issuer, create_principal, endorse_agent, get_passport_grade, list_issuance_records, get_behavioral_sequence, verify_endorsement, revoke_endorsement
 
 **Delegation & revocation (5):**
 create_delegation, verify_delegation, revoke_delegation, sub_delegate, create_v2_delegation
