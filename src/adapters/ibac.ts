@@ -157,11 +157,22 @@ export function governIBACIntent(
     constraints: action.constraints,
   }))
 
+  // The delegation has to be usable before any of this is worth evaluating,
+  // and the check cannot live inside the per-tuple map: `[].every(...)` is
+  // vacuously true, so an intent carrying no actions never reached the expiry
+  // test and was signed as a success against a delegation that had expired.
+  // Hoisting it changes no answer the per-tuple path ever computed, because
+  // that path denies on exactly these two conditions; it supplies one where
+  // none was computed at all.
+  const delegationExpiry = parseRfc3339(config.delegation.expiresAt)
+  const delegationUsable = delegationExpiry.ok && delegationExpiry.ms > Date.now()
+
   // Evaluate
   const { tupleResults } = evaluateIBACTuples(tuples, config.delegation)
 
-  const allAuthorized = tupleResults.every(r => r.authorized)
+  const allAuthorized = delegationUsable && tupleResults.every(r => r.authorized)
   const scopesUsed = tupleResults.map(r => r.scope).join(', ')
+  const deniedCount = tupleResults.filter(r => !r.authorized).length
 
   // Build signed receipt
   const receiptData: Omit<ActionReceipt, 'signature'> = {
@@ -179,7 +190,11 @@ export function governIBACIntent(
       status: allAuthorized ? 'success' : 'failure',
       summary: allAuthorized
         ? `All ${tupleResults.length} IBAC tuples authorized`
-        : `${tupleResults.filter(r => !r.authorized).length} of ${tupleResults.length} tuples denied`,
+        : !delegationUsable
+          ? delegationExpiry.ok
+            ? 'Delegation expired'
+            : `Delegation expiresAt is not a readable timestamp (${delegationExpiry.reason})`
+          : `${deniedCount} of ${tupleResults.length} tuples denied`,
     },
     delegationChain: [],
   }
