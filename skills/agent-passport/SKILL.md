@@ -39,6 +39,8 @@ metadata:
 npm install agent-passport-system        # SDK: /core subpath is the curated default
 npm install agent-passport-system-mcp    # MCP server: APS_PROFILE=essential is the default
 go get github.com/aeoess/agent-passport-go@v0.7.0   # Go SDK, byte-parity subset (passport, delegation, attribution, completion, in-toto, values)
+pip install agent-passport-system                    # Python SDK
+cargo add agent-passport-system                      # Rust SDK, library crate agent_passport
 ```
 
 Minimal SDK import (lead with the curated essentials):
@@ -92,12 +94,12 @@ npx agent-passport prove --beneficiary alice
 
 Output: Merkle root + inclusion proofs. 100K receipts provable with ~17 hashes.
 
-## MCP tools (152 total on v5.0.0)
+## MCP tools (152 total)
 
 Setup: `npx agent-passport-system-mcp setup` (auto-configures Claude Desktop + Cursor)
 
-**Identity & trust (12 tools):**
-generate_keys, identify, issue_passport, verify_issuer, verify_passport, create_principal, endorse_agent, get_passport_grade, list_issuance_records, get_behavioral_sequence, verify_endorsement, revoke_endorsement
+**Identity & trust (11 tools):**
+generate_keys, identify, issue_passport, verify_issuer, create_principal, endorse_agent, get_passport_grade, list_issuance_records, get_behavioral_sequence, verify_endorsement, revoke_endorsement
 
 **Delegation & revocation (5):**
 create_delegation, verify_delegation, revoke_delegation, sub_delegate, create_v2_delegation
@@ -206,6 +208,8 @@ Grade travels with the passport. Any consumer reads it without understanding sco
 - npm: https://www.npmjs.com/package/agent-passport-system
 - MCP: https://www.npmjs.com/package/agent-passport-system-mcp
 - PyPI: https://pypi.org/project/agent-passport-system/
+- crates.io: https://crates.io/crates/agent-passport-system
+- Go: https://pkg.go.dev/github.com/aeoess/agent-passport-go
 - GitHub: https://github.com/aeoess/agent-passport-system
 - Docs: https://agent-passport.org/llms-full.txt
 - Paper: https://doi.org/10.5281/zenodo.18749779

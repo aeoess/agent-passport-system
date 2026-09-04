@@ -1,4 +1,4 @@
-# Building on APS — Integration Guide
+# Building on APS: Integration Guide
 
 Stop rebuilding identity, delegation, and receipts. Build your application on shared infrastructure.
 
@@ -19,9 +19,9 @@ This creates fragmentation: 10 projects, 10 incompatible identity layers, 10 rec
 Use tested, cross-verified primitives as your foundation. Build your domain-specific logic on top.
 
 APS has been cross-tested against:
-- **AgentID** — 7/7 cross-protocol tests passing (compound digest, action_ref, constraint mapping, receipt interop, Ed25519 dual signing, context continuity, daemon agents)
-- **MolTrust AAE** — 5/5 delegation narrowing vectors passing (scope subset, temporal narrowing, self-issuance, spend limits, expired credentials)
-- **Kanoniv** — delegation chain signatures cross-verified (Python ↔ TypeScript)
+- **AgentID**: 7/7 cross-protocol tests passing (compound digest, action_ref, constraint mapping, receipt interop, Ed25519 dual signing, context continuity, daemon agents)
+- **MolTrust AAE**: 5/5 delegation narrowing vectors passing (scope subset, temporal narrowing, self-issuance, spend limits, expired credentials)
+- **Kanoniv**: delegation chain signatures cross-verified (Python ↔ TypeScript)
 
 ## How Projects Compose with APS
 
@@ -42,14 +42,14 @@ import { createExecutionAttestation } from 'agent-passport-system'
 // APS produces a signed ExecutionAttestation after tool execution
 const attestation = createExecutionAttestation({ ... })
 // Your anchoring layer submits the attestation hash to Rekor/your log
-// The attestation schema is standardized — any anchor backend works
+// The attestation schema is standardized: any anchor backend works
 ```
 
 ### Spend Enforcement (AgentPay)
 You handle payment rails. APS handles delegation-scoped spend limits.
 ```typescript
 import { createDelegation } from 'agent-passport-system'
-// Delegation includes spendLimit — authority to spend up to $X
+// Delegation includes spendLimit: authority to spend up to $X
 const delegation = createDelegation({ spendLimit: 10000, scope: ['commerce'], ... })
 // Your payment system checks: is this transaction within the delegation's spend limit?
 // APS tracks spentAmount across calls. Cascade revocation kills all downstream authority.
@@ -74,10 +74,10 @@ You handle domain-specific constraints. APS handles the structural invariants.
 
 ### MCP Interceptor (SEP-1763)
 ```typescript
-// validate() — pre-execution policy gate (scope, spend, expiry)
-// certify()  — post-execution attestation (what actually ran)
-// agree()    — bilateral receipt (both parties sign outcome)
-// enforce()  — all three in one atomic call
+// validate(): pre-execution policy gate (scope, spend, expiry)
+// certify() : post-execution attestation (what actually ran)
+// agree()   : bilateral receipt (both parties sign outcome)
+// enforce() : all three in one atomic call
 ```
 
 ## Quick Start
@@ -89,17 +89,17 @@ npm install agent-passport-system
 ```typescript
 import { joinSocialContract, createDelegation, verifyDelegation } from 'agent-passport-system'
 
-// 1. Identity — your agent gets a passport
+// 1. Identity: your agent gets a passport
 const agent = joinSocialContract({ name: 'my-agent', mission: '...', owner: 'you', capabilities: ['read', 'write'], platform: 'node', models: ['gpt-4'] })
 
-// 2. Delegation — scoped authority with monotonic narrowing
+// 2. Delegation: scoped authority with monotonic narrowing
 const delegation = createDelegation({ delegatedBy: principal.publicKey, delegatedTo: agent.keyPair.publicKey, scope: ['read'], spendLimit: 1000, maxDepth: 2, privateKey: principal.privateKey, expiresInHours: 24 })
 
-// 3. Verification — any party can verify
+// 3. Verification: any party can verify
 const valid = verifyDelegation(delegation, principal.publicKey)
 ```
 
-107 modules. 3,881 tests. 150 MCP tools. Apache-2.0.
+107 modules. 5,281 tests. 152 MCP tools. Apache-2.0.
 
 Build your thing on top. Don't rebuild what's underneath.
 
@@ -116,11 +116,11 @@ const mapping = apsScopeToSintMapping(delegation.scope, delegation.spendLimit)
 
 // SINT capability token → APS attestation projection
 const projection = sintTokenToApsProjection(sintToken)
-// projection.attestationGrade: 2 (always — physical constraints imply strong verification)
+// projection.attestationGrade: 2 (always: physical constraints imply strong verification)
 // projection.dataAccessTerms: { "sint:maxVelocityMps": 0.5, "sint:geofence": {...} }
 ```
 
-**Cross-verified: 9/9 tests passing — zero code changes on either side.**
+**Cross-verified: 9/9 tests passing, zero code changes on either side.**
 
 ```
 SINT keyToDid(pubkeyHex) === motebit publicKeyToDidKey(pubkeyBytes)  // did:key:z6Mk...
@@ -129,5 +129,5 @@ SINT keyToDid(pubkeyHex) === APS toDIDKey(publicKey)                 // did:key:
 
 The physical constraint layer is the dimension missing from all other integrations. Force limits, velocity caps, and geofence boundaries follow the same monotonic narrowing invariant as digital scope: they can tighten at each delegation hop, never loosen. An APS delegation with `spendLimit: 5000` delegating to a SINT robot token automatically constrains the robot to the narrowed physical envelope.
 
-See: [`packages/bridge-a2a/src/aps-mapping.ts`](https://github.com/sint-ai/sint-protocol/tree/main/packages/bridge-a2a/src/aps-mapping.ts) — 38 tests
-See: [`packages/capability-tokens/__tests__/aps-crossverify.test.ts`](https://github.com/sint-ai/sint-protocol/tree/main/packages/capability-tokens/__tests__/aps-crossverify.test.ts) — 9 tests
+See: [`packages/bridge-a2a/src/aps-mapping.ts`](https://github.com/sint-ai/sint-protocol/tree/main/packages/bridge-a2a/src/aps-mapping.ts), 38 tests
+See: [`packages/capability-tokens/__tests__/aps-crossverify.test.ts`](https://github.com/sint-ai/sint-protocol/tree/main/packages/capability-tokens/__tests__/aps-crossverify.test.ts), 9 tests
