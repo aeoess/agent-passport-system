@@ -20,9 +20,13 @@
 // WHAT IT DOES NOT ESTABLISH. That the citation is a fair reading of what
 // the principal said, only that they signed this citation_content. And it
 // binds nothing that does not call checkArtifactCitations(): verifyCharter()
-// and verifyCompletionReceipt() do. SettlementStatement declares a citations
-// field that nothing checks, so a settlement carrying citations is not gated
-// by this primitive today.
+// and verifyCompletionReceipt() do. SettlementRecord in
+// types/data-contribution.ts declares a citations field that nothing checks:
+// its verifySettlement() is a stub that throws, the type is exported from no
+// index, and it has no other reader. So a settlement carrying citations is not
+// gated by this primitive today. Note this is NOT the SettlementRecord in
+// v2/attribution-settlement, a different type with the same name, which has no
+// citations field and is verified by verifySettlementRecord().
 // ══════════════════════════════════════════════════════════════════
 
 import type { HybridTimestamp } from '../../types/time.js'
