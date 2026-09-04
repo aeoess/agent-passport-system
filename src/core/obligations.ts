@@ -168,13 +168,14 @@ export function resolveObligation(opts: {
   const { obligation } = opts
   const now = new Date()
   // The outcome below is decided without reading the deadline; this parse feeds
-  // only `gatewayLatencyDelta`, a reported metric. A deadline the gateway cannot
-  // read cannot be shown to have been met, so the metric is reported as maximally
-  // overdue rather than as absent: an unreadable deadline must not make a
-  // resolution read as on time. The raw deadline is copied onto the signed
-  // resolution either way, so a reader can see which case this is.
+  // only `gatewayLatencyDelta`, a reported measurement. A deadline the gateway
+  // cannot read yields no measurement, so the field is OMITTED, which is what
+  // the shipped code did in this case and what the field's optionality means.
+  // Writing a sentinel instead would put a specific latency the gateway never
+  // measured inside the bytes it signs. The raw deadline is copied onto the
+  // signed resolution either way, so a reader can see which case this is.
   const deadline = parseRfc3339(obligation.deadline)
-  const latencyDelta = deadline.ok ? now.getTime() - deadline.ms : Number.MAX_SAFE_INTEGER
+  const latencyDelta = deadline.ok ? now.getTime() - deadline.ms : undefined
 
   let outcome: ObligationOutcome
   let penaltyExecuted = false
@@ -219,7 +220,7 @@ export function resolveObligation(opts: {
     outcome,
     deadline: obligation.deadline,
     detectedAt: now.toISOString(),
-    gatewayLatencyDelta: latencyDelta > 0 ? latencyDelta : undefined,
+    gatewayLatencyDelta: latencyDelta !== undefined && latencyDelta > 0 ? latencyDelta : undefined,
     escalationPending: opts.escalationPending || false,
     escalationId: opts.escalationId,
     attemptEvidence,

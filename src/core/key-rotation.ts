@@ -211,7 +211,11 @@ export function activateKeyRotation(
   }
   if (currentTime.getTime() < activation.ms) {
     throw new Error(
-      `Activation time not reached. Current: ${currentTime.toISOString()}, activation: ${formatRfc3339(activation.ms)}`
+      // The activation time is echoed as the document wrote it. Rendering it
+      // through formatRfc3339 would throw for an instant parseRfc3339 accepts
+      // but four-digit years cannot name, turning a rejected rotation into an
+      // internal error on attacker-supplied input.
+      `Activation time not reached. Current: ${currentTime.toISOString()}, activation: ${doc.pendingRotation.activationTime}`
     )
   }
 

@@ -129,6 +129,14 @@ export function resolveVerificationMethod(
       // retirement this resolver cannot read is not one it can clear.
       return { method, retired: true }
     }
+    // The caller's clocks are the other half of the comparison and they are
+    // plain numbers, so a NaN or an infinity arriving from an upstream parse
+    // would make every relational test below false and clear the retirement
+    // by the same mechanism an unreadable string used to. Both operands have
+    // to be instants before either can bound the other.
+    if (!Number.isFinite(_now) || !Number.isFinite(_issued)) {
+      return { method, retired: true }
+    }
     if (retiredAt.ms <= _issued) {
       // Retired before (or at exactly) the signing instant — reject.
       // The "<= " is deliberate: a key retired at the same millisecond

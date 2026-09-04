@@ -339,6 +339,23 @@ export function bindAttestation(
 // Compute a workspace manifest from file entries.
 // Hash structure, not content. Privacy-preserving: paths are hashed,
 // timestamps floored to hour.
+/** The epoch milliseconds of a value the caller offers as a time. Accepts the
+ *  declared Date plus the string and number forms the previous
+ *  `new Date(value)` accepted, and refuses anything that is not an instant
+ *  rather than bucketing a NaN. */
+function instantOf(value: Date | string | number): number {
+  if (value instanceof Date) {
+    const ms = value.getTime()
+    if (Number.isFinite(ms)) return ms
+  } else if (typeof value === 'number' && Number.isFinite(value)) {
+    return Math.trunc(value)
+  } else if (typeof value === 'string') {
+    const parsed = parseRfc3339(value)
+    if (parsed.ok) return parsed.ms
+  }
+  throw new TypeError(`createWorkspaceManifest: lastModified is not an instant (${String(value)})`)
+}
+
 export function createWorkspaceManifest(
   entries: Array<{ path: string; sizeBytes: number; lastModified: Date }>
 ): WorkspaceManifest {
@@ -348,8 +365,13 @@ export function createWorkspaceManifest(
   const manifestEntries: WorkspaceManifestEntry[] = entries
     .map(e => {
       // Local-calendar clone of the entry's own timestamp, floored to the hour.
+      // The parameter is typed Date, but the shipped code went through
+      // new Date(e.lastModified) and so accepted a string or an epoch number
+      // from an untyped caller. Narrowing that here would turn a working call
+      // into a TypeError, and this site never interpreted untrusted text as a
+      // deadline: it buckets a filesystem mtime for a privacy hash.
       const hourFloor = new Date()
-      hourFloor.setTime(e.lastModified.getTime())
+      hourFloor.setTime(instantOf(e.lastModified))
       hourFloor.setMinutes(0, 0, 0)
       return {
         pathHash: sha256Hex(e.path),

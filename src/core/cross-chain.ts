@@ -559,18 +559,24 @@ export function deriveSAO(
   const allLabels = sourceSAOs.flatMap(s => [s.taint])
   const mergedTaint = mergeTaints(...allLabels)
 
+  // The derived window is the tightest of its sources'. A source whose expiry
+  // cannot be read bounds nothing, and skipping it handed the derivation the
+  // full default window instead. It contributes the tightest bound there is:
+  // the derived object is born already expired, so every downstream expiry
+  // check refuses it. Throwing here would be the other way to fail closed, but
+  // expiresAt is outside the monitor signature, so anyone on the path could
+  // turn a composition call into an uncaught exception by rewriting a string.
   let earliestExpiry = Infinity
+  let unreadableSource = false
   for (const s of sourceSAOs) {
     const t = parseRfc3339(s.expiresAt)
-    // The derived window is the tightest of its sources'. A source whose
-    // expiry cannot be read bounds nothing, and skipping it would hand the
-    // derivation the full default window instead. Refuse to derive.
-    if (!t.ok) {
-      throw new Error(`deriveSAO: source ${s.saoId} has an unreadable expiresAt (${t.reason})`)
-    }
+    if (!t.ok) { unreadableSource = true; break }
     if (t.ms < earliestExpiry) earliestExpiry = t.ms
   }
-  const expiry = Math.min(earliestExpiry, Date.now() + expiresInMinutes * 60000)
+  const derivedAtMs = Date.now()
+  const expiry = unreadableSource
+    ? derivedAtMs - 1
+    : Math.min(earliestExpiry, derivedAtMs + expiresInMinutes * 60000)
 
   const primaryLabel = sourceSAOs[0].taint
   const allPrincipalIds = [...new Set(sourceSAOs.map(s => s.taint.principalId))]

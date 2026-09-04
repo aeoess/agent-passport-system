@@ -26,10 +26,11 @@
 //
 // GRAMMAR ACCEPTED (RFC 3339 §5.6 full-date "T" full-time, narrowed):
 //   YYYY-MM-DDTHH:MM:SS[.fff…](Z|±HH:MM)
-//   - The date-time separator is an uppercase 'T' and the zero offset is an
-//     uppercase 'Z'. RFC 3339 permits the lowercase spellings; they are
-//     refused here so one instant has one accepted spelling per offset, and
-//     because every timestamp this SDK emits comes from toISOString().
+//   - The date-time separator may be 'T' or 't' and the zero offset 'Z' or
+//     'z', which RFC 3339 5.6 permits. Refusing the lowercase forms would
+//     reject conformant third-party artifacts on a verification path, and a
+//     lowercase spelling names exactly the same instant. Emission is always
+//     uppercase: formatRfc3339 has one spelling.
 //   - The offset is REQUIRED. A local time with no zone does not denote an
 //     instant, so it can never be compared against one.
 //
@@ -81,7 +82,7 @@ export type Rfc3339ParseResult =
  * 13, day 31 in February, and hour 24.
  */
 const RFC3339 =
-  /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,9}))?(?:(Z)|([+-])(\d{2}):(\d{2}))$/
+  /^(\d{4})-(\d{2})-(\d{2})[Tt](\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,9}))?(?:([Zz])|([+-])(\d{2}):(\d{2}))$/
 
 /** Days in `month` (1-12) of `year`, proleptic Gregorian. */
 function daysInMonth(year: number, month: number): number {
@@ -115,8 +116,8 @@ function daysFromCivil(year: number, month: number, day: number): number {
  *
  * Invariants:
  *   - Only the grammar documented at the head of this module is accepted;
- *     an absent offset, a lowercase 'z', a date-only value, whitespace, or
- *     an empty string is `malformed`.
+ *     an absent offset, a date-only value, whitespace, or an empty string is
+ *     `malformed`.
  *   - Every field is range-checked, so 2026-02-30 and 24:00:00 are
  *     `field_out_of_range` rather than instants.
  *   - Equal instants written with different offsets return the same `ms`.
@@ -205,17 +206,28 @@ function pad(n: number, width: number): string {
  * reparse. That is what lets the boundary guard ban `new Date(` outright
  * instead of trying to tell emission and interpretation apart by eye.
  *
- * @throws RangeError when `ms` is not a safe integer or falls outside the
- * representable four-digit-year range. An emission site holds an instant it
- * computed itself; a value that is not one is a bug at the caller, not an
- * untrusted input to be folded into a verdict.
+ * A fractional millisecond count is TRUNCATED toward zero rather than
+ * refused, because that is precisely what `new Date(ms)` does (TimeClip,
+ * ECMA-262 21.4.1.15) and this function's whole value is being
+ * indistinguishable from it. Durations arrive from division often enough —
+ * a day divided into sevenths, a sub-millisecond timeout — that refusing them
+ * would turn arithmetic a caller has always been allowed to do into an
+ * exception at an emission site that cannot fail closed usefully.
+ *
+ * @throws RangeError when `ms` is not finite, or falls outside the
+ * representable four-digit-year range. Outside that range `new Date(ms)`
+ * emits an ISO 8601 expanded-year spelling, which is not RFC 3339 and which
+ * {@link parseRfc3339} refuses, so returning one would mint an artifact this
+ * SDK's own verifiers can never read. An emission site holds an instant it
+ * computed itself; a value outside four-digit years is a bug at the caller.
  */
 export function formatRfc3339(ms: number): string {
-  if (!Number.isSafeInteger(ms) || ms < -62167219200000 || ms > 253402300799999) {
+  const clipped = Math.trunc(ms)
+  if (!Number.isFinite(clipped) || clipped < -62167219200000 || clipped > 253402300799999) {
     throw new RangeError(`formatRfc3339: instant is not representable (${ms})`)
   }
-  const days = Math.floor(ms / 86400000)
-  const rest = ms - days * 86400000
+  const days = Math.floor(clipped / 86400000)
+  const rest = clipped - days * 86400000
   const { year, month, day } = civilFromDays(days)
   const hour = Math.floor(rest / 3600000)
   const minute = Math.floor((rest % 3600000) / 60000)
