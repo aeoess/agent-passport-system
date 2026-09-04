@@ -52,11 +52,39 @@ function sha256(input: string): string {
 //   3. Compare parameter hashes to detect drift
 //   4. Classify drift severity using rules
 //   5. Sign the attestation with attestor's key
+//
+// The two caller-supplied timestamps are checked before anything is signed.
+// verifyExecutionAttestation reads them as instants, so a spelling it cannot
+// read fails the timing check permanently: the attestation is signed, immutable
+// and unverifiable, and the attestor learns that only when a relying party
+// rejects it. Zone-less values are the ordinary way this happens — Python's
+// datetime.isoformat() emits one — and a local time names no instant, so there
+// is nothing to normalize it into. They are refused here instead, at the one
+// moment the caller can still fix the input.
+//
+// Refusing rather than rewriting is deliberate. No normalization convention
+// governs this artifact (the one that exists, normalizeTimestamp in
+// core/canonical.ts, governs action_ref preimages), and silently rewriting a
+// caller's value into bytes the attestor then signs would put an instant in the
+// record that the attestor never wrote.
 export function createExecutionAttestation(
   input: CreateExecutionAttestationInput,
   attestorPrivateKey: string,
   opts?: { driftRules?: DriftClassificationRule[]; executionContext?: string }
 ): ExecutionAttestation {
+  for (const [field, value] of [
+    ['executionStartedAt', input.executionStartedAt],
+    ['executionCompletedAt', input.executionCompletedAt],
+  ] as const) {
+    const parsed = parseRfc3339(value)
+    if (!parsed.ok) {
+      throw new Error(
+        `createExecutionAttestation: ${field} must be an RFC 3339 instant ` +
+        `(YYYY-MM-DDTHH:MM:SS[.fff](Z|±HH:MM)), got ${JSON.stringify(value)} (${parsed.reason})`,
+      )
+    }
+  }
+
   const rules = opts?.driftRules ?? DEFAULT_DRIFT_RULES
   const context = opts?.executionContext ?? input.executionContext ?? '*'
 
