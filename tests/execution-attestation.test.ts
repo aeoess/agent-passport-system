@@ -13,6 +13,8 @@ import {
   DEFAULT_DRIFT_RULES,
 } from '../src/index.js'
 import type { CreateExecutionAttestationInput } from '../src/index.js'
+import { sign } from '../src/crypto/keys.js'
+import { canonicalizeForWrite } from '../src/core/canonical.js'
 
 // ── Helpers ──
 
@@ -241,13 +243,39 @@ describe('Execution Attestation — Checkpoint 3', () => {
   // ══════════════════════════════════════════════════════════════════
 
   describe('timing validation', () => {
-    it('rejects execution that completed before it started', () => {
-      const att = createExecutionAttestation(makeInput({
+    it('the creator refuses to mint execution that completed before it started', () => {
+      // The verifier refuses this ordering, so the creator no longer produces
+      // it: minting an attestation its own verifier will not accept yields a
+      // signed, immutable, permanently unverifiable artifact.
+      assert.throws(() => createExecutionAttestation(makeInput({
         executionStartedAt: '2026-04-01T10:00:05Z',
         executionCompletedAt: '2026-04-01T10:00:00Z',
+      }), sandbox.privateKey), /executionCompletedAt is before executionStartedAt/)
+    })
+
+    it('the verifier still rejects one assembled some other way', () => {
+      // The creator's guard is not the only thing standing between a relying
+      // party and a badly ordered attestation: an attestation assembled
+      // directly and signed must still be refused, or the check would only
+      // hold for callers who went through the constructor.
+      const att = createExecutionAttestation(makeInput({
+        executionStartedAt: '2026-04-01T10:00:00Z',
+        executionCompletedAt: '2026-04-01T10:00:05Z',
       }), sandbox.privateKey)
 
-      const result = verifyExecutionAttestation(att, sandbox.publicKey)
+      const { signature: _old, ...body } = att
+      const reordered = {
+        ...body,
+        executionStartedAt: '2026-04-01T10:00:05Z',
+        executionCompletedAt: '2026-04-01T10:00:00Z',
+      }
+      const forged = {
+        ...reordered,
+        signature: sign(canonicalizeForWrite(reordered), sandbox.privateKey),
+      }
+
+      const result = verifyExecutionAttestation(forged, sandbox.publicKey)
+      assert.equal(result.signatureValid, true, 'the signature must be valid, or this proves nothing')
       assert.equal(result.valid, false)
       assert.equal(result.timingValid, false)
     })

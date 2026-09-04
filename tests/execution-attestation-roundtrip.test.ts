@@ -100,6 +100,41 @@ describe('the creator refuses what the verifier could not read', () => {
     })
   }
 
+  it('refuses completion before start, which the verifier would refuse on ordering', () => {
+    // Same rule as the spellings above: the creator does not mint what its own
+    // verifier will not accept. An execution cannot complete before it starts.
+    assert.throws(
+      () => createExecutionAttestation(
+        input('2026-01-01T00:00:01.000Z', '2026-01-01T00:00:00.000Z'), attestor.privateKey),
+      /executionCompletedAt is before executionStartedAt/)
+
+    // One millisecond is enough to be wrong.
+    assert.throws(
+      () => createExecutionAttestation(
+        input('2026-01-01T00:00:00.001Z', '2026-01-01T00:00:00.000Z'), attestor.privateKey),
+      /executionCompletedAt is before executionStartedAt/)
+
+    // Across offsets, where the text order and the temporal order differ:
+    // 09:00+09:00 is 00:00Z, so this completion is an hour before its start.
+    assert.throws(
+      () => createExecutionAttestation(
+        input('2026-01-01T01:00:00.000Z', '2026-01-01T09:00:00.000+09:00'), attestor.privateKey),
+      /executionCompletedAt is before executionStartedAt/)
+  })
+
+  it('allows completion at the same instant as start, as the verifier does', () => {
+    // The verifier's rule is `end >= start`; the creator's must not be tighter,
+    // or a zero-duration execution becomes unrecordable.
+    const same = createExecutionAttestation(
+      input('2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z'), attestor.privateKey)
+    assert.equal(verifyExecutionAttestation(same, attestor.publicKey).valid, true)
+
+    // And the same instant written two ways is still the same instant.
+    const spelled = createExecutionAttestation(
+      input('2026-01-01T00:00:00.000Z', '2026-01-01T09:00:00.000+09:00'), attestor.privateKey)
+    assert.equal(verifyExecutionAttestation(spelled, attestor.publicKey).valid, true)
+  })
+
   it('refuses before signing, so no unverifiable attestation exists to hand out', () => {
     let returned: unknown = 'nothing was returned'
     try {

@@ -53,7 +53,8 @@ function sha256(input: string): string {
 //   4. Classify drift severity using rules
 //   5. Sign the attestation with attestor's key
 //
-// The two caller-supplied timestamps are checked before anything is signed.
+// The two caller-supplied timestamps are checked before anything is signed:
+// both must be readable instants, and completion must not precede start.
 // verifyExecutionAttestation reads them as instants, so a spelling it cannot
 // read fails the timing check permanently: the attestation is signed, immutable
 // and unverifiable, and the attestor learns that only when a relying party
@@ -72,6 +73,7 @@ export function createExecutionAttestation(
   attestorPrivateKey: string,
   opts?: { driftRules?: DriftClassificationRule[]; executionContext?: string }
 ): ExecutionAttestation {
+  const instants: Record<string, number> = {}
   for (const [field, value] of [
     ['executionStartedAt', input.executionStartedAt],
     ['executionCompletedAt', input.executionCompletedAt],
@@ -80,9 +82,24 @@ export function createExecutionAttestation(
     if (!parsed.ok) {
       throw new Error(
         `createExecutionAttestation: ${field} must be an RFC 3339 instant ` +
-        `(YYYY-MM-DDTHH:MM:SS[.fff](Z|±HH:MM)), got ${JSON.stringify(value)} (${parsed.reason})`,
+        `(YYYY-MM-DDTHH:MM:SS[.fff](Z|+HH:MM)), got ${JSON.stringify(value)} (${parsed.reason})`,
       )
     }
+    instants[field] = parsed.ms
+  }
+
+  // The verifier's timing check requires completion at or after start. Minting
+  // an attestation that fails it produces the same signed, immutable,
+  // permanently unverifiable artifact an unreadable spelling produced, and for
+  // the same reason: the attestor learns only when a relying party rejects it.
+  // Equal instants are allowed, matching the verifier's `end >= start`.
+  if (instants.executionCompletedAt < instants.executionStartedAt) {
+    throw new Error(
+      'createExecutionAttestation: executionCompletedAt is before executionStartedAt ' +
+      `(${JSON.stringify(input.executionStartedAt)} to ` +
+      `${JSON.stringify(input.executionCompletedAt)}). An execution cannot complete ` +
+      'before it starts, and verifyExecutionAttestation refuses the ordering.',
+    )
   }
 
   const rules = opts?.driftRules ?? DEFAULT_DRIFT_RULES
