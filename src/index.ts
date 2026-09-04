@@ -208,7 +208,8 @@ export type {
 export {
   createActionIntent, verifyActionIntent,
   evaluateIntent, verifyPolicyDecision,
-  createPolicyReceipt, verifyPolicyReceipt,
+  createPolicyReceipt, verifyPolicyReceipt, verifyPolicyReceiptEnvelope,
+  type PolicyReceiptChainInputs, type PolicyReceiptVerification,
   createPolicyReceiptWithDecisionReceipt,
   FloorValidatorV1,
   requestAction,

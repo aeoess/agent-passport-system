@@ -14,7 +14,8 @@
 import { v4 as uuidv4 } from 'uuid'
 import { sign, verify } from '../crypto/keys.js'
 import { canonicalize, canonicalizeForWrite } from './canonical.js'
-import { verifyActionIntent, verifyPolicyDecision } from './policy.js'
+import { parseRfc3339 } from './rfc3339.js'
+import { isRecord } from './is-record.js'
 import type { ActionIntent, PolicyDecision, PolicyVerdict } from '../types/policy.js'
 import type {
   ContentHash, ContentHashAlgorithm, EvaluationMethod,
@@ -313,26 +314,80 @@ export async function createDecisionArtifact(opts: {
 // ══════════════════════════════════════
 
 /**
- * Verify all cryptographic properties of a decision artifact.
- * Checks: content hash, intent signature, decision signature, artifact signature.
+ * Verify a decision artifact against the trust anchors the caller supplies.
+ *
+ * SCOPE OF CLAIM.
+ *   Establishes, when `valid` is true: the artifact envelope was signed by
+ *     `keys.artifactSignerPublicKey`; `originalIntent` was signed by
+ *     `keys.intentSignerPublicKey` and `originalDecision` by
+ *     `keys.decisionSignerPublicKey`; the decision decides that intent; and
+ *     every value the artifact projects from either source equals its source.
+ *   Does NOT establish: that those three keys are the right ones — that is
+ *     the relying party's allowlist, not this function's; that the evaluator
+ *     was entitled to decide this action; that the decision's reasoning is
+ *     sound; or that any of the three parties are distinct (see the
+ *     same-key note below).
+ *
+ * The trust anchors are the whole point. An artifact-carried key —
+ * `intent.agentPublicKey`, `decision.evaluatorPublicKey` — is a claim the
+ * artifact makes about itself, so verifying against it establishes only that
+ * whoever wrote the artifact also held one key. Both are now verified against
+ * the caller's anchors, and each embedded key must additionally agree with
+ * the anchor it was verified under: the signature covers the embedded key, so
+ * a mismatch is an artifact whose signed content contradicts its own signer.
+ *
+ * The projection checks matter as much as the signatures. The artifact copies
+ * the verdict, the evaluator, the decision id, the principle list and the two
+ * inner signature strings out of objects it does not carry. Signing those
+ * copies proves the artifact's author committed to them, not that they are
+ * what the evaluator decided; only comparison against the source does that.
+ *
+ * SAME-KEY ROLES. Nothing here requires the three anchors to be distinct. A
+ * caller that passes one key for all three gets a chain in which one party
+ * requested, decided and attested. That is a policy question the repo has no
+ * field to express (`Office.incompatibleOffices` in src/types/charter.ts is
+ * the only role-separation concept, and it does not reach this layer), so it
+ * is left to the caller rather than invented here.
  */
 export async function verifyDecisionArtifact(
   artifact: DecisionArtifact,
   keys: {
-    intentSignerPublicKey: string     // agent who created the intent
-    decisionSignerPublicKey: string   // evaluator who made the decision
-    artifactSignerPublicKey: string   // entity who created the artifact
+    /** Trust anchor for the intent: the agent this relying party accepts. */
+    intentSignerPublicKey: string
+    /** Trust anchor for the decision: the evaluator this relying party accepts. */
+    decisionSignerPublicKey: string
+    /** Trust anchor for the artifact envelope. */
+    artifactSignerPublicKey: string
   },
   originalIntent: ActionIntent,
   originalDecision: PolicyDecision
 ): Promise<DecisionArtifactVerification> {
   const errors: string[] = []
 
-  // 1. Verify content hash
+  // 0. Input guard. These are attacker-deliverable objects; a JSON `null`
+  //    must reach the reject verdict, not throw past it.
+  if (!isRecord(artifact) || !isRecord(originalIntent) || !isRecord(originalDecision)) {
+    return {
+      valid: false,
+      contentHashValid: false,
+      intentSignatureValid: false,
+      decisionSignatureValid: false,
+      artifactSignatureValid: false,
+      linkageValid: false,
+      projectionValid: false,
+      errors: ['Artifact, intent and decision must all be objects']
+    }
+  }
+
+  // 1. Content hash, recomputed from the source intent. Required: it is the
+  //    artifact's only self-contained binding to the intent's full content,
+  //    and an artifact that omits it is not verifiable rather than trivially
+  //    verified.
   let contentHashValid = false
-  if (artifact.intent.contentHash) {
-    const { signature, contentHash, ...unsigned } = originalIntent
-    // Re-include identity boundary in hash input (same as computeContentHash)
+  if (!artifact.intent?.contentHash) {
+    errors.push('Artifact carries no intent content hash')
+  } else {
+    const { signature: _intentSig, contentHash, ...unsigned } = originalIntent
     const identityBoundary = contentHash?.identityBoundary ?? Object.keys(unsigned).sort()
     const hashInput = { _identityBoundary: identityBoundary, ...unsigned }
     const expectedHash = await sha256Hex(canonicalize(hashInput))
@@ -342,21 +397,36 @@ export async function verifyDecisionArtifact(
     }
   }
 
-  // 2. Verify intent signature
-  const intentCheck = verifyActionIntent(originalIntent)
+  // 2. Intent signature, against the caller's anchor.
+  const intentCheck = verifyActionIntentAgainst(originalIntent, keys.intentSignerPublicKey)
   const intentSignatureValid = intentCheck.valid
   if (!intentSignatureValid) {
     errors.push(`Intent signature invalid: ${intentCheck.errors.join(', ')}`)
   }
 
-  // 3. Verify decision signature
-  const decisionCheck = verifyPolicyDecision(originalDecision)
+  // 3. Decision signature, against the caller's anchor.
+  const decisionCheck = verifyPolicyDecisionAgainst(originalDecision, keys.decisionSignerPublicKey)
   const decisionSignatureValid = decisionCheck.valid
   if (!decisionSignatureValid) {
     errors.push(`Decision signature invalid: ${decisionCheck.errors.join(', ')}`)
   }
 
-  // 4. Verify artifact envelope signature
+  // 4. Chain linkage. A validly signed decision about some other intent is
+  //    still a validly signed decision; it just does not decide this one.
+  const linkageValid = originalDecision.intentId === originalIntent.intentId
+  if (!linkageValid) {
+    errors.push('Decision does not decide this intent: intentId mismatch')
+  }
+
+  // 5. Projection binding. Every value the artifact restates must equal the
+  //    source it claims to restate.
+  const projectionErrors = projectionMismatches(artifact, originalIntent, originalDecision)
+  const projectionValid = projectionErrors.length === 0
+  for (const mismatch of projectionErrors) {
+    errors.push(`Artifact projection does not match source: ${mismatch}`)
+  }
+
+  // 6. Artifact envelope signature.
   const { proof, ...artifactBody } = artifact
   const bodyWithPartialProof = {
     ...artifactBody,
@@ -380,8 +450,99 @@ export async function verifyDecisionArtifact(
     intentSignatureValid,
     decisionSignatureValid,
     artifactSignatureValid,
+    linkageValid,
+    projectionValid,
     errors
   }
+}
+
+/** Verify an intent under a caller-supplied anchor rather than the key the
+ *  intent carries. The embedded key must agree with the anchor: it is inside
+ *  the signed bytes, so a mismatch is the artifact contradicting its own
+ *  signer, not merely an unexpected key. */
+function verifyActionIntentAgainst(
+  intent: ActionIntent,
+  trustedPublicKey: string
+): { valid: boolean; errors: string[] } {
+  const errors: string[] = []
+  const { signature, ...unsigned } = intent
+  if (!verify(canonicalize(unsigned), signature, trustedPublicKey)) {
+    errors.push('not signed by the supplied intent signer')
+  }
+  if (intent.agentPublicKey !== trustedPublicKey) {
+    errors.push('intent names an agentPublicKey other than the supplied intent signer')
+  }
+  if (!intent.agentId) errors.push('Missing agentId')
+  if (!intent.delegationId) errors.push('Missing delegationId')
+  if (!intent.action?.scopeRequired) errors.push('Missing required scope')
+  return { valid: errors.length === 0, errors }
+}
+
+/** Decision counterpart of {@link verifyActionIntentAgainst}. Expiry is
+ *  checked with the strict parse, so an unreadable `expiresAt` rejects. */
+function verifyPolicyDecisionAgainst(
+  decision: PolicyDecision,
+  trustedPublicKey: string
+): { valid: boolean; errors: string[] } {
+  const errors: string[] = []
+  const { signature, ...unsigned } = decision
+  if (!verify(canonicalize(unsigned), signature, trustedPublicKey)) {
+    errors.push('not signed by the supplied decision signer')
+  }
+  if (decision.evaluatorPublicKey !== trustedPublicKey) {
+    errors.push('decision names an evaluatorPublicKey other than the supplied decision signer')
+  }
+  const expiry = parseRfc3339(decision.expiresAt)
+  if (!expiry.ok) {
+    errors.push(`Invalid decision expiresAt (${expiry.reason})`)
+  } else if (expiry.ms < Date.now()) {
+    errors.push('Policy decision expired')
+  }
+  if (!decision.intentId) errors.push('Missing intentId')
+  return { valid: errors.length === 0, errors }
+}
+
+/** Every projected field, compared against the source it is projected from.
+ *  Returns one entry per mismatch, named by field path. Comparison of
+ *  structured values goes through canonicalize() so it is the same equality
+ *  the signatures are taken over. */
+function projectionMismatches(
+  artifact: DecisionArtifact,
+  intent: ActionIntent,
+  decision: PolicyDecision
+): string[] {
+  const out: string[] = []
+  const eq = (path: string, got: unknown, want: unknown) => {
+    if (canonicalize(got) !== canonicalize(want)) {
+      out.push(`${path} (artifact ${canonicalize(got)}, source ${canonicalize(want)})`)
+    }
+  }
+
+  eq('intent.intentId', artifact.intent?.intentId, intent.intentId)
+  eq('intent.agentId', artifact.intent?.agentId, intent.agentId)
+  eq('intent.action.type', artifact.intent?.action?.type, intent.action?.type)
+  eq('intent.action.target', artifact.intent?.action?.target, intent.action?.target)
+  eq('intent.action.scopeRequired', artifact.intent?.action?.scopeRequired, intent.action?.scopeRequired)
+
+  eq('evaluation.verdict', artifact.evaluation?.verdict, decision.verdict)
+  eq('evaluation.evaluatorId', artifact.evaluation?.evaluatorId, decision.evaluatorId)
+  eq('evaluation.decisionId', artifact.evaluation?.decisionId, decision.decisionId)
+  eq(
+    'evaluation.principlesChecked',
+    artifact.evaluation?.principlesChecked,
+    decision.principlesEvaluated?.map(p => p.principleId)
+  )
+  eq('evaluation.evaluationMethod', artifact.evaluation?.evaluationMethod, classifyEvaluationMethod(decision))
+
+  // The semantic decomposition is derived, not copied, so it is recomputed
+  // rather than compared field by field: an artifact may not assert a
+  // decomposition the decision does not produce.
+  eq('semantics', artifact.semantics, decomposeDecision(decision))
+
+  eq('proof.intentSignature', artifact.proof?.intentSignature, intent.signature)
+  eq('proof.decisionSignature', artifact.proof?.decisionSignature, decision.signature)
+
+  return out
 }
 
 // ══════════════════════════════════════

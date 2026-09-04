@@ -408,9 +408,28 @@ describe('Three-Signature Chain — Intent → Decision → Receipt', () => {
     assert.equal(policyReceipt.chain.decisionSignature, decision.signature)
     assert.equal(policyReceipt.chain.receiptSignature, receipt.signature)
 
-    // Verify the policy receipt itself
-    const v = verifyPolicyReceipt(policyReceipt, verifier.publicKey)
+    // Verify the receipt AND the chain it attests to. The three inner
+    // signatures are checked against the three trust anchors this relying
+    // party names, over the three source objects — the receipt carries only
+    // ids and copies of the signature strings, so the objects have to come
+    // from the caller. Verifying the envelope alone, which is what the
+    // two-argument call used to do and report as `valid`, establishes
+    // nothing about the chain.
+    const v = verifyPolicyReceipt(policyReceipt, verifier.publicKey, {
+      intent, decision, receipt,
+      intentSignerPublicKey: agent.publicKey,
+      decisionSignerPublicKey: evaluator.publicKey,
+      receiptSignerPublicKey: agent.publicKey
+    })
     assert.ok(v.valid, `Expected valid but got errors: ${v.errors}`)
+    assert.equal(v.chainVerified, true)
+    assert.equal(v.envelopeSignatureValid, true)
+
+    // Without the chain inputs the same receipt is not verified, and says so.
+    const envelopeOnly = verifyPolicyReceipt(policyReceipt, verifier.publicKey)
+    assert.equal(envelopeOnly.valid, false)
+    assert.equal(envelopeOnly.chainVerified, false)
+    assert.equal(envelopeOnly.envelopeSignatureValid, true)
   })
 
   it('[ADVERSARIAL] cannot create policy receipt for denied intent', () => {

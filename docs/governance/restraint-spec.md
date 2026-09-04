@@ -16,12 +16,20 @@ denies it. Three properties matter:
 - **Fail-closed.** Unknown verdicts deny. Validator errors deny. The
   default is refusal, not permission.
 - **Cryptographic.** Every refusal is a signed `PolicyDecision` with
-  a verdict, a reason, and an evaluation method. A third party can
-  verify offline that the gateway actually refused.
+  a verdict, a reason, and an evaluation method. A third party holding
+  the evaluator's key can verify offline that THAT evaluator refused.
+  The key has to come from the third party: a decision names its own
+  `evaluatorPublicKey`, and verifying against that establishes only
+  that the document is internally consistent.
 - **Pre-execution.** Refusal happens before the agent reaches the
   tool, not after. The 3-signature chain (intent → decision →
-  receipt) makes "the agent did the thing anyway" impossible to
-  forge: there is no signed receipt for a denied decision.
+  receipt) makes "the agent did the thing anyway" checkable: a relying
+  party that holds the three objects and a trust anchor for each can
+  see whether the receipt it was handed attests to a real permit.
+  Checkable is not the same as unforgeable, and the difference is the
+  relying party actually running the chain check — see
+  [`ENFORCEMENT-TRUST-ANCHOR.md`](../ENFORCEMENT-TRUST-ANCHOR.md) on
+  what a compromised gateway can still emit.
 
 ## Module
 
@@ -40,21 +48,42 @@ Canonical types and functions exported from `src/core/policy.ts`:
   signature 1 of 3, declaring what it intends to do BEFORE doing it.
   An intent without a paired evaluation cannot produce an executed
   action.
-- `verifyActionIntent(intent)` — verifies the intent signature and
-  required fields. Used at the policy engine boundary to refuse
-  malformed or unsigned intents.
+- `verifyActionIntent(intent)` — verifies the intent signature against
+  the key the intent carries, plus required fields. Used at the policy
+  engine boundary to refuse malformed or unsigned intents. It answers
+  "this document is internally consistent", not "this agent signed it":
+  the key is the intent's own claim about itself. To verify an intent
+  against a key you trust, pass one — `verifyDecisionArtifact` takes
+  `intentSignerPublicKey` and `verifyPolicyReceipt` takes
+  `intentSignerPublicKey` on its chain input.
 - `evaluateIntent(opts)` → `PolicyDecision` — runs the configured
   `PolicyValidator` and produces signature 2 of 3. The verdict is
   one of `'permit' | 'deny'` and is signed by the evaluator's key,
   not the agent's. Tests:
   [`tests/policy.test.ts`](../../tests/policy.test.ts).
-- `verifyPolicyDecision(decision)` — verifies the decision
-  signature, expiry, and that the decision links to a real intent.
+- `verifyPolicyDecision(decision)` — verifies the decision signature
+  against the key the decision carries, and its expiry. It checks that
+  an `intentId` is PRESENT; it is not given an intent and cannot check
+  that the id names one. Chain linkage is verified by
+  `verifyDecisionArtifact` and `verifyPolicyReceipt`, which are handed
+  both objects.
 - `createPolicyReceipt(opts)` → `PolicyReceipt` — signature 3 of 3.
   Refuses to construct a receipt for a denied decision: `if
-  (decision.verdict === 'deny') throw`. There is structurally no
-  way to create a receipt that contradicts the refusal.
-- `verifyPolicyReceipt(receipt, key)` — verifies the full chain.
+  (decision.verdict === 'deny') throw`. That is a constraint on this
+  constructor, not on the format: a receipt assembled some other way is
+  caught at verification, not at construction.
+- `verifyPolicyReceipt(receipt, verifierKey, chain)` — verifies the
+  receipt envelope AND the three-signature chain it attests to. The
+  receipt carries ids and copies of the three signature strings, never
+  the objects those signatures were made over, so the chain cannot be
+  checked from the receipt alone: `chain` supplies the intent, the
+  decision and the action receipt, with a trust anchor for each. A call
+  that omits `chain` returns `valid: false` and `chainVerified: false`.
+- `verifyPolicyReceiptEnvelope(receipt, verifierKey)` — verifies only
+  that the receipt's bytes were signed by that key. It establishes
+  nothing about the intent, decision or action receipt the envelope
+  names. This is the honest name for what the two-argument
+  `verifyPolicyReceipt` call used to do while reporting `valid: true`.
 - `FloorValidatorV1` — the reference validator. Implements the
   Values Floor (8 principles) and the standard delegation,
   expiration, scope, and revocation checks. Fail-closed by
@@ -210,11 +239,20 @@ try {
 }
 ```
 
-The agent does not need to be cooperative for refusal to work. The
-chain it would need to forge — a permit verdict signed by the
-evaluator's private key and a receipt signed by the executor's
-private key — is structurally unavailable to it.
+The agent does not need to be cooperative for refusal to work. To
+produce a chain that survives verification it would need a permit
+verdict signed by the evaluator's private key and a receipt signed by
+the executor's private key, and neither is available to it.
+
+What that claim rests on is the verification. Assembling a
+plausible-looking `PolicyReceipt` takes nothing but a JSON literal;
+what it cannot do is make one whose inner signatures verify against
+anchors it does not hold. So the guarantee is only as good as the
+relying party calling `verifyPolicyReceipt` WITH its chain inputs and
+its own anchors. An envelope-only check establishes that somebody
+signed a receipt-shaped object, and nothing about the decision inside
+it.
 
 This is the difference between "the agent has been told not to" and
-"the agent cannot." Restraint is a property of the protocol, not of
-the agent's restraint.
+"the agent cannot." Restraint is a property of the protocol as it is
+verified, not of the agent's restraint.

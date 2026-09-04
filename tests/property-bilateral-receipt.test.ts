@@ -14,6 +14,7 @@ import {
   createDelegation,
   createPolicyReceipt,
   verifyPolicyReceipt,
+  verifyPolicyReceiptEnvelope,
   emitDecisionReceipt,
   parseDecisionReceiptStatement,
   computeDelegationChainRoot,
@@ -351,9 +352,16 @@ describe('v2.3 bilateral receipt — property tests', () => {
       const roundTripped = JSON.parse(JSON.stringify(policyReceipt))
       assert.equal(roundTripped.policyReceiptId, policyReceipt.policyReceiptId)
       // No throw, no field access on required v2.2 shape is disturbed.
-      assert.doesNotThrow(() => verifyPolicyReceipt(policyReceipt, signer.publicKey))
-      const result = verifyPolicyReceipt(policyReceipt, signer.publicKey)
-      assert.equal(result.valid, true, result.errors.join(', '))
+      // This case is about SHAPE compatibility, so it asserts envelope
+      // integrity by name. The two-argument verifyPolicyReceipt call it used
+      // to make reported `valid: true` while checking none of the three inner
+      // signatures, which is the property the repair removed.
+      assert.doesNotThrow(() => verifyPolicyReceiptEnvelope(policyReceipt, signer.publicKey))
+      const envelope = verifyPolicyReceiptEnvelope(policyReceipt, signer.publicKey)
+      assert.equal(envelope.valid, true, envelope.errors.join(', '))
+      const unchained = verifyPolicyReceipt(policyReceipt, signer.publicKey)
+      assert.equal(unchained.valid, false)
+      assert.equal(unchained.chainVerified, false)
     })
 
     it('createPolicyReceipt still works without v2.3 fields (pure v2.2 call)', () => {
@@ -373,7 +381,8 @@ describe('v2.3 bilateral receipt — property tests', () => {
       assert.equal(pr.delegation_chain_root, undefined)
       assert.equal(pr.delegation_depth, undefined)
       assert.equal(pr.epistemic_claims, undefined)
-      assert.equal(verifyPolicyReceipt(pr, signer.publicKey).valid, true)
+      assert.equal(verifyPolicyReceiptEnvelope(pr, signer.publicKey).valid, true)
+      assert.equal(verifyPolicyReceipt(pr, signer.publicKey).chainVerified, false)
     })
   })
 

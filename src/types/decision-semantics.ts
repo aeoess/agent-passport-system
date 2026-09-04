@@ -111,10 +111,29 @@ export interface DecisionArtifact {
 // ── Verification Result ──
 
 export interface DecisionArtifactVerification {
+  /** The conjunction of every property below. True only when the artifact is
+   *  bound to the source intent and decision, both were signed by the trust
+   *  anchors the caller supplied, and every projected value matches its
+   *  source. Never true on the artifact's self-consistency alone. */
   valid: boolean
+  /** The artifact's content hash was recomputed from `originalIntent` and
+   *  matched. An artifact carrying no content hash is not verifiable and
+   *  reports false. */
   contentHashValid: boolean
+  /** `originalIntent.signature` verified under `keys.intentSignerPublicKey`
+   *  — the caller's anchor, not the key the intent carries about itself. */
   intentSignatureValid: boolean
+  /** `originalDecision.signature` verified under
+   *  `keys.decisionSignerPublicKey`, on the same terms. */
   decisionSignatureValid: boolean
+  /** The artifact envelope verified under `keys.artifactSignerPublicKey`. */
   artifactSignatureValid: boolean
+  /** `originalDecision.intentId === originalIntent.intentId`: the decision
+   *  presented is a decision about the intent presented. */
+  linkageValid: boolean
+  /** Every value the artifact projects from the intent or the decision —
+   *  verdict, evaluator, decision id, principles, action, hashes and the two
+   *  copied signature strings — equals its source. */
+  projectionValid: boolean
   errors: string[]
 }
