@@ -194,6 +194,68 @@ describe('F-02 binding: the proof key must belong to the claimed identity', () =
   })
 })
 
+describe('the presentation creators refuse options a verifier could never accept', () => {
+  // The types require `challenge`. A JavaScript caller is not typed, and a
+  // presentation minted without one is permanently unverifiable, because both
+  // presentation verifiers require an expected challenge and refuse a proof
+  // carrying none. That is the creator-verifier disagreement the attestation
+  // path already refuses to ship.
+  const creators: Array<[string, (options: unknown) => Promise<unknown>]> = [
+    ['createPresentation',
+      (options) => createPresentation([], holder.privateKey, holder.publicKey, options as never)],
+    ['createVerifiablePresentation',
+      (options) => createVerifiablePresentation([], holder.privateKey, options as never)],
+  ]
+
+  const badChallenge: Array<[string, unknown]> = [
+    ['an empty options object', {}],
+    ['an empty challenge', { challenge: '' }],
+    ['a null challenge', { challenge: null }],
+    ['an undefined challenge', { challenge: undefined }],
+    ['a numeric challenge', { challenge: 12345 }],
+    ['an object challenge', { challenge: { nonce: 'a' } }],
+    ['absent options entirely', undefined],
+  ]
+
+  const badDomain: Array<[string, unknown]> = [
+    ['an empty domain', { challenge: 'nonce-a', domain: '' }],
+    ['a null domain', { challenge: 'nonce-a', domain: null }],
+    ['a numeric domain', { challenge: 'nonce-a', domain: 443 }],
+  ]
+
+  for (const [name, create] of creators) {
+    for (const [label, options] of badChallenge) {
+      it(`${name} refuses ${label}`, async () => {
+        await assert.rejects(() => create(options) as Promise<unknown>,
+          (err: unknown) => err instanceof TypeError && /challenge is required/.test(err.message))
+      })
+    }
+
+    for (const [label, options] of badDomain) {
+      it(`${name} refuses ${label}`, async () => {
+        await assert.rejects(() => create(options) as Promise<unknown>,
+          (err: unknown) => err instanceof TypeError && /domain is optional/.test(err.message))
+      })
+    }
+
+    it(`${name} still accepts a challenge alone, and a challenge with a domain`, async () => {
+      await assert.doesNotReject(() => create({ challenge: 'nonce-a' }) as Promise<unknown>)
+      await assert.doesNotReject(
+        () => create({ challenge: 'nonce-a', domain: 'verifier-a.example' }) as Promise<unknown>)
+    })
+
+    it(`${name} refuses before signing, so no unverifiable presentation exists`, async () => {
+      let returned: unknown = 'nothing was returned'
+      try {
+        returned = await create({})
+      } catch {
+        // expected
+      }
+      assert.equal(returned, 'nothing was returned')
+    })
+  }
+})
+
 describe('F-02 replay: challenge and domain are inside the signed bytes', () => {
   it('legacy createPresentation honours the options it declares', async () => {
     const vp = await createPresentation([], holder.privateKey, holder.publicKey, {

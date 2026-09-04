@@ -8,7 +8,7 @@ import { canonicalize, canonicalizeForWrite } from './canonical.js'
 import { parseRfc3339 } from './rfc3339.js'
 import { sign, verify, publicKeyFromPrivate } from '../crypto/keys.js'
 import { createDID } from './did.js'
-import { bindVerificationMethod, proofSigningInput, type KeyAuthority } from './vc-proof.js'
+import { bindVerificationMethod, proofSigningInput, assertPresentationProofOptions, type KeyAuthority } from './vc-proof.js'
 import type { AgentPassport, Delegation, ActionReceipt } from '../types/passport.js'
 import type {
   VerifiableCredential, VerifiablePresentation, LinkedDataProof,
@@ -186,6 +186,7 @@ export async function createPresentation(
     domain?: string
   }
 ): Promise<VerifiablePresentation> {
+  assertPresentationProofOptions(options, 'createPresentation')
   const holderDID = createDID(holderPublicKey)
 
   const presentation: Omit<VerifiablePresentation, 'proof'> = {

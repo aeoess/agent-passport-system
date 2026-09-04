@@ -12,7 +12,7 @@ import { canonicalize, canonicalizeForWrite } from './canonical.js'
 import { parseRfc3339 } from './rfc3339.js'
 import { sign, verify, publicKeyFromPrivate } from '../crypto/keys.js'
 import { toDIDKey } from './did-interop.js'
-import { bindVerificationMethod, proofSigningInput, type KeyAuthority } from './vc-proof.js'
+import { bindVerificationMethod, proofSigningInput, assertPresentationProofOptions, type KeyAuthority } from './vc-proof.js'
 import { hexToMultibase } from './did.js'
 import type { VerifiableCredential, VerifiablePresentation, LinkedDataProof } from '../types/did.js'
 import type { ProviderAttestation } from '../types/attestation.js'
@@ -271,6 +271,7 @@ export async function createVerifiablePresentation(
     domain?: string
   },
 ): Promise<VerifiablePresentation> {
+  assertPresentationProofOptions(options, 'createVerifiablePresentation')
   const holderPublicKey = publicKeyFromPrivate(holderPrivateKey)
   const holderDIDKey = toDIDKey(holderPublicKey)
 

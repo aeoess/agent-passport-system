@@ -113,6 +113,48 @@ export function bindVerificationMethod(
 }
 
 /**
+ * Refuse presentation proof options a verifier could never accept.
+ *
+ * The types require `challenge`, but a JavaScript caller is not typed, and a
+ * presentation minted without one is permanently unverifiable: both
+ * presentation verifiers require an expected challenge and a proof carrying
+ * none is refused. Minting an artifact this SDK's own verifier will always
+ * reject is the creator-verifier disagreement the attestation path already
+ * refuses to ship, and it applies here for the same reason.
+ *
+ * `domain` stays optional. What it may not be is present and unusable: an
+ * empty string or a non-string reads as a domain the presentation is addressed
+ * to, and it addresses nothing.
+ *
+ * Creators throw; verifiers do not. A verifier that throws is not a verifier
+ * that rejects, and a relying party branches on the verdict. A creator has a
+ * caller who can still fix the input, and this is the one moment they can.
+ *
+ * @throws TypeError when `challenge` is absent, not a string, or empty, or
+ * when `domain` is present and is not a non-empty string.
+ */
+export function assertPresentationProofOptions(
+  options: { challenge: string; domain?: string } | undefined,
+  fn: string,
+): void {
+  const challenge = options?.challenge
+  if (typeof challenge !== 'string' || challenge.length === 0) {
+    throw new TypeError(
+      `${fn}: challenge is required and must be a non-empty string. ` +
+      'A presentation minted without one answers no challenge, so it answers any, ' +
+      'and both presentation verifiers refuse it. Got ' + JSON.stringify(challenge) + '.',
+    )
+  }
+  const domain = options?.domain
+  if (domain !== undefined && (typeof domain !== 'string' || domain.length === 0)) {
+    throw new TypeError(
+      `${fn}: domain is optional, but when present it must be a non-empty string. ` +
+      'Got ' + JSON.stringify(domain) + '.',
+    )
+  }
+}
+
+/**
  * The bytes a proof is made over: the document with its `proof` member
  * replaced by the proof configuration, which is the proof minus `proofValue`.
  *
