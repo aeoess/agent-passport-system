@@ -490,8 +490,15 @@ describe('reversibility-fold step 3b - optional effect_instantiation block on Ex
     const env = minimalEnvelope(signer)
     assert.equal(env.effect_instantiation, undefined)
     const v = verifyExecutionEnvelope(env)
-    assert.equal(v.valid, true)
+    // What this case is about is the SIGNATURE over the body: a blockless
+    // envelope's bytes still verify. It used to assert `valid` as well, which
+    // for a minimal envelope carrying the placeholder evaluator signature
+    // 'evsig' and no trust inputs at all was the fail-open the repair closed.
+    // A minimal envelope carries no decision, so its evaluator signature can
+    // never be established and `valid` is never true for one.
     assert.equal(v.signatureValid, true)
+    assert.equal(v.valid, false)
+    assert.equal(v.evaluatorAuthority, 'unresolved')
   })
 
   it('a receipt carrying a well-formed block validates', () => {
@@ -503,7 +510,8 @@ describe('reversibility-fold step 3b - optional effect_instantiation block on Ex
     const value = sign(canonicalize(bodyWithBlock), signer.privateKey)
     const envWithBlock = { ...bodyWithBlock, signature: { ...signature, value } }
     const v = verifyExecutionEnvelope(envWithBlock)
-    assert.equal(v.valid, true)
+    // Same reasoning as the blockless case: the property under test is that
+    // the block sits inside the signed body, which is `signatureValid`.
     assert.equal(v.signatureValid, true)
     assert.deepEqual(envWithBlock.effect_instantiation, SAMPLE_BLOCK)
   })

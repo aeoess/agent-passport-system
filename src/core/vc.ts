@@ -366,9 +366,12 @@ export async function verifyPresentation(
     expectedDomain?: string
   }
 ): Promise<VerifyPresentationResult> {
-  const holderDID = presentation?.holder ?? ''
+  const claimedHolder = presentation?.holder ?? ''
+  // The holder is echoed only once the binding establishes it. Handing back a
+  // trusted DID from a failed verification is how a caller allowlists an
+  // attacker, which is exactly what the unbound verifier did.
   const fail = (error: string, over: Partial<VerifyPresentationResult> = {}): VerifyPresentationResult => ({
-    valid: false, holderDID, proofOfPossession: false, keyAuthority: 'rejected',
+    valid: false, holderDID: '', proofOfPossession: false, keyAuthority: 'rejected',
     credentialResults: [], error, ...over
   })
 
@@ -380,11 +383,11 @@ export async function verifyPresentation(
   if (proof.proofPurpose !== 'authentication') {
     return fail(`Proof purpose ${String(proof.proofPurpose)} is not authentication`)
   }
-  if (opts?.expectedHolder !== undefined && holderDID !== opts.expectedHolder) {
-    return fail(`Presentation holder ${holderDID} is not the expected ${opts.expectedHolder}`)
+  if (opts?.expectedHolder !== undefined && claimedHolder !== opts.expectedHolder) {
+    return fail(`Presentation holder ${claimedHolder} is not the expected ${opts.expectedHolder}`)
   }
 
-  const binding = bindVerificationMethod(holderDID, proof.verificationMethod)
+  const binding = bindVerificationMethod(claimedHolder, proof.verificationMethod)
   if (binding.keyAuthority !== 'verified') {
     return fail(`Holder binding failed: ${binding.reason}`, { keyAuthority: binding.keyAuthority })
   }
@@ -406,7 +409,7 @@ export async function verifyPresentation(
 
   // Replay context. Compared only after the signature is verified, so the
   // values compared are the signed ones.
-  const bound = { proofOfPossession: true, keyAuthority: 'verified' as const }
+  const bound = { proofOfPossession: true, keyAuthority: 'verified' as const, holderDID: claimedHolder }
   if (opts?.expectedChallenge !== undefined) {
     if (proof.challenge === undefined) {
       return fail('Presentation carries no challenge but one was expected', bound)
@@ -434,7 +437,7 @@ export async function verifyPresentation(
 
   return {
     valid: allValid,
-    holderDID,
+    holderDID: claimedHolder,
     proofOfPossession: true,
     keyAuthority: 'verified',
     challenge: proof.challenge,

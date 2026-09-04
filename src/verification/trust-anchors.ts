@@ -39,6 +39,15 @@
 //   src/verification/verify.ts:58         verifyPassport
 //   src/verification/trust-posture.ts:88  checkPassportTrustPosture
 //   src/contract.ts                       verifySocialContract
+//   src/core/execution-envelope.ts        verifyExecutionEnvelope
+//
+// The fourth reader takes a differently-named option,
+// `trustedSignerPublicKeys` on an execution envelope rather than
+// `trustedIssuers` on a passport, because it answers a different question:
+// which key may sign an envelope, not which issuer may vouch for a passport.
+// It is enumerated here anyway. The rule this file exists to enforce is about
+// the SHAPE a caller-supplied trust-anchor list is normalized into, and a
+// second normalization would be a second thing to disagree with the first.
 //
 // Everything else that mentions the option either declares it in a type (the
 // five adapters and the relying-party middleware, which forward their whole

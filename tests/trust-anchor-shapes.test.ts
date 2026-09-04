@@ -41,6 +41,8 @@ import { verifyCrewMember } from '../src/adapters/crewai.js'
 import { verifyGonkaHost } from '../src/adapters/gonka.js'
 import { verifyA2AIdentity } from '../src/adapters/a2a.js'
 import { evaluateRequest } from '../src/v2/offline-verifier/middleware.js'
+import { createMinimalEnvelope, verifyExecutionEnvelope } from '../src/core/execution-envelope.js'
+import type { ExecutionEnvelope } from '../src/types/execution-envelope.js'
 
 function attacker() {
   const { signedPassport, keyPair } = createPassport({
@@ -345,6 +347,61 @@ describe('N3: verifySocialContract normalizes the same option the other readers 
     assert.equal(r.issuerTrusted, false)
     assert.equal(r.overall, false)
     assert.ok(r.issuerErrors.some(e => /trustedIssuers/.test(e)), JSON.stringify(r.issuerErrors))
+  })
+})
+
+describe('the envelope verifier normalizes the same way the passport readers do', () => {
+  // Fourth reader of a caller-supplied trust-anchor list, added by the
+  // Daybreak F-01 repair. Different option name and a different question --
+  // which key may sign an execution envelope, not which issuer may vouch for
+  // a passport -- but the same normalization, because a second normalization
+  // is a second thing to disagree with the first.
+  const signer = generateKeyPair()
+
+  function selfSignedEnvelope(): ExecutionEnvelope {
+    return createMinimalEnvelope({
+      agentDid: 'did:aps:attacker', runId: 'run', actionId: 'action',
+      scope: ['admin:*'], revocationStatus: 'active',
+      decisionHash: 'sha256:x', policyRef: 'p', evaluationMethod: 'deterministic',
+      verdict: 'permit', evaluatedAt: new Date().toISOString(),
+      evaluatorDid: 'did:aps:claimed', evaluatorSignature: 'f'.repeat(128),
+      receiptHash: 'sha256:x',
+      signerPrivateKey: signer.privateKey, signerPublicKey: signer.publicKey,
+    })
+  }
+
+  for (const [label, value] of [
+    ['undefined', undefined] as [string, unknown],
+    ['null', null] as [string, unknown],
+    ['[] deliberate empty', []] as [string, unknown],
+    ...MALFORMED,
+  ]) {
+    it(`no anchor shape admits a self-signed envelope: ${label}`, () => {
+      const result = verifyExecutionEnvelope(selfSignedEnvelope(), {
+        trustedSignerPublicKeys: value as never,
+      })
+      assert.equal(result.valid, false, `${label}: admitted`)
+      assert.notEqual(result.signerAuthority, 'verified', `${label}: signer read as trusted`)
+    })
+  }
+
+  it('a malformed option is a configuration error, not an empty anchor set', () => {
+    const result = verifyExecutionEnvelope(selfSignedEnvelope(), {
+      trustedSignerPublicKeys: new Set([signer.publicKey]) as never,
+    })
+    assert.equal(result.signerAuthority, 'rejected')
+    assert.ok(result.errors.some(e => /trustedSignerPublicKeys/.test(e)), JSON.stringify(result.errors))
+  })
+
+  it('the envelope key alone never establishes trust, even when it signed correctly', () => {
+    // The envelope verifies under its own key: that is proof of possession and
+    // is reported as signatureValid. It is not authorization.
+    const result = verifyExecutionEnvelope(selfSignedEnvelope(), {
+      trustedSignerPublicKeys: [generateKeyPair().publicKey],
+    })
+    assert.equal(result.signatureValid, true)
+    assert.equal(result.signerAuthority, 'rejected')
+    assert.equal(result.valid, false)
   })
 })
 

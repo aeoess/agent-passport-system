@@ -314,9 +314,10 @@ export async function verifyVerifiablePresentation(
   },
 ): Promise<VPVerifyResult> {
   const checks: string[] = []
-  const holderDID = vp?.holder ?? ''
+  const claimedHolder = vp?.holder ?? ''
+  // Echoed only once the binding establishes it. See the twin in vc.ts.
   const fail = (over: Partial<VPVerifyResult> = {}): VPVerifyResult => ({
-    valid: false, holderDID, proofOfPossession: false, keyAuthority: 'rejected',
+    valid: false, holderDID: '', proofOfPossession: false, keyAuthority: 'rejected',
     credentials: [], checks, ...over
   })
 
@@ -335,12 +336,12 @@ export async function verifyVerifiablePresentation(
     checks.push(`FAIL: proof purpose ${String(vp.proof.proofPurpose)} is not authentication`)
     return fail()
   }
-  if (opts?.expectedHolder !== undefined && holderDID !== opts.expectedHolder) {
-    checks.push(`FAIL: holder ${holderDID} is not the expected ${opts.expectedHolder}`)
+  if (opts?.expectedHolder !== undefined && claimedHolder !== opts.expectedHolder) {
+    checks.push(`FAIL: holder ${claimedHolder} is not the expected ${opts.expectedHolder}`)
     return fail()
   }
 
-  const binding = bindVerificationMethod(holderDID, vp.proof.verificationMethod)
+  const binding = bindVerificationMethod(claimedHolder, vp.proof.verificationMethod)
   if (binding.keyAuthority !== 'verified') {
     checks.push(`FAIL: holder binding — ${binding.reason}`)
     return fail({ keyAuthority: binding.keyAuthority })
@@ -366,7 +367,7 @@ export async function verifyVerifiablePresentation(
 
   // Replay context, compared only after the signature verified, so the values
   // compared are the signed ones.
-  const bound = { proofOfPossession: true, keyAuthority: 'verified' as const }
+  const bound = { proofOfPossession: true, keyAuthority: 'verified' as const, holderDID: claimedHolder }
   if (opts?.expectedChallenge !== undefined) {
     if (vp.proof.challenge === undefined) {
       checks.push('FAIL: presentation carries no challenge but one was expected')
@@ -404,7 +405,7 @@ export async function verifyVerifiablePresentation(
 
   return {
     valid,
-    holderDID,
+    holderDID: claimedHolder,
     proofOfPossession: true,
     keyAuthority: 'verified',
     challenge: vp.proof.challenge,
