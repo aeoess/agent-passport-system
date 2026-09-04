@@ -10,12 +10,12 @@ This is the public protocol layer. The private gateway product lives in a separa
 
 APS addresses the case where the delegation chain still verifies but the agent's effective instructions have been hijacked. The threat is documented in the public CVE record:
 
-- GHSA-4cxx-hrm3-49rm — Cursor instruction-injection class
-- GHSA-vqv7-vq92-x87f — Cursor MCP / rules surface
-- CurXecute — Cursor MCP server config-mutation chain
-- NomShub — instruction-class file planting against agent IDEs
+- GHSA-4cxx-hrm3-49rm: Cursor instruction-injection class
+- GHSA-vqv7-vq92-x87f: Cursor MCP / rules surface
+- CurXecute: Cursor MCP server config-mutation chain
+- NomShub: instruction-class file planting against agent IDEs
 
-In each case a valid signature was insufficient to deny the action. Authority admissibility — linking delegated authority to signed evidence about action so a verifier can decide whether to admit it — is the boundary APS draws.
+In each case a valid signature was insufficient to deny the action. Authority admissibility, linking delegated authority to signed evidence about action so a verifier can decide whether to admit it, is the boundary APS draws.
 
 ## Wave 1 accountability primitives
 
@@ -24,7 +24,7 @@ Ed25519 ActionReceipt, AuthorityBoundaryReceipt, CustodyReceipt, ContestabilityR
 ## Install
 
 - npm: `npm install agent-passport-system`
-- Also available as Python SDK (byte-parity) and MCP server
+- Also available as Python, Rust and Go SDKs with byte-parity, plus the MCP server
 
 ## Canonical references
 
@@ -38,6 +38,8 @@ Ed25519 ActionReceipt, AuthorityBoundaryReceipt, CustodyReceipt, ContestabilityR
 
 - MCP server: https://github.com/aeoess/agent-passport-mcp
 - Python SDK: https://github.com/aeoess/agent-passport-python
+- Rust SDK: https://crates.io/crates/agent-passport-system
+- Go SDK: https://github.com/aeoess/agent-passport-go
 - Vocabulary: https://github.com/aeoess/agent-governance-vocabulary
 - Website: https://aeoess.com
 - Full project reference (machine-readable): https://agent-passport.org/llms-full.txt

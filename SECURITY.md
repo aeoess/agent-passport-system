@@ -61,7 +61,7 @@ The Agent Passport System operates under these assumptions:
 | Older versions | ❌ |
 
 Every `agent-passport-system` version from 1.5.1 through 5.0.3 is unsupported;
-the advisory for 6.0.0, published at
+the 6.0.0 advisory, GHSA-r2fw-x6mg-f6h8, published at
 https://github.com/aeoess/agent-passport-system/security/advisories, describes
 the verification defects they carry.
 

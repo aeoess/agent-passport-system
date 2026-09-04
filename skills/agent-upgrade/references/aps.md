@@ -52,7 +52,7 @@ This skill tracks the protocol. It is version-bumped in `_meta.json` on the same
 - 5,281 tests
 - 152 MCP tools expose the full protocol surface; the `essential` profile is the default
 - 9 papers, all with Zenodo DOIs
-- SDK 6.0.0 on npm, MCP 5.0.0, Python 3.0.0 on PyPI
+- SDK 6.0.0 on npm, MCP 5.0.2 on npm, Python 3.0.0 on PyPI, Rust 0.3.0 on crates.io, Go v0.7.0
 - Apache-2.0
 
 ## Links
@@ -60,4 +60,6 @@ This skill tracks the protocol. It is version-bumped in `_meta.json` on the same
 - npm: https://www.npmjs.com/package/agent-passport-system
 - MCP: https://www.npmjs.com/package/agent-passport-system-mcp
 - PyPI: https://pypi.org/project/agent-passport-system/
+- crates.io: https://crates.io/crates/agent-passport-system
+- Go: https://pkg.go.dev/github.com/aeoess/agent-passport-go
 - GitHub: https://github.com/aeoess/agent-passport-system

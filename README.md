@@ -286,6 +286,6 @@ ADK, A2A, MCP, OpenShell, IBAC, Gonka. Gateway evaluation under 2ms in the bench
 - [aeoess.com](https://agent-passport.org) -- Protocol home
 - [llms-full.txt](https://aeoess.com/llms-full.txt) -- Complete reference for AI agents
 - [Dev log](https://aeoess.com/blog.html) -- Day-by-day build record
-- [npm](https://www.npmjs.com/package/agent-passport-system) · [PyPI](https://pypi.org/project/agent-passport-system/) · [MCP](https://www.npmjs.com/package/agent-passport-system-mcp)
+- [npm](https://www.npmjs.com/package/agent-passport-system) · [PyPI](https://pypi.org/project/agent-passport-system/) · [crates.io](https://crates.io/crates/agent-passport-system) · [Go](https://pkg.go.dev/github.com/aeoess/agent-passport-go) · [MCP](https://www.npmjs.com/package/agent-passport-system-mcp)
 
 Copyright 2026 Tymofii Pidlisnyi. Apache-2.0.
