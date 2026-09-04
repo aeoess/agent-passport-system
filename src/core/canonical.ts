@@ -9,6 +9,7 @@
 
 import { createHash } from 'node:crypto'
 import { isUnsafeWriteInteger, UnsafeIntegerError } from './write-policy.js'
+import { parseRfc3339, formatRfc3339 } from './rfc3339.js'
 
 export function canonicalize(obj: unknown, _ancestors?: WeakSet<object>): string {
   if (obj === null || obj === undefined) return 'null'
@@ -119,14 +120,43 @@ export function canonicalHashForWrite(obj: Record<string, unknown>): string {
 }
 
 // normalizeTimestamp — force ISO 8601 second-precision UTC.
-// Accepts any parseable timestamp; returns format: YYYY-MM-DDTHH:mm:ssZ
+// Accepts RFC 3339 with an explicit offset or Z; returns YYYY-MM-DDTHH:mm:ssZ.
 // Strips fractional seconds and normalizes timezone offsets to UTC.
 // Thread claim (A2A#1672): action_ref timestamps are second-precision.
+//
+// The offset is REQUIRED, and that is the point of this function's strictness.
+// Its only caller is the legacy computeActionRef, whose output is a content
+// address that lands inside signed bytes and keys the idempotency reservation.
+// `new Date('2026-04-05T03:39:31')` reads a zone-less value in the machine's
+// LOCAL zone, so the same intent produced one action_ref in UTC and another
+// nine hours away in Asia/Tokyo. A content address that depends on where it was
+// computed is not an address. Two writers could reserve the same action twice,
+// or one could fail to match its own earlier reservation.
+//
+// Parsing goes through parseRfc3339 so the accepted set is the one this SDK
+// already ratified, rather than whatever the JavaScript Date constructor
+// happens to take: a date-only value, an impossible day like 2026-02-30 that
+// Date rolls into March, and hour 24 are all refused here and were all accepted
+// before. Lowercase `t` and `z` stay accepted, because RFC 3339 section 5.6
+// permits them and parseRfc3339 takes them; this function does not get to be
+// stricter than the parser the rest of the SDK verifies against.
+//
+// Nothing that already produced an address changes its address. Every input
+// with an explicit offset or Z that parsed before produces the same output,
+// pinned by test against values captured from the previous implementation.
+//
+// It throws rather than returning a result, unchanged: this is a derivation
+// helper, not a verifier, and a caller that cannot derive an address has
+// nothing to carry on with.
 export function normalizeTimestamp(ts: string): string {
-  const d = new Date(ts)
-  if (Number.isNaN(d.getTime())) {
-    throw new Error(`normalizeTimestamp: invalid timestamp "${ts}"`)
+  const parsed = parseRfc3339(ts)
+  if (!parsed.ok) {
+    throw new Error(
+      `normalizeTimestamp: invalid timestamp "${ts}" (${parsed.reason}). ` +
+      'Requires RFC 3339 with an explicit offset or Z: a zone-less value names ' +
+      'no instant, so it would produce a different action_ref on every machine.',
+    )
   }
-  // ISO with milliseconds: 2026-04-05T03:39:31.123Z → strip ms
-  return d.toISOString().replace(/\.\d{3}Z$/, 'Z')
+  // formatRfc3339 emits .sssZ; action_ref timestamps are second-precision.
+  return formatRfc3339(parsed.ms).replace(/\.\d{3}Z$/, 'Z')
 }

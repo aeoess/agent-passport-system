@@ -37,18 +37,16 @@ const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
  *  covered plus the two that share their verifiers. */
 const ROOTS = ['src/core', 'src/verification', 'src/adapters']
 
-/** The one file under a swept root that still constructs a Date from a
- *  value, with the reason it is not converted here.
+/** No file under a swept root may construct a Date from a value.
  *
- *  `normalizeTimestamp` (src/core/canonical.ts) is a lax-in / canonical-out
- *  normalizer feeding `action-ref.ts`, so its output lands inside signed
- *  bytes. It already refuses an unparseable value by throwing, so it is not
- *  an instance of F-04's fail-open class. Tightening what it ACCEPTS would
- *  change which inputs produce which content address — a wire-visible
- *  change, out of scope for this repair and reported separately. */
-const EXEMPT = new Map<string, string>([
-  ['src/core/canonical.ts', 'normalizeTimestamp: accepted set is wire-visible via action-ref; already throws on unparseable'],
-])
+ *  This map was non-empty: `normalizeTimestamp` (src/core/canonical.ts) was
+ *  exempted because tightening what it ACCEPTS changes which inputs produce
+ *  which content address, which is wire-visible and was deferred. That
+ *  decision has since been taken and the function now parses through
+ *  parseRfc3339, so the exemption is gone and the guard covers the file. The
+ *  map stays, with its emptiness asserted below, so that reintroducing an
+ *  exemption is a visible edit rather than a quiet one. */
+const EXEMPT = new Map<string, string>([])
 
 const BANNED = [
   { name: 'new Date(<argument>)', pattern: /new\s+Date\s*\(\s*[^)]/ },
@@ -108,6 +106,14 @@ describe('boundary files interpret time only through parseRfc3339', () => {
       `these sites interpret a value as a time outside the primitive:\n${offenders.join('\n')}\n` +
       'Use parseRfc3339 to read a timestamp and formatRfc3339 to emit one; ' +
       'a zero-argument new Date() to read the clock is fine.')
+  })
+
+  it('the exemption list is empty, and adding to it is a visible edit', () => {
+    // It held src/core/canonical.ts until normalizeTimestamp was routed
+    // through parseRfc3339. Asserting emptiness means a future exemption
+    // cannot be added without also editing this expectation.
+    assert.equal(EXEMPT.size, 0,
+      `unexpected exemptions: ${[...EXEMPT.keys()].join(', ')}`)
   })
 
   it('every exemption still exists, so the list cannot rot into a blanket', () => {
