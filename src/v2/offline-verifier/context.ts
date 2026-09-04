@@ -36,6 +36,7 @@
 
 import { verifyActionReceipt } from '../accountability/verify/action.js'
 import { isRecord } from '../../core/is-record.js'
+import { parseRfc3339 } from '../../core/rfc3339.js'
 import type { ActionReceipt } from '../accountability/types/action.js'
 
 // ── Reasons a conformant verifier rejects a receipt ─────────────────
@@ -57,6 +58,7 @@ export type RejectReason =
   | 'WRONG_CLAIM' // valid receipt presented as proof of a claim it does not make
   | 'POLICY_NOT_EXECUTED' // policy evaluated but execution never happened
   | 'DELEGATION_ROOT_MISMATCH' // receipt's chain root is not the root the verifier treats as authoritative
+  | 'INVALID_TIMESTAMP' // a timestamp on either side of a window check is not a readable instant
 
 /** The closed set of crypto-layer reasons, for callers that want to
  *  branch on which layer surfaced a rejection without re-running the
@@ -142,7 +144,25 @@ export function verifyReceiptContext(
   }
 
   // expired delegation: the receipt was issued after the chain expired.
-  if (receipt.timestamp > ctx.delegation_expires_at) {
+  //
+  // Both sides are read as instants rather than compared as text. RFC 3339
+  // gives one instant many spellings, and lexical order is not temporal order
+  // across them: a receipt stamped '2026-01-01T01:00:00.000-09:00' is five
+  // hours later than an expiry of '2026-01-01T05:00:00.000Z' and sorts before
+  // it, so string comparison accepted a receipt issued after the delegation
+  // had expired. The same divergence refused receipts issued before expiry,
+  // and ordered two spellings of one instant as strictly apart.
+  //
+  // A timestamp neither side can read bounds nothing, so it rejects rather
+  // than being compared. It reports INVALID_TIMESTAMP rather than
+  // DELEGATION_EXPIRED because "the delegation had expired" is a different
+  // claim from "this verifier could not tell", and only one of them is true.
+  const receiptAt = parseRfc3339(receipt.timestamp)
+  const expiresAt = parseRfc3339(ctx.delegation_expires_at)
+  if (!receiptAt.ok || !expiresAt.ok) {
+    return { valid: false, reason: 'INVALID_TIMESTAMP' }
+  }
+  if (receiptAt.ms > expiresAt.ms) {
     return { valid: false, reason: 'DELEGATION_EXPIRED' }
   }
 
