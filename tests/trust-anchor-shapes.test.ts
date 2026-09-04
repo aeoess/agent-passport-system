@@ -432,9 +432,13 @@ describe('N3: the three public entry points agree on every anchor shape', () => 
       assert.equal(posture.ok, false, `${label}: posture admitted`)
       assert.equal(vsc.issuerTrusted, false, `${label}: verifySocialContract reported a trusted issuer`)
 
-      // And where verifyPassport rejects the configuration outright, the
-      // contract-level verdict must not read as trusted either.
-      if (!vp.valid && vp.errors.some(e => e.includes('trustedIssuers'))) {
+      // And where verifyPassport rejects the CONFIGURATION outright, the
+      // contract-level verdict must not read as trusted either. Matched on the
+      // configuration error's own prefix rather than on the word
+      // "trustedIssuers": verifyPassport now also names that option in its
+      // authority verdict for a passport nobody vouched for, which is a
+      // different finding and is not a rejected configuration.
+      if (!vp.valid && vp.errors.some(e => e.startsWith('Invalid trustedIssuers option:'))) {
         assert.equal(vsc.overall, false,
           `${label}: verifyPassport refused the configuration and verifySocialContract admitted`)
         assert.ok(vsc.issuerErrors.length > 0,

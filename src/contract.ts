@@ -216,7 +216,10 @@ export function verifySocialContract(
   // Structure first, deliberately WITHOUT anchors. verifyPassport folds the
   // issuer countersignature into its own `valid`, so passing anchors here
   // would make the structural verdict depend on the caller's configuration.
-  const structural = verifyPassport(passport)
+  // allowSelfSigned names what this call is asking: the integrity question
+  // only. Without it the answer would now be "authority not established",
+  // which is true but is the other question, asked separately below.
+  const structural = verifyPassport(passport, { allowSelfSigned: true })
 
   // Trust root second, as a separate question. Only asked when the caller
   // named anchors to ask it against.

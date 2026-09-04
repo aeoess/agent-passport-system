@@ -52,8 +52,14 @@ export function hasCommerceScope(delegation: CommerceDelegation, required: Comme
 // Each predicate is pure: same inputs → same output, no I/O, no mutation.
 // The gateway composes these into the 6-gate commercePreflight pipeline.
 
-export function checkPassportGate(signedPassport: SignedPassport): CommercePreflightCheck {
-  const result = verifyPassport(signedPassport)
+export function checkPassportGate(
+  signedPassport: SignedPassport,
+  opts?: { trustedIssuers?: string[]; allowSelfSigned?: boolean },
+): CommercePreflightCheck {
+  // This is a gate predicate, so it asks the authority question, not just the
+  // integrity one. Without a trust input the passport vouches only for itself
+  // and the gate does not pass. See verifyPassport.
+  const result = verifyPassport(signedPassport, opts)
   return {
     check: 'passport_valid',
     passed: result.valid,

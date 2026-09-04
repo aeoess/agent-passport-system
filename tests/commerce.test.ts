@@ -45,6 +45,10 @@ function makeFixtures() {
   return { keys: keyPair, passport: signedPassport, delegation }
 }
 
+// These assert signature and validity-window handling, not authority, so
+// each verifyPassport call names allowSelfSigned explicitly. Keeping the two
+// questions separate is the point of the option.
+
 describe('Layer 7 — Commerce Primitives', () => {
 
   describe('createCommerceDelegation', () => {
@@ -74,7 +78,7 @@ describe('Layer 7 — Commerce Primitives', () => {
   describe('gate predicates', () => {
     it('checkPassportGate passes for valid passport', () => {
       const { passport } = makeFixtures()
-      const c = checkPassportGate(passport)
+      const c = checkPassportGate(passport, { allowSelfSigned: true })
       assert.equal(c.check, 'passport_valid')
       assert.equal(c.passed, true)
     })

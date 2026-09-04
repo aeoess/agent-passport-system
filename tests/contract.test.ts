@@ -389,12 +389,20 @@ test('B4: verifyPassport reports self-signed acceptance as a field, not only as 
   })
   const signed = signPassport(p.signedPassport.passport, p.keyPair.privateKey)
 
-  const result = verifyPassport(signed)
-  // The documented, unchanged default.
-  assert.equal(result.valid, true)
-  // The part that is now legible to code rather than only to a reader.
-  assert.equal(result.issuerTrustChecked, false)
-  assert.equal(result.selfSignedAccepted, true)
+  // The bare call no longer establishes authority: a signature over a passport
+  // says who signed it, not who vouches for it.
+  const bare = verifyPassport(signed)
+  assert.equal(bare.valid, false)
+  assert.equal(bare.issuerTrustChecked, false)
+  assert.equal(bare.selfSignedAccepted, false)
+
+  // Under the explicit opt-in it verifies, and the basis is legible to code
+  // rather than only to a reader of the warning text, which is what this test
+  // has always been about.
+  const optedIn = verifyPassport(signed, { allowSelfSigned: true })
+  assert.equal(optedIn.valid, true)
+  assert.equal(optedIn.issuerTrustChecked, false)
+  assert.equal(optedIn.selfSignedAccepted, true)
 })
 
 test('B4: a countersigned passport under anchors is not flagged self-signed', () => {

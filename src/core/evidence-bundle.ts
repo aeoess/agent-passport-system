@@ -276,7 +276,10 @@ function authorityAxis(bundle: EvidenceBundle): ClaimAxisReport {
       outcomes.push({ state: 'UNKNOWN', detail: `member "${member.member_id}" is not structurally a signed passport` })
       continue
     }
-    const result = verifyPassport(member.payload)
+    // The ASSERTED detail below says "self-signed accepted, no trust anchors
+    // supplied", which is exactly this opt-in. A bundle member is evidence to
+    // be described, not a gate to be passed.
+    const result = verifyPassport(member.payload, { allowSelfSigned: true })
     if (result.valid) {
       outcomes.push({ state: 'ASSERTED', detail: `member "${member.member_id}" signature passes; self-signed accepted, no trust anchors supplied` })
       continue

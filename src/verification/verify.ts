@@ -37,6 +37,11 @@ export function verifyPassport(
   signed: SignedPassport,
   opts?: {
     trustedIssuers?: string[]
+    /** Accept a passport that carries no issuer countersignature, on its own
+     *  signature alone. Off by default, and consulted only when
+     *  `trustedIssuers` was not supplied: a caller that named issuers asked
+     *  for that check, and this flag does not rescue a failed one. */
+    allowSelfSigned?: boolean
     /** M4. Uniform clock-skew option. When provided, passport expiry is
      *  tolerated within `allowedClockSkewMs` of the verifier clock. Omitting
      *  it preserves the prior exact-boundary behavior. This consolidates the
@@ -47,6 +52,7 @@ export function verifyPassport(
 ): VerificationResult {
   const errors: string[] = []
   const warnings: string[] = []
+  let selfSignedAccepted = false
 
   // Null / undefined / non-object (attacker-deliverable JSON `null`) rejects
   // with the missing-fields verdict rather than throwing on the property
@@ -109,8 +115,20 @@ export function verifyPassport(
         errors.push('Invalid issuer countersignature')
       }
     }
+  } else if (opts?.allowSelfSigned === true) {
+    selfSignedAccepted = true
+    warnings.push('Self-signed passport accepted: no trust root was consulted')
   } else {
-    warnings.push('No trustedIssuers provided — self-signed passports are accepted')
+    // A signature over a passport says who signed it, not who vouches for it.
+    // The verifying key is the one the passport carries, so a good signature
+    // is available to anyone who can generate a key pair. Integrity is
+    // established above; authority is the caller's to supply, and without it
+    // there is nothing here to be valid ABOUT.
+    errors.push(
+      'Authority not established: no trustedIssuers were supplied. The key a ' +
+      'passport carries is its own claim about itself. Pass trustedIssuers, or ' +
+      'allowSelfSigned: true to accept a self-vouching passport deliberately.',
+    )
   }
 
   // Check expiration. Default path keeps the exact prior behavior. When a
@@ -188,9 +206,11 @@ export function verifyPassport(
     errors,
     warnings,
     issuerTrustChecked,
-    // The verdict rests on the passport's own signature alone: it verified,
-    // and no trust root was consulted to say who stands behind it.
-    selfSignedAccepted: valid && !issuerTrustChecked,
+    // True only when the caller opted in AND the verdict held: the passport's
+    // own signature verified and no trust root was consulted to say who stands
+    // behind it. A caller that must not act on a self-vouching credential
+    // branches on this rather than on warning text.
+    selfSignedAccepted: valid && selfSignedAccepted,
     passport: valid ? passport : undefined
   }
 }

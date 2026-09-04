@@ -9,6 +9,10 @@ import { canonicalize } from '../src/core/canonical.js';
 import { applyReputationEvent, calculateOverallScore } from '../src/verification/reputation.js';
 import type { ReputationScore } from '../src/types/passport.js';
 
+// These assert signature and validity-window handling, not authority, so
+// each verifyPassport call names allowSelfSigned explicitly. Keeping the two
+// questions separate is the point of the option.
+
 describe('Crypto', () => {
   it('generates valid keypair', () => {
     const kp = generateKeyPair();
@@ -60,7 +64,7 @@ describe('Passport', () => {
       capabilities:['code_execution'],
       runtime:{platform:'t',models:['m'],toolsCount:1,memoryType:'m'}
     });
-    assert.ok(verifyPassport(signedPassport).valid);
+    assert.ok(verifyPassport(signedPassport, { allowSelfSigned: true }).valid);
   });
   it('vote weight 1', () => {
     const { signedPassport } = createPassport({
@@ -77,7 +81,7 @@ describe('Passport', () => {
       runtime:{platform:'t',models:['m'],toolsCount:1,memoryType:'m'}
     });
     signedPassport.passport.mission = 'HACKED';
-    assert.ok(!verifyPassport(signedPassport).valid);
+    assert.ok(!verifyPassport(signedPassport, { allowSelfSigned: true }).valid);
   });
   it('updates and re-signs', () => {
     const { signedPassport, keyPair } = createPassport({
@@ -86,7 +90,7 @@ describe('Passport', () => {
       runtime:{platform:'t',models:['m'],toolsCount:1,memoryType:'m'}
     });
     const updated = updatePassport(signedPassport.passport, { mission:'new' }, keyPair.privateKey);
-    assert.ok(verifyPassport(updated).valid);
+    assert.ok(verifyPassport(updated, { allowSelfSigned: true }).valid);
   });
 });
 

@@ -97,25 +97,22 @@ export function checkPassportTrustPosture(
   }
   const anchors = trustAnchors.anchors
 
+  // The option is forwarded rather than re-decided. verifyPassport now applies
+  // the same rule this gate documents, so the two layers must be handed the
+  // same input or they would double-count: with no anchors and no opt-in, the
+  // verifier would report its own authority error and this gate would never
+  // reach the UNTRUSTED_ISSUER verdict callers branch on.
   const result = verifyPassport(passport, {
     trustedIssuers: anchors,
+    allowSelfSigned: opts.allowSelfSigned === true,
     clock: opts.clock,
   })
   const warnings = result.warnings ?? []
 
-  if (!result.valid) {
-    return {
-      ok: false,
-      failure: 'PASSPORT_INVALID',
-      detail: `Passport invalid: ${result.errors.join(', ')}`,
-      errors: result.errors,
-      warnings,
-    }
-  }
-
-  // verifyPassport enforces the countersignature only when anchors were
-  // supplied; with none, its verdict is signature and validity window alone.
-  // Admitting on that basis is a decision the caller has to have made.
+  // This gate's own posture verdict is decided BEFORE the verifier's is
+  // interpreted, so a gate holding no anchors keeps reporting
+  // UNTRUSTED_ISSUER, which is the distinction its callers act on, rather
+  // than collapsing into the generic PASSPORT_INVALID.
   //
   // `anchors` is the NORMALIZED array, so `.length` means what it says here.
   // `allowSelfSigned` is compared against the literal `true` on purpose:
@@ -127,6 +124,16 @@ export function checkPassportTrustPosture(
       failure: 'UNTRUSTED_ISSUER',
       detail:
         'Untrusted issuer: this gate holds no trust anchors. Supply trustedIssuers, or set allowSelfSigned to accept self-signed passports.',
+      errors: result.errors,
+      warnings,
+    }
+  }
+
+  if (!result.valid) {
+    return {
+      ok: false,
+      failure: 'PASSPORT_INVALID',
+      detail: `Passport invalid: ${result.errors.join(', ')}`,
       errors: result.errors,
       warnings,
     }

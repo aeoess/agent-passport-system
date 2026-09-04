@@ -33,9 +33,18 @@ export function assignRole(opts: {
   scope: string[]
   assignerPrivateKey: string
   assignerPublicKey: string
+  /** Issuer keys whose countersignature authorizes this assignment. Assigning
+   *  a role is an authority decision, and without a trust input the passport
+   *  is only a self-vouching credential. See verifyPassport. */
+  trustedIssuers?: string[]
+  /** Assign on a passport nobody countersigned. Off by default. */
+  allowSelfSigned?: boolean
 }): RoleAssignment {
   // Verify the passport is valid before assigning a role
-  const verification = verifyPassport(opts.signedPassport)
+  const verification = verifyPassport(opts.signedPassport, {
+    trustedIssuers: opts.trustedIssuers,
+    allowSelfSigned: opts.allowSelfSigned,
+  })
   if (!verification.valid) {
     throw new Error(
       `Cannot assign role: passport verification failed — ${verification.errors.join(', ')}`
