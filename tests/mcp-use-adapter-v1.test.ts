@@ -189,7 +189,12 @@ describe('mcp-use adapter, conformance against the real package', () => {
     const { agent, ctx } = setup()
     let dispatched = 0
 
-    const server = new MCPServer({ name: 'aps-adapter-test', version: '0.0.0' })
+    // `skills: false` keeps this harness about the middleware. mcp-use 2.1.0 gave
+    // MCPServer.fetch() a conventional skills/ discovery pass, and this repository
+    // has a skills/ directory; without this the server refuses to serve on a file
+    // the adapter never touches. The option does not exist in 2.0.0, which ignores
+    // it, so the block runs on both pins.
+    const server = new MCPServer({ name: 'aps-adapter-test', version: '0.0.0', skills: false })
     server.tool(
       { name: TOOL, inputSchema: z.object({ query: z.string() }) },
       async () => { dispatched++; return { content: [{ type: 'text', text: 'ok' }] } },
@@ -238,7 +243,7 @@ describe('mcp-use adapter, conformance against the real package', () => {
     const { agent } = setup()
     let dispatched = 0
 
-    const server = new MCPServer({ name: 'aps-adapter-reject-test', version: '0.0.0' })
+    const server = new MCPServer({ name: 'aps-adapter-reject-test', version: '0.0.0', skills: false })
     server.tool(
       { name: TOOL, inputSchema: z.object({ query: z.string() }) },
       async () => { dispatched++; return { content: [{ type: 'text', text: 'ok' }] } },
