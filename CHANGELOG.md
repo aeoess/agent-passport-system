@@ -1,5 +1,9 @@
 # Changelog
 
+## 6.0.1 (2026-09-04)
+
+Documentation only. The README published with 6.0.0 listed three registries; the package page now lists npm, PyPI, crates.io, Go and the MCP server, and the skills advertise the MCP version npm publishes. No code change.
+
 ## 6.0.0 (2026-09-04)
 
 Security release. The full cross-SDK account, including the affected version
