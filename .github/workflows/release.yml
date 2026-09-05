@@ -718,5 +718,27 @@ jobs:
           verify_root=$(mktemp -d)
           cd "$verify_root"
           npm init -y >/dev/null
-          npm install --ignore-scripts --no-audit --no-fund "agent-passport-system@$PACKAGE_VERSION"
+          # The step before this one verifies the per-version registry document, which is
+          # visible immediately after publish. npm install resolves through package metadata
+          # that was still missing the new version on v6.0.0 and v6.0.1, failing with ETARGET
+          # after a successful publish. Bounded retry with a fresh cache, only when the missing
+          # version is this package's own; any other failure, including an ETARGET naming a
+          # dependency, fails on the first attempt.
+          attempts=12
+          for i in $(seq 1 "$attempts"); do
+            log=$(mktemp)
+            if npm install --ignore-scripts --no-audit --no-fund --prefer-online --cache "$verify_root/.npm-cache" "agent-passport-system@$PACKAGE_VERSION" 2>&1 | tee "$log"; then
+              break
+            fi
+            if ! grep -q 'npm error code ETARGET' "$log" || ! grep -qF "No matching version found for agent-passport-system@$PACKAGE_VERSION" "$log"; then
+              echo "npm install failed for a reason other than this version being missing from the package metadata; not retrying"
+              exit 1
+            fi
+            if [ "$i" -eq "$attempts" ]; then
+              echo "agent-passport-system@$PACKAGE_VERSION never resolved through npm install after $attempts attempts"
+              exit 1
+            fi
+            echo "attempt $i: package metadata does not list $PACKAGE_VERSION yet; retrying in 20s"
+            sleep 20
+          done
           npm audit signatures
