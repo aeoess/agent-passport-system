@@ -71,6 +71,12 @@ all; that is the capability, not a limit on it.
   policy has authorized it.
 - Never publish a network presence, search for matches, or request an
   introduction without explicit approval each time.
+- The one exception, and the only connection-layer action that ever runs
+  without asking in the moment, is the opt-in background check described in
+  `references/connect.md`: the principal turns it on once, it is stored where
+  they can read and delete it, it sends their public key and nothing else, and
+  "stop checking Mingle" ends it. Everything else in this layer needs approval
+  each time.
 - Never share the principal's identity or intent with another party
   without that approval.
 - Introductions are double opt-in: both sides approve before any contact
