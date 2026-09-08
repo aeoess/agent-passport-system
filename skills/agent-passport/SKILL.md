@@ -1,6 +1,6 @@
 ---
 name: agent-passport-system
-description: "Enforcement and accountability layer for AI agents. Bring your own identity (did:key, did:web, SPIFFE, OAuth, did:aps). Gateway enforcement boundary, monotonic narrowing, cascade revocation, spending controls, data lifecycle, observation governance (telemetry scopes, derivation rights, behavioral memory). Use when agents need scoped delegation, trust scoring, constraint enforcement, or cryptographic audit trails. SDK leads with the /core subpath (24 curated functions), MCP leads with APS_PROFILE=essential (25 tools covering identity, delegation, enforcement, commerce, reputation). 5,281 tests. 8 framework adapters: Stripe, Composio, IBAC/Cedar, LangChain, CrewAI, MCP, A2A, Gonka. Full surface area (107 modules, 152 MCP tools) still available under APS_PROFILE=full and the root import. SDK 6.0.0 is current on npm. The 3.3.1 release added Delegated Action Evidence: bilateral pair reconciliation with five mismatch classes, verifier-side revocation observation receipts under a stated freshness contract, Merkle-rooted evidence bundles with a per-axis claim-state report (verify-bundle), spec 4.1 action_ref canonicalization validated by cross-language vectors, and jurisdiction selection records that surface pack conflicts, on top of evidentiary type safety, Wave 1 accountability, Instruction Provenance Receipt, and bilateral receipts."
+description: "Enforcement and accountability layer for AI agents. Bring your own identity (did:key, did:web, SPIFFE, OAuth, did:aps). Gateway enforcement boundary, monotonic narrowing, cascade revocation, spending controls, data lifecycle, observation governance (telemetry scopes, derivation rights, behavioral memory). Use when agents need scoped delegation, trust scoring, constraint enforcement, or cryptographic audit trails. SDK leads with the /core subpath (24 curated functions), MCP leads with APS_PROFILE=essential (25 tools covering identity, delegation, enforcement, commerce, reputation). 5,281 tests. 8 framework adapters: Stripe, Composio, IBAC/Cedar, LangChain, CrewAI, MCP, A2A, Gonka. Full surface area (107 modules, 152 MCP tools) still available under APS_PROFILE=full and the root import. SDK 6.0.1 and MCP 6.0.1 are current on npm, Python 3.0.1 on PyPI, Rust 0.3.0 on crates.io, Go v0.7.0. The 3.3.1 release added Delegated Action Evidence: bilateral pair reconciliation with five mismatch classes, verifier-side revocation observation receipts under a stated freshness contract, Merkle-rooted evidence bundles with a per-axis claim-state report (verify-bundle), spec 4.1 action_ref canonicalization validated by cross-language vectors, and jurisdiction selection records that surface pack conflicts, on top of evidentiary type safety, Wave 1 accountability, Instruction Provenance Receipt, and bilateral receipts."
 metadata:
   clawdbot:
     emoji: "🔑"
@@ -39,8 +39,8 @@ metadata:
 npm install agent-passport-system        # SDK: /core subpath is the curated default
 npm install agent-passport-system-mcp    # MCP server: APS_PROFILE=essential is the default
 go get github.com/aeoess/agent-passport-go@v0.7.0   # Go SDK, byte-parity subset (passport, delegation, attribution, completion, in-toto, values)
-pip install agent-passport-system                    # Python SDK
-cargo add agent-passport-system                      # Rust SDK, library crate agent_passport
+pip install agent-passport-system==3.0.1             # Python SDK
+cargo add agent-passport-system@0.3.0                # Rust SDK, library crate agent_passport
 ```
 
 Minimal SDK import (lead with the curated essentials):

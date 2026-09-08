@@ -1,6 +1,6 @@
 {
   "name": "core-skill",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "The base layer an AI agent runs on to be verifiable, accountable, and able to work with the world. One slug adds a controlled Ed25519 identity tied to the principal behind the agent, scoped authority that only narrows, a signed receipt for every action the agent can carry across sessions and handoffs, and an approval-gated connection layer to reach the people, companies, and other agents a task needs. Built on the Agent Passport System. Modular, version-bumped on the same cadence as the SDK and MCP. The agent acts only within delegated authority; this is accountable capability, not autonomy from the principal. Apache-2.0. Current versions, test counts, and tool counts are published at the repository and npm and are intentionally not hardcoded here so this skill cannot drift.",
   "author": "aeoess",
   "homepage": "https://github.com/aeoess/agent-passport-system",
