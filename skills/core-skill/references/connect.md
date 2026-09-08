@@ -28,7 +28,8 @@ not use it to broadcast the principal's intent widely.
 npx mingle-mcp   # then, all principal-gated:
 
 # 1. At session start, check quietly for anything already pending
-get_digest
+check_pending_matches      # does not consume the principal's unread window
+get_digest                 # only when the principal actually reads; it marks them read
 
 # 2. With explicit approval, describe what the principal needs/offers
 publish_intent_card        # never without approval; never auto-published
@@ -48,8 +49,10 @@ remove_intent_card
 
 ## Authorization rules (binding)
 
-- Call `get_digest` quietly. If something is pending, tell the principal;
-  do not act on it unsupervised.
+- Call `check_pending_matches` quietly at session start. If something is
+  pending, tell the principal; do not act on it unsupervised. Use
+  `get_digest` only when the principal actually reads: it marks matches as
+  seen, so calling it on their behalf spends a window they never looked at.
 - Never `publish_intent_card`, `search_matches`, `request_intro`, or
   `respond_to_intro` without the principal's explicit approval for that
   specific action.
