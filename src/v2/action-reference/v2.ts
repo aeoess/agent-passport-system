@@ -56,6 +56,78 @@ function assertActionRefIssuedAt(value: string): void {
   }
 }
 
+function isNoncharacterCodePoint(codePoint: number): boolean {
+  if (codePoint >= 0xfdd0 && codePoint <= 0xfdef) return true
+  return (codePoint & 0xffff) === 0xfffe || (codePoint & 0xffff) === 0xffff
+}
+
+function assertNoNoncharacters(value: string, path: string): void {
+  for (let index = 0; index < value.length; index++) {
+    const codePoint = value.codePointAt(index)
+    if (codePoint === undefined) continue
+    if (codePoint > 0xffff) index++ // consumed a surrogate pair; skip its low half
+    if (isNoncharacterCodePoint(codePoint)) throw new Error(`${path}: noncharacter`)
+  }
+}
+
+type NoncharacterFrame =
+  | { kind: 'value'; value: unknown; path: string }
+  | { kind: 'exit'; owner: object }
+
+/** Module-local noncharacter walk for the section 4.1 I-JSON requirement.
+ *
+ *  draft-pidlisnyi-aps-03 lines 813-815 ("A verifier MUST reject an object
+ *  with ... a non-I-JSON value"), read with line 204 (JCS over validated
+ *  I-JSON) and RFC 7493 section 2.1: every member name and string value, at
+ *  any depth, must contain no noncharacter (U+FDD0 to U+FDEF, and any code
+ *  point whose low 16 bits are FFFE or FFFF). Surrogate pairs are decoded to
+ *  their code point before the test; unpaired surrogates are already
+ *  rejected by the existing I-JSON check this runs after.
+ *
+ *  Iterative and non-recursive: an explicit stack stands in for the call
+ *  stack, and an object's membership in the current ancestor chain is
+ *  tracked with matching push ('value') and pop ('exit') frames rather than
+ *  recursive entry and return, so a cyclic structure fails instead of
+ *  overflowing. This is independent of, and runs after, the recursive
+ *  ancestor tracking assertIJson already performs.
+ *
+ *  Kept local to this module rather than folded into the shared assertIJson
+ *  (identity-binding/validation.ts, also used by passports and principal
+ *  bindings) or receipt-core/jcs.ts.
+ */
+function assertNoNoncharactersDeep(root: unknown, rootPath: string): void {
+  const stack: NoncharacterFrame[] = [{ kind: 'value', value: root, path: rootPath }]
+  const onPath = new Set<object>()
+  while (stack.length > 0) {
+    const frame = stack.pop() as NoncharacterFrame
+    if (frame.kind === 'exit') {
+      onPath.delete(frame.owner)
+      continue
+    }
+    const { value, path } = frame
+    if (typeof value === 'string') {
+      assertNoNoncharacters(value, path)
+      continue
+    }
+    if (value === null || typeof value !== 'object') continue
+    if (onPath.has(value)) throw new Error(`${path}: cyclic value`)
+    onPath.add(value)
+    stack.push({ kind: 'exit', owner: value })
+    if (Array.isArray(value)) {
+      for (let index = value.length - 1; index >= 0; index--) {
+        stack.push({ kind: 'value', value: value[index], path: `${path}[${index}]` })
+      }
+    } else {
+      const entries = Object.entries(value as Record<string, unknown>)
+      for (let index = entries.length - 1; index >= 0; index--) {
+        const [key, entry] = entries[index]
+        assertNoNoncharacters(key, `${path} key`)
+        stack.push({ kind: 'value', value: entry, path: `${path}.${key}` })
+      }
+    }
+  }
+}
+
 export interface ActionReferenceInputV2 {
   profile: 'aps-action-ref-v2'
   agent_id: string
@@ -100,6 +172,7 @@ export function computeActionRefV2(input: ActionReferenceInputV2): string {
 
 export function computePayloadRefV1(payload: unknown): string {
   assertIJson(payload)
+  assertNoNoncharactersDeep(payload, '$')
   return createHash('sha256')
     .update('APS-ACTION-PAYLOAD-V1\0' + canonicalizeJCS(payload), 'utf8')
     .digest('hex')
@@ -112,6 +185,7 @@ export function validateActionReferenceInputV2(candidate: unknown): asserts cand
     'scope_required', 'issued_at', 'nonce',
   ], [], 'action reference')
   assertIJson(candidate)
+  assertNoNoncharactersDeep(candidate, '$')
   if (candidate.profile !== 'aps-action-ref-v2') throw new Error('action reference profile')
   if (typeof candidate.agent_id !== 'string' || candidate.agent_id.length === 0) throw new Error('agent_id')
   if (typeof candidate.action_type !== 'string' || candidate.action_type.length === 0) throw new Error('action_type')
