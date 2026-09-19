@@ -552,7 +552,10 @@ function wideningChildRecord(): AuthorityDelegationV1 {
 
 /** `wrapper`, re-prototyped to `prototype`, carrying every own member of `source` as an
  *  own enumerable data property: its own members read exactly like `source`, while
- *  JSON.stringify serializes it by the primitive it holds, or throws. */
+ *  JSON.stringify serializes a Boolean, Number, String or BigInt wrapper by the
+ *  primitive it holds, or throws. A Symbol wrapper has no such case in JSON.stringify
+ *  and serializes by its own members; it is refused because a JSON parser cannot
+ *  produce it, not because the two views disagree. */
 function wrapperWithMembers(wrapper: object, prototype: object | null, source: object): any {
   Object.setPrototypeOf(wrapper, prototype)
   for (const key of Object.keys(source)) {
@@ -792,12 +795,23 @@ test('a record, a facet or a facet member held in a wrapper object with an Objec
   })
 })
 
-test('a chain container with an own Symbol.iterator is SCHEMA_INVALID everywhere', () => {
+test('a chain container with an own Symbol.iterator is SCHEMA_INVALID, and the ledger gives CONFLICT', () => {
   const properChild = issueSubAuthorityDelegation(root, childBody(root), childKeys.privateKey, {
     now: ROOT_NOT_BEFORE,
     resolveVerificationKey: resolveKeys,
     resolveRevocation: () => 'active',
   })
+  // The control: the same two records in a plain container are a valid chain, and the
+  // ledger reserves against them. Only verify and the ledger take a chain container, so
+  // only they can tell the hostile container from this one; isAuthorityDelegationV1 and
+  // the two issuers take a record, and refuse any array whatever its own symbols.
+  const plainContainer: unknown[] = [root, properChild]
+  assert.equal(verifyAuthorityDelegationChain(plainContainer, chainOptions(root.delegation_id)).state, 'valid')
+  assert.equal(
+    new InMemoryAuthorityBudgetLedger().reserve(plainContainer as AuthorityDelegationV1[], 'a'.repeat(64), 'iso4217:USD:minor', '1').code,
+    'RESERVED',
+  )
+
   const hostileContainer: unknown[] = [root, properChild]
   Object.defineProperty(hostileContainer, Symbol.iterator, {
     value: function* () { yield hostileContainer[0] },
@@ -807,25 +821,9 @@ test('a chain container with an own Symbol.iterator is SCHEMA_INVALID everywhere
   assert.equal(checked.state, 'invalid')
   assert.ok(codesOf(checked).includes('SCHEMA_INVALID'))
 
-  assert.equal(isAuthorityDelegationV1(hostileContainer), false)
-
-  const ledger = new InMemoryAuthorityBudgetLedger()
   assert.deepEqual(
-    ledger.reserve(hostileContainer as unknown as AuthorityDelegationV1[], 'a'.repeat(64), 'iso4217:USD:minor', '1'),
+    new InMemoryAuthorityBudgetLedger().reserve(hostileContainer as unknown as AuthorityDelegationV1[], 'a'.repeat(64), 'iso4217:USD:minor', '1'),
     { ok: false, code: 'CONFLICT' },
-  )
-
-  assert.throws(
-    () => issueAuthorityDelegation(hostileContainer as unknown as AuthorityDelegationBodyV1, rootKeys.privateKey),
-    /\(SCHEMA_INVALID\)$/,
-  )
-  assert.throws(
-    () => issueSubAuthorityDelegation(hostileContainer as unknown as AuthorityDelegationV1, childBody(root), childKeys.privateKey, {
-      now: ROOT_NOT_BEFORE,
-      resolveVerificationKey: resolveKeys,
-      resolveRevocation: () => 'active',
-    }),
-    /\(SCHEMA_INVALID\)$/,
   )
 })
 
