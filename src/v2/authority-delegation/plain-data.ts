@@ -47,7 +47,20 @@ const isRawJSON: (value: object) => boolean =
  * serializes an array by its length and its indices, so such a property is invisible to
  * the JSON form as well, and "toJSON", the one own name that would change that form, is
  * refused. Refusing the others instead would mean enumerating the array's own property
- * names, which this engine cannot do at 2**23 members or more. An exact plain object is a non-array, non-Proxy object whose
+ * names, which this engine cannot do at 2**23 members or more.
+ *
+ * An object's own property names are enumerated, because every one of them is copied,
+ * and an object is the one input shape this module cannot judge at every size: this
+ * engine refuses to enumerate 2**23 or more own property names, so an object with that
+ * many own members is not plain data here, while the Python SDK accepts the same
+ * record. Reading the names of only the enumerable members would lift that ceiling, but
+ * it would also stop this module from refusing an own non-enumerable member, which a
+ * JSON serializer drops silently. Whether an implementation may impose a record-size
+ * limit, and with which result state, is not something the draft states, so the ceiling
+ * is recorded here and left as it is, pending a protocol ruling, rather than answered
+ * with a rule of this module's own.
+ *
+ * An exact plain object is a non-array, non-Proxy object whose
  * prototype is null, or whose prototype is the Object.prototype of some realm, which
  * holds no primitive value of its own (it is not a Boolean, Number, String, BigInt or
  * Symbol wrapper object, as node:util's types.isBoxedPrimitive decides) and is not a
@@ -309,8 +322,10 @@ function plainArrayLength(value: object, cache: PrototypeIntrinsicCache): number
  *  raw JSON object, wrong prototype, or an own symbol-keyed property. Each named
  *  property is checked as the walk below reaches it: it must be an enumerable data
  *  property, so an accessor or a non-enumerable member makes the object not plain data.
- *  Callers pass only values for which Array.isArray(value) is already false and
- *  isProxy(value) is already false. */
+ *  Object.getOwnPropertyNames throws RangeError("Too many properties to enumerate") at
+ *  2**23 or more own properties, and the walk below turns that into the marker: see the
+ *  module doc comment. Callers pass only values for which Array.isArray(value) is
+ *  already false and isProxy(value) is already false. */
 function plainObjectKeys(value: object, cache: PrototypeIntrinsicCache): string[] | null {
   if (types.isBoxedPrimitive(value) || isRawJSON(value)) return null
   if (!isPlainObjectPrototype(Object.getPrototypeOf(value), cache)) return null
