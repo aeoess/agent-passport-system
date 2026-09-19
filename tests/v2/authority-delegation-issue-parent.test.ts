@@ -236,3 +236,11 @@ test('the existing body checks still refuse: scope widening', () => {
     'SCOPE_WIDENING',
   )
 })
+
+test('the body-shape refusal names its first failure code in parentheses, like every other refusal here', () => {
+  const uppercaseNonce = rootBody('00112233445566778899AABBCCDDEEFF')
+  assert.throws(
+    () => issueAuthorityDelegation(uppercaseNonce, rootKeys.privateKey),
+    /^Error: authority delegation body invalid: nonce must be 32 lowercase hex characters \(NONCANONICAL_VALUE\)$/,
+  )
+})

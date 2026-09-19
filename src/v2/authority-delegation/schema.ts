@@ -70,12 +70,33 @@ function isIJSONString(value: string): boolean {
 }
 
 /**
+ * True for any value I-JSON can represent: null, a finite number, a boolean,
+ * or an I-JSON string (checked with isIJSONString()). A container (array or
+ * plain object) also passes here, since recordStringsAreIJSON walks it
+ * separately; a non-finite number (NaN, Infinity, or -Infinity; JSON.parse
+ * turns an out-of-range numeral such as "1e400" into Infinity) and a value of
+ * type undefined, bigint, function or symbol are not JSON at all, so none of
+ * them are I-JSON.
+ */
+function isIJSONValue(value: unknown): boolean {
+  if (value === null) return true
+  switch (typeof value) {
+    case 'object': return true
+    case 'string': return isIJSONString(value)
+    case 'number': return Number.isFinite(value)
+    case 'boolean': return true
+    default: return false // undefined, bigint, function, symbol
+  }
+}
+
+/**
  * Record-wide I-JSON check over an already-decoded value: every object member
- * name and every string value, at any depth, must pass isIJSONString().
- * Iterative with an explicit stack (no recursion, so pathological nesting
- * depth cannot overflow the call stack) and tracks visited containers by
- * reference so a cyclic in-memory value terminates instead of looping
- * forever. Never throws.
+ * name and every string value, at any depth, must pass isIJSONString(); every
+ * number must be finite; and no array element or object member may be of a
+ * type I-JSON cannot represent (see isIJSONValue()). Iterative with an
+ * explicit stack (no recursion, so pathological nesting depth cannot overflow
+ * the call stack) and tracks visited containers by reference so a cyclic
+ * in-memory value terminates instead of looping forever. Never throws.
  */
 function recordStringsAreIJSON(root: Record<string, unknown>): boolean {
   const visited = new Set<unknown>()
@@ -87,21 +108,15 @@ function recordStringsAreIJSON(root: Record<string, unknown>): boolean {
     visited.add(current)
     if (Array.isArray(current)) {
       for (const item of current) {
-        if (typeof item === 'string') {
-          if (!isIJSONString(item)) return false
-        } else if (item !== null && typeof item === 'object') {
-          stack.push(item)
-        }
+        if (!isIJSONValue(item)) return false
+        if (item !== null && typeof item === 'object') stack.push(item)
       }
     } else {
       for (const key of Object.keys(current as Record<string, unknown>)) {
         if (!isIJSONString(key)) return false
         const member = (current as Record<string, unknown>)[key]
-        if (typeof member === 'string') {
-          if (!isIJSONString(member)) return false
-        } else if (member !== null && typeof member === 'object') {
-          stack.push(member)
-        }
+        if (!isIJSONValue(member)) return false
+        if (member !== null && typeof member === 'object') stack.push(member)
       }
     }
   }
@@ -130,8 +145,9 @@ export function isCanonicalTimestamp(value: unknown): value is string {
  * RFC 3339 section 5.1: timestamps in the same format (all UTC "Z", same
  * number of fractional digits) sort as strings into time order, so this
  * compares the strings directly rather than going through Date.parse (which
- * returns NaN for a leap-second ":60" value). Defined only for values that
- * have already passed isCanonicalTimestamp.
+ * returns NaN for a leap-second ":60" value). Second 60 is valid only at
+ * 23:59 on the last day of its month (RFC 3339 section 5.7 and Appendix D).
+ * Defined only for values that have already passed isCanonicalTimestamp.
  */
 export function compareCanonicalTimestamps(a: string, b: string): number {
   return a < b ? -1 : a > b ? 1 : 0
@@ -152,8 +168,8 @@ export function validateAuthorityDelegationShape(value: unknown): AuthorityFailu
   const top = record(value)
   if (!top) return [failure('SCHEMA_INVALID', 'delegation must be an exact closed v1 object')]
 
-  // A recognised record_type carrying a recognised-shape but unsupported version
-  // string is unsupported without ever being judged by the v1 body schema: no
+  // A recognised record_type whose version is any string other than "1.0" is
+  // unsupported without ever being judged by the v1 body schema: no
   // exact-keys check, no facet or value checks. This runs before the top-level
   // exact-keys check so an unsupported version can carry extra or missing
   // members. The record-wide I-JSON check still runs first: if it fails, the

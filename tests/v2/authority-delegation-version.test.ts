@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Tymofii Pidlisnyi
 // SPDX-License-Identifier: Apache-2.0
 //
-// Item 5 coverage: record_type and version.
+// record_type and version coverage.
 //
 // - A version or record_type that is not a string is malformed input:
 //   SCHEMA_INVALID.
@@ -148,7 +148,7 @@ test('the v1 record_type with an unrecognised version is unsupported without jud
 test('an unrecognised version alongside a noncharacter elsewhere in the record is SCHEMA_INVALID and UNSUPPORTED_VERSION', () => {
   const body = mutableBody()
   body.version = '2.0'
-  body.subject = `${ROOT_SUBJECT}﷐`
+  body.subject = `${ROOT_SUBJECT}\uFDD0`
   const root = sign(body, ROOT_KEY)
   const checked = verifyAuthorityDelegationChain([root], activeOptions(STANDARD_NOW, root.delegation_id))
   assert.equal(checked.state, 'invalid')
@@ -164,13 +164,23 @@ test('the v1 record_type with an unrecognised version over an otherwise valid v1
   assert.deepEqual(codesOf(checked), ['UNSUPPORTED_VERSION'])
 })
 
-test('an unrecognised record_type over an otherwise valid v1 body keeps today\'s behaviour: unsupported, judged by the v1 schema', () => {
+test('an unrecognised record_type over an otherwise valid v1 body is unsupported: UNSUPPORTED_VERSION', () => {
   const body = mutableBody()
   body.record_type = 'aps:authority-delegation:v2'
   const root = sign(body, ROOT_KEY)
   const checked = verifyAuthorityDelegationChain([root], activeOptions(STANDARD_NOW, root.delegation_id))
   assert.equal(checked.state, 'unsupported')
   assert.deepEqual(codesOf(checked), ['UNSUPPORTED_VERSION'])
+})
+
+test('an unrecognised record_type is still judged against the v1 body schema: an extra top-level member is SCHEMA_INVALID', () => {
+  const body = mutableBody()
+  body.record_type = 'aps:authority-delegation:v2'
+  body.extensions = {}
+  const root = sign(body, ROOT_KEY)
+  const checked = verifyAuthorityDelegationChain([root], activeOptions(STANDARD_NOW, root.delegation_id))
+  assert.equal(checked.state, 'invalid')
+  assert.deepEqual(codesOf(checked), ['SCHEMA_INVALID'])
 })
 
 test('a facet profile that is not a string is SCHEMA_INVALID, unchanged by this rule', () => {
@@ -189,4 +199,49 @@ test('an unsupported facet profile is unsupported, unchanged by this rule', () =
   const checked = verifyAuthorityDelegationChain([root], activeOptions(STANDARD_NOW, root.delegation_id))
   assert.equal(checked.state, 'unsupported')
   assert.deepEqual(codesOf(checked), ['UNSUPPORTED_PROFILE'])
+})
+
+// ── The record-wide I-JSON check also rejects a non-finite number (JSON has
+// no NaN or Infinity) and a value of type undefined, bigint, function or
+// symbol: none of these are JSON, so a value carrying one is not I-JSON
+// either. JCS itself refuses to canonicalize any of them (a non-finite
+// number, or undefined at any depth), so the placeholder below stands in for
+// a delegation_id and signature that can never actually be derived, the same
+// way sign() above stands in for a value JCS can canonicalize. ──
+
+function unsignable(body: Record<string, unknown>): AuthorityDelegationV1 {
+  return {
+    ...body,
+    delegation_id: `sha256:${'0'.repeat(64)}`,
+    signature: '0'.repeat(128),
+  } as unknown as AuthorityDelegationV1
+}
+
+test('an unrecognised version alongside a non-finite number elsewhere is SCHEMA_INVALID and UNSUPPORTED_VERSION', () => {
+  const body = mutableBody()
+  body.version = '2.0'
+  body.extensions = { x: Infinity }
+  ;(body.authority as Record<string, unknown>).risk = { profile: 'x', ceiling: 1 }
+  const root = unsignable(body)
+  const checked = verifyAuthorityDelegationChain([root], activeOptions(STANDARD_NOW, root.delegation_id))
+  assert.equal(checked.state, 'invalid')
+  assert.deepEqual(codesOf(checked), ['SCHEMA_INVALID', 'UNSUPPORTED_VERSION'])
+})
+
+test('an unsupported reputation profile with a non-finite ceiling is SCHEMA_INVALID and UNSUPPORTED_PROFILE', () => {
+  const body = mutableBody()
+  ;(body.authority as Record<string, unknown>).reputation = { profile: 'aps-score-0-1000-v1', ceiling: Infinity }
+  const root = unsignable(body)
+  const checked = verifyAuthorityDelegationChain([root], activeOptions(STANDARD_NOW, root.delegation_id))
+  assert.equal(checked.state, 'invalid')
+  assert.deepEqual(codesOf(checked), ['SCHEMA_INVALID', 'UNSUPPORTED_PROFILE'])
+})
+
+test('an eighth, unrecognised facet holding undefined is SCHEMA_INVALID', () => {
+  const body = mutableBody()
+  ;(body.authority as Record<string, unknown>).risk = { profile: 'x', ceiling: undefined }
+  const root = unsignable(body)
+  const checked = verifyAuthorityDelegationChain([root], activeOptions(STANDARD_NOW, root.delegation_id))
+  assert.equal(checked.state, 'invalid')
+  assert.deepEqual(codesOf(checked), ['SCHEMA_INVALID', 'SCHEMA_INVALID'])
 })
