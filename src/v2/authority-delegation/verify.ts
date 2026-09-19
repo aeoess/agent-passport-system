@@ -7,7 +7,7 @@ import {
   verifyAuthorityDelegationSignature,
 } from './canonical.js'
 import { compareAuthority } from './compare.js'
-import { isPlainDataArray, snapshotPlainData } from './plain-data.js'
+import { readPlainDataChainContainer, snapshotPlainData } from './plain-data.js'
 import { isCanonicalTimestamp, validateAuthorityDelegationShape } from './schema.js'
 import type {
   AuthorityChainVerificationOptions,
@@ -38,7 +38,8 @@ export function verifyAuthorityDelegationChain(
   rawChain: readonly unknown[],
   options: AuthorityChainVerificationOptions,
 ): AuthorityValidationResult {
-  if (!isPlainDataArray(rawChain) || rawChain.length === 0 || rawChain.length > 256) {
+  const container = readPlainDataChainContainer(rawChain, 1, 256)
+  if (!container) {
     return result('invalid', [{ code: 'SCHEMA_INVALID', message: 'chain must contain 1 through 256 records' }])
   }
   if (!options || !isCanonicalTimestamp(options.now)) {
@@ -47,8 +48,8 @@ export function verifyAuthorityDelegationChain(
   const now = options.now
 
   const chain: AuthorityDelegationV1[] = []
-  for (let i = 0; i < rawChain.length; i++) {
-    const snapshot = snapshotPlainData(rawChain[i])
+  for (let i = 0; i < container.length; i++) {
+    const snapshot = snapshotPlainData(container[i])
     const failures = validateAuthorityDelegationShape(snapshot).map(item => indexed(item, i))
     if (failures.length > 0) {
       const unsupported = failures.every(item => item.code === 'UNSUPPORTED_VERSION' || item.code === 'UNSUPPORTED_PROFILE')

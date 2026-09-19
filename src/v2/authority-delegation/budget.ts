@@ -3,7 +3,7 @@
 
 import { isCanonicalQuantity, validateAuthorityDelegationShape } from './schema.js'
 import { authorityDelegationBody, computeAuthorityDelegationId } from './canonical.js'
-import { isPlainDataArray, snapshotPlainData } from './plain-data.js'
+import { readPlainDataChainContainer, snapshotPlainData } from './plain-data.js'
 import type {
   AuthorityDelegationV1,
   BudgetOperationResult,
@@ -53,13 +53,14 @@ export class InMemoryAuthorityBudgetLedger {
     ) {
       return { ok: false, code: 'CONFLICT' }
     }
-    if (!isPlainDataArray(verifiedChain) || verifiedChain.length === 0 || verifiedChain.length > 256) {
+    const container = readPlainDataChainContainer(verifiedChain, 1, 256)
+    if (!container) {
       return { ok: false, code: 'CONFLICT' }
     }
-    const chain: AuthorityDelegationV1[] = new Array(verifiedChain.length)
+    const chain: AuthorityDelegationV1[] = new Array(container.length)
     const seen = new Set<string>()
-    for (let i = 0; i < verifiedChain.length; i++) {
-      const current = snapshotPlainData(verifiedChain[i]) as AuthorityDelegationV1
+    for (let i = 0; i < container.length; i++) {
+      const current = snapshotPlainData(container[i]) as AuthorityDelegationV1
       if (validateAuthorityDelegationShape(current).length > 0 ||
           computeAuthorityDelegationId(authorityDelegationBody(current)) !== current.delegation_id ||
           seen.has(current.delegation_id)) {

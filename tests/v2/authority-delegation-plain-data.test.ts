@@ -13,6 +13,7 @@
 
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import vm from 'node:vm'
 import { generateKeyPair } from '../../src/crypto/keys.js'
 import {
   AUTHORITY_DELEGATION_RECORD_TYPE,
@@ -23,9 +24,11 @@ import {
   SCOPE_PROFILE_V1,
   VALUES_PROFILE_V1,
   computeAuthorityDelegationIdForWrite,
+  isAuthorityDelegationV1,
   issueAuthorityDelegation,
   issueSubAuthorityDelegation,
   signAuthorityDelegation,
+  validateAuthorityDelegationShape,
   verifyAuthorityDelegationChain,
 } from '../../src/v2/authority-delegation/index.js'
 import type {
@@ -33,6 +36,15 @@ import type {
   AuthorityDelegationBodyV1,
   AuthorityDelegationV1,
 } from '../../src/v2/authority-delegation/index.js'
+
+/** Parses a JSON-serialised copy of `value` with JSON.parse running in a fresh
+ *  node:vm context, so every array and object the result contains, at every depth,
+ *  carries that context's Array.prototype and Object.prototype rather than this
+ *  realm's. */
+function decodeInNewRealm<T>(value: T): T {
+  const text = JSON.stringify(value)
+  return vm.runInNewContext('JSON.parse(t)', { t: text }) as T
+}
 
 const ROOT_ISSUER = 'did:example:root'
 const ROOT_SUBJECT = 'did:example:agent-a'
@@ -270,9 +282,10 @@ test('a cycle inside a facet with an unsupported profile is SCHEMA_INVALID, neve
   assert.deepEqual(codesOf(checked), ['SCHEMA_INVALID', 'UNSUPPORTED_PROFILE'])
 })
 
-test('a Proxy whose get trap disagrees with its getOwnPropertyDescriptor trap is judged by the descriptor values', () => {
+test('any Proxy member is SCHEMA_INVALID, whatever its get trap or its descriptors show, and the ledger gives CONFLICT', () => {
   // The descriptor truth is an unsupported profile; the get() trap lies that it is the
-  // supported one. The descriptor truth must decide: unsupported, never valid.
+  // supported one. A Proxy member is rejected outright, before any of its descriptors
+  // are read, so it is invalid rather than judged unsupported by the descriptor value.
   const descriptorSaysUnsupported = { profile: 'aps-hierarchical-v2', grants: ['commerce:checkout'] }
   const lyingToLookSupported = new Proxy(descriptorSaysUnsupported, {
     get(target, prop, receiver) {
@@ -284,15 +297,17 @@ test('a Proxy whose get trap disagrees with its getOwnPropertyDescriptor trap is
   invalidBody.authority.scope = lyingToLookSupported as unknown as typeof invalidBody.authority.scope
   const invalidChild = unsignable(invalidBody as unknown as Record<string, unknown>)
   const invalidChecked = verifyAuthorityDelegationChain([root, invalidChild], chainOptions(root.delegation_id))
-  assert.notEqual(invalidChecked.state, 'valid', 'the lying get() value must not decide the result')
+  assert.equal(invalidChecked.state, 'invalid', 'a Proxy member is invalid, never unsupported by its descriptor value')
+  assert.ok(codesOf(invalidChecked).includes('SCHEMA_INVALID'))
+  const ledgerForUnsupportedView = new InMemoryAuthorityBudgetLedger()
   assert.deepEqual(
-    codesOf(invalidChecked),
-    ['UNSUPPORTED_PROFILE'],
-    'the descriptor profile, not the lying get() value, must decide the result',
+    ledgerForUnsupportedView.reserve([root, invalidChild], 'a'.repeat(64), 'iso4217:USD:minor', '1'),
+    { ok: false, code: 'CONFLICT' },
   )
 
   // The descriptor truth is the supported profile, signed as such; the get() trap lies
-  // that it is unsupported. The descriptor truth must decide: still valid.
+  // that it is unsupported. A Proxy member is still rejected outright: it must never be
+  // judged valid because its descriptors alone would pass.
   const descriptorSaysSupported = { profile: SCOPE_PROFILE_V1, grants: ['commerce:checkout'] }
   const validBody = childBody(root)
   validBody.authority.scope = descriptorSaysSupported
@@ -307,12 +322,205 @@ test('a Proxy whose get trap disagrees with its getOwnPropertyDescriptor trap is
     ...signedChild,
     authority: { ...signedChild.authority, scope: lyingToLookUnsupported as unknown as typeof signedChild.authority.scope },
   }
-  const validChecked = verifyAuthorityDelegationChain([root, presentedChild], chainOptions(root.delegation_id))
-  assert.equal(
-    validChecked.state,
-    'valid',
-    'the descriptor profile, not the lying get() value, must decide the result',
+  const presentedChecked = verifyAuthorityDelegationChain([root, presentedChild], chainOptions(root.delegation_id))
+  assert.equal(presentedChecked.state, 'invalid', 'a Proxy member must never be judged valid by its descriptors')
+  assert.ok(codesOf(presentedChecked).includes('SCHEMA_INVALID'))
+  const ledgerForSupportedView = new InMemoryAuthorityBudgetLedger()
+  assert.deepEqual(
+    ledgerForSupportedView.reserve([root, presentedChild], 'a'.repeat(64), 'iso4217:USD:minor', '1'),
+    { ok: false, code: 'CONFLICT' },
   )
+})
+
+test('a valid chain decoded with JSON.parse in another realm verifies exactly like the same text decoded in this realm, as the whole chain and as individual members', () => {
+  const child = issueSubAuthorityDelegation(root, childBody(root), childKeys.privateKey, {
+    now: ROOT_NOT_BEFORE,
+    resolveVerificationKey: resolveKeys,
+    resolveRevocation: () => 'active',
+  })
+  const chain = [root, child]
+  const inRealmChecked = verifyAuthorityDelegationChain(chain, chainOptions(root.delegation_id))
+  assert.equal(inRealmChecked.state, 'valid')
+
+  // The whole chain array, and every member it holds, decoded together in another realm.
+  const wholeChainCrossRealm = decodeInNewRealm(chain)
+  assert.deepEqual(verifyAuthorityDelegationChain(wholeChainCrossRealm, chainOptions(root.delegation_id)), inRealmChecked)
+  const wholeChainLedger = new InMemoryAuthorityBudgetLedger()
+  assert.equal(
+    wholeChainLedger.reserve(wholeChainCrossRealm, 'a'.repeat(64), 'iso4217:USD:minor', '1').ok,
+    true,
+  )
+  for (const member of wholeChainCrossRealm) {
+    assert.deepEqual(validateAuthorityDelegationShape(member), [])
+  }
+
+  // Each member decoded individually, in another realm, held in an ordinary array of
+  // this realm.
+  const perMemberCrossRealm = chain.map(member => decodeInNewRealm(member))
+  assert.deepEqual(verifyAuthorityDelegationChain(perMemberCrossRealm, chainOptions(root.delegation_id)), inRealmChecked)
+  const perMemberLedger = new InMemoryAuthorityBudgetLedger()
+  assert.equal(
+    perMemberLedger.reserve(perMemberCrossRealm, 'b'.repeat(64), 'iso4217:USD:minor', '1').ok,
+    true,
+  )
+  for (const member of perMemberCrossRealm) {
+    assert.deepEqual(validateAuthorityDelegationShape(member), [])
+  }
+})
+
+test('both issuers issue byte-identical records for a body or a parent decoded in another realm', () => {
+  const body = rootBody()
+  const inRealm = issueAuthorityDelegation(body, rootKeys.privateKey)
+  const crossRealmIssued = issueAuthorityDelegation(decodeInNewRealm(body), rootKeys.privateKey)
+  assert.deepEqual(crossRealmIssued, inRealm)
+
+  const childBodyValue = childBody(root)
+  const childOptions = {
+    now: ROOT_NOT_BEFORE,
+    resolveVerificationKey: resolveKeys,
+    resolveRevocation: () => 'active' as const,
+  }
+  const inRealmChild = issueSubAuthorityDelegation(root, childBodyValue, childKeys.privateKey, childOptions)
+  const crossRealmChild = issueSubAuthorityDelegation(
+    decodeInNewRealm(root),
+    decodeInNewRealm(childBodyValue),
+    childKeys.privateKey,
+    childOptions,
+  )
+  assert.deepEqual(crossRealmChild, inRealmChild)
+})
+
+test('a Proxy member whose get view widens scope, and a Proxy root whose get view extends not_after, are SCHEMA_INVALID, never valid', () => {
+  const trueScope = { profile: SCOPE_PROFILE_V1, grants: ['commerce:checkout'] }
+  const widenedScopeView = new Proxy(trueScope, {
+    get(target, prop, receiver) {
+      if (prop === 'grants') return ['commerce:*']
+      return Reflect.get(target, prop, receiver)
+    },
+  })
+  const bodyWithTrueScope = childBody(root)
+  bodyWithTrueScope.authority.scope = trueScope
+  const childWithTrueScope = signDirectly(bodyWithTrueScope, childKeys.privateKey)
+  const presentedChild: AuthorityDelegationV1 = {
+    ...childWithTrueScope,
+    authority: { ...childWithTrueScope.authority, scope: widenedScopeView as unknown as typeof childWithTrueScope.authority.scope },
+  }
+  const checkedScope = verifyAuthorityDelegationChain([root, presentedChild], chainOptions(root.delegation_id))
+  assert.equal(checkedScope.state, 'invalid')
+  assert.ok(codesOf(checkedScope).includes('SCHEMA_INVALID'))
+  assert.equal(isAuthorityDelegationV1(presentedChild), false)
+
+  const trueRootTime = { not_before: ROOT_NOT_BEFORE, not_after: ROOT_NOT_AFTER }
+  const widenedTimeView = new Proxy(trueRootTime, {
+    get(target, prop, receiver) {
+      if (prop === 'not_after') return '2099-01-01T00:00:00.000Z'
+      return Reflect.get(target, prop, receiver)
+    },
+  })
+  const rootBodyWithTrueTime = rootBody()
+  rootBodyWithTrueTime.authority.time = trueRootTime
+  const rootWithTrueTime = signDirectly(rootBodyWithTrueTime, rootKeys.privateKey)
+  const presentedRoot: AuthorityDelegationV1 = {
+    ...rootWithTrueTime,
+    authority: { ...rootWithTrueTime.authority, time: widenedTimeView as unknown as typeof rootWithTrueTime.authority.time },
+  }
+  const checkedRootTime = verifyAuthorityDelegationChain([presentedRoot], chainOptions(presentedRoot.delegation_id))
+  assert.equal(checkedRootTime.state, 'invalid')
+  assert.ok(codesOf(checkedRootTime).includes('SCHEMA_INVALID'))
+  assert.equal(isAuthorityDelegationV1(presentedRoot), false)
+})
+
+/**
+ * Exercises one hostile value (a revoked Proxy, or a Proxy whose ownKeys, getPrototypeOf
+ * or getOwnPropertyDescriptor trap throws) in every place it could reach an
+ * authority-delegation entry point: a chain member, a nested facet, the chain container
+ * itself, a ledger chain member, a root-issuer body, and a child-issuer parent. Every
+ * placement must give a defined result and never let an exception out of the entry
+ * point it reached.
+ */
+function assertHostileProxyIsAlwaysContained(label: string, memberShaped: unknown, containerShaped: unknown): void {
+  assert.doesNotThrow(() => {
+    const checked = verifyAuthorityDelegationChain([root, memberShaped], chainOptions(root.delegation_id))
+    assert.equal(checked.state, 'invalid', `${label}: chain member`)
+    assert.ok(codesOf(checked).includes('SCHEMA_INVALID'), `${label}: chain member`)
+  }, `${label}: chain member must not throw`)
+
+  assert.doesNotThrow(() => {
+    const body = childBody(root)
+    body.authority.scope = memberShaped as unknown as typeof body.authority.scope
+    const child = unsignable(body as unknown as Record<string, unknown>)
+    const checked = verifyAuthorityDelegationChain([root, child], chainOptions(root.delegation_id))
+    assert.equal(checked.state, 'invalid', `${label}: nested facet`)
+    assert.ok(codesOf(checked).includes('SCHEMA_INVALID'), `${label}: nested facet`)
+  }, `${label}: nested facet must not throw`)
+
+  assert.doesNotThrow(() => {
+    const checked = verifyAuthorityDelegationChain(containerShaped as unknown as unknown[], chainOptions(root.delegation_id))
+    assert.equal(checked.state, 'invalid', `${label}: chain container`)
+    assert.ok(codesOf(checked).includes('SCHEMA_INVALID'), `${label}: chain container`)
+  }, `${label}: chain container must not throw`)
+
+  assert.doesNotThrow(() => {
+    const ledger = new InMemoryAuthorityBudgetLedger()
+    const reserved = ledger.reserve([root, memberShaped] as unknown as AuthorityDelegationV1[], 'a'.repeat(64), 'iso4217:USD:minor', '1')
+    assert.deepEqual(reserved, { ok: false, code: 'CONFLICT' }, `${label}: ledger chain member`)
+  }, `${label}: ledger chain member must not throw`)
+
+  assert.throws(
+    () => issueAuthorityDelegation(memberShaped as unknown as AuthorityDelegationBodyV1, rootKeys.privateKey),
+    /\([A-Z_]+\)$/,
+    `${label}: root-issuer body`,
+  )
+
+  assert.throws(
+    () => issueSubAuthorityDelegation(memberShaped as unknown as AuthorityDelegationV1, childBody(root), childKeys.privateKey, {
+      now: ROOT_NOT_BEFORE,
+      resolveVerificationKey: resolveKeys,
+      resolveRevocation: () => 'active',
+    }),
+    /\([A-Z_]+\)$/,
+    `${label}: child-issuer parent`,
+  )
+}
+
+test('a revoked Proxy, and a Proxy whose ownKeys, getPrototypeOf or getOwnPropertyDescriptor trap throws, each give a defined result everywhere they can appear, never an exception', () => {
+  const revokedObject = Proxy.revocable({ profile: SCOPE_PROFILE_V1, grants: ['commerce:checkout'] }, {})
+  revokedObject.revoke()
+  const revokedArray = Proxy.revocable([root], {})
+  revokedArray.revoke()
+  assertHostileProxyIsAlwaysContained('a revoked Proxy', revokedObject.proxy, revokedArray.proxy)
+
+  const throwingHandlers: Array<[string, ProxyHandler<object>]> = [
+    ['ownKeys throws', { ownKeys() { throw new Error('ownKeys must not be called') } }],
+    ['getPrototypeOf throws', { getPrototypeOf() { throw new Error('getPrototypeOf must not be called') } }],
+    ['getOwnPropertyDescriptor throws', { getOwnPropertyDescriptor() { throw new Error('getOwnPropertyDescriptor must not be called') } }],
+  ]
+  for (const [label, handler] of throwingHandlers) {
+    const objectTarget = { profile: SCOPE_PROFILE_V1, grants: ['commerce:checkout'] }
+    const arrayTarget = [root]
+    assertHostileProxyIsAlwaysContained(
+      `a Proxy whose ${label}`,
+      new Proxy(objectTarget, handler),
+      new Proxy(arrayTarget, handler),
+    )
+  }
+})
+
+test('a Proxy chain container is invalid even when its own descriptors show a fully valid chain and its get trap disagrees', () => {
+  const trueChain = [root]
+  const widenedLengthView = new Proxy(trueChain, {
+    get(target, prop, receiver) {
+      if (prop === 'length') return 999999
+      return Reflect.get(target, prop, receiver)
+    },
+  })
+  const checked = verifyAuthorityDelegationChain(widenedLengthView as unknown as unknown[], chainOptions(root.delegation_id))
+  assert.notEqual(checked.state, 'valid')
+  assert.deepEqual(codesOf(checked), ['SCHEMA_INVALID'])
+
+  const ledger = new InMemoryAuthorityBudgetLedger()
+  const reserved = ledger.reserve(widenedLengthView as unknown as AuthorityDelegationV1[], 'a'.repeat(64), 'iso4217:USD:minor', '1')
+  assert.deepEqual(reserved, { ok: false, code: 'CONFLICT' })
 })
 
 test('a symbol-keyed extra property on a valid record leaves the result unchanged: valid', () => {

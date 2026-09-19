@@ -188,7 +188,11 @@ export function validateAuthorityDelegationShape(value: unknown): AuthorityFailu
   // exact-keys check, no facet or value checks. This runs before the top-level
   // exact-keys check so an unsupported version can carry extra or missing
   // members. The record-wide I-JSON check still runs first: if it fails, the
-  // record is also invalid.
+  // record is also invalid. Reporting the I-JSON failure first, so a record is
+  // invalid even when its version is unknown or a facet's profile is
+  // unsupported, is a provisional choice kept identical to the Python SDK. It
+  // stands pending a protocol ruling, because the first step of the draft's
+  // order at line 580 does not order the two.
   if (top.record_type === AUTHORITY_DELEGATION_RECORD_TYPE &&
       typeof top.version === 'string' && top.version !== AUTHORITY_DELEGATION_VERSION) {
     return recordStringsAreIJSON(top)
