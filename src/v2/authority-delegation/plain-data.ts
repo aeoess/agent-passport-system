@@ -42,14 +42,18 @@ const isRawJSON: (value: object) => boolean =
  * Array.prototype of some JavaScript realm, whose length is a non-negative integer read
  * from its own descriptor, every index 0 through length-1 of which is an enumerable data
  * property, no hole and no accessor, and which carries neither an own symbol-keyed
- * property nor an own "toJSON" property. An own property of an array that is neither an
+ * property nor an own callable "toJSON" or "toJSON" accessor. An own property of an array that is neither an
  * index nor "length" is left out of the snapshot rather than refused: JSON.stringify
  * serializes an array by its length and its indices, so such a property is invisible to
- * the JSON form as well, and "toJSON", the one own name that would change that form, is
- * refused. Refusing the others instead would mean enumerating the array's own property
- * names, which this engine cannot do at 2**23 members or more. Ordinary JavaScript reads
- * of the caller's own array, Object.keys, for-in and object spread among them, do still
- * show such a property; the snapshot, the validated content, the signed bytes and
+ * the JSON form as well. The one own name that can change that form is "toJSON", which
+ * JSON.stringify calls in place of serializing the members when it is callable, so an
+ * own callable "toJSON", and an own "toJSON" accessor, whose getter this module must not
+ * call and which could return a callable, are refused; an own "toJSON" holding any other
+ * value is data JSON.stringify ignores on an array, and the snapshot ignores it too. Refusing the others instead would mean enumerating the array's own property
+ * names, which this engine cannot do at 2**23 members or more. A read of the caller's
+ * own array still shows such a property, directly, or through
+ * Object.getOwnPropertyNames, or, when it is enumerable, through Object.keys, for-in or
+ * object spread; the snapshot, the validated content, the signed bytes and
  * JSON.stringify do not.
  *
  * An object's own property names are enumerated, because every one of them is copied,
@@ -155,7 +159,8 @@ const isRawJSON: (value: object) => boolean =
  * done.
  *
  * The entry points that snapshot this way are validateAuthorityDelegationShape (and
- * isAuthorityDelegationV1, which calls it), verifyAuthorityDelegationChain,
+ * isAuthorityDelegationV1, which calls it), verifyAuthorityDelegationChain (and
+ * verifyAuthorityDelegation, which calls it with a one-record chain),
  * InMemoryAuthorityBudgetLedger.reserve, issueAuthorityDelegation, and
  * issueSubAuthorityDelegation. The raw canonical helpers computeAuthorityDelegationId,
  * computeAuthorityDelegationIdForWrite, signAuthorityDelegation,
@@ -300,9 +305,10 @@ function isPlainObjectPrototype(prototype: unknown, cache: PrototypeIntrinsicCac
   return verdict
 }
 
-/** Checks `value`'s prototype, symbols and length, each read exactly once, and returns
- *  its length. Returns null when `value` is not an exact plain array: wrong prototype,
- *  an own symbol-keyed property, an own "toJSON" property, or a length that is not a
+/** Checks `value`'s prototype, its own symbols, its own "toJSON" descriptor and its
+ *  length, each read exactly once, and returns its length. Returns null when `value` is
+ *  not an exact plain array: wrong prototype, an own symbol-keyed property, an own
+ *  callable "toJSON" or "toJSON" accessor, or a length that is not a
  *  non-negative integer. Each index is checked as the walk below reaches it: it must be
  *  an own enumerable data property, so a hole, an accessor or a non-enumerable index
  *  makes the array not plain data. An own property that is neither an index nor "length"
