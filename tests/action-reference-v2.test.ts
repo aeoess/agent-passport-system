@@ -229,12 +229,12 @@ describe('action_ref v2, section 4.1 second-60 (leap second) admissibility (draf
     )
   })
 
-  it('AR-P18: second 60 not at 23:59 on the last day of the month is rejected (was accepted before RFC 3339 section 5.7 was applied)', () => {
+  it('AR-N38 (formerly AR-P18): second 60 not at 23:59 on the last day of the month is rejected (was accepted before RFC 3339 section 5.7 was applied)', () => {
     const value: ActionReferenceInputV2 = { ...base, issued_at: '2026-04-08T12:00:60.000Z' }
     assert.throws(() => computeActionRefV2(value), /^Error: issued_at: invalid calendar timestamp$/)
   })
 
-  it('AR-P17 and AR-P18 agree through the serialized entry point', () => {
+  it('AR-P17 and AR-N38 (formerly AR-P18) agree through the serialized entry point', () => {
     const ar17: ActionReferenceInputV2 = { ...base, issued_at: '2016-12-31T23:59:60.000Z' }
     const ar18: ActionReferenceInputV2 = { ...base, issued_at: '2026-04-08T12:00:60.000Z' }
     assert.equal(computeActionRefV2FromJson(JSON.stringify(ar17)), computeActionRefV2(ar17))
@@ -255,7 +255,7 @@ describe('action_ref v2, section 4.1 second-60 (leap second) admissibility (draf
       /^Error: issued_at: expected canonical UTC milliseconds$/],
     // RFC 3339 section 5.7 and Appendix D: second 60 is valid only
     // at 23:59 on the last day of its month.
-    ['second 60 not on the last day of the month (was AR-P18)', '2026-04-08T12:00:60.000Z',
+    ['second 60 not on the last day of the month (AR-N38, formerly AR-P18)', '2026-04-08T12:00:60.000Z',
       /^Error: issued_at: invalid calendar timestamp$/],
     ['second 60 on a day that is not the last day of June', '2026-06-29T23:59:60.000Z',
       /^Error: issued_at: invalid calendar timestamp$/],
@@ -296,7 +296,7 @@ describe('action_ref v2, section 4.1 second-60 (leap second) admissibility (draf
   }
 })
 
-describe('action_ref v2, section 4.1 rejects noncharacters (draft03-reconciliation item 4)', () => {
+describe('action_ref v2, section 4.1 rejects noncharacters (draft section 4.1 lines 813-815, RFC 7493 section 2.1)', () => {
   // Same base as AR-P01 above: a complete, valid ActionReferenceInputV2.
   // Every case below is this object as-is or with only the field under test
   // mutated. Noncharacters are written as JS escapes, never as literal
@@ -324,9 +324,10 @@ describe('action_ref v2, section 4.1 rejects noncharacters (draft03-reconciliati
   })
 
   it('AR-N: scope_required with a noncharacter U+10FFFF, still sorted after commerce:read, is rejected', () => {
-    // \udbff\udfff is U+10FFFF decoded (RFC 3339-style escape convention
-    // used throughout this addendum): the low 16 bits of the code point are
-    // FFFF, so it is a noncharacter regardless of the surrogate encoding.
+    // \udbff\udfff is U+10FFFF decoded as its UTF-16 surrogate pair, written
+    // as an explicit JavaScript escape sequence rather than a literal
+    // character: the low 16 bits of the code point are FFFF, so it is a
+    // noncharacter regardless of the surrogate encoding.
     const scope = 'commerce:write' + '\udbff\udfff'
     const value: ActionReferenceInputV2 = { ...base, scope_required: ['commerce:read', scope] }
     assert.throws(() => computeActionRefV2(value), /^Error: \$\.scope_required\[1\]: noncharacter$/)

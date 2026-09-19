@@ -357,7 +357,7 @@ function nestedArray(depth: number): unknown[] {
 }
 
 test('a noncharacter code point in issuer is SCHEMA_INVALID, decoded from its surrogate pair when needed', () => {
-  const noncharacters = ['﷐', '￿', '\u{1FFFE}', '\u{10FFFF}']
+  const noncharacters = ['\uFDD0', '\uFFFF', '\u{1FFFE}', '\u{10FFFF}']
   for (const mark of noncharacters) {
     const body = structuredClone(standardRootBody())
     body.issuer = `did:example:principal${mark}`
@@ -380,7 +380,7 @@ test('a lone surrogate in subject is SCHEMA_INVALID even when JCS cannot be comp
 test('an unsupported scope profile with a noncharacter is SCHEMA_INVALID and UNSUPPORTED_PROFILE', () => {
   const body = structuredClone(standardRootBody())
   ;(body.authority as unknown as Record<string, unknown>).scope = {
-    profile: 'aps-hierarchical-v2￿',
+    profile: 'aps-hierarchical-v2\uFFFF',
     grants: ['commerce:*'],
   }
   const root = sign(body, ROOT_KEY)
@@ -400,7 +400,7 @@ test('an unsupported values profile with a lone surrogate is SCHEMA_INVALID and 
 
 test('an unsupported version with a noncharacter is SCHEMA_INVALID and UNSUPPORTED_VERSION', () => {
   const body = structuredClone(standardRootBody())
-  ;(body as unknown as Record<string, unknown>).version = '2.0﷐'
+  ;(body as unknown as Record<string, unknown>).version = '2.0\uFDD0'
   const root = sign(body, ROOT_KEY)
   const checked = verifyAuthorityDelegationChain([root], activeOptions(STANDARD_NOW, root.delegation_id))
   assert.equal(checked.state, 'invalid')

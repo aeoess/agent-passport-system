@@ -25,7 +25,7 @@ function assertBody(body: AuthorityDelegationBodyV1): void {
   }
   const failures = validateAuthorityDelegationShape(probe)
   if (failures.length > 0) {
-    throw new Error(`authority delegation body invalid: ${failures.map(item => `${item.code}: ${item.message}`).join('; ')}`)
+    throw new Error(`authority delegation body invalid: ${failures[0].message} (${failures[0].code})`)
   }
 }
 
