@@ -47,7 +47,10 @@ export class InMemoryAuthorityBudgetLedger {
     unit: string,
     amountString: string,
   ): BudgetOperationResult {
-    if (typeof actionRef !== 'string' || !ACTION_REF.test(actionRef) || !isCanonicalQuantity(amountString)) {
+    if (
+      typeof actionRef !== 'string' || !ACTION_REF.test(actionRef) ||
+      typeof unit !== 'string' || !isCanonicalQuantity(amountString)
+    ) {
       return { ok: false, code: 'CONFLICT' }
     }
     if (!isPlainDataArray(verifiedChain) || verifiedChain.length === 0 || verifiedChain.length > 256) {

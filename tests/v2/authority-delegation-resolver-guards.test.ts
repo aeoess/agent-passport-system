@@ -1,26 +1,26 @@
 // Copyright (c) 2026 Tymofii Pidlisnyi
 // SPDX-License-Identifier: Apache-2.0
-// ══════════════════════════════════════════════════════════════════
-// Mutation survivors MA1/MA2: the resolver callbacks are attacker- and
-// integrator-supplied, and their return values must be normalized.
-// ══════════════════════════════════════════════════════════════════
-// verifyAuthorityDelegationChain is the SDK's model fail-closed verifier and
-// a Phase 2 recheck confirmed it is correct on the merits. That recheck left
-// no test behind, so two mutations survived the full suite:
 //
-//   MA1  revocation = resolved            (drop the value normalization)
-//   MA2  trustDecision used as truthy     (drop the boolean check)
+// This file tests the chain verifier's handling of resolver callback return
+// values. resolveVerificationKey, resolveRevocation, and trustRoot are
+// supplied by the integrator and can be reached by an attacker-controlled
+// chain, so the verifier must normalize their answers rather than use them
+// as raw JavaScript values.
 //
-// Under MA1 a resolveRevocation that returns undefined, null, a Promise (the
-// shape you get from an async resolver passed by mistake) or any unexpected
-// string is neither 'revoked' nor 'unknown', so both guards fall through and
-// the chain reports valid. That turns a resolver bug or a mis-wired async
-// callback into a silent admit. This file is that missing coverage.
+// resolveRevocation counts as "not revoked" only when it returns exactly
+// 'active'. undefined, null, a Promise (the shape returned by an async
+// resolver passed by mistake), an unrecognised string, a truthy non-string
+// value, or a thrown error must all produce REVOCATION_UNKNOWN rather than a
+// silent pass. An explicit 'revoked' answer produces REVOKED, which is
+// distinct from REVOCATION_UNKNOWN.
 //
-// It is a SEPARATE file from authority-delegation.test.ts on purpose: this
-// area is held by another worktree and a new file cannot conflict textually
-// with edits to the existing one. Nothing in src/v2/authority-delegation was
-// changed to make these pass; they pass against the shipped implementation.
+// trustRoot counts as trusted only when it returns exactly true. A truthy
+// non-boolean, a Promise, a missing callback, or a thrown error must all
+// produce ROOT_UNTRUSTED rather than an implicit yes, and an explicit false
+// is invalid rather than indeterminate.
+//
+// The last two tests cover resolveVerificationKey failures for comparison,
+// since key resolution follows the same fail-closed pattern.
 
 import test from 'node:test'
 import assert from 'node:assert/strict'
@@ -83,9 +83,9 @@ test('control: a well-formed chain with sound resolvers is valid', () => {
   assert.equal(r.valid, true)
 })
 
-// ── MA1: resolveRevocation return-value normalization ──
+// resolveRevocation return-value normalization
 
-test('MA1: a resolveRevocation returning undefined is REVOCATION_UNKNOWN, not valid', () => {
+test('a resolveRevocation returning undefined is REVOCATION_UNKNOWN, not valid', () => {
   const r = verifyAuthorityDelegationChain([root], options({
     resolveRevocation: (() => undefined) as never,
   }))
@@ -94,7 +94,7 @@ test('MA1: a resolveRevocation returning undefined is REVOCATION_UNKNOWN, not va
   assert.equal(r.failures[0]?.code, 'REVOCATION_UNKNOWN')
 })
 
-test('MA1: a resolveRevocation returning null is REVOCATION_UNKNOWN, not valid', () => {
+test('a resolveRevocation returning null is REVOCATION_UNKNOWN, not valid', () => {
   const r = verifyAuthorityDelegationChain([root], options({
     resolveRevocation: (() => null) as never,
   }))
@@ -102,7 +102,7 @@ test('MA1: a resolveRevocation returning null is REVOCATION_UNKNOWN, not valid',
   assert.equal(r.failures[0]?.code, 'REVOCATION_UNKNOWN')
 })
 
-test('MA1: an ASYNC resolveRevocation returns a Promise, which is not an answer', () => {
+test('an ASYNC resolveRevocation returns a Promise, which is not an answer', () => {
   // The likeliest real form of this bug: an integrator writes an async
   // resolver against a synchronous interface. A truthy Promise must never be
   // read as "not revoked".
@@ -113,7 +113,7 @@ test('MA1: an ASYNC resolveRevocation returns a Promise, which is not an answer'
   assert.equal(r.failures[0]?.code, 'REVOCATION_UNKNOWN')
 })
 
-test('MA1: an unrecognised revocation string is not an answer', () => {
+test('an unrecognised revocation string is not an answer', () => {
   for (const bogus of ['ACTIVE', 'ok', 'true', '', 'valid', 'not_revoked']) {
     const r = verifyAuthorityDelegationChain([root], options({
       resolveRevocation: (() => bogus) as never,
@@ -123,7 +123,7 @@ test('MA1: an unrecognised revocation string is not an answer', () => {
   }
 })
 
-test('MA1: a truthy non-string revocation answer is not an answer', () => {
+test('a truthy non-string revocation answer is not an answer', () => {
   for (const bogus of [1, true, {}, [], () => 'active']) {
     const r = verifyAuthorityDelegationChain([root], options({
       resolveRevocation: (() => bogus) as never,
@@ -132,7 +132,7 @@ test('MA1: a truthy non-string revocation answer is not an answer', () => {
   }
 })
 
-test('MA1: a throwing resolveRevocation is REVOCATION_UNKNOWN, not valid', () => {
+test('a throwing resolveRevocation is REVOCATION_UNKNOWN, not valid', () => {
   const r = verifyAuthorityDelegationChain([root], options({
     resolveRevocation: () => { throw new Error('registry unreachable') },
   }))
@@ -140,7 +140,7 @@ test('MA1: a throwing resolveRevocation is REVOCATION_UNKNOWN, not valid', () =>
   assert.equal(r.failures[0]?.code, 'REVOCATION_UNKNOWN')
 })
 
-test('MA1: an explicit revoked answer is REVOKED, distinct from unknown', () => {
+test('an explicit revoked answer is REVOKED, distinct from unknown', () => {
   const r = verifyAuthorityDelegationChain([root], options({
     resolveRevocation: () => 'revoked',
   }))
@@ -149,9 +149,9 @@ test('MA1: an explicit revoked answer is REVOKED, distinct from unknown', () => 
   assert.equal(r.failures[0]?.code, 'REVOKED')
 })
 
-// ── MA2: trustRoot return-value normalization ──
+// trustRoot return-value normalization
 
-test('MA2: a trustRoot returning a truthy non-boolean is ROOT_UNTRUSTED, not valid', () => {
+test('a trustRoot returning a truthy non-boolean is ROOT_UNTRUSTED, not valid', () => {
   for (const bogus of ['yes', 1, {}, [], 'true']) {
     const r = verifyAuthorityDelegationChain([root], options({
       trustRoot: (() => bogus) as never,
@@ -162,7 +162,7 @@ test('MA2: a trustRoot returning a truthy non-boolean is ROOT_UNTRUSTED, not val
   }
 })
 
-test('MA2: an ASYNC trustRoot returns a Promise, which is not a decision', () => {
+test('an ASYNC trustRoot returns a Promise, which is not a decision', () => {
   const r = verifyAuthorityDelegationChain([root], options({
     trustRoot: (async () => true) as never,
   }))
@@ -170,7 +170,7 @@ test('MA2: an ASYNC trustRoot returns a Promise, which is not a decision', () =>
   assert.equal(r.failures[0]?.code, 'ROOT_UNTRUSTED')
 })
 
-test('MA2: a throwing trustRoot is ROOT_UNTRUSTED, not valid', () => {
+test('a throwing trustRoot is ROOT_UNTRUSTED, not valid', () => {
   const r = verifyAuthorityDelegationChain([root], options({
     trustRoot: () => { throw new Error('policy service down') },
   }))
@@ -178,7 +178,7 @@ test('MA2: a throwing trustRoot is ROOT_UNTRUSTED, not valid', () => {
   assert.equal(r.failures[0]?.code, 'ROOT_UNTRUSTED')
 })
 
-test('MA2: a missing trustRoot is ROOT_UNTRUSTED, not an implicit yes', () => {
+test('a missing trustRoot is ROOT_UNTRUSTED, not an implicit yes', () => {
   const r = verifyAuthorityDelegationChain([root], options({
     trustRoot: undefined as never,
   }))
@@ -186,14 +186,14 @@ test('MA2: a missing trustRoot is ROOT_UNTRUSTED, not an implicit yes', () => {
   assert.equal(r.failures[0]?.code, 'ROOT_UNTRUSTED')
 })
 
-test('MA2: an explicit false from trustRoot is invalid, not indeterminate', () => {
+test('an explicit false from trustRoot is invalid, not indeterminate', () => {
   const r = verifyAuthorityDelegationChain([root], options({ trustRoot: () => false }))
   assert.equal(r.valid, false)
   assert.equal(r.state, 'invalid')
   assert.equal(r.failures[0]?.code, 'ROOT_UNTRUSTED')
 })
 
-// ── key resolution, same class ──
+// resolveVerificationKey return-value normalization, the same class of check
 
 test('a key resolver returning null is KEY_RESOLUTION_FAILED, not valid', () => {
   const r = verifyAuthorityDelegationChain([root], options({
