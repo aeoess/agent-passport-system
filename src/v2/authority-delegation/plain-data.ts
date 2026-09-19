@@ -453,7 +453,12 @@ export function snapshotPlainData(root: unknown): unknown {
           done.set(member, NOT_PLAIN_DATA)
           place(NOT_PLAIN_DATA)
         } else {
-          const copy: unknown[] = new Array(length)
+          // Not new Array(length): a declared length is the caller's number, not a count
+          // of members this walk has seen, and an array carrying one member at index
+          // 30,000,000 would otherwise cost that whole length before index 0 is read.
+          // Filling from index 0 upward gives the copy exactly the length its members
+          // reach, which for an array that is plain data is that same length.
+          const copy: unknown[] = []
           done.set(member, copy)
           place(copy)
           onPath.add(member)
