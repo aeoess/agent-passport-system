@@ -48,6 +48,28 @@ function root(): {
   }
 }
 
+function unboundedRoot(): AuthorityDelegationV1 {
+  const rootKey = generateKeyPair()
+  const body: AuthorityDelegationBodyV1 = {
+    record_type: AUTHORITY_DELEGATION_RECORD_TYPE,
+    version: AUTHORITY_DELEGATION_VERSION,
+    parent_delegation_id: null,
+    issuer: 'did:example:root', subject: 'did:example:a',
+    verification_method: 'did:example:root#key',
+    issued_at: '2026-07-18T22:00:00.000Z', nonce: '66666666666666666666666666666666',
+    authority: {
+      scope: { profile: SCOPE_PROFILE_V1, grants: ['*'] },
+      spend: { mode: 'unbounded' },
+      depth: { remaining: 2 },
+      time: { not_before: '2026-07-18T22:00:00.000Z', not_after: '2026-07-18T23:00:00.000Z' },
+      reputation: { profile: REPUTATION_PROFILE_V1, ceiling: 100 },
+      values: { profile: VALUES_PROFILE_V1, required: [] },
+      reversibility: { profile: REVERSIBILITY_PROFILE_V1, ceiling: 'irreversible' },
+    },
+  }
+  return issueAuthorityDelegation(body, rootKey.privateKey)
+}
+
 function child(
   parent: AuthorityDelegationV1,
   resolveRootKey: (issuer: string, method: string) => string | null,
@@ -113,4 +135,28 @@ test('budget ledger rejects truncated, malformed, and duplicate chains', () => {
   assert.equal(ledger.reserve([], 'd'.repeat(64), 'iso4217:USD:minor', '1').code, 'CONFLICT')
   assert.equal(ledger.reserve([leaf], 'e'.repeat(64), 'iso4217:USD:minor', '1').code, 'CONFLICT')
   assert.equal(ledger.reserve([parent, parent], 'f'.repeat(64), 'iso4217:USD:minor', '1').code, 'CONFLICT')
+})
+
+test('reserve refuses a non-string unit before any state change, and a later string-unit retry is unaffected', () => {
+  const delegation = unboundedRoot()
+  const ledger = new InMemoryAuthorityBudgetLedger()
+  const actionRef = '1'.repeat(64)
+  for (const unit of [['x'], { u: 1 }, true, 1] as const) {
+    assert.deepEqual(
+      ledger.reserve([delegation], actionRef, unit as unknown as string, '1'),
+      { ok: false, code: 'CONFLICT' },
+    )
+  }
+  const retry = ledger.reserve([delegation], actionRef, 'iso4217:USD:minor', '1')
+  assert.equal(retry.ok, true)
+  assert.equal(retry.code, 'RESERVED')
+})
+
+test('a string unit on an unbounded chain reserves, repeats idempotently, and conflicts on a different amount', () => {
+  const delegation = unboundedRoot()
+  const ledger = new InMemoryAuthorityBudgetLedger()
+  const actionRef = '2'.repeat(64)
+  assert.equal(ledger.reserve([delegation], actionRef, 'iso4217:USD:minor', '1').code, 'RESERVED')
+  assert.equal(ledger.reserve([delegation], actionRef, 'iso4217:USD:minor', '1').code, 'IDEMPOTENT')
+  assert.equal(ledger.reserve([delegation], actionRef, 'iso4217:USD:minor', '2').code, 'CONFLICT')
 })
