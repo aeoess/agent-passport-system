@@ -1,0 +1,28 @@
+{
+  "profile": "aps-receipt-v1",
+  "receipt_type": "aps:policy-decision:v1",
+  "issuer": "did:example:boundary",
+  "subject_agent": "did:example:agent",
+  "action_ref": "c3aacbd7ff29a9b580fac641989e298a1199cf2924a2e44a746b4128ab3487b2",
+  "delegation_ref": "sha256:30cbc946025b6cbb26edc4f4d17efc3308a3ea98dcf698a900a8aa1b06307ef0",
+  "decision_ref": "703dcfd7ad517d89cdcddaa76a886ff179416679af315c67a35e778fc710a6fa",
+  "issued_at": "2026-09-19T10:00:01.000Z",
+  "evidence_refs": [],
+  "result": {
+    "profile": "aps-core-decision-output-v1",
+    "verdict": "permit",
+    "effective_authority_ref": "30cbc946025b6cbb26edc4f4d17efc3308a3ea98dcf698a900a8aa1b06307ef0",
+    "constraints": [],
+    "valid_until": "2026-09-19T10:10:00.000Z"
+  },
+  "prev": "726b99a06cab6a85d6002c83cebbebe0d6c50bfcd024a56d56013609a67691f3",
+  "receipt_id": "138261bc1b3aea431d4a838d1c2407168f8a17a160c1e81ea63cc36121bde7b6",
+  "signatures": [
+    {
+      "signer": "did:example:boundary",
+      "key_id": "key-1",
+      "alg": "Ed25519",
+      "value": "771829966410946f4991bf3619d53bceae05ead74036a2ec15f772b5cc095b0c7456266c702d35d5363a168a74c6a2683dd6f2be3e27200c5e6503eb306b2f09"
+    }
+  ]
+}

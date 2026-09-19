@@ -1,0 +1,91 @@
+{
+  "authority_state": {
+    "selected_chain": [
+      {
+        "record_type": "aps:authority-delegation:v1",
+        "version": "1.0",
+        "parent_delegation_id": null,
+        "issuer": "did:example:principal",
+        "subject": "did:example:agent",
+        "verification_method": "did:example:principal#key-1",
+        "issued_at": "2026-09-19T00:00:00.000Z",
+        "nonce": "0b87f9a88601ee9bbfcbfda89de0f94b",
+        "authority": {
+          "scope": {
+            "profile": "aps-hierarchical-v1",
+            "grants": [
+              "fixture:evm:call"
+            ]
+          },
+          "spend": {
+            "mode": "bounded",
+            "unit": "eip155:31337:native:wei",
+            "per_action": "5000000000000000",
+            "cumulative": "20000000000000000"
+          },
+          "depth": {
+            "remaining": 0
+          },
+          "time": {
+            "not_before": "2026-09-19T00:00:00.000Z",
+            "not_after": "2026-10-19T00:00:00.000Z"
+          },
+          "reputation": {
+            "profile": "aps-score-0-100-v1",
+            "ceiling": 50
+          },
+          "values": {
+            "profile": "aps-values-identifiers-v1",
+            "required": [
+              "F-001"
+            ]
+          },
+          "reversibility": {
+            "profile": "aps-tci-v1",
+            "ceiling": "irreversible"
+          }
+        },
+        "delegation_id": "sha256:30cbc946025b6cbb26edc4f4d17efc3308a3ea98dcf698a900a8aa1b06307ef0",
+        "signature": "9267088daf614e3e48c466e66b27350227556848bb36e56f552f8f2d19e9257f138e4dc0b2bbd5c22c1c08204b15ff237482372e0927b03977c8c8eadcd76c08"
+      }
+    ],
+    "authority_basis": {
+      "kind": "verifier_selected_root",
+      "root_issuer": "did:example:principal"
+    },
+    "revocation_observations": [
+      {
+        "delegation_id": "sha256:30cbc946025b6cbb26edc4f4d17efc3308a3ea98dcf698a900a8aa1b06307ef0",
+        "state": "active",
+        "observed_at": "2026-09-19T10:00:01.000Z"
+      }
+    ],
+    "spend_state": {
+      "unit": "eip155:31337:native:wei",
+      "cumulative_spent": "0"
+    }
+  },
+  "policy_input": {
+    "policy_id": "fixture:evm-call-policy",
+    "policy_version": "1",
+    "requested_call": {
+      "chain_id": "31337",
+      "to": "0x000000000000000000000000000000000000dead",
+      "value_wei": "1000000000000000",
+      "data": "0x"
+    }
+  },
+  "decision_context": {
+    "evaluated_at": "2026-09-19T10:00:01.000Z"
+  },
+  "decision_output": {
+    "profile": "aps-core-decision-output-v1",
+    "verdict": "narrow",
+    "effective_authority_ref": "b7bcf69eaca9e2ea1ded942b817de23ae737c739626fbf0535addf6bd66b58cd",
+    "constraints": [
+      "fixture:evm.to=0x000000000000000000000000000000000000dead",
+      "fixture:evm.value_wei<=1000000000000000"
+    ],
+    "valid_until": "2026-09-19T10:10:00.000Z"
+  }
+}

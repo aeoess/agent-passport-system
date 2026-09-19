@@ -1,0 +1,35 @@
+{
+  "case": "deny",
+  "summary": "Deny. The receipt signature and the decision binding hold, and the composite verifier returns valid false with valid_until_absent, because a deny carries no validity window.",
+  "requested_call": {
+    "chain_id": "31337",
+    "to": "0x000000000000000000000000000000000000dead",
+    "value_wei": "9000000000000000",
+    "data": "0x"
+  },
+  "action_reference_input": {
+    "profile": "aps-action-ref-v2",
+    "agent_id": "did:example:agent",
+    "action_type": "fixture:evm:call",
+    "target": "eip155:31337:0x000000000000000000000000000000000000dead",
+    "payload_ref": "50992f7e4f639febe5aa1db1893bb7c9746ae17114b8eb411168bd49e5e80cc3",
+    "scope_required": [
+      "fixture:evm:call"
+    ],
+    "issued_at": "2026-09-19T10:00:00.000Z",
+    "nonce": "243b483dcbd21662c0bc39c6e84f7b5b"
+  },
+  "effective_authority": null,
+  "expected": {
+    "verifyReceiptWithDecisionV1": {
+      "valid": false,
+      "decision_ref_present": true,
+      "decision_ref_bound": true,
+      "temporal_relation_valid": false,
+      "errors": [
+        "valid_until_absent"
+      ]
+    },
+    "unexpired_at_reference_time": null
+  }
+}

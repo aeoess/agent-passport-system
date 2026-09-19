@@ -1,0 +1,23 @@
+{
+  "profile": "aps-receipt-v1",
+  "receipt_type": "aps:action-intent:v1",
+  "issuer": "did:example:agent",
+  "subject_agent": "did:example:agent",
+  "action_ref": "70fd290b61d83c8cdf6b9e79fb7a676d945ed583fcfd6c6080f55af845ab2057",
+  "delegation_ref": "sha256:30cbc946025b6cbb26edc4f4d17efc3308a3ea98dcf698a900a8aa1b06307ef0",
+  "issued_at": "2026-09-19T10:00:00.000Z",
+  "evidence_refs": [],
+  "result": {
+    "profile": "aps-action-intent-result-v1",
+    "status": "declared"
+  },
+  "receipt_id": "6482b6f75fa904f0027aec54f98fd0935938c31a880b62c3c97bb158da80fb92",
+  "signatures": [
+    {
+      "signer": "did:example:agent",
+      "key_id": "key-1",
+      "alg": "Ed25519",
+      "value": "47ed47a10b27ce3b6232ebe7c11978d17fa165db61865312ad9a6d3f94d85a51d5a0b56cb4f2ae6f5ea27192bb6d1114aa164755950e3f4a4d8edb178f7df204"
+    }
+  ]
+}

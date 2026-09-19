@@ -1,0 +1,27 @@
+{
+  "note": "TEST KEYS derived from public labels. Public halves only. A consumer pins these values on its own side and does not trust this file because it arrived next to the cases.",
+  "alg": "Ed25519",
+  "encoding": "raw 32-byte public key, lowercase hex",
+  "receipt_signers": [
+    {
+      "signer": "did:example:agent",
+      "key_id": "key-1",
+      "public_key": "f80727401f51c1b7e41eeda7004b29aca9c9d7a017144c31f7370725514d6260",
+      "signs": "aps:action-intent:v1"
+    },
+    {
+      "signer": "did:example:boundary",
+      "key_id": "key-1",
+      "public_key": "6468a72acb50bf67fc180d0a092e22d1aa44a43268c8e2dc7b6302dc9199126c",
+      "signs": "aps:policy-decision:v1"
+    }
+  ],
+  "delegation_verification_methods": [
+    {
+      "issuer": "did:example:principal",
+      "verification_method": "did:example:principal#key-1",
+      "public_key": "d69859e9701161194f0f583a2369d287ce895bf0e96b70db753b9e1e27b2bc94"
+    }
+  ],
+  "reference_time": "2026-09-19T10:05:00.000Z"
+}

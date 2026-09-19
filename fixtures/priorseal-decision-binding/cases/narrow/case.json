@@ -1,0 +1,75 @@
+{
+  "case": "narrow",
+  "summary": "Narrow with two constraints, unexpired at the reference time. The composite verifier returns valid true. The constraint strings are fixture-local and carry no APS-defined semantics.",
+  "requested_call": {
+    "chain_id": "31337",
+    "to": "0x000000000000000000000000000000000000dead",
+    "value_wei": "1000000000000000",
+    "data": "0x"
+  },
+  "action_reference_input": {
+    "profile": "aps-action-ref-v2",
+    "agent_id": "did:example:agent",
+    "action_type": "fixture:evm:call",
+    "target": "eip155:31337:0x000000000000000000000000000000000000dead",
+    "payload_ref": "a9d44a8139b7e6211d09af68dbe25c94de911ef45fd061afdaa87a66a980e7e4",
+    "scope_required": [
+      "fixture:evm:call"
+    ],
+    "issued_at": "2026-09-19T10:00:00.000Z",
+    "nonce": "4e03a404f22fd13ff84573e098489c88"
+  },
+  "effective_authority": {
+    "construction": "fixture_local_digest",
+    "domain_tag": "APS-163-FIXTURE-EFFECTIVE-AUTHORITY-V1",
+    "value": {
+      "profile": "fixture:aps-163-effective-authority-v1",
+      "base_delegation_id": "sha256:30cbc946025b6cbb26edc4f4d17efc3308a3ea98dcf698a900a8aa1b06307ef0",
+      "authority": {
+        "scope": {
+          "profile": "aps-hierarchical-v1",
+          "grants": [
+            "fixture:evm:call"
+          ]
+        },
+        "spend": {
+          "mode": "bounded",
+          "unit": "eip155:31337:native:wei",
+          "per_action": "1000000000000000",
+          "cumulative": "1000000000000000"
+        },
+        "depth": {
+          "remaining": 0
+        },
+        "time": {
+          "not_before": "2026-09-19T00:00:00.000Z",
+          "not_after": "2026-10-19T00:00:00.000Z"
+        },
+        "reputation": {
+          "profile": "aps-score-0-100-v1",
+          "ceiling": 50
+        },
+        "values": {
+          "profile": "aps-values-identifiers-v1",
+          "required": [
+            "F-001"
+          ]
+        },
+        "reversibility": {
+          "profile": "aps-tci-v1",
+          "ceiling": "irreversible"
+        }
+      }
+    }
+  },
+  "expected": {
+    "verifyReceiptWithDecisionV1": {
+      "valid": true,
+      "decision_ref_present": true,
+      "decision_ref_bound": true,
+      "temporal_relation_valid": true,
+      "errors": []
+    },
+    "unexpired_at_reference_time": true
+  }
+}

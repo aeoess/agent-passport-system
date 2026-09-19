@@ -1,0 +1,31 @@
+{
+  "profile": "aps-receipt-v1",
+  "receipt_type": "aps:policy-decision:v1",
+  "issuer": "did:example:boundary",
+  "subject_agent": "did:example:agent",
+  "action_ref": "70fd290b61d83c8cdf6b9e79fb7a676d945ed583fcfd6c6080f55af845ab2057",
+  "delegation_ref": "sha256:30cbc946025b6cbb26edc4f4d17efc3308a3ea98dcf698a900a8aa1b06307ef0",
+  "decision_ref": "87d2df100728df2c5dff28a66e1e4b2e44289ab3bedb3ca7a2127e1d915ee184",
+  "issued_at": "2026-09-19T10:00:01.000Z",
+  "evidence_refs": [],
+  "result": {
+    "profile": "aps-core-decision-output-v1",
+    "verdict": "narrow",
+    "effective_authority_ref": "b7bcf69eaca9e2ea1ded942b817de23ae737c739626fbf0535addf6bd66b58cd",
+    "constraints": [
+      "fixture:evm.to=0x000000000000000000000000000000000000dead",
+      "fixture:evm.value_wei<=1000000000000000"
+    ],
+    "valid_until": "2026-09-19T10:10:00.000Z"
+  },
+  "prev": "6482b6f75fa904f0027aec54f98fd0935938c31a880b62c3c97bb158da80fb92",
+  "receipt_id": "b9a0b41fd04357af5f89d88d39ffd3af1407d4b4e1ecb5a16639fa3f7a61b765",
+  "signatures": [
+    {
+      "signer": "did:example:boundary",
+      "key_id": "key-1",
+      "alg": "Ed25519",
+      "value": "a8f2cc47366849689fb98fa5985a66f1cf79444e69f59b3bdb61b2572eab03bdcb257aa2f3b71701926ad5fd29b28425f90348b4d626caaa5e6ea8e4dd70b80e"
+    }
+  ]
+}

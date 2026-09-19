@@ -1,0 +1,36 @@
+{
+  "case": "expired",
+  "summary": "Permit whose valid_until is after the receipt issued_at and before the reference time. The composite verifier returns valid true. Currency at the reference time is the consumer check, and it must reject this case.",
+  "requested_call": {
+    "chain_id": "31337",
+    "to": "0x000000000000000000000000000000000000dead",
+    "value_wei": "1000000000000000",
+    "data": "0x"
+  },
+  "action_reference_input": {
+    "profile": "aps-action-ref-v2",
+    "agent_id": "did:example:agent",
+    "action_type": "fixture:evm:call",
+    "target": "eip155:31337:0x000000000000000000000000000000000000dead",
+    "payload_ref": "a9d44a8139b7e6211d09af68dbe25c94de911ef45fd061afdaa87a66a980e7e4",
+    "scope_required": [
+      "fixture:evm:call"
+    ],
+    "issued_at": "2026-09-19T10:00:00.000Z",
+    "nonce": "ae54f8470807797de8827b4c4aff2b1c"
+  },
+  "effective_authority": {
+    "construction": "leaf_delegation_id",
+    "delegation_id": "sha256:30cbc946025b6cbb26edc4f4d17efc3308a3ea98dcf698a900a8aa1b06307ef0"
+  },
+  "expected": {
+    "verifyReceiptWithDecisionV1": {
+      "valid": true,
+      "decision_ref_present": true,
+      "decision_ref_bound": true,
+      "temporal_relation_valid": true,
+      "errors": []
+    },
+    "unexpired_at_reference_time": false
+  }
+}
