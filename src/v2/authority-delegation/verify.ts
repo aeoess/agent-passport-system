@@ -7,6 +7,7 @@ import {
   verifyAuthorityDelegationSignature,
 } from './canonical.js'
 import { compareAuthority } from './compare.js'
+import { isPlainDataArray, snapshotPlainData } from './plain-data.js'
 import { isCanonicalTimestamp, validateAuthorityDelegationShape } from './schema.js'
 import type {
   AuthorityChainVerificationOptions,
@@ -24,12 +25,20 @@ function indexed(failure: AuthorityFailure, index: number): AuthorityFailure {
   return { ...failure, index }
 }
 
-/** Full root-to-leaf structural, cryptographic, temporal, and revocation validation. */
+/**
+ * Full root-to-leaf structural, cryptographic, temporal, and revocation validation.
+ *
+ * Each chain member is snapshotted to plain JSON data (see plain-data.ts) before any
+ * other read of it. Every later read in this function comes from that snapshot: the
+ * record passed to `options.trustRoot` and to `options.resolveRevocation` is the
+ * snapshot, and the strings passed to `options.resolveVerificationKey` are read from
+ * the snapshot, never from the caller's original chain member.
+ */
 export function verifyAuthorityDelegationChain(
   rawChain: readonly unknown[],
   options: AuthorityChainVerificationOptions,
 ): AuthorityValidationResult {
-  if (!Array.isArray(rawChain) || rawChain.length === 0 || rawChain.length > 256) {
+  if (!isPlainDataArray(rawChain) || rawChain.length === 0 || rawChain.length > 256) {
     return result('invalid', [{ code: 'SCHEMA_INVALID', message: 'chain must contain 1 through 256 records' }])
   }
   if (!options || !isCanonicalTimestamp(options.now)) {
@@ -39,12 +48,13 @@ export function verifyAuthorityDelegationChain(
 
   const chain: AuthorityDelegationV1[] = []
   for (let i = 0; i < rawChain.length; i++) {
-    const failures = validateAuthorityDelegationShape(rawChain[i]).map(item => indexed(item, i))
+    const snapshot = snapshotPlainData(rawChain[i])
+    const failures = validateAuthorityDelegationShape(snapshot).map(item => indexed(item, i))
     if (failures.length > 0) {
       const unsupported = failures.every(item => item.code === 'UNSUPPORTED_VERSION' || item.code === 'UNSUPPORTED_PROFILE')
       return result(unsupported ? 'unsupported' : 'invalid', failures)
     }
-    chain.push(rawChain[i] as AuthorityDelegationV1)
+    chain.push(snapshot as AuthorityDelegationV1)
   }
 
   const seen = new Set<string>()

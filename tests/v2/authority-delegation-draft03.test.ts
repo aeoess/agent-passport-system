@@ -434,7 +434,9 @@ test('a pathologically deep nested array under an unsupported scope profile does
   assert.equal(checked.state, 'unsupported')
 })
 
-test('a cyclic array under an unsupported scope profile does not throw', () => {
+test('a cyclic array under an unsupported scope profile is SCHEMA_INVALID and does not throw', () => {
+  // A cycle has no JSON form, so the record is malformed input (invalid), not merely
+  // an unsupported profile.
   const cyclic: unknown[] = []
   cyclic.push(cyclic)
   const body = structuredClone(standardRootBody())
@@ -444,7 +446,8 @@ test('a cyclic array under an unsupported scope profile does not throw', () => {
   }
   const root = unsignable(body)
   const checked = verifyAuthorityDelegationChain([root], activeOptions(STANDARD_NOW, root.delegation_id))
-  assert.equal(checked.state, 'unsupported')
+  assert.equal(checked.state, 'invalid')
+  assert.equal(checked.failures[0]?.code, 'SCHEMA_INVALID')
 })
 
 test('a key resolver returning undefined for the root is indeterminate, KEY_RESOLUTION_FAILED, at index 0', () => {

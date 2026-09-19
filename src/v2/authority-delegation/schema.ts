@@ -1,6 +1,7 @@
 // Copyright (c) 2026 Tymofii Pidlisnyi
 // SPDX-License-Identifier: Apache-2.0
 
+import { snapshotPlainData } from './plain-data.js'
 import { grantsAreCanonical } from './scope.js'
 import {
   AUTHORITY_DELEGATION_RECORD_TYPE,
@@ -76,7 +77,11 @@ function isIJSONString(value: string): boolean {
  * separately; a non-finite number (NaN, Infinity, or -Infinity; JSON.parse
  * turns an out-of-range numeral such as "1e400" into Infinity) and a value of
  * type undefined, bigint, function or symbol are not JSON at all, so none of
- * them are I-JSON.
+ * them are I-JSON. Every caller of validateAuthorityDelegationShape reaches this
+ * function only through a snapshot that already replaced any value with no plain
+ * JSON form, a Map or a Date among them, with a module-private marker symbol, so a
+ * "container" seen here is always an exact plain array or plain object and never one
+ * of those; the marker itself falls through the switch below to the symbol case.
  */
 function isIJSONValue(value: unknown): boolean {
   if (value === null) return true
@@ -95,8 +100,11 @@ function isIJSONValue(value: unknown): boolean {
  * number must be finite; and no array element or object member may be of a
  * type I-JSON cannot represent (see isIJSONValue()). Iterative with an
  * explicit stack (no recursion, so pathological nesting depth cannot overflow
- * the call stack) and tracks visited containers by reference so a cyclic
- * in-memory value terminates instead of looping forever. Never throws.
+ * the call stack). The value walked here has already passed through
+ * snapshotPlainData(), so it can no longer contain an actual cycle: a container
+ * that contained itself was replaced by the marker symbol at that position, which
+ * isIJSONValue() rejects. The visited set below only avoids revisiting a container
+ * reachable more than once without a cycle. Never throws.
  */
 function recordStringsAreIJSON(root: Record<string, unknown>): boolean {
   const visited = new Set<unknown>()
@@ -162,10 +170,17 @@ function failure(code: AuthorityFailure['code'], message: string): AuthorityFail
   return { code, message }
 }
 
-/** Closed-schema and canonical-value validation for an in-memory decoded record. */
+/**
+ * Closed-schema and canonical-value validation for an in-memory decoded record.
+ *
+ * Snapshots `value` to plain JSON data first (see plain-data.ts) and runs every check
+ * below against that snapshot only, so a getter or a Proxy trap in the caller's
+ * argument is read at most once and cannot answer this function's checks differently
+ * from the value this function actually returns failures about.
+ */
 export function validateAuthorityDelegationShape(value: unknown): AuthorityFailure[] {
   const failures: AuthorityFailure[] = []
-  const top = record(value)
+  const top = record(snapshotPlainData(value))
   if (!top) return [failure('SCHEMA_INVALID', 'delegation must be an exact closed v1 object')]
 
   // A recognised record_type whose version is any string other than "1.0" is
