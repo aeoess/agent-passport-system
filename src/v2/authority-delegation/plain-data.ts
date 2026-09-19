@@ -47,8 +47,23 @@ import { types } from 'node:util'
  * escapes any authority-delegation entry point on this account.
  *
  * The walk keeps an explicit stack instead of recursing, so pathological nesting depth
- * in an attacker-supplied argument cannot overflow the call stack. Every entry point
- * below calls this once per record argument, before any other read of that argument,
+ * in an attacker-supplied argument cannot overflow the call stack. It also keeps a map
+ * from each container object it has already finished (or already rejected) to that
+ * result, keyed by object identity, so a container reached again through another
+ * reference, while it is not on the current path, is not walked a second time: the copy
+ * already made (or the NOT_PLAIN_DATA already found) is placed again instead. A
+ * container reached again while it is still on the current path is a cycle and is
+ * unaffected by this map, since the cycle check runs first; only once that container
+ * has fully exited does a later reference to it read the map. This keeps the walk's
+ * cost linear in the number of distinct containers plus their members even when an
+ * input built from shared references, such as node_i = [node_(i-1), node_(i-1)], would
+ * otherwise multiply the work by the number of paths to each container. Object
+ * identity is enough here: the snapshot this returns is plain JSON data read only for
+ * its structure and values, so two positions in it holding the same copy, because two
+ * positions in the input held the same container, canonicalize and validate exactly as
+ * two positions holding separately copied but equal containers would.
+ *
+ * Every entry point below calls this once per record argument, before any other read of that argument,
  * and every later read in that entry point, including a read passed on to a
  * caller-supplied callback, must come from the returned snapshot rather than from the
  * original value, so a getter or a Proxy trap can never be read a second time with a
@@ -185,6 +200,10 @@ interface PendingExit {
 export function snapshotPlainData(root: unknown): unknown {
   let output: unknown
   const onPath = new Set<object>()
+  // Every container this walk has already finished, or already rejected for its own
+  // shape, keyed by its object identity: see the doc comment above. Never consulted for
+  // a container still on the current path, since the cycle check above it runs first.
+  const done = new Map<object, unknown>()
   const stack: (PendingValue | PendingExit)[] = [
     { kind: 'value', value: root, place: result => { output = result } },
   ]
@@ -212,10 +231,15 @@ export function snapshotPlainData(root: unknown): unknown {
         place(NOT_PLAIN_DATA) // a container on its own current path: a cycle
         continue
       }
+      if (done.has(value)) {
+        place(done.get(value)) // reached again, off its own path: reuse the result already found
+        continue
+      }
       if (Array.isArray(value)) {
         const shape = plainArrayShape(value)
-        if (!shape) { place(NOT_PLAIN_DATA); continue }
+        if (!shape) { done.set(value, NOT_PLAIN_DATA); place(NOT_PLAIN_DATA); continue }
         const copy: unknown[] = new Array(shape.length)
+        done.set(value, copy)
         place(copy)
         onPath.add(value)
         stack.push({ kind: 'exit', container: value })
@@ -230,8 +254,9 @@ export function snapshotPlainData(root: unknown): unknown {
         }
       } else {
         const shape = plainObjectShape(value)
-        if (!shape) { place(NOT_PLAIN_DATA); continue }
+        if (!shape) { done.set(value, NOT_PLAIN_DATA); place(NOT_PLAIN_DATA); continue }
         const copy: Record<string, unknown> = {}
+        done.set(value, copy)
         place(copy)
         onPath.add(value)
         stack.push({ kind: 'exit', container: value })

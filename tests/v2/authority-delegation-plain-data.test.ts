@@ -570,3 +570,44 @@ test('an issued record keeps the body member order, followed by delegation_id an
   assert.deepEqual(Object.keys(issued), [...Object.keys(body), 'delegation_id', 'signature'])
   assert.deepEqual(Object.keys(issued.authority), Object.keys(body.authority))
 })
+
+/** Builds node_0 = [] and node_i = [node_(i-1), node_(i-1)]: d+1 distinct arrays sharing
+ *  references so that there are 2^d root-to-leaf paths through them, without a cycle. */
+function sharedReferenceStructure(depth: number): unknown {
+  let node: unknown = []
+  for (let i = 0; i < depth; i++) node = [node, node]
+  return node
+}
+
+test('a depth-40 shared-reference structure inside an extra top-level member is rejected within 1 second, the same result any extra member gives', () => {
+  const withDeepExtra = {
+    ...unsignable(childBody(root) as unknown as Record<string, unknown>),
+    extra_member: sharedReferenceStructure(40),
+  } as unknown as AuthorityDelegationV1
+  const start = process.hrtime.bigint()
+  const checked = verifyAuthorityDelegationChain([root, withDeepExtra], chainOptions(root.delegation_id))
+  const elapsedMs = Number(process.hrtime.bigint() - start) / 1e6
+  assert.ok(elapsedMs < 1000, `expected under 1000 ms, took ${elapsedMs.toFixed(1)} ms`)
+  assert.equal(checked.state, 'invalid')
+
+  const withShallowExtra = {
+    ...unsignable(childBody(root) as unknown as Record<string, unknown>),
+    extra_member: 'x',
+  } as unknown as AuthorityDelegationV1
+  const reference = verifyAuthorityDelegationChain([root, withShallowExtra], chainOptions(root.delegation_id))
+  assert.deepEqual(codesOf(checked), codesOf(reference))
+})
+
+test('a 5,000,000-element array as the chain container is rejected within 100 ms, the same result any over-length chain gives', () => {
+  const hugeChain = new Array(5_000_000).fill(root) as unknown as AuthorityDelegationV1[]
+  const start = process.hrtime.bigint()
+  const checked = verifyAuthorityDelegationChain(hugeChain, chainOptions(root.delegation_id))
+  const elapsedMs = Number(process.hrtime.bigint() - start) / 1e6
+  assert.ok(elapsedMs < 100, `expected under 100 ms, took ${elapsedMs.toFixed(1)} ms`)
+  assert.equal(checked.state, 'invalid')
+  assert.deepEqual(codesOf(checked), ['SCHEMA_INVALID'])
+
+  const smallOverLength = new Array(257).fill(root) as unknown as AuthorityDelegationV1[]
+  const reference = verifyAuthorityDelegationChain(smallOverLength, chainOptions(root.delegation_id))
+  assert.deepEqual(codesOf(checked), codesOf(reference))
+})
