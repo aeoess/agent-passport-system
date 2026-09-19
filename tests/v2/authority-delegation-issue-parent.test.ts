@@ -24,6 +24,7 @@ import {
   VALUES_PROFILE_V1,
   authorityDelegationBody,
   computeAuthorityDelegationId,
+  computeAuthorityDelegationIdForWrite,
   issueAuthorityDelegation,
   issueSubAuthorityDelegation,
   signAuthorityDelegation,
@@ -85,6 +86,32 @@ function childBody(parent: AuthorityDelegationV1, nonce = '102132435465768798a9b
       reputation: { profile: REPUTATION_PROFILE_V1, ceiling: 70 },
       values: { profile: VALUES_PROFILE_V1, required: ['F-001', 'F-003', 'F-004'] },
       reversibility: { profile: REVERSIBILITY_PROFILE_V1, ceiling: 'tentative' },
+    },
+  }
+}
+
+/**
+ * A shape-valid child body whose parent_delegation_id names no delegation this file
+ * ever issues: 64 lowercase "a" hex digits after the sha256: prefix.
+ */
+function orphanChildBody(): AuthorityDelegationBodyV1 {
+  return {
+    record_type: AUTHORITY_DELEGATION_RECORD_TYPE,
+    version: AUTHORITY_DELEGATION_VERSION,
+    parent_delegation_id: `sha256:${'a'.repeat(64)}`,
+    issuer: ROOT_SUBJECT,
+    subject: CHILD_SUBJECT,
+    verification_method: CHILD_VM,
+    issued_at: ROOT_NOT_BEFORE,
+    nonce: '102132435465768798a9bacbdcedfe0f',
+    authority: {
+      scope: { profile: SCOPE_PROFILE_V1, grants: ['*'] },
+      spend: { mode: 'unbounded' },
+      depth: { remaining: 255 },
+      time: { not_before: ROOT_NOT_BEFORE, not_after: ROOT_NOT_AFTER },
+      reputation: { profile: REPUTATION_PROFILE_V1, ceiling: 100 },
+      values: { profile: VALUES_PROFILE_V1, required: [] },
+      reversibility: { profile: REVERSIBILITY_PROFILE_V1, ceiling: 'compensable' },
     },
   }
 }
@@ -325,4 +352,33 @@ test('the same sound root and child bodies, without the extra member, still issu
   })
   assert.equal(checked.state, 'valid')
   assert.equal(c.delegation_id, computeAuthorityDelegationId(authorityDelegationBody(c)))
+})
+
+test('root: a valid child body under a real, sound parent refuses (PARENT_MISMATCH)', () => {
+  throwsCode(
+    () => issueAuthorityDelegation(childBody(root), rootKeys.privateKey),
+    'PARENT_MISMATCH',
+  )
+})
+
+test('root: an orphan child body refuses (PARENT_MISMATCH)', () => {
+  throwsCode(
+    () => issueAuthorityDelegation(orphanChildBody(), rootKeys.privateKey),
+    'PARENT_MISMATCH',
+  )
+})
+
+test('root: a sound root body still issues, and its delegation_id recomputes', () => {
+  const body = rootBody()
+  const issued = issueAuthorityDelegation(body, rootKeys.privateKey)
+  assert.equal(issued.delegation_id, computeAuthorityDelegationId(authorityDelegationBody(issued)))
+})
+
+test('child: the sound child is byte-identical to the raw id and signature helpers', () => {
+  const body = childBody(root)
+  const child = issueSubAuthorityDelegation(root, body, childKeys.privateKey, options())
+  const delegation_id = computeAuthorityDelegationIdForWrite(body)
+  const signature = signAuthorityDelegation({ ...body, delegation_id }, childKeys.privateKey)
+  assert.equal(child.delegation_id, delegation_id)
+  assert.equal(child.signature, signature)
 })

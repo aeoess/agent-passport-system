@@ -20,6 +20,7 @@ import {
   VALUES_PROFILE_V1,
   compareCanonicalTimestamps,
   computeAuthorityDelegationId,
+  computeAuthorityDelegationIdForWrite,
   isCanonicalTimestamp,
   issueAuthorityDelegation,
   issueSubAuthorityDelegation,
@@ -66,6 +67,19 @@ function activeOptions(now: string, trustedId: string): AuthorityChainVerificati
 /** Sign a body directly, bypassing issueAuthorityDelegation's own shape check. */
 function sign(body: AuthorityDelegationBodyV1, privateKey: string): AuthorityDelegationV1 {
   const delegation_id = computeAuthorityDelegationId(body)
+  const signature = signAuthorityDelegation({ ...body, delegation_id }, privateKey)
+  return { ...body, delegation_id, signature }
+}
+
+/**
+ * Sign a shape-valid child body with the write-boundary id and signature helpers, the
+ * same two calls issueAuthorityDelegation and issueSubAuthorityDelegation make
+ * internally. issueAuthorityDelegation itself now refuses any body whose
+ * parent_delegation_id is not null, so a test that deliberately needs a child the
+ * child issuer would refuse builds the record with these raw helpers instead.
+ */
+function signChildDirectly(body: AuthorityDelegationBodyV1, privateKey: string): AuthorityDelegationV1 {
+  const delegation_id = computeAuthorityDelegationIdForWrite(body)
   const signature = signAuthorityDelegation({ ...body, delegation_id }, privateKey)
   return { ...body, delegation_id, signature }
 }
@@ -245,10 +259,12 @@ test('TIME_WIDENING is caught across a leap second, where Date.parse would give 
     }),
     ROOT_KEY,
   )
-  // Built with issueAuthorityDelegation directly, not issueSubAuthorityDelegation: the
-  // child is shape-valid on its own, but widens the parent's window at the chain level,
-  // which is exactly what issueSubAuthorityDelegation would refuse to issue.
-  const child = issueAuthorityDelegation(
+  // Built with the raw write-boundary helpers directly, not issueSubAuthorityDelegation:
+  // the child is shape-valid on its own, but widens the parent's window at the chain
+  // level, which is exactly what issueSubAuthorityDelegation would refuse to issue, and
+  // issueAuthorityDelegation itself now refuses any body whose parent_delegation_id is
+  // not null.
+  const child = signChildDirectly(
     childBodyWith(root, '2016-12-31T23:59:60.000Z', {
       not_before: '2016-12-31T23:59:60.000Z',
       not_after: '2017-01-01T00:00:00.000Z',

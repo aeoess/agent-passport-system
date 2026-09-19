@@ -43,11 +43,32 @@ function carriesOwnIdentityMember(body: unknown): boolean {
 }
 
 /**
- * Create a deterministic v1 record from explicit body fields and an Ed25519 key.
+ * Compute the delegation_id and Ed25519 signature and assemble the signed record.
  *
- * Refuses a body already carrying an own delegation_id or signature member
- * (SCHEMA_INVALID), so the returned record's delegation_id always recomputes from its
- * own body: draft section 3.1 (lines 484-490) and section 3.6 (lines 700-704).
+ * Module-private write-boundary finishing step shared by issueAuthorityDelegation and
+ * issueSubAuthorityDelegation: both call this only after their own checks have already
+ * passed, so it never re-validates `body`.
+ */
+function finalizeAuthorityDelegation(
+  body: AuthorityDelegationBodyV1,
+  privateKey: string,
+): AuthorityDelegationV1 {
+  const delegation_id = computeAuthorityDelegationIdForWrite(body)
+  const unsigned: Omit<AuthorityDelegationV1, 'signature'> = { ...body, delegation_id }
+  return { ...unsigned, signature: signAuthorityDelegation(unsigned, privateKey) }
+}
+
+/**
+ * Create a deterministic v1 root record from explicit body fields and an Ed25519 key.
+ *
+ * Issues roots only. Refuses a body already carrying an own delegation_id or signature
+ * member (SCHEMA_INVALID), so the returned record's delegation_id always recomputes
+ * from its own body: draft section 3.1 (lines 484-490) and section 3.6 (lines
+ * 700-704). Refuses a body whose parent_delegation_id is not null (PARENT_MISMATCH):
+ * section 3.1, line 428, states that parent_delegation_id is null only for a root
+ * selected by verifier trust policy. A child is minted only through
+ * issueSubAuthorityDelegation, which performs the section 3.6 (lines 695-704) parent
+ * checks before signing.
  */
 export function issueAuthorityDelegation(
   body: AuthorityDelegationBodyV1,
@@ -57,9 +78,10 @@ export function issueAuthorityDelegation(
     throw new Error('authority delegation body must carry neither delegation_id nor signature (SCHEMA_INVALID)')
   }
   assertBody(body)
-  const delegation_id = computeAuthorityDelegationIdForWrite(body)
-  const unsigned: Omit<AuthorityDelegationV1, 'signature'> = { ...body, delegation_id }
-  return { ...unsigned, signature: signAuthorityDelegation(unsigned, privateKey) }
+  if (body.parent_delegation_id !== null) {
+    throw new Error('authority delegation root body must have a null parent_delegation_id (PARENT_MISMATCH)')
+  }
+  return finalizeAuthorityDelegation(body, privateKey)
 }
 
 /**
@@ -178,5 +200,5 @@ export function issueSubAuthorityDelegation(
   if (failures.length > 0) {
     throw new Error(`authority delegation does not narrow (${failures[0].code})`)
   }
-  return issueAuthorityDelegation(body, privateKey)
+  return finalizeAuthorityDelegation(body, privateKey)
 }
