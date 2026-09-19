@@ -29,11 +29,33 @@ function assertBody(body: AuthorityDelegationBodyV1): void {
   }
 }
 
-/** Create a deterministic v1 record from explicit body fields and an Ed25519 key. */
+/**
+ * True when `body` is a non-null object carrying an own `delegation_id` or `signature`
+ * member, whatever its value, including `undefined` and `null`.
+ */
+function carriesOwnIdentityMember(body: unknown): boolean {
+  return (
+    typeof body === 'object' &&
+    body !== null &&
+    (Object.prototype.hasOwnProperty.call(body, 'delegation_id') ||
+      Object.prototype.hasOwnProperty.call(body, 'signature'))
+  )
+}
+
+/**
+ * Create a deterministic v1 record from explicit body fields and an Ed25519 key.
+ *
+ * Refuses a body already carrying an own delegation_id or signature member
+ * (SCHEMA_INVALID), so the returned record's delegation_id always recomputes from its
+ * own body: draft section 3.1 (lines 484-490) and section 3.6 (lines 700-704).
+ */
 export function issueAuthorityDelegation(
   body: AuthorityDelegationBodyV1,
   privateKey: string,
 ): AuthorityDelegationV1 {
+  if (carriesOwnIdentityMember(body)) {
+    throw new Error('authority delegation body must carry neither delegation_id nor signature (SCHEMA_INVALID)')
+  }
   assertBody(body)
   const delegation_id = computeAuthorityDelegationIdForWrite(body)
   const unsigned: Omit<AuthorityDelegationV1, 'signature'> = { ...body, delegation_id }
@@ -67,13 +89,18 @@ export interface SubAuthorityIssueOptions {
  * parent's delegation_id against its own body (ID_MISMATCH); the parent's signing key
  * resolves (KEY_RESOLUTION_FAILED) and its signature verifies (SIGNATURE_INVALID); the
  * parent is valid at `now` (NOT_YET_VALID, EXPIRED); the parent's revocation resolves
- * to exactly "active" (REVOKED, REVOCATION_UNKNOWN); then the existing checks, in
- * their existing order: the child body's shape, its parent_delegation_id, chain
- * continuity, issued_at inside the parent's validity window, and the seven-facet
- * attenuation of the child under the parent.
+ * to exactly "active" (REVOKED, REVOCATION_UNKNOWN); the body carries neither an own
+ * delegation_id nor an own signature member (SCHEMA_INVALID); then the existing
+ * checks, in their existing order: the child body's shape, its parent_delegation_id,
+ * chain continuity, issued_at inside the parent's validity window, and the
+ * seven-facet attenuation of the child under the parent.
  *
- * Not checked here: a body that already carries a delegation_id or signature member
- * is hashed and signed with that member included.
+ * The delegation_id-or-signature check runs immediately after the revocation check
+ * and immediately before the child body's shape check, per draft section 3.1
+ * (lines 484-490) and section 3.6 (lines 700-704): a body hashed and signed while
+ * already carrying one of those members would not recompute its delegation_id from
+ * its own body, leaving an invalidity for a later verifier to discover instead of
+ * refusing it at issuance.
  */
 export function issueSubAuthorityDelegation(
   parent: AuthorityDelegationV1,
@@ -129,6 +156,10 @@ export function issueSubAuthorityDelegation(
   }
   if (parentRevocation !== 'active') {
     throw new Error('authority delegation parent revocation status is unknown (REVOCATION_UNKNOWN)')
+  }
+
+  if (carriesOwnIdentityMember(body)) {
+    throw new Error('authority delegation body must carry neither delegation_id nor signature (SCHEMA_INVALID)')
   }
 
   assertBody(body)
