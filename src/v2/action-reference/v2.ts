@@ -16,7 +16,7 @@ import {
 const DOMAIN = 'APS-ACTION-REF-V2\0'
 
 const ACTION_REF_ISSUED_AT =
-  /^([0-9]{4})-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])T([01][0-9]|2[0-3]):[0-5][0-9]:([0-5][0-9]|60)\.[0-9]{3}Z$/
+  /^([0-9]{4})-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])T([01][0-9]|2[0-3]):([0-5][0-9]):([0-5][0-9]|60)\.[0-9]{3}Z$/
 
 const DAYS_IN_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
 
@@ -26,13 +26,16 @@ function isLeapYear(year: number): boolean {
 
 /** issued_at check local to the action reference surface.
  *
- *  draft-pidlisnyi-aps-03 section 4.1 names RFC 3339 for issued_at, and RFC
- *  3339's grammar admits time-second 60 for a leap second. A validator has
- *  no leap-second table to consult, so second 60 is accepted lexically at
- *  any hour and minute the grammar allows. The shared assertUtcMilliseconds
- *  helper (identity-binding/validation.ts) rejects second 60 and also
- *  serves passport and principal-binding validation, so this check stays
- *  local here instead of changing that helper and the surfaces it serves.
+ *  draft-pidlisnyi-aps-03 section 4.1 names RFC 3339 for issued_at. RFC 3339
+ *  section 5.7 admits time-second 60 only for a leap second, and Appendix D
+ *  writes it as "YYYY-MM-DDT23:59:60Z": second 60 is valid only at 23:59 on
+ *  the last day of its month in the proleptic Gregorian calendar, and every
+ *  other second-60 value is invalid. There is no leap-second table to
+ *  consult and none is needed, since the hour, minute and day settle it.
+ *  The shared assertUtcMilliseconds helper (identity-binding/validation.ts)
+ *  rejects second 60 outright and also serves passport and
+ *  principal-binding validation, so this check stays local here instead of
+ *  changing that helper and the surfaces it serves.
  *
  *  Calendar validity is checked with integer arithmetic, never Date, since
  *  Date cannot represent a leap second.
@@ -43,8 +46,14 @@ function assertActionRefIssuedAt(value: string): void {
   const year = Number(match[1])
   const month = Number(match[2])
   const day = Number(match[3])
+  const hour = Number(match[4])
+  const minute = Number(match[5])
+  const second = Number(match[6])
   const maxDay = month === 2 && isLeapYear(year) ? 29 : DAYS_IN_MONTH[month - 1]
   if (day > maxDay) throw new Error('issued_at: invalid calendar timestamp')
+  if (second === 60 && !(hour === 23 && minute === 59 && day === maxDay)) {
+    throw new Error('issued_at: invalid calendar timestamp')
+  }
 }
 
 export interface ActionReferenceInputV2 {
