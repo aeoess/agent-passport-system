@@ -53,9 +53,9 @@ export function issueSubAuthorityDelegation(
   if (body.issuer !== parent.subject) {
     throw new Error('authority delegation chain continuity failure')
   }
-  const issued = Date.parse(body.issued_at)
-  if (issued < Date.parse(parent.authority.time.not_before) ||
-      issued >= Date.parse(parent.authority.time.not_after)) {
+  const issued = body.issued_at
+  if (issued < parent.authority.time.not_before ||
+      issued >= parent.authority.time.not_after) {
     throw new Error('authority delegation issued_at is outside parent validity')
   }
   const failures = compareAuthority(parent.authority, body.authority)

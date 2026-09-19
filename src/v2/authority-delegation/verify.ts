@@ -35,7 +35,7 @@ export function verifyAuthorityDelegationChain(
   if (!options || !isCanonicalTimestamp(options.now)) {
     return result('invalid', [{ code: 'NONCANONICAL_VALUE', message: 'verification clock must be canonical UTC milliseconds' }])
   }
-  const now = Date.parse(options.now)
+  const now = options.now
 
   const chain: AuthorityDelegationV1[] = []
   for (let i = 0; i < rawChain.length; i++) {
@@ -103,9 +103,9 @@ export function verifyAuthorityDelegationChain(
     if (child.issuer !== parent.subject) {
       return result('invalid', [{ code: 'CHAIN_CONTINUITY', index: i, message: 'child issuer is not parent subject' }])
     }
-    const issued = Date.parse(child.issued_at)
-    if (issued < Date.parse(parent.authority.time.not_before) ||
-        issued >= Date.parse(parent.authority.time.not_after)) {
+    const issued = child.issued_at
+    if (issued < parent.authority.time.not_before ||
+        issued >= parent.authority.time.not_after) {
       return result('invalid', [{ code: 'ISSUED_AT_OUTSIDE_PARENT', index: i, message: 'child was issued outside parent validity window' }])
     }
     const attenuationFailures = compareAuthority(parent.authority, child.authority)
@@ -118,10 +118,10 @@ export function verifyAuthorityDelegationChain(
 
   for (let i = 0; i < chain.length; i++) {
     const delegation = chain[i]
-    if (now < Date.parse(delegation.authority.time.not_before)) {
+    if (now < delegation.authority.time.not_before) {
       return result('invalid', [{ code: 'NOT_YET_VALID', index: i, message: 'delegation is not yet valid' }])
     }
-    if (now >= Date.parse(delegation.authority.time.not_after)) {
+    if (now >= delegation.authority.time.not_after) {
       return result('invalid', [{ code: 'EXPIRED', index: i, message: 'delegation has expired' }])
     }
     let revocation: 'active' | 'revoked' | 'unknown' = 'unknown'
