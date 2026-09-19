@@ -224,7 +224,7 @@ export function validateAuthorityDelegationShape(value: unknown): AuthorityFailu
     failures.push(failure('NONCANONICAL_VALUE', 'time bounds must be canonical UTC milliseconds'))
   } else if (time.not_before >= time.not_after) {
     failures.push(failure('SCHEMA_INVALID', 'time window must be non-empty'))
-  } else if (isCanonicalTimestamp(top.issued_at) && time.not_before < top.issued_at) {
+  } else if (top.parent_delegation_id !== null && isCanonicalTimestamp(top.issued_at) && time.not_before < top.issued_at) {
     failures.push(failure('SCHEMA_INVALID', 'time.not_before cannot predate issued_at'))
   }
 
