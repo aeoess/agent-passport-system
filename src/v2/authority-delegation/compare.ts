@@ -49,8 +49,8 @@ export function compareAuthority(
     fail(failures, 'DEPTH_WIDENING', 'depth', 'child remaining depth must consume at least one hop')
   }
 
-  if (Date.parse(child.time.not_before) < Date.parse(parent.time.not_before) ||
-      Date.parse(child.time.not_after) > Date.parse(parent.time.not_after)) {
+  if (child.time.not_before < parent.time.not_before ||
+      child.time.not_after > parent.time.not_after) {
     fail(failures, 'TIME_WIDENING', 'time', 'child validity window is not contained in parent window')
   }
 

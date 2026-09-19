@@ -18,7 +18,18 @@ const HEX_128 = /^[0-9a-f]{128}$/
 const DECIMAL = /^(0|[1-9][0-9]*)$/
 const IDENTIFIER = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/
 const MAX_QUANTITY = 9223372036854775807n
-const MILLIS_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/
+// RFC 3339 exact UTC-millisecond form. Group 1 = year, 2 = month, 3 = day,
+// 4 = hour, 5 = second (minute is not captured; the pattern alone bounds it
+// to 00-59). Second 60 is accepted lexically at any hour and minute, because
+// a validator cannot consult the leap-second table.
+const CANONICAL_TIMESTAMP =
+  /^([0-9]{4})-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])T([01][0-9]|2[0-3]):[0-5][0-9]:([0-5][0-9]|60)\.[0-9]{3}Z$/
+const DAYS_IN_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+
+/** Proleptic Gregorian leap year, so year 0000 is a leap year. */
+function isLeapYear(year: number): boolean {
+  return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0
+}
 
 function record(value: unknown): Record<string, unknown> | null {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -46,9 +57,27 @@ function wellFormedUnicode(value: string): boolean {
 }
 
 export function isCanonicalTimestamp(value: unknown): value is string {
-  if (typeof value !== 'string' || !MILLIS_UTC.test(value) || value.startsWith('0000-')) return false
-  const parsed = new Date(value)
-  return Number.isFinite(parsed.getTime()) && parsed.toISOString() === value
+  if (typeof value !== 'string') return false
+  const match = CANONICAL_TIMESTAMP.exec(value)
+  if (!match) return false
+  const year = Number(match[1])
+  const month = Number(match[2])
+  const day = Number(match[3])
+  const maxDay = month === 2 && isLeapYear(year) ? 29 : DAYS_IN_MONTH[month - 1]
+  return day <= maxDay
+}
+
+/**
+ * String-order comparison of two canonical timestamps.
+ *
+ * RFC 3339 section 5.1: timestamps in the same format (all UTC "Z", same
+ * number of fractional digits) sort as strings into time order, so this
+ * compares the strings directly rather than going through Date.parse (which
+ * returns NaN for a leap-second ":60" value). Defined only for values that
+ * have already passed isCanonicalTimestamp.
+ */
+export function compareCanonicalTimestamps(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0
 }
 
 export function isCanonicalQuantity(value: unknown): value is string {
@@ -96,13 +125,15 @@ export function validateAuthorityDelegationShape(value: unknown): AuthorityFailu
   }
 
   const scope = record(authority.scope)
-  if (!scope || !exactKeys(scope, ['profile', 'grants']) || typeof scope.profile !== 'string' ||
-      !IDENTIFIER.test(scope.profile) || !Array.isArray(scope.grants) ||
+  if (!scope || typeof scope.profile !== 'string') {
+    failures.push(failure('SCHEMA_INVALID', 'scope must contain profile and grants'))
+  } else if (scope.profile !== SCOPE_PROFILE_V1) {
+    failures.push(failure('UNSUPPORTED_PROFILE', 'unsupported scope profile'))
+  } else if (!exactKeys(scope, ['profile', 'grants']) || !Array.isArray(scope.grants) ||
       !scope.grants.every(item => typeof item === 'string')) {
     failures.push(failure('SCHEMA_INVALID', 'scope must contain profile and grants'))
-  } else {
-    if (scope.profile !== SCOPE_PROFILE_V1) failures.push(failure('UNSUPPORTED_PROFILE', 'unsupported scope profile'))
-    if (!grantsAreCanonical(scope.grants as string[])) failures.push(failure('NONCANONICAL_VALUE', 'scope grants must be valid, sorted, unique, and irredundant'))
+  } else if (!grantsAreCanonical(scope.grants as string[])) {
+    failures.push(failure('NONCANONICAL_VALUE', 'scope grants must be valid, sorted, unique, and irredundant'))
   }
 
   const spend = record(authority.spend)
@@ -130,29 +161,32 @@ export function validateAuthorityDelegationShape(value: unknown): AuthorityFailu
   if (!time || !exactKeys(time, ['not_before', 'not_after']) ||
       !isCanonicalTimestamp(time.not_before) || !isCanonicalTimestamp(time.not_after)) {
     failures.push(failure('NONCANONICAL_VALUE', 'time bounds must be canonical UTC milliseconds'))
-  } else if (Date.parse(time.not_before) >= Date.parse(time.not_after)) {
+  } else if (time.not_before >= time.not_after) {
     failures.push(failure('SCHEMA_INVALID', 'time window must be non-empty'))
-  } else if (isCanonicalTimestamp(top.issued_at) && Date.parse(time.not_before) < Date.parse(top.issued_at)) {
+  } else if (isCanonicalTimestamp(top.issued_at) && time.not_before < top.issued_at) {
     failures.push(failure('SCHEMA_INVALID', 'time.not_before cannot predate issued_at'))
   }
 
   const reputation = record(authority.reputation)
-  if (!reputation || !exactKeys(reputation, ['profile', 'ceiling']) ||
-      typeof reputation.profile !== 'string' || !IDENTIFIER.test(reputation.profile) ||
-      !Number.isInteger(reputation.ceiling) || (reputation.ceiling as number) < 0 ||
-      (reputation.ceiling as number) > 100) {
+  if (!reputation || typeof reputation.profile !== 'string') {
     failures.push(failure('SCHEMA_INVALID', 'reputation ceiling must be an integer from 0 through 100'))
   } else if (reputation.profile !== REPUTATION_PROFILE_V1) {
     failures.push(failure('UNSUPPORTED_PROFILE', 'unsupported reputation profile'))
+  } else if (!exactKeys(reputation, ['profile', 'ceiling']) ||
+      !Number.isInteger(reputation.ceiling) || (reputation.ceiling as number) < 0 ||
+      (reputation.ceiling as number) > 100) {
+    failures.push(failure('SCHEMA_INVALID', 'reputation ceiling must be an integer from 0 through 100'))
   }
 
   const values = record(authority.values)
-  if (!values || !exactKeys(values, ['profile', 'required']) || typeof values.profile !== 'string' ||
-      !IDENTIFIER.test(values.profile) || !Array.isArray(values.required) ||
+  if (!values || typeof values.profile !== 'string') {
+    failures.push(failure('SCHEMA_INVALID', 'values.required must contain valid identifiers'))
+  } else if (values.profile !== VALUES_PROFILE_V1) {
+    failures.push(failure('UNSUPPORTED_PROFILE', 'unsupported values profile'))
+  } else if (!exactKeys(values, ['profile', 'required']) || !Array.isArray(values.required) ||
       !values.required.every(item => typeof item === 'string' && IDENTIFIER.test(item))) {
     failures.push(failure('SCHEMA_INVALID', 'values.required must contain valid identifiers'))
   } else {
-    if (values.profile !== VALUES_PROFILE_V1) failures.push(failure('UNSUPPORTED_PROFILE', 'unsupported values profile'))
     const required = values.required as string[]
     if (required.some((item, i) => i > 0 && required[i - 1] >= item)) {
       failures.push(failure('NONCANONICAL_VALUE', 'values.required must be sorted and unique'))
@@ -160,12 +194,14 @@ export function validateAuthorityDelegationShape(value: unknown): AuthorityFailu
   }
 
   const reversibility = record(authority.reversibility)
-  if (!reversibility || !exactKeys(reversibility, ['profile', 'ceiling']) ||
-      typeof reversibility.profile !== 'string' || !IDENTIFIER.test(reversibility.profile) ||
-      !['tentative', 'compensable', 'irreversible'].includes(String(reversibility.ceiling))) {
+  if (!reversibility || typeof reversibility.profile !== 'string') {
     failures.push(failure('SCHEMA_INVALID', 'reversibility facet is malformed'))
   } else if (reversibility.profile !== REVERSIBILITY_PROFILE_V1) {
     failures.push(failure('UNSUPPORTED_PROFILE', 'unsupported reversibility profile'))
+  } else if (!exactKeys(reversibility, ['profile', 'ceiling']) ||
+      typeof reversibility.ceiling !== 'string' ||
+      !['tentative', 'compensable', 'irreversible'].includes(reversibility.ceiling)) {
+    failures.push(failure('SCHEMA_INVALID', 'reversibility facet is malformed'))
   }
 
   return failures
