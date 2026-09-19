@@ -47,18 +47,23 @@ const isRawJSON: (value: object) => boolean =
  * serializes an array by its length and its indices, so such a property is invisible to
  * the JSON form as well, and "toJSON", the one own name that would change that form, is
  * refused. Refusing the others instead would mean enumerating the array's own property
- * names, which this engine cannot do at 2**23 members or more.
+ * names, which this engine cannot do at 2**23 members or more. Ordinary JavaScript reads
+ * of the caller's own array, Object.keys, for-in and object spread among them, do still
+ * show such a property; the snapshot, the validated content, the signed bytes and
+ * JSON.stringify do not.
  *
  * An object's own property names are enumerated, because every one of them is copied,
  * and an object is the one input shape this module cannot judge at every size: this
- * engine refuses to enumerate 2**23 or more own property names, so an object with that
- * many own members is not plain data here, while the Python SDK accepts the same
- * record. Reading the names of only the enumerable members would lift that ceiling, but
- * it would also stop this module from refusing an own non-enumerable member, which a
- * JSON serializer drops silently. Whether an implementation may impose a record-size
- * limit, and with which result state, is not something the draft states, so the ceiling
- * is recorded here and left as it is, pending a protocol ruling, rather than answered
- * with a rule of this module's own.
+ * engine returns at most 2**23 own property names and throws RangeError beyond that, so
+ * an object with 2**23 + 1 or more own members is not plain data here, while the Python
+ * SDK accepts the same record. An object with exactly 2**23 own members is fine, and so
+ * is an array of any length, since an array's names are no longer enumerated. Reading
+ * the names of only the enumerable members would lift that ceiling, but it would also
+ * stop this module from refusing an own non-enumerable member, which a JSON serializer
+ * drops silently. Whether an implementation may impose a record-size limit, and with
+ * which result state, is not something the draft states, so the ceiling is recorded here
+ * and left as it is, pending a protocol ruling, rather than answered with a rule of this
+ * module's own.
  *
  * An exact plain object is a non-array, non-Proxy object whose
  * prototype is null, or whose prototype is the Object.prototype of some realm, which
@@ -118,7 +123,13 @@ const isRawJSON: (value: object) => boolean =
  * once its value has been copied. What the walk needs at any moment is therefore the
  * snapshot it is building plus the depth of the input, not a task and a descriptor per
  * decoded member: a 28 MB decoded record used to exhaust the heap and abort the process
- * where the same record now verifies. It also keeps a map
+ * where the same record now verifies. One consequence of reading a member's descriptor
+ * only when the cursor reaches it: a container whose last member is the one that is not
+ * an enumerable data property has already had every member before it copied when that is
+ * found, and those copies stay in the map below for the rest of the call. The refusal
+ * therefore costs what the accepted part of that container costs, rather than nothing,
+ * on input no JSON parser can produce, since a hole, an accessor and a non-enumerable
+ * member all come from a caller building the value by hand. It also keeps a map
  * from each container object it has already finished (or already rejected) to that
  * result, keyed by object identity, so a container reached again through another
  * reference, while it is not on the current path, is not walked a second time: the copy
@@ -300,17 +311,22 @@ function isPlainObjectPrototype(prototype: unknown, cache: PrototypeIntrinsicCac
  *
  *  This never enumerates the array's own property names. Object.getOwnPropertyNames and
  *  Object.getOwnPropertyDescriptors throw RangeError("Too many properties to enumerate")
- *  on an array of 2**23 or more members, and that exception, caught by the walk below,
+ *  on an array of 2**23 members or more, whose names are its indices plus "length", and
+ *  that exception, caught by the walk below,
  *  used to turn a correctly signed record that the Python SDK verifies valid into
  *  SCHEMA_INVALID. Callers pass only values for which Array.isArray(value) is already
  *  true and isProxy(value) is already false. */
 function plainArrayLength(value: object, cache: PrototypeIntrinsicCache): number | null {
   if (!isArrayPrototypeOfSomeRealm(Object.getPrototypeOf(value), cache)) return null
   if (Object.getOwnPropertySymbols(value).length > 0) return null
-  // The one own named property that changes what JSON.stringify reads from an array:
-  // it calls toJSON in place of serializing the members. Anything else own and named is
-  // invisible to JSON.stringify, which serializes an array by its length and indices.
-  if (Object.getOwnPropertyDescriptor(value, 'toJSON') !== undefined) return null
+  // The one own named property that can change what JSON.stringify reads from an array.
+  // JSON.stringify gets "toJSON" and calls it in place of serializing the members when
+  // it is callable, so an own callable toJSON, and an own accessor, whose getter this
+  // module must not call and which could return one, make the array not plain data. An
+  // own toJSON holding any other value is data JSON.stringify ignores, exactly like any
+  // other own named property of an array.
+  const toJSONDescriptor = Object.getOwnPropertyDescriptor(value, 'toJSON')
+  if (toJSONDescriptor && (!('value' in toJSONDescriptor) || typeof toJSONDescriptor.value === 'function')) return null
   const lengthDescriptor = Object.getOwnPropertyDescriptor(value, 'length')
   const length = lengthDescriptor ? lengthDescriptor.value : undefined
   if (typeof length !== 'number' || !Number.isInteger(length) || length < 0) return null
@@ -322,9 +338,9 @@ function plainArrayLength(value: object, cache: PrototypeIntrinsicCache): number
  *  raw JSON object, wrong prototype, or an own symbol-keyed property. Each named
  *  property is checked as the walk below reaches it: it must be an enumerable data
  *  property, so an accessor or a non-enumerable member makes the object not plain data.
- *  Object.getOwnPropertyNames throws RangeError("Too many properties to enumerate") at
- *  2**23 or more own properties, and the walk below turns that into the marker: see the
- *  module doc comment. Callers pass only values for which Array.isArray(value) is
+ *  Object.getOwnPropertyNames throws RangeError("Too many properties to enumerate") when
+ *  it would return more than 2**23 names, so at 2**23 + 1 or more own properties, and
+ *  the walk below turns that into the marker: see the module doc comment. Callers pass only values for which Array.isArray(value) is
  *  already false and isProxy(value) is already false. */
 function plainObjectKeys(value: object, cache: PrototypeIntrinsicCache): string[] | null {
   if (types.isBoxedPrimitive(value) || isRawJSON(value)) return null
@@ -501,14 +517,17 @@ export function snapshotPlainData(root: unknown): unknown {
  * other read of that member.
  *
  * Returns the container's own members, in their original order, each read exactly once
- * through its own property descriptor, when `value` is an exact plain array (never a
- * Proxy, at any point this function inspects, including as `value` itself, whose
- * prototype is the Array.prototype of some realm by the same realm-intrinsic identity
- * plainArrayShape() uses, and which carries no own symbol-keyed property) whose length,
- * read once through its own descriptor, is between `minLength` and `maxLength`
- * inclusive: the length bound is checked before any index of `value` is read. Returns
- * null on any other shape, and on any exception raised while inspecting `value`; the
- * caller then gives exactly the result a non-array chain gives.
+ * through its own property descriptor, when `value` is an exact plain array by the same
+ * rule plainArrayLength() applies to an array inside a record: never a Proxy, at any
+ * point this function inspects, including as `value` itself; its prototype is the
+ * Array.prototype of some realm by the same realm-intrinsic identity; it carries no own
+ * symbol-keyed property and no own callable or accessor "toJSON"; its length, read once
+ * through its own descriptor, is between `minLength` and `maxLength` inclusive, and that
+ * bound is checked before any index of `value` is read; and every index is an own
+ * enumerable data property. An own property that is neither an index nor "length" is
+ * ignored here as it is left out of the snapshot there. Returns null on any other shape,
+ * and on any exception raised while inspecting `value`; the caller then gives exactly
+ * the result a non-array chain gives.
  */
 export function readPlainDataChainContainer(
   value: unknown,
@@ -518,24 +537,12 @@ export function readPlainDataChainContainer(
   try {
     if (isProxy(value) || typeof value !== 'object' || value === null) return null
     if (!Array.isArray(value)) return null
-    const cache = newPrototypeIntrinsicCache()
-    if (!isArrayPrototypeOfSomeRealm(Object.getPrototypeOf(value), cache)) return null
-    if (Object.getOwnPropertySymbols(value).length > 0) return null
-    const lengthDescriptor = Object.getOwnPropertyDescriptor(value, 'length')
-    const length = lengthDescriptor ? lengthDescriptor.value : undefined
-    if (typeof length !== 'number' || !Number.isInteger(length) || length < minLength || length > maxLength) {
-      return null
-    }
-    const names = Object.getOwnPropertyNames(value)
-    if (names.length !== length + 1) return null
-    const nameSet = new Set(names)
-    if (!nameSet.has('length')) return null
+    const length = plainArrayLength(value, newPrototypeIntrinsicCache())
+    if (length === null || length < minLength || length > maxLength) return null
     const members: unknown[] = new Array(length)
     for (let i = 0; i < length; i++) {
-      const key = String(i)
-      if (!nameSet.has(key)) return null // a hole
-      const descriptor = Object.getOwnPropertyDescriptor(value, key)
-      if (!descriptor || !('value' in descriptor) || descriptor.enumerable !== true) return null
+      const descriptor = Object.getOwnPropertyDescriptor(value, String(i))
+      if (!descriptor || !('value' in descriptor) || descriptor.enumerable !== true) return null // a hole, an accessor, or a non-enumerable index
       members[i] = descriptor.value
     }
     return members

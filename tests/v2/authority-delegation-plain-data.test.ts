@@ -716,8 +716,8 @@ test('grants with an own Symbol.iterator yielding "*" is SCHEMA_INVALID everywhe
   })
 })
 
-test('an array carrying an own toJSON is SCHEMA_INVALID everywhere', () => {
-  assertPlainDataAttackIsRejected('grants array carrying an own toJSON', target => {
+test('an array carrying an own callable toJSON, or an own toJSON accessor, is SCHEMA_INVALID everywhere', () => {
+  assertPlainDataAttackIsRejected('grants array carrying an own callable toJSON', target => {
     Object.defineProperty(target.authority.scope.grants, 'toJSON', {
       value: () => ['*'],
       enumerable: false,
@@ -725,6 +725,68 @@ test('an array carrying an own toJSON is SCHEMA_INVALID everywhere', () => {
     })
     return target
   })
+  assertPlainDataAttackIsRejected('grants array carrying an own toJSON accessor', target => {
+    Object.defineProperty(target.authority.scope.grants, 'toJSON', {
+      get: () => () => ['*'],
+      configurable: true,
+    })
+    return target
+  })
+})
+
+test('an own toJSON that is not callable is data: dropped from an array, kept in an object, exactly as JSON.stringify treats it', () => {
+  const child = signDirectly(childBody(root), childKeys.privateKey)
+
+  // On an array: JSON.stringify serializes the array by its indices and ignores the
+  // member, and so does the snapshot.
+  const arrayCase = structuredClone(child)
+  Object.defineProperty(arrayCase.authority.scope.grants, 'toJSON', {
+    value: 'not callable',
+    writable: true,
+    enumerable: true,
+    configurable: true,
+  })
+  assert.equal(
+    JSON.stringify(arrayCase.authority.scope.grants),
+    JSON.stringify(child.authority.scope.grants),
+  )
+  let seen: AuthorityDelegationV1 | undefined
+  const checked = verifyAuthorityDelegationChain([root, arrayCase], {
+    ...chainOptions(root.delegation_id),
+    resolveRevocation: candidate => { if (candidate.parent_delegation_id !== null) seen = candidate; return 'active' },
+  })
+  assert.equal(checked.state, 'valid')
+  assert.deepEqual(Object.getOwnPropertyNames(seen!.authority.scope.grants), ['0', 'length'])
+
+  // On an object: JSON.stringify serializes the member, and so does the snapshot, so a
+  // record carrying one is judged by the closed schema like any other extra member.
+  const objectCase = mutableRootBody()
+  ;(objectCase.authority as Record<string, unknown>).toJSON = 'not callable'
+  const objectRecord = unsignable(objectCase)
+  assert.ok(JSON.stringify(objectRecord).includes('"toJSON":"not callable"'))
+  const objectChecked = verifyAuthorityDelegationChain([objectRecord], chainOptions(objectRecord.delegation_id))
+  assert.equal(objectChecked.state, 'invalid')
+  assert.ok(codesOf(objectChecked).includes('SCHEMA_INVALID'))
+})
+
+test('a chain container carrying an own property that is neither an index nor "length" is read like any other plain array', () => {
+  const properChild = issueSubAuthorityDelegation(root, childBody(root), childKeys.privateKey, {
+    now: ROOT_NOT_BEFORE,
+    resolveVerificationKey: resolveKeys,
+    resolveRevocation: () => 'active',
+  })
+  const container: unknown[] = [root, properChild]
+  Object.defineProperty(container, 'extra', { value: 'ignored', writable: true, enumerable: true, configurable: true })
+
+  assert.equal(verifyAuthorityDelegationChain(container, chainOptions(root.delegation_id)).state, 'valid')
+  assert.equal(
+    new InMemoryAuthorityBudgetLedger().reserve(container as AuthorityDelegationV1[], 'a'.repeat(64), 'iso4217:USD:minor', '1').code,
+    'RESERVED',
+  )
+
+  const hostileContainer: unknown[] = [root, properChild]
+  Object.defineProperty(hostileContainer, 'toJSON', { value: () => [root], configurable: true })
+  assert.equal(verifyAuthorityDelegationChain(hostileContainer, chainOptions(root.delegation_id)).state, 'invalid')
 })
 
 test('an array member that is a hole, an accessor or non-enumerable is SCHEMA_INVALID everywhere', () => {
