@@ -5,13 +5,23 @@ import { types } from 'node:util'
 
 /** Function.prototype.toString captured when this module loaded. isIntrinsicPrototype()
  *  below calls this reference rather than a candidate function's own toString, so a
- *  script that replaces Function.prototype.toString, or a constructor that overrides its
- *  own toString, after this module has already loaded cannot make a forged constructor
- *  read back as native code. */
+ *  constructor that overrides its own toString, or a script that replaces
+ *  Function.prototype.toString after this module has loaded, cannot make a forged
+ *  constructor read back as native code. That is all capturing it defends against: a
+ *  script that replaces some other built-in after load, Function.prototype.call among
+ *  them, is the modified-process case the doc comment below places outside what this
+ *  module can defend. */
 const functionToString = Function.prototype.toString
 
+/** JSON.isRawJSON where the runtime has it. A runtime without it has no JSON.rawJSON
+ *  either, so no raw JSON object can exist there and the answer is always false. */
+const isRawJSON: (value: object) => boolean =
+  typeof (JSON as unknown as { isRawJSON?: unknown }).isRawJSON === 'function'
+    ? (JSON as unknown as { isRawJSON: (value: object) => boolean }).isRawJSON
+    : () => false
+
 /**
- * Plain-JSON-data snapshot shared by every authority-delegation entry point.
+ * Plain-JSON-data snapshot shared by the authority-delegation entry points named below.
  *
  * The public draft (draft-pidlisnyi-aps-03) computes an identifier or a signature with
  * JCS, RFC 8785, over validated I-JSON (line 204), and treats a cryptographic or
@@ -33,10 +43,17 @@ const functionToString = Function.prototype.toString
  * indices 0 through length-1 plus "length", every index of which is an enumerable data
  * property, no hole, no accessor, no extra member, and which carries no own
  * symbol-keyed property. An exact plain object is a non-array, non-Proxy object whose
- * prototype is null, or whose prototype is the Object.prototype of some realm, every
- * own string-keyed property of which is an enumerable data property, and which carries
- * no own symbol-keyed property either: a symbol such as Symbol.iterator changes what
+ * prototype is null, or whose prototype is the Object.prototype of some realm, which
+ * holds no primitive value of its own (it is not a Boolean, Number, String, BigInt or
+ * Symbol wrapper object, as node:util's types.isBoxedPrimitive decides) and is not a
+ * JSON.rawJSON object (as JSON.isRawJSON decides, where the runtime has it), every own
+ * string-keyed property of which is an enumerable data property, and which carries no
+ * own symbol-keyed property either: a symbol such as Symbol.iterator changes what
  * JavaScript code reads from the value, even though JSON.parse never produces one.
+ * JSON.stringify serializes a wrapper object by the primitive it holds, and a raw JSON
+ * object by its raw text, never by its own members, so either one would otherwise be
+ * validated, hashed and signed by its own members while JSON.stringify gives the
+ * caller something else, or throws.
  * "The Array.prototype of some JavaScript realm" and "the Object.prototype of some
  * realm" are decided by isIntrinsicPrototype() below through realm-intrinsic identity,
  * an own "constructor" property leading back to a function whose own "prototype"
@@ -49,14 +66,24 @@ const functionToString = Function.prototype.toString
  * container that contains itself at any depth is not plain JSON data; a container
  * reachable twice without a cycle is fine.
  *
+ * A realm whose own Object.prototype or Array.prototype has itself been modified, by
+ * adding members to it or by changing its own [[Prototype]], is outside what this
+ * module defends: that intrinsic is still identified as itself, but JSON.stringify in
+ * that realm no longer serializes plain data by its own members alone, and a value from
+ * such a realm may be accepted or refused. The same holds for a process whose
+ * built-ins, such as Function.prototype.call, Object.getOwnPropertyDescriptor or
+ * node:util's types, are replaced after this module loads: a check running inside that
+ * process cannot defend against the process itself.
+ *
  * snapshotPlainData() reads every property of its argument exactly once, through
  * Object.getOwnPropertyDescriptor, never through ordinary property access, and never
  * calls a getter or a Proxy "get" trap. It copies plain values into fresh plain arrays
  * and objects and puts NOT_PLAIN_DATA in place of anything that is not plain, including
  * a container found on its own current path. isIJSONValue() in schema.ts already treats
  * any value of type symbol as not I-JSON, so the record-wide I-JSON walk rejects the
- * marker with no change of its own. For a top-level argument that is not itself a plain
- * object or plain array, the marker is the whole snapshot. Any exception raised while
+ * marker with no change of its own. A top-level argument that is a plain scalar is
+ * returned as it is; for any other top-level argument that is not a plain object or
+ * plain array, the marker is the whole snapshot. Any exception raised while
  * one value is inspected, a throwing Proxy trap among them, makes that one value
  * NOT_PLAIN_DATA rather than an exception out of the walk, so an exception never
  * escapes any authority-delegation entry point on this account.
@@ -78,11 +105,14 @@ const functionToString = Function.prototype.toString
  * but equal containers, and that shared copy is what appears at both positions in an
  * issued record's body and in whatever a caller-supplied callback receives.
  *
- * Every entry point below calls this once per record argument, before any other read of
- * that argument, and every later read in that entry point, including a read passed on
- * to a caller-supplied callback, must come from the returned snapshot rather than from
- * the original value, so a getter or a Proxy trap can never be read a second time with a
- * different answer.
+ * Each entry point named below calls this on each record argument, before any other
+ * read of that argument, and every later read in that entry point, including a read
+ * passed on to a caller-supplied callback, must come from the returned snapshot rather
+ * than from the original value, so a getter or a Proxy trap can never be read a second
+ * time with a different answer. validateAuthorityDelegationShape snapshots its own
+ * argument too, so a record another entry point has already snapshotted is copied a
+ * second time; that second copy reads only plain data and changes nothing but the work
+ * done.
  *
  * The entry points that snapshot this way are validateAuthorityDelegationShape (and
  * isAuthorityDelegationV1, which calls it), verifyAuthorityDelegationChain,
@@ -91,9 +121,13 @@ const functionToString = Function.prototype.toString
  * computeAuthorityDelegationIdForWrite, signAuthorityDelegation,
  * verifyAuthorityDelegationSignature, authorityDelegationBody, and the id and signature
  * input builders (authorityDelegationIdInput, authorityDelegationIdInputForWrite, and
- * authorityDelegationSignatureInput) do not snapshot: each of them is called only with a
- * value some entry point above has already snapshotted, or a value assembled from one,
- * so walking it again here would only repeat work already done.
+ * authorityDelegationSignatureInput) do not snapshot. The entry points above call them
+ * only with a value they have already snapshotted, or a value assembled from one. Several
+ * of them are also exported from the package root, and a caller who calls one directly
+ * passes its own value, which is then read through ordinary property access, getters
+ * and Proxy traps included, exactly as given: these helpers compute or check the id or
+ * signature of whatever value they receive and make no plain-data decision of their
+ * own.
  *
  * The chain container passed to verifyAuthorityDelegationChain and to
  * InMemoryAuthorityBudgetLedger.reserve is not itself record content, so
@@ -258,11 +292,12 @@ function plainArrayShape(value: object, cache: PrototypeIntrinsicCache): PlainAr
 }
 
 /** Reads every own string-keyed property descriptor of `value` exactly once. Returns
- *  null when `value` is not an exact plain object: wrong prototype, an own
- *  symbol-keyed property, an accessor, or a non-enumerable member. Callers pass only
- *  values for which Array.isArray(value) is already false and isProxy(value) is
- *  already false. */
+ *  null when `value` is not an exact plain object: a wrapper object holding a
+ *  primitive, a raw JSON object, wrong prototype, an own symbol-keyed property, an
+ *  accessor, or a non-enumerable member. Callers pass only values for which
+ *  Array.isArray(value) is already false and isProxy(value) is already false. */
 function plainObjectShape(value: object, cache: PrototypeIntrinsicCache): Map<string, PropertyDescriptor> | null {
+  if (types.isBoxedPrimitive(value) || isRawJSON(value)) return null
   if (!isPlainObjectPrototype(Object.getPrototypeOf(value), cache)) return null
   if (Object.getOwnPropertySymbols(value).length > 0) return null
   const shape = new Map<string, PropertyDescriptor>()
@@ -286,9 +321,9 @@ interface PendingExit {
 }
 
 /**
- * Deep snapshot of `root` under the plain-JSON-data rule documented above. Every
- * authority-delegation entry point calls this once per record argument, before any
- * other read of that argument, and runs all later logic on the snapshot only.
+ * Deep snapshot of `root` under the plain-JSON-data rule documented above. Each entry
+ * point named in that doc comment calls this on each record argument, before any other
+ * read of that argument, and runs all later logic on the snapshot only.
  */
 export function snapshotPlainData(root: unknown): unknown {
   let output: unknown
@@ -386,9 +421,9 @@ export function snapshotPlainData(root: unknown): unknown {
  * Checked, descriptor-only read of a chain container: the argument to
  * verifyAuthorityDelegationChain and to InMemoryAuthorityBudgetLedger.reserve. The
  * container itself is not record content, so it is checked for shape and read here
- * without being copied through snapshotPlainData; every entry point still snapshots
- * each member this returns, on its own, through snapshotPlainData, before any other
- * read of that member.
+ * without being copied through snapshotPlainData; both of those entry points still
+ * snapshot each member this returns, on its own, through snapshotPlainData, before any
+ * other read of that member.
  *
  * Returns the container's own members, in their original order, each read exactly once
  * through its own property descriptor, when `value` is an exact plain array (never a
