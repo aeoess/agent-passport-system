@@ -55,10 +55,14 @@ const isRawJSON: (value: object) => boolean =
  * string-keyed property of which is an enumerable data property, and which carries no
  * own symbol-keyed property either: a symbol such as Symbol.iterator changes what
  * JavaScript code reads from the value, even though JSON.parse never produces one.
- * JSON.stringify serializes a wrapper object by the primitive it holds, and a raw JSON
- * object by its raw text, never by its own members, so either one would otherwise be
- * validated, hashed and signed by its own members while JSON.stringify gives the
- * caller something else, or throws.
+ * No JSON parser produces a wrapper object or a raw JSON object, so neither is JSON
+ * data to begin with. For four of the five wrapper kinds the two views also disagree:
+ * JSON.stringify serializes a Boolean, Number, String or BigInt wrapper by the primitive
+ * it holds, or throws, and a raw JSON object by its raw text, never by its own members,
+ * so such a value would otherwise be validated, hashed and signed by members that
+ * JSON.stringify never shows the caller. A Symbol wrapper has no such case in
+ * JSON.stringify and does serialize by its own members; it is refused with the others
+ * because it is still not a value a JSON parser can produce.
  * "The Array.prototype of some JavaScript realm" and "the Object.prototype of some
  * realm" are decided by isIntrinsicPrototype() below through realm-intrinsic identity,
  * an own "constructor" property leading back to a function whose own "prototype"

@@ -34,7 +34,8 @@ export function computeAuthorityDelegationId(body: AuthorityDelegationBodyV1): s
 
 /** Write-boundary twin of computeAuthorityDelegationId().
  *
- *  Reaches a canonicalizer only indirectly, through authorityDelegationIdInput. Use when
+ *  Reaches a canonicalizer only indirectly, through authorityDelegationIdInputForWrite,
+ *  the restricted builder that refuses an integer outside the interoperable range. Use when
  *  ISSUING a delegation; verify.ts and the budget ledger keep calling the unrestricted
  *  form so a delegation issued before this rule still re-derives its id. */
 export function computeAuthorityDelegationIdForWrite(body: AuthorityDelegationBodyV1): string {
