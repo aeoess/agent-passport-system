@@ -295,3 +295,79 @@ describe('action_ref v2, section 4.1 second-60 (leap second) admissibility (draf
     })
   }
 })
+
+describe('action_ref v2, section 4.1 rejects noncharacters (draft03-reconciliation item 4)', () => {
+  // Same base as AR-P01 above: a complete, valid ActionReferenceInputV2.
+  // Every case below is this object as-is or with only the field under test
+  // mutated. Noncharacters are written as JS escapes, never as literal
+  // source bytes: BMP noncharacters as \uXXXX, and the two supplementary
+  // ones (U+10FFFF, U+1FFFE) as their decoded surrogate pairs.
+  const base: ActionReferenceInputV2 = {
+    profile: 'aps-action-ref-v2',
+    agent_id: 'did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK',
+    action_type: 'commerce_preflight',
+    target: 'https://api.example/payments',
+    payload_ref: '9e1d86673f6f2401f5504fdac162c3a429dc2b539f9fa2e0d22a588fb3ffabdf',
+    scope_required: ['commerce:read', 'commerce:write'],
+    issued_at: '2026-04-08T12:00:00.000Z',
+    nonce: '00112233445566778899aabbccddeeff',
+  }
+
+  it('AR-N: agent_id with a trailing noncharacter U+FDD0 is rejected', () => {
+    const value: ActionReferenceInputV2 = { ...base, agent_id: base.agent_id + '\ufdd0' }
+    assert.throws(() => computeActionRefV2(value), /^Error: \$\.agent_id: noncharacter$/)
+  })
+
+  it('AR-N: target with a trailing noncharacter U+FFFF is rejected', () => {
+    const value: ActionReferenceInputV2 = { ...base, target: base.target + '\uffff' }
+    assert.throws(() => computeActionRefV2(value), /^Error: \$\.target: noncharacter$/)
+  })
+
+  it('AR-N: scope_required with a noncharacter U+10FFFF, still sorted after commerce:read, is rejected', () => {
+    // \udbff\udfff is U+10FFFF decoded (RFC 3339-style escape convention
+    // used throughout this addendum): the low 16 bits of the code point are
+    // FFFF, so it is a noncharacter regardless of the surrogate encoding.
+    const scope = 'commerce:write' + '\udbff\udfff'
+    const value: ActionReferenceInputV2 = { ...base, scope_required: ['commerce:read', scope] }
+    assert.throws(() => computeActionRefV2(value), /^Error: \$\.scope_required\[1\]: noncharacter$/)
+  })
+
+  it('PR-N: a payload string with a noncharacter U+1FFFE is rejected', () => {
+    // \ud83f\udffe is U+1FFFE decoded: low 16 bits FFFE.
+    assert.throws(
+      () => computePayloadRefV1({ note: 'x' + '\ud83f\udffe' }),
+      /^Error: \$\.note: noncharacter$/,
+    )
+  })
+
+  it('AJ-N: a JSON-escaped noncharacter U+FFFF in action_type is rejected at the serialized entry point', () => {
+    const raw = JSON.stringify(base).replace(
+      '"action_type":"commerce_preflight"',
+      '"action_type":"commerce_preflight\\uffff"',
+    )
+    assert.throws(() => computeActionRefV2FromJson(raw), /^Error: \$\.action_type: noncharacter$/)
+  })
+
+  it('AC-N: createActionReferenceInputV2 rejects a target with a noncharacter U+FDEF', () => {
+    assert.throws(() => createActionReferenceInputV2({
+      agent_id: base.agent_id,
+      action_type: base.action_type,
+      target: 'https://api.example/pay' + '\ufdef',
+      payload_ref: base.payload_ref,
+      scope_required: base.scope_required,
+      issued_at: base.issued_at,
+      nonce: base.nonce,
+    }), /^Error: \$\.target: noncharacter$/)
+  })
+
+  it('AR-P: agent_id with the replacement character U+FFFD (not a noncharacter) is accepted', () => {
+    const value: ActionReferenceInputV2 = { ...base, agent_id: base.agent_id + '\ufffd' }
+    assert.match(computeActionRefV2(value), /^[0-9a-f]{64}$/)
+  })
+
+  it('AR-P: target with U+1F600 is accepted', () => {
+    // \ud83d\ude00 is U+1F600 decoded: low 16 bits F600, not FFFE or FFFF.
+    const value: ActionReferenceInputV2 = { ...base, target: base.target + '\ud83d\ude00' }
+    assert.match(computeActionRefV2(value), /^[0-9a-f]{64}$/)
+  })
+})
