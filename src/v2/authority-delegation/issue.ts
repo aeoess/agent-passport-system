@@ -9,6 +9,7 @@ import {
   verifyAuthorityDelegationSignature,
 } from './canonical.js'
 import { compareAuthority } from './compare.js'
+import { snapshotPlainData } from './plain-data.js'
 import { isCanonicalTimestamp, validateAuthorityDelegationShape } from './schema.js'
 import type {
   AuthorityDelegationBodyV1,
@@ -69,19 +70,25 @@ function finalizeAuthorityDelegation(
  * selected by verifier trust policy. A child is minted only through
  * issueSubAuthorityDelegation, which performs the section 3.6 (lines 695-704) parent
  * checks before signing.
+ *
+ * The body is snapshotted to plain JSON data (see plain-data.ts) first; every check
+ * below, and the signing itself, reads only that snapshot, never the caller's original
+ * body, so a getter or a Proxy trap in `body` cannot answer differently the second
+ * time it would otherwise have been read.
  */
 export function issueAuthorityDelegation(
   body: AuthorityDelegationBodyV1,
   privateKey: string,
 ): AuthorityDelegationV1 {
-  if (carriesOwnIdentityMember(body)) {
+  const snapshot = snapshotPlainData(body) as AuthorityDelegationBodyV1
+  if (carriesOwnIdentityMember(snapshot)) {
     throw new Error('authority delegation body must carry neither delegation_id nor signature (SCHEMA_INVALID)')
   }
-  assertBody(body)
-  if (body.parent_delegation_id !== null) {
+  assertBody(snapshot)
+  if (snapshot.parent_delegation_id !== null) {
     throw new Error('authority delegation root body must have a null parent_delegation_id (PARENT_MISMATCH)')
   }
-  return finalizeAuthorityDelegation(body, privateKey)
+  return finalizeAuthorityDelegation(snapshot, privateKey)
 }
 
 /**
@@ -123,6 +130,14 @@ export interface SubAuthorityIssueOptions {
  * already carrying one of those members would not recompute its delegation_id from
  * its own body, leaving an invalidity for a later verifier to discover instead of
  * refusing it at issuance.
+ *
+ * `parent` is snapshotted to plain JSON data (see plain-data.ts) before its shape
+ * check; a parent that is not plain fails that check with the shape check's existing
+ * message form. `body` is snapshotted at the position of the existing bare-body
+ * check; a body that is not plain gives SCHEMA_INVALID there. Every check after each
+ * snapshot, and the signing itself, reads only that snapshot, never the caller's
+ * original parent or body, so a getter or a Proxy trap cannot answer differently the
+ * second time it would otherwise have been read.
  */
 export function issueSubAuthorityDelegation(
   parent: AuthorityDelegationV1,
@@ -136,30 +151,31 @@ export function issueSubAuthorityDelegation(
     throw new Error('authority delegation now must be a canonical UTC-millisecond timestamp (NONCANONICAL_VALUE)')
   }
 
-  const parentFailures = validateAuthorityDelegationShape(parent)
+  const parentSnapshot = snapshotPlainData(parent) as AuthorityDelegationV1
+  const parentFailures = validateAuthorityDelegationShape(parentSnapshot)
   if (parentFailures.length > 0) {
     throw new Error(`authority delegation parent invalid (${parentFailures[0].code})`)
   }
 
-  const expectedParentId = computeAuthorityDelegationId(authorityDelegationBody(parent))
-  if (expectedParentId !== parent.delegation_id) {
+  const expectedParentId = computeAuthorityDelegationId(authorityDelegationBody(parentSnapshot))
+  if (expectedParentId !== parentSnapshot.delegation_id) {
     throw new Error('authority delegation parent content address does not match its body (ID_MISMATCH)')
   }
 
   let parentKey: string | null | undefined
   try {
-    parentKey = resolveVerificationKey(parent.issuer, parent.verification_method, parent.issued_at)
+    parentKey = resolveVerificationKey(parentSnapshot.issuer, parentSnapshot.verification_method, parentSnapshot.issued_at)
   } catch {
     parentKey = null
   }
   if (parentKey === null || parentKey === undefined) {
     throw new Error('authority delegation parent issuer verification key could not be resolved (KEY_RESOLUTION_FAILED)')
   }
-  if (!verifyAuthorityDelegationSignature(parent, parentKey)) {
+  if (!verifyAuthorityDelegationSignature(parentSnapshot, parentKey)) {
     throw new Error('authority delegation parent Ed25519 signature is invalid (SIGNATURE_INVALID)')
   }
 
-  const parentTime = parent.authority.time
+  const parentTime = parentSnapshot.authority.time
   if (now < parentTime.not_before) {
     throw new Error('authority delegation parent is not yet valid at now (NOT_YET_VALID)')
   }
@@ -169,7 +185,7 @@ export function issueSubAuthorityDelegation(
 
   let parentRevocation: unknown
   try {
-    parentRevocation = resolveRevocation(parent)
+    parentRevocation = resolveRevocation(parentSnapshot)
   } catch {
     parentRevocation = null
   }
@@ -180,25 +196,26 @@ export function issueSubAuthorityDelegation(
     throw new Error('authority delegation parent revocation status is unknown (REVOCATION_UNKNOWN)')
   }
 
-  if (carriesOwnIdentityMember(body)) {
+  const bodySnapshot = snapshotPlainData(body) as AuthorityDelegationBodyV1
+  if (carriesOwnIdentityMember(bodySnapshot)) {
     throw new Error('authority delegation body must carry neither delegation_id nor signature (SCHEMA_INVALID)')
   }
 
-  assertBody(body)
-  if (body.parent_delegation_id !== parent.delegation_id) {
+  assertBody(bodySnapshot)
+  if (bodySnapshot.parent_delegation_id !== parentSnapshot.delegation_id) {
     throw new Error('authority delegation parent mismatch (PARENT_MISMATCH)')
   }
-  if (body.issuer !== parent.subject) {
+  if (bodySnapshot.issuer !== parentSnapshot.subject) {
     throw new Error('authority delegation chain continuity failure (CHAIN_CONTINUITY)')
   }
-  const issued = body.issued_at
-  if (issued < parent.authority.time.not_before ||
-      issued >= parent.authority.time.not_after) {
+  const issued = bodySnapshot.issued_at
+  if (issued < parentSnapshot.authority.time.not_before ||
+      issued >= parentSnapshot.authority.time.not_after) {
     throw new Error('authority delegation issued_at is outside parent validity (ISSUED_AT_OUTSIDE_PARENT)')
   }
-  const failures = compareAuthority(parent.authority, body.authority)
+  const failures = compareAuthority(parentSnapshot.authority, bodySnapshot.authority)
   if (failures.length > 0) {
     throw new Error(`authority delegation does not narrow (${failures[0].code})`)
   }
-  return finalizeAuthorityDelegation(body, privateKey)
+  return finalizeAuthorityDelegation(bodySnapshot, privateKey)
 }

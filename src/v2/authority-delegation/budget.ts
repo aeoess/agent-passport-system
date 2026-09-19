@@ -3,6 +3,7 @@
 
 import { isCanonicalQuantity, validateAuthorityDelegationShape } from './schema.js'
 import { authorityDelegationBody, computeAuthorityDelegationId } from './canonical.js'
+import { isPlainDataArray, snapshotPlainData } from './plain-data.js'
 import type {
   AuthorityDelegationV1,
   BudgetOperationResult,
@@ -33,6 +34,13 @@ export class InMemoryAuthorityBudgetLedger {
   private readonly counters = new Map<string, Counter>()
   private readonly reservations = new Map<string, Reservation>()
 
+  /**
+   * Each chain member is snapshotted to plain JSON data (see plain-data.ts) before any
+   * other read of it; a member that is not plain gives CONFLICT here, before any
+   * counter changes, the same as a malformed member does today. Every later read in
+   * this method, including the attenuation and accounting reads below, comes from the
+   * snapshot rather than from the caller's original chain array.
+   */
   reserve(
     verifiedChain: readonly AuthorityDelegationV1[],
     actionRef: string,
@@ -42,12 +50,13 @@ export class InMemoryAuthorityBudgetLedger {
     if (typeof actionRef !== 'string' || !ACTION_REF.test(actionRef) || !isCanonicalQuantity(amountString)) {
       return { ok: false, code: 'CONFLICT' }
     }
-    if (!Array.isArray(verifiedChain) || verifiedChain.length === 0 || verifiedChain.length > 256) {
+    if (!isPlainDataArray(verifiedChain) || verifiedChain.length === 0 || verifiedChain.length > 256) {
       return { ok: false, code: 'CONFLICT' }
     }
+    const chain: AuthorityDelegationV1[] = new Array(verifiedChain.length)
     const seen = new Set<string>()
     for (let i = 0; i < verifiedChain.length; i++) {
-      const current = verifiedChain[i]
+      const current = snapshotPlainData(verifiedChain[i]) as AuthorityDelegationV1
       if (validateAuthorityDelegationShape(current).length > 0 ||
           computeAuthorityDelegationId(authorityDelegationBody(current)) !== current.delegation_id ||
           seen.has(current.delegation_id)) {
@@ -57,14 +66,15 @@ export class InMemoryAuthorityBudgetLedger {
       if (i === 0) {
         if (current.parent_delegation_id !== null) return { ok: false, code: 'CONFLICT' }
       } else {
-        const parent = verifiedChain[i - 1]
+        const parent = chain[i - 1]
         if (current.parent_delegation_id !== parent.delegation_id || current.issuer !== parent.subject) {
           return { ok: false, code: 'CONFLICT' }
         }
       }
+      chain[i] = current
     }
     const amount = BigInt(amountString)
-    const bounded = verifiedChain.filter(item => item.authority.spend.mode === 'bounded')
+    const bounded = chain.filter(item => item.authority.spend.mode === 'bounded')
     const ids = bounded.map(item => item.delegation_id)
     const prior = this.reservations.get(actionRef)
     if (prior) {
