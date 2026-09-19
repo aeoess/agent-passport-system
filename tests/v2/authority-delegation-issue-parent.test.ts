@@ -22,6 +22,8 @@ import {
   REVERSIBILITY_PROFILE_V1,
   SCOPE_PROFILE_V1,
   VALUES_PROFILE_V1,
+  authorityDelegationBody,
+  computeAuthorityDelegationId,
   issueAuthorityDelegation,
   issueSubAuthorityDelegation,
   signAuthorityDelegation,
@@ -243,4 +245,84 @@ test('the body-shape refusal names its first failure code in parentheses, like e
     () => issueAuthorityDelegation(uppercaseNonce, rootKeys.privateKey),
     /^Error: authority delegation body invalid: nonce must be 32 lowercase hex characters \(NONCANONICAL_VALUE\)$/,
   )
+})
+
+const SCHEMA_INVALID_MESSAGE = /\(SCHEMA_INVALID\)$/
+
+test('root: a body already carrying delegation_id refuses (SCHEMA_INVALID)', () => {
+  const withId = {
+    ...rootBody(),
+    delegation_id: `sha256:${'0'.repeat(64)}`,
+  } as unknown as AuthorityDelegationBodyV1
+  assert.throws(() => issueAuthorityDelegation(withId, rootKeys.privateKey), SCHEMA_INVALID_MESSAGE)
+})
+
+test('root: a body already carrying signature refuses (SCHEMA_INVALID)', () => {
+  const withSignature = {
+    ...rootBody(),
+    signature: '0'.repeat(128),
+  } as unknown as AuthorityDelegationBodyV1
+  assert.throws(() => issueAuthorityDelegation(withSignature, rootKeys.privateKey), SCHEMA_INVALID_MESSAGE)
+})
+
+test('root: a body carrying an own delegation_id member set to undefined still refuses (SCHEMA_INVALID)', () => {
+  const withUndefinedId = {
+    ...rootBody(),
+    delegation_id: undefined,
+  } as unknown as AuthorityDelegationBodyV1
+  assert.ok(Object.prototype.hasOwnProperty.call(withUndefinedId, 'delegation_id'))
+  assert.throws(() => issueAuthorityDelegation(withUndefinedId, rootKeys.privateKey), SCHEMA_INVALID_MESSAGE)
+})
+
+test('child under a sound parent: a body already carrying delegation_id refuses (SCHEMA_INVALID)', () => {
+  const withId = {
+    ...childBody(root),
+    delegation_id: `sha256:${'0'.repeat(64)}`,
+  } as unknown as AuthorityDelegationBodyV1
+  assert.throws(
+    () => issueSubAuthorityDelegation(root, withId, childKeys.privateKey, options()),
+    SCHEMA_INVALID_MESSAGE,
+  )
+})
+
+test('child under a sound parent: a body already carrying signature refuses (SCHEMA_INVALID)', () => {
+  const withSignature = {
+    ...childBody(root),
+    signature: '0'.repeat(128),
+  } as unknown as AuthorityDelegationBodyV1
+  assert.throws(
+    () => issueSubAuthorityDelegation(root, withSignature, childKeys.privateKey, options()),
+    SCHEMA_INVALID_MESSAGE,
+  )
+})
+
+test('child: a revoked parent together with a body carrying signature refuses REVOKED, parent checks run first', () => {
+  const withSignature = {
+    ...childBody(root),
+    signature: '0'.repeat(128),
+  } as unknown as AuthorityDelegationBodyV1
+  throwsCode(
+    () => issueSubAuthorityDelegation(root, withSignature, childKeys.privateKey, options({ resolveRevocation: () => 'revoked' })),
+    'REVOKED',
+  )
+})
+
+test('the same sound root and child bodies, without the extra member, still issue and verify', () => {
+  const rBody = rootBody()
+  const r = issueAuthorityDelegation(rBody, rootKeys.privateKey)
+  const cBody = childBody(r)
+  const c = issueSubAuthorityDelegation(r, cBody, childKeys.privateKey, options({
+    resolveVerificationKey: (_issuer, method) => (method === r.verification_method ? rootKeys.publicKey : null),
+  }))
+  const checked = verifyAuthorityDelegationChain([r, c], {
+    now: '2026-07-18T22:10:00.000Z',
+    resolveVerificationKey: (_issuer, method) =>
+      (method === r.verification_method ? rootKeys.publicKey
+        : method === c.verification_method ? childKeys.publicKey
+        : null),
+    trustRoot: () => true,
+    resolveRevocation: () => 'active',
+  })
+  assert.equal(checked.state, 'valid')
+  assert.equal(c.delegation_id, computeAuthorityDelegationId(authorityDelegationBody(c)))
 })
