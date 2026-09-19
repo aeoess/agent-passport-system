@@ -523,12 +523,185 @@ test('a Proxy chain container is invalid even when its own descriptors show a fu
   assert.deepEqual(reserved, { ok: false, code: 'CONFLICT' })
 })
 
-test('a symbol-keyed extra property on a valid record leaves the result unchanged: valid', () => {
+test('an own symbol-keyed property on a record, on a nested object, or on an array is SCHEMA_INVALID, and the ledger gives CONFLICT', () => {
+  const withTopLevelSymbol = childBody(root)
+  ;(withTopLevelSymbol as unknown as Record<symbol, unknown>)[Symbol('extra')] = 'ignored'
+  const topLevelChild = unsignable(withTopLevelSymbol as unknown as Record<string, unknown>)
+
+  const withNestedObjectSymbol = childBody(root)
+  ;(withNestedObjectSymbol.authority.scope as unknown as Record<symbol, unknown>)[Symbol('extra')] = 'ignored'
+  const nestedObjectChild = unsignable(withNestedObjectSymbol as unknown as Record<string, unknown>)
+
+  const withArraySymbol = childBody(root)
+  ;(withArraySymbol.authority.scope.grants as unknown as Record<symbol, unknown>)[Symbol('extra')] = 'ignored'
+  const arrayChild = unsignable(withArraySymbol as unknown as Record<string, unknown>)
+
+  for (const [label, hostileChild] of [
+    ['top-level record', topLevelChild],
+    ['nested object', nestedObjectChild],
+    ['array', arrayChild],
+  ] as const) {
+    const checked = verifyAuthorityDelegationChain([root, hostileChild], chainOptions(root.delegation_id))
+    assert.equal(checked.state, 'invalid', label)
+    assert.ok(codesOf(checked).includes('SCHEMA_INVALID'), label)
+    const ledger = new InMemoryAuthorityBudgetLedger()
+    assert.deepEqual(
+      ledger.reserve([root, hostileChild], 'a'.repeat(64), 'iso4217:USD:minor', '1'),
+      { ok: false, code: 'CONFLICT' },
+      label,
+    )
+  }
+})
+
+/** A null-prototype object whose own "constructor" data property names `constructorFn`:
+ *  structurally a look-alike for an intrinsic Object.prototype under the old grandparent
+ *  test, since its own prototype is null, but never one under the realm-intrinsic
+ *  identity test, since `constructorFn`'s own "prototype" property is not this object. */
+function objectPrototypeLookAlike(constructorFn: Function): any {
+  const lookAlike = Object.create(null)
+  Object.defineProperty(lookAlike, 'constructor', { value: constructorFn })
+  return lookAlike
+}
+
+/** A record shaped like a valid child of `root`, but with wider scope grants, used only
+ *  as the value a forged toJSON hands back; nothing in this file's fixed code ever calls
+ *  toJSON, so this never actually reaches a verifier through it. */
+function wideningChildRecord(): AuthorityDelegationV1 {
   const body = childBody(root)
-  ;(body as unknown as Record<symbol, unknown>)[Symbol('extra')] = 'ignored'
-  const child = signDirectly(body, childKeys.privateKey)
-  const checked = verifyAuthorityDelegationChain([root, child], chainOptions(root.delegation_id))
-  assert.equal(checked.state, 'valid')
+  body.authority.scope = { profile: SCOPE_PROFILE_V1, grants: ['commerce:*'] }
+  return unsignable(body as unknown as Record<string, unknown>)
+}
+
+/**
+ * Exercises one hostile chain member built from a realm-intrinsic-prototype forgery or
+ * an own symbol-keyed property, never a Proxy, at every place an authority-delegation
+ * entry point can receive it: as a chain member, as the argument to
+ * isAuthorityDelegationV1, as a ledger chain member, as a root-issuer body, and as a
+ * child-issuer parent. Every placement must give a defined, coded refusal.
+ */
+function assertRealmIntrinsicAttackIsRejected(label: string, hostileChild: unknown): void {
+  const checked = verifyAuthorityDelegationChain([root, hostileChild], chainOptions(root.delegation_id))
+  assert.equal(checked.state, 'invalid', `${label}: verify`)
+  assert.ok(codesOf(checked).includes('SCHEMA_INVALID'), `${label}: verify`)
+
+  assert.equal(isAuthorityDelegationV1(hostileChild), false, `${label}: isAuthorityDelegationV1`)
+
+  const ledger = new InMemoryAuthorityBudgetLedger()
+  assert.deepEqual(
+    ledger.reserve([root, hostileChild] as unknown as AuthorityDelegationV1[], 'a'.repeat(64), 'iso4217:USD:minor', '1'),
+    { ok: false, code: 'CONFLICT' },
+    `${label}: ledger`,
+  )
+
+  assert.throws(
+    () => issueAuthorityDelegation(hostileChild as unknown as AuthorityDelegationBodyV1, rootKeys.privateKey),
+    /\([A-Z_]+\)$/,
+    `${label}: root-issuer body`,
+  )
+  assert.throws(
+    () => issueSubAuthorityDelegation(hostileChild as unknown as AuthorityDelegationV1, childBody(root), childKeys.privateKey, {
+      now: ROOT_NOT_BEFORE,
+      resolveVerificationKey: resolveKeys,
+      resolveRevocation: () => 'active',
+    }),
+    /\([A-Z_]+\)$/,
+    `${label}: child-issuer parent`,
+  )
+}
+
+test('a record whose prototype is Object.create(null) carrying a toJSON that returns a wider record is SCHEMA_INVALID everywhere', () => {
+  const signedChild = signDirectly(childBody(root), childKeys.privateKey)
+  const fakeProto = Object.create(null)
+  fakeProto.toJSON = () => wideningChildRecord()
+  const hostileChild = Object.setPrototypeOf({ ...signedChild }, fakeProto)
+  assertRealmIntrinsicAttackIsRejected('null-prototype fake Object.prototype carrying toJSON', hostileChild)
+})
+
+test('grants held in an array whose prototype is an array whose own prototype has a null prototype and carries toJSON is SCHEMA_INVALID everywhere', () => {
+  const body = childBody(root)
+  const fakeArrayProto: any = []
+  Object.setPrototypeOf(fakeArrayProto, Object.create(null))
+  Object.defineProperty(fakeArrayProto, 'toJSON', { value: () => ['*'] })
+  Object.setPrototypeOf(body.authority.scope.grants, fakeArrayProto)
+  const hostileChild = unsignable(body as unknown as Record<string, unknown>)
+  assertRealmIntrinsicAttackIsRejected('forged Array.prototype whose own prototype has a null prototype, carrying toJSON', hostileChild)
+})
+
+test("an object whose prototype is a look-alike with constructor set to this realm's Object is SCHEMA_INVALID everywhere", () => {
+  const signedChild = signDirectly(childBody(root), childKeys.privateKey)
+  const fakeProto = objectPrototypeLookAlike(Object)
+  fakeProto.toJSON = () => wideningChildRecord()
+  const hostileChild = Object.setPrototypeOf({ ...signedChild }, fakeProto)
+  assertRealmIntrinsicAttackIsRejected("look-alike prototype naming this realm's Object", hostileChild)
+})
+
+test("an object whose prototype is a look-alike with constructor set to another realm's real Object is SCHEMA_INVALID everywhere", () => {
+  const vmObjectConstructor = vm.runInNewContext('Object')
+  const signedChild = signDirectly(childBody(root), childKeys.privateKey)
+  const fakeProto = objectPrototypeLookAlike(vmObjectConstructor)
+  fakeProto.toJSON = () => wideningChildRecord()
+  const hostileChild = Object.setPrototypeOf({ ...signedChild }, fakeProto)
+  assertRealmIntrinsicAttackIsRejected("look-alike prototype naming another realm's real Object", hostileChild)
+})
+
+test('a class instance whose class prototype has a null prototype is SCHEMA_INVALID everywhere', () => {
+  class NullProtoFacet {
+    constructor(source: Record<string, unknown>) { Object.assign(this, source) }
+  }
+  Object.setPrototypeOf(NullProtoFacet.prototype, null)
+  ;(NullProtoFacet.prototype as any).toJSON = () => ({ profile: SCOPE_PROFILE_V1, grants: ['commerce:*'] })
+  const body = childBody(root)
+  body.authority.scope = new NullProtoFacet(body.authority.scope as unknown as Record<string, unknown>) as unknown as typeof body.authority.scope
+  const hostileChild = unsignable(body as unknown as Record<string, unknown>)
+  assertRealmIntrinsicAttackIsRejected('class instance whose class prototype has a null prototype', hostileChild)
+})
+
+test('grants with an own Symbol.iterator yielding "*" is SCHEMA_INVALID everywhere', () => {
+  const body = childBody(root)
+  Object.defineProperty(body.authority.scope.grants, Symbol.iterator, {
+    value: function* () { yield '*' },
+    enumerable: false,
+    configurable: true,
+  })
+  const hostileChild = unsignable(body as unknown as Record<string, unknown>)
+  assertRealmIntrinsicAttackIsRejected('grants array carrying an own Symbol.iterator', hostileChild)
+})
+
+test('a chain container with an own Symbol.iterator is SCHEMA_INVALID everywhere', () => {
+  const properChild = issueSubAuthorityDelegation(root, childBody(root), childKeys.privateKey, {
+    now: ROOT_NOT_BEFORE,
+    resolveVerificationKey: resolveKeys,
+    resolveRevocation: () => 'active',
+  })
+  const hostileContainer: unknown[] = [root, properChild]
+  Object.defineProperty(hostileContainer, Symbol.iterator, {
+    value: function* () { yield hostileContainer[0] },
+  })
+
+  const checked = verifyAuthorityDelegationChain(hostileContainer, chainOptions(root.delegation_id))
+  assert.equal(checked.state, 'invalid')
+  assert.ok(codesOf(checked).includes('SCHEMA_INVALID'))
+
+  assert.equal(isAuthorityDelegationV1(hostileContainer), false)
+
+  const ledger = new InMemoryAuthorityBudgetLedger()
+  assert.deepEqual(
+    ledger.reserve(hostileContainer as unknown as AuthorityDelegationV1[], 'a'.repeat(64), 'iso4217:USD:minor', '1'),
+    { ok: false, code: 'CONFLICT' },
+  )
+
+  assert.throws(
+    () => issueAuthorityDelegation(hostileContainer as unknown as AuthorityDelegationBodyV1, rootKeys.privateKey),
+    /\([A-Z_]+\)$/,
+  )
+  assert.throws(
+    () => issueSubAuthorityDelegation(hostileContainer as unknown as AuthorityDelegationV1, childBody(root), childKeys.privateKey, {
+      now: ROOT_NOT_BEFORE,
+      resolveVerificationKey: resolveKeys,
+      resolveRevocation: () => 'active',
+    }),
+    /\([A-Z_]+\)$/,
+  )
 })
 
 test('the same valid chain built from ordinary plain objects is still valid, with the same records', () => {

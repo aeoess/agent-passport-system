@@ -38,8 +38,13 @@ export class InMemoryAuthorityBudgetLedger {
    * Each chain member is snapshotted to plain JSON data (see plain-data.ts) before any
    * other read of it; a member that is not plain gives CONFLICT here, before any
    * counter changes, the same as a malformed member does today. Every later read in
-   * this method, including the attenuation and accounting reads below, comes from the
-   * snapshot rather than from the caller's original chain array.
+   * this method comes from the snapshot rather than from the caller's original chain
+   * array: the shape check, the delegation_id recomputation, chain continuity
+   * (parent_delegation_id and issuer against the parent's subject), and, for each
+   * bounded delegation, its authority.spend fields and its delegation_id used to key
+   * the reservation counters. This method makes no attenuation reads of its own;
+   * verifyAuthorityDelegationChain is what compares a child's authority against its
+   * parent's.
    */
   reserve(
     verifiedChain: readonly AuthorityDelegationV1[],

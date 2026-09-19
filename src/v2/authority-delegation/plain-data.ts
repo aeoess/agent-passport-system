@@ -3,6 +3,13 @@
 
 import { types } from 'node:util'
 
+/** Function.prototype.toString captured when this module loaded. isIntrinsicPrototype()
+ *  below calls this reference rather than a candidate function's own toString, so a
+ *  script that replaces Function.prototype.toString, or a constructor that overrides its
+ *  own toString, after this module has already loaded cannot make a forged constructor
+ *  read back as native code. */
+const functionToString = Function.prototype.toString
+
 /**
  * Plain-JSON-data snapshot shared by every authority-delegation entry point.
  *
@@ -22,15 +29,23 @@ import { types } from 'node:util'
  * trap, so a Proxy is rejected before anything belonging to it, its prototype, its own
  * keys, or any of its descriptors, is read. An exact plain array is a value for which
  * Array.isArray is true, that is not itself a Proxy, whose prototype is the
- * Array.prototype of some JavaScript realm (a plain array JSON.parse decoded in another
- * realm, such as node:vm, a worker, or an iframe, qualifies exactly as one JSON.parse
- * decoded in this realm does; nothing here compares against this realm's own
- * Array.prototype by identity), whose own string keys are exactly the indices 0 through
- * length-1 plus "length", and every index of which is an enumerable data property, no
- * hole, no accessor, no extra member. An exact plain object is a non-array, non-Proxy
- * object whose prototype is null, or whose prototype is the Object.prototype of some
- * realm, and every own string-keyed property of which is an enumerable data property;
- * symbol-keyed properties are ignored, since JSON and RFC 8785 never see them. A
+ * Array.prototype of some JavaScript realm, whose own string keys are exactly the
+ * indices 0 through length-1 plus "length", every index of which is an enumerable data
+ * property, no hole, no accessor, no extra member, and which carries no own
+ * symbol-keyed property. An exact plain object is a non-array, non-Proxy object whose
+ * prototype is null, or whose prototype is the Object.prototype of some realm, every
+ * own string-keyed property of which is an enumerable data property, and which carries
+ * no own symbol-keyed property either: a symbol such as Symbol.iterator changes what
+ * JavaScript code reads from the value, even though JSON.parse never produces one.
+ * "The Array.prototype of some JavaScript realm" and "the Object.prototype of some
+ * realm" are decided by isIntrinsicPrototype() below through realm-intrinsic identity,
+ * an own "constructor" property leading back to a function whose own "prototype"
+ * property is that same object and whose captured Function.prototype.toString text is
+ * exactly the native-code form for Object or Array, never by prototype-chain shape: a
+ * plain array JSON.parse decoded in another realm, such as node:vm, a worker, or an
+ * iframe, qualifies exactly as one JSON.parse decoded in this realm does, while a
+ * forged prototype whose own [[Prototype]] chain merely looks right, including a
+ * look-alike built from another realm's real Object or Array function, never does. A
  * container that contains itself at any depth is not plain JSON data; a container
  * reachable twice without a cycle is fine.
  *
@@ -57,17 +72,28 @@ import { types } from 'node:util'
  * has fully exited does a later reference to it read the map. This keeps the walk's
  * cost linear in the number of distinct containers plus their members even when an
  * input built from shared references, such as node_i = [node_(i-1), node_(i-1)], would
- * otherwise multiply the work by the number of paths to each container. Object
- * identity is enough here: the snapshot this returns is plain JSON data read only for
- * its structure and values, so two positions in it holding the same copy, because two
- * positions in the input held the same container, canonicalize and validate exactly as
- * two positions holding separately copied but equal containers would.
+ * otherwise multiply the work by the number of paths to each container. Object identity
+ * is enough here: a container the input references twice appears once, shared, in the
+ * snapshot, so both positions hold the identical copy rather than two separately copied
+ * but equal containers, and that shared copy is what appears at both positions in an
+ * issued record's body and in whatever a caller-supplied callback receives.
  *
- * Every entry point below calls this once per record argument, before any other read of that argument,
- * and every later read in that entry point, including a read passed on to a
- * caller-supplied callback, must come from the returned snapshot rather than from the
- * original value, so a getter or a Proxy trap can never be read a second time with a
+ * Every entry point below calls this once per record argument, before any other read of
+ * that argument, and every later read in that entry point, including a read passed on
+ * to a caller-supplied callback, must come from the returned snapshot rather than from
+ * the original value, so a getter or a Proxy trap can never be read a second time with a
  * different answer.
+ *
+ * The entry points that snapshot this way are validateAuthorityDelegationShape (and
+ * isAuthorityDelegationV1, which calls it), verifyAuthorityDelegationChain,
+ * InMemoryAuthorityBudgetLedger.reserve, issueAuthorityDelegation, and
+ * issueSubAuthorityDelegation. The raw canonical helpers computeAuthorityDelegationId,
+ * computeAuthorityDelegationIdForWrite, signAuthorityDelegation,
+ * verifyAuthorityDelegationSignature, authorityDelegationBody, and the id and signature
+ * input builders (authorityDelegationIdInput, authorityDelegationIdInputForWrite, and
+ * authorityDelegationSignatureInput) do not snapshot: each of them is called only with a
+ * value some entry point above has already snapshotted, or a value assembled from one,
+ * so walking it again here would only repeat work already done.
  *
  * The chain container passed to verifyAuthorityDelegationChain and to
  * InMemoryAuthorityBudgetLedger.reserve is not itself record content, so
@@ -111,29 +137,93 @@ function isPlainScalar(value: unknown): value is null | boolean | number | strin
 }
 
 /**
- * True when `candidate` is the Array.prototype of some JavaScript realm: an exact array
- * itself (Array.prototype is an array exotic object, so a cross-realm Array.prototype
- * still satisfies Array.isArray) whose own prototype's own prototype is null, which
- * only an Object.prototype satisfies. False for a Proxy, at either level, and for any
- * candidate whose own prototype is itself null, both without touching a trap.
+ * True when `candidate` is "the Object.prototype of some realm" or "the Array.prototype
+ * of some realm", decided by realm-intrinsic identity rather than by prototype-chain
+ * shape: `candidate` is an object and not a Proxy; it carries an own data property
+ * "constructor" whose value F is a function and not a Proxy; F carries an own data
+ * property "prototype" that is non-writable, non-configurable, and holds exactly
+ * `candidate`; and functionToString.call(F), using the Function.prototype.toString
+ * reference captured when this module loaded, is exactly `function Object() { [native
+ * code] }` or `function Array() { [native code] }`. Any exception raised while checking
+ * makes this false. A structurally array- or object-shaped prototype whose own
+ * [[Prototype]] chain merely looks right, a class instance whose class prototype's own
+ * prototype is null, and a look-alike whose "constructor" names a real Object or Array
+ * function but whose own "prototype" is not that function's actual prototype, all fail
+ * this check; a cross-realm Object.prototype or Array.prototype, reached through
+ * node:vm, a worker, or an iframe, still passes it, since it is checked by this same
+ * identity, never by comparison against this realm's own Object.prototype or
+ * Array.prototype.
  */
-function isArrayPrototypeOfSomeRealm(candidate: unknown): boolean {
-  if (isProxy(candidate) || typeof candidate !== 'object' || candidate === null) return false
-  if (!Array.isArray(candidate)) return false
-  const grandparent = Object.getPrototypeOf(candidate)
-  if (grandparent === null || isProxy(grandparent)) return false
-  return Object.getPrototypeOf(grandparent) === null
+function isIntrinsicPrototype(candidate: object, name: 'Object' | 'Array'): boolean {
+  try {
+    if (isProxy(candidate)) return false
+    const constructorDescriptor = Object.getOwnPropertyDescriptor(candidate, 'constructor')
+    if (!constructorDescriptor || !('value' in constructorDescriptor)) return false
+    const constructor = constructorDescriptor.value
+    if (typeof constructor !== 'function' || isProxy(constructor)) return false
+    const prototypeDescriptor = Object.getOwnPropertyDescriptor(constructor, 'prototype')
+    if (
+      !prototypeDescriptor ||
+      !('value' in prototypeDescriptor) ||
+      prototypeDescriptor.value !== candidate ||
+      prototypeDescriptor.writable !== false ||
+      prototypeDescriptor.configurable !== false
+    ) {
+      return false
+    }
+    return functionToString.call(constructor) === `function ${name}() { [native code] }`
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Per-call memoization for isIntrinsicPrototype(), keyed by prototype object identity
+ * and split by which intrinsic (Object or Array) is being asked about, since the same
+ * object could otherwise be asked about both and must never share one cached verdict
+ * between them. Scoped to a single call to snapshotPlainData() or to
+ * readPlainDataChainContainer(): a fresh cache is created at the start of each such
+ * call and threaded through it, never kept past that call, so this changes nothing
+ * about the result, only how many times the check underneath is repeated when one
+ * realm's Object.prototype or Array.prototype, or one forged look-alike, backs many
+ * containers in the same argument.
+ */
+interface PrototypeIntrinsicCache {
+  readonly objectPrototypes: Map<object, boolean>
+  readonly arrayPrototypes: Map<object, boolean>
+}
+
+function newPrototypeIntrinsicCache(): PrototypeIntrinsicCache {
+  return { objectPrototypes: new Map(), arrayPrototypes: new Map() }
+}
+
+/**
+ * True when `candidate` is the Array.prototype of some JavaScript realm: see
+ * isIntrinsicPrototype() above for exactly what that means and why a structurally
+ * array-shaped forgery does not qualify. False, with no exception, for null, for
+ * anything that is not an object, and for a Proxy.
+ */
+function isArrayPrototypeOfSomeRealm(candidate: unknown, cache: PrototypeIntrinsicCache): boolean {
+  if (candidate === null || typeof candidate !== 'object') return false
+  const cached = cache.arrayPrototypes.get(candidate)
+  if (cached !== undefined) return cached
+  const verdict = isIntrinsicPrototype(candidate, 'Array')
+  cache.arrayPrototypes.set(candidate, verdict)
+  return verdict
 }
 
 /**
  * True when `prototype` is a value an exact plain object may carry: null, or the
- * Object.prototype of some realm, meaning not a Proxy, not an array, and its own
- * prototype is null.
+ * Object.prototype of some realm as decided by isIntrinsicPrototype() above.
  */
-function isPlainObjectPrototype(prototype: unknown): boolean {
+function isPlainObjectPrototype(prototype: unknown, cache: PrototypeIntrinsicCache): boolean {
   if (prototype === null) return true
-  if (isProxy(prototype) || typeof prototype !== 'object' || Array.isArray(prototype)) return false
-  return Object.getPrototypeOf(prototype) === null
+  if (typeof prototype !== 'object') return false
+  const cached = cache.objectPrototypes.get(prototype)
+  if (cached !== undefined) return cached
+  const verdict = isIntrinsicPrototype(prototype, 'Object')
+  cache.objectPrototypes.set(prototype, verdict)
+  return verdict
 }
 
 interface PlainArrayShape {
@@ -142,11 +232,13 @@ interface PlainArrayShape {
 }
 
 /** Reads every own property descriptor of `value` exactly once. Returns null when
- *  `value` is not an exact plain array: wrong prototype, a hole, an accessor, a
- *  non-enumerable member, or an extra named member. Callers pass only values for
- *  which Array.isArray(value) is already true and isProxy(value) is already false. */
-function plainArrayShape(value: object): PlainArrayShape | null {
-  if (!isArrayPrototypeOfSomeRealm(Object.getPrototypeOf(value))) return null
+ *  `value` is not an exact plain array: wrong prototype, an own symbol-keyed property,
+ *  a hole, an accessor, a non-enumerable member, or an extra named member. Callers pass
+ *  only values for which Array.isArray(value) is already true and isProxy(value) is
+ *  already false. */
+function plainArrayShape(value: object, cache: PrototypeIntrinsicCache): PlainArrayShape | null {
+  if (!isArrayPrototypeOfSomeRealm(Object.getPrototypeOf(value), cache)) return null
+  if (Object.getOwnPropertySymbols(value).length > 0) return null
   const lengthDescriptor = Object.getOwnPropertyDescriptor(value, 'length')
   const length = lengthDescriptor ? lengthDescriptor.value : undefined
   if (typeof length !== 'number' || !Number.isInteger(length) || length < 0) return null
@@ -166,12 +258,13 @@ function plainArrayShape(value: object): PlainArrayShape | null {
 }
 
 /** Reads every own string-keyed property descriptor of `value` exactly once. Returns
- *  null when `value` is not an exact plain object: wrong prototype, an accessor, or a
- *  non-enumerable member. Symbol-keyed properties are ignored. Callers pass only
+ *  null when `value` is not an exact plain object: wrong prototype, an own
+ *  symbol-keyed property, an accessor, or a non-enumerable member. Callers pass only
  *  values for which Array.isArray(value) is already false and isProxy(value) is
  *  already false. */
-function plainObjectShape(value: object): Map<string, PropertyDescriptor> | null {
-  if (!isPlainObjectPrototype(Object.getPrototypeOf(value))) return null
+function plainObjectShape(value: object, cache: PrototypeIntrinsicCache): Map<string, PropertyDescriptor> | null {
+  if (!isPlainObjectPrototype(Object.getPrototypeOf(value), cache)) return null
+  if (Object.getOwnPropertySymbols(value).length > 0) return null
   const shape = new Map<string, PropertyDescriptor>()
   for (const key of Object.getOwnPropertyNames(value)) {
     const descriptor = Object.getOwnPropertyDescriptor(value, key)
@@ -204,6 +297,9 @@ export function snapshotPlainData(root: unknown): unknown {
   // shape, keyed by its object identity: see the doc comment above. Never consulted for
   // a container still on the current path, since the cycle check above it runs first.
   const done = new Map<object, unknown>()
+  // Realm-intrinsic prototype verdicts already computed during this one call: see
+  // PrototypeIntrinsicCache above.
+  const prototypeCache = newPrototypeIntrinsicCache()
   const stack: (PendingValue | PendingExit)[] = [
     { kind: 'value', value: root, place: result => { output = result } },
   ]
@@ -236,7 +332,7 @@ export function snapshotPlainData(root: unknown): unknown {
         continue
       }
       if (Array.isArray(value)) {
-        const shape = plainArrayShape(value)
+        const shape = plainArrayShape(value, prototypeCache)
         if (!shape) { done.set(value, NOT_PLAIN_DATA); place(NOT_PLAIN_DATA); continue }
         const copy: unknown[] = new Array(shape.length)
         done.set(value, copy)
@@ -253,7 +349,7 @@ export function snapshotPlainData(root: unknown): unknown {
           })
         }
       } else {
-        const shape = plainObjectShape(value)
+        const shape = plainObjectShape(value, prototypeCache)
         if (!shape) { done.set(value, NOT_PLAIN_DATA); place(NOT_PLAIN_DATA); continue }
         const copy: Record<string, unknown> = {}
         done.set(value, copy)
@@ -296,8 +392,10 @@ export function snapshotPlainData(root: unknown): unknown {
  *
  * Returns the container's own members, in their original order, each read exactly once
  * through its own property descriptor, when `value` is an exact plain array (never a
- * Proxy, at any point this function inspects, including as `value` itself) whose
- * length, read once through its own descriptor, is between `minLength` and `maxLength`
+ * Proxy, at any point this function inspects, including as `value` itself, whose
+ * prototype is the Array.prototype of some realm by the same realm-intrinsic identity
+ * plainArrayShape() uses, and which carries no own symbol-keyed property) whose length,
+ * read once through its own descriptor, is between `minLength` and `maxLength`
  * inclusive: the length bound is checked before any index of `value` is read. Returns
  * null on any other shape, and on any exception raised while inspecting `value`; the
  * caller then gives exactly the result a non-array chain gives.
@@ -310,7 +408,9 @@ export function readPlainDataChainContainer(
   try {
     if (isProxy(value) || typeof value !== 'object' || value === null) return null
     if (!Array.isArray(value)) return null
-    if (!isArrayPrototypeOfSomeRealm(Object.getPrototypeOf(value))) return null
+    const cache = newPrototypeIntrinsicCache()
+    if (!isArrayPrototypeOfSomeRealm(Object.getPrototypeOf(value), cache)) return null
+    if (Object.getOwnPropertySymbols(value).length > 0) return null
     const lengthDescriptor = Object.getOwnPropertyDescriptor(value, 'length')
     const length = lengthDescriptor ? lengthDescriptor.value : undefined
     if (typeof length !== 'number' || !Number.isInteger(length) || length < minLength || length > maxLength) {
