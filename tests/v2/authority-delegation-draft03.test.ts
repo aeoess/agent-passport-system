@@ -355,7 +355,7 @@ test('a facet with no profile member, or a non-string profile, is SCHEMA_INVALID
   assert.equal(checkedB.failures[0]?.code, 'SCHEMA_INVALID')
 })
 
-// ── Second round: record-wide I-JSON (RFC 7493 section 2.1), key resolver
+// ── Record-wide I-JSON (RFC 7493 section 2.1), key resolver
 // null/undefined equivalence, and budget ledger input guards. ──
 
 /** A record whose JCS cannot be computed because it carries a lone surrogate:
