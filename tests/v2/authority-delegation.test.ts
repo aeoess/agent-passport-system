@@ -111,7 +111,11 @@ test('v1 ID and Ed25519 signature inputs are deterministic and full chain valida
   assert.deepEqual(again, root)
   assert.equal(root.delegation_id, computeAuthorityDelegationId(authorityDelegationBody(root)))
 
-  const child = issueSubAuthorityDelegation(root, childBody(root), childKeys.privateKey)
+  const child = issueSubAuthorityDelegation(root, childBody(root), childKeys.privateKey, {
+    now: root.authority.time.not_before,
+    resolveVerificationKey: (_issuer, method) => (method === root.verification_method ? rootKeys.publicKey : null),
+    resolveRevocation: () => 'active',
+  })
   const keys = new Map([
     [root.verification_method, rootKeys.publicKey],
     [child.verification_method, childKeys.publicKey],

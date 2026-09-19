@@ -247,8 +247,16 @@ function buildChain(overrides: ChainOverrides = {}): {
     },
   }
   // Use issueSubAuthorityDelegation to also exercise the parent-attachment
-  // checks (continuity, time window, seven-facet narrowing) at mint time.
-  const leaf = issueSubAuthorityDelegation(root, leafBody, deriveEd25519('agent').privateKeyHex)
+  // checks (parent verification, continuity, time window, seven-facet
+  // narrowing) at mint time. The baseline clock is passed as `now`: it sits
+  // inside the root's own validity window, so the parent-verification checks
+  // added by draft section 3.6 pass and the emitted bytes are unchanged.
+  const leaf = issueSubAuthorityDelegation(root, leafBody, deriveEd25519('agent').privateKeyHex, {
+    now: BASELINE_ISO,
+    resolveVerificationKey: (_issuer, method) =>
+      (method === root.verification_method ? deriveEd25519('principal').publicKeyHex : null),
+    resolveRevocation: () => 'active',
+  })
   return { root, leaf }
 }
 

@@ -17,7 +17,11 @@ import {
 } from '../../src/v2/authority-delegation/index.js'
 import type { AuthorityDelegationBodyV1, AuthorityDelegationV1 } from '../../src/v2/authority-delegation/index.js'
 
-function root(): { delegation: AuthorityDelegationV1; subjectKey: ReturnType<typeof generateKeyPair> } {
+function root(): {
+  delegation: AuthorityDelegationV1
+  subjectKey: ReturnType<typeof generateKeyPair>
+  resolveRootKey: (issuer: string, method: string) => string | null
+} {
   const rootKey = generateKeyPair()
   const subjectKey = generateKeyPair()
   const body: AuthorityDelegationBodyV1 = {
@@ -37,10 +41,20 @@ function root(): { delegation: AuthorityDelegationV1; subjectKey: ReturnType<typ
       reversibility: { profile: REVERSIBILITY_PROFILE_V1, ceiling: 'irreversible' },
     },
   }
-  return { delegation: issueAuthorityDelegation(body, rootKey.privateKey), subjectKey }
+  return {
+    delegation: issueAuthorityDelegation(body, rootKey.privateKey),
+    subjectKey,
+    resolveRootKey: (_issuer, method) => (method === body.verification_method ? rootKey.publicKey : null),
+  }
 }
 
-function child(parent: AuthorityDelegationV1, subjectKey: ReturnType<typeof generateKeyPair>, subject: string, nonce: string): AuthorityDelegationV1 {
+function child(
+  parent: AuthorityDelegationV1,
+  resolveRootKey: (issuer: string, method: string) => string | null,
+  subjectKey: ReturnType<typeof generateKeyPair>,
+  subject: string,
+  nonce: string,
+): AuthorityDelegationV1 {
   const body: AuthorityDelegationBodyV1 = {
     record_type: AUTHORITY_DELEGATION_RECORD_TYPE,
     version: AUTHORITY_DELEGATION_VERSION,
@@ -54,13 +68,17 @@ function child(parent: AuthorityDelegationV1, subjectKey: ReturnType<typeof gene
       time: { not_before: '2026-07-18T22:00:01.000Z', not_after: '2026-07-18T22:59:00.000Z' },
     },
   }
-  return issueSubAuthorityDelegation(parent, body, subjectKey.privateKey)
+  return issueSubAuthorityDelegation(parent, body, subjectKey.privateKey, {
+    now: '2026-07-18T22:00:01.000Z',
+    resolveVerificationKey: resolveRootKey,
+    resolveRevocation: () => 'active',
+  })
 }
 
 test('sibling actions debit their shared ancestor atomically', () => {
-  const { delegation: parent, subjectKey } = root()
-  const left = child(parent, subjectKey, 'did:example:left', '22222222222222222222222222222222')
-  const right = child(parent, subjectKey, 'did:example:right', '33333333333333333333333333333333')
+  const { delegation: parent, subjectKey, resolveRootKey } = root()
+  const left = child(parent, resolveRootKey, subjectKey, 'did:example:left', '22222222222222222222222222222222')
+  const right = child(parent, resolveRootKey, subjectKey, 'did:example:right', '33333333333333333333333333333333')
   const ledger = new InMemoryAuthorityBudgetLedger()
 
   const first = ledger.reserve([parent, left], 'a'.repeat(64), 'iso4217:USD:minor', '60')
@@ -75,8 +93,8 @@ test('sibling actions debit their shared ancestor atomically', () => {
 })
 
 test('action_ref retries are idempotent, conflicts fail, and dispatched reservations cannot cancel', () => {
-  const { delegation: parent, subjectKey } = root()
-  const leaf = child(parent, subjectKey, 'did:example:leaf', '44444444444444444444444444444444')
+  const { delegation: parent, subjectKey, resolveRootKey } = root()
+  const leaf = child(parent, resolveRootKey, subjectKey, 'did:example:leaf', '44444444444444444444444444444444')
   const ledger = new InMemoryAuthorityBudgetLedger()
   const actionRef = 'c'.repeat(64)
 
@@ -89,8 +107,8 @@ test('action_ref retries are idempotent, conflicts fail, and dispatched reservat
 })
 
 test('budget ledger rejects truncated, malformed, and duplicate chains', () => {
-  const { delegation: parent, subjectKey } = root()
-  const leaf = child(parent, subjectKey, 'did:example:leaf', '55555555555555555555555555555555')
+  const { delegation: parent, subjectKey, resolveRootKey } = root()
+  const leaf = child(parent, resolveRootKey, subjectKey, 'did:example:leaf', '55555555555555555555555555555555')
   const ledger = new InMemoryAuthorityBudgetLedger()
   assert.equal(ledger.reserve([], 'd'.repeat(64), 'iso4217:USD:minor', '1').code, 'CONFLICT')
   assert.equal(ledger.reserve([leaf], 'e'.repeat(64), 'iso4217:USD:minor', '1').code, 'CONFLICT')

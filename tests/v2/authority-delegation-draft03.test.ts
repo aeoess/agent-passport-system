@@ -164,6 +164,11 @@ function buildLeapSecondChain(): [AuthorityDelegationV1, AuthorityDelegationV1] 
       not_after: '2017-01-01T00:00:00.500Z',
     }),
     CHILD_KEY,
+    {
+      now: '2016-12-31T23:59:60.000Z',
+      resolveVerificationKey,
+      resolveRevocation: () => 'active',
+    },
   )
   return [root, child]
 }
