@@ -76,14 +76,17 @@ export function validateActionReferenceInputV2(candidate: unknown): asserts cand
   if (typeof candidate.agent_id !== 'string' || candidate.agent_id.length === 0) throw new Error('agent_id')
   if (typeof candidate.action_type !== 'string' || candidate.action_type.length === 0) throw new Error('action_type')
   if (typeof candidate.target !== 'string' || candidate.target.length === 0) throw new Error('target')
-  assertHex(String(candidate.payload_ref), 64, 'payload_ref')
+  if (typeof candidate.payload_ref !== 'string') throw new Error('payload_ref: expected 64 lowercase hexadecimal characters')
+  assertHex(candidate.payload_ref, 64, 'payload_ref')
   if (!Array.isArray(candidate.scope_required)) throw new Error('scope_required')
   assertSortedUnique(candidate.scope_required as string[], 'scope_required')
   for (const scope of candidate.scope_required as string[]) {
     if (scope !== scope.normalize('NFC')) throw new Error('scope_required: non-NFC value')
   }
-  assertUtcMilliseconds(String(candidate.issued_at), 'issued_at')
-  assertHex(String(candidate.nonce), 32, 'nonce')
+  if (typeof candidate.issued_at !== 'string') throw new Error('issued_at: expected canonical UTC milliseconds')
+  assertUtcMilliseconds(candidate.issued_at, 'issued_at')
+  if (typeof candidate.nonce !== 'string') throw new Error('nonce: expected 32 lowercase hexadecimal characters')
+  assertHex(candidate.nonce, 32, 'nonce')
 }
 
 /** Serialized-input entry path for an action reference document.
