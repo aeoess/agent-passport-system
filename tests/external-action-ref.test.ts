@@ -95,3 +95,123 @@ describe('computeExternalActionRefV1 action-ref-v1-jcs-sha256 cross-ecosystem ke
     assert.notEqual(base, other)
   })
 })
+
+describe('computeExternalActionRefV1 draft-03 section 4.2 hardening: calendar validity and field types', () => {
+  // Reference vector: {actionType: "commerce_preflight", agentId:
+  // "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK", scope:
+  // "commerce:write"}. Digests below were computed from the UNMODIFIED
+  // implementation (before this hardening was applied) and must not change,
+  // since the preimage keys and the hashing are untouched by this fix.
+  const validBase = {
+    actionType: 'commerce_preflight',
+    agentId: 'did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK',
+    scope: 'commerce:write',
+  }
+
+  const shapeRejections = [
+    { name: 'month 13', timestamp: '2026-13-01T00:00:00.000Z' },
+    { name: 'hour 24', timestamp: '2026-04-08T24:00:00.000Z' },
+    { name: 'minute 60 (only seconds admit :60)', timestamp: '2026-04-08T12:60:00.000Z' },
+  ]
+  for (const c of shapeRejections) {
+    it(`rejects a malformed timestamp (${c.name})`, () => {
+      assert.throws(
+        () => computeExternalActionRefV1({ ...validBase, timestamp: c.timestamp }),
+        /three fractional digits/,
+      )
+    })
+  }
+
+  const calendarRejections = [
+    { name: 'February 30 does not exist', timestamp: '2026-02-30T00:00:00.000Z' },
+    { name: 'February 29 in a non-leap year', timestamp: '2027-02-29T00:00:00.000Z' },
+  ]
+  for (const c of calendarRejections) {
+    it(`rejects a calendar-invalid timestamp (${c.name})`, () => {
+      assert.throws(
+        () => computeExternalActionRefV1({ ...validBase, timestamp: c.timestamp }),
+        /does not exist in that month/,
+      )
+    })
+  }
+
+  it('rejects an array-wrapped timestamp instead of hashing its RegExp-coerced string form', () => {
+    assert.throws(
+      () =>
+        computeExternalActionRefV1({
+          ...validBase,
+          timestamp: ['2026-04-08T12:00:00.000Z'] as unknown as string,
+        }),
+      /timestamp must be a string or a Date/,
+    )
+  })
+
+  it('rejects a numeric timestamp', () => {
+    assert.throws(
+      () => computeExternalActionRefV1({ ...validBase, timestamp: 1747568431000 as unknown as string }),
+      /timestamp must be a string or a Date/,
+    )
+  })
+
+  it('rejects a Date whose year falls outside the four-digit range (renders with an expanded year)', () => {
+    assert.throws(
+      () => computeExternalActionRefV1({ ...validBase, timestamp: new Date(Date.UTC(10000, 0, 1)) }),
+      /three fractional digits/,
+    )
+  })
+
+  it('rejects a non-string actionType', () => {
+    assert.throws(
+      () => computeExternalActionRefV1({ ...validBase, actionType: 123 as unknown as string }),
+      /computeExternalActionRefV1: actionType must be a string/,
+    )
+  })
+
+  it('rejects a null agentId', () => {
+    assert.throws(
+      () => computeExternalActionRefV1({ ...validBase, agentId: null as unknown as string }),
+      /computeExternalActionRefV1: agentId must be a string/,
+    )
+  })
+
+  it('rejects an array scope', () => {
+    assert.throws(
+      () =>
+        computeExternalActionRefV1({
+          ...validBase,
+          scope: ['commerce:write'] as unknown as string,
+        }),
+      /computeExternalActionRefV1: scope must be a string/,
+    )
+  })
+
+  it('accepts a leap-second timestamp (:60) lexically per the RFC 3339 ABNF and pins its digest', () => {
+    const ref = computeExternalActionRefV1({ ...validBase, timestamp: '2016-12-31T23:59:60.000Z' })
+    assert.equal(ref, '9987eae85a2037cd2b8cd300d357f33a633e47fb735af5fb6cc742ff41ec69ac')
+  })
+
+  it('accepts February 29 in a leap year at the last millisecond of the day', () => {
+    const ref = computeExternalActionRefV1({ ...validBase, timestamp: '2028-02-29T23:59:59.999Z' })
+    assert.match(ref, /^[0-9a-f]{64}$/)
+  })
+
+  it('accepts year 0000 (a leap year under the proleptic Gregorian calendar)', () => {
+    const ref = computeExternalActionRefV1({ ...validBase, timestamp: '0000-01-01T00:00:00.000Z' })
+    assert.match(ref, /^[0-9a-f]{64}$/)
+  })
+
+  it('accepts empty strings for actionType, agentId and scope (no non-empty rule in section 4.2)', () => {
+    const ref = computeExternalActionRefV1({
+      actionType: '',
+      agentId: '',
+      scope: '',
+      timestamp: '2026-04-08T12:00:00.000Z',
+    })
+    assert.match(ref, /^[0-9a-f]{64}$/)
+  })
+
+  it('pins the accepted digest for the reference commerce_preflight vector, unchanged from the pre-fix implementation', () => {
+    const ref = computeExternalActionRefV1({ ...validBase, timestamp: '2026-04-08T12:00:00.000Z' })
+    assert.equal(ref, '560f1463cf4d1b4f754a4f536a41df6e6c576dd249c6a887a0c7b1f773145941')
+  })
+})
