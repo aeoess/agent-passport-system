@@ -713,6 +713,64 @@ test('grants with an own Symbol.iterator yielding "*" is SCHEMA_INVALID everywhe
   })
 })
 
+test('an array carrying an own toJSON is SCHEMA_INVALID everywhere', () => {
+  assertPlainDataAttackIsRejected('grants array carrying an own toJSON', target => {
+    Object.defineProperty(target.authority.scope.grants, 'toJSON', {
+      value: () => ['*'],
+      enumerable: false,
+      configurable: true,
+    })
+    return target
+  })
+})
+
+test('an array member that is a hole, an accessor or non-enumerable is SCHEMA_INVALID everywhere', () => {
+  assertPlainDataAttackIsRejected('grants array with a hole', target => {
+    const sparse: string[] = []
+    sparse[1] = 'commerce:checkout'
+    target.authority.scope.grants = sparse
+    return target
+  })
+  assertPlainDataAttackIsRejected('grants array whose index 0 is an accessor', target => {
+    const grants: string[] = []
+    Object.defineProperty(grants, '0', { get: () => 'commerce:checkout', enumerable: true, configurable: true })
+    Object.defineProperty(grants, 'length', { value: 1, writable: true })
+    target.authority.scope.grants = grants
+    return target
+  })
+  assertPlainDataAttackIsRejected('grants array whose index 0 is non-enumerable', target => {
+    const grants = ['commerce:checkout']
+    Object.defineProperty(grants, '0', { enumerable: false })
+    target.authority.scope.grants = grants
+    return target
+  })
+})
+
+test('an own property of an array that is neither an index nor "length" is left out of the snapshot, exactly as JSON.stringify leaves it out', () => {
+  const body = childBody(root)
+  const child = signDirectly(body, childKeys.privateKey)
+  const withExtra = structuredClone(child)
+  Object.defineProperty(withExtra.authority.scope.grants, 'extra', {
+    value: 'not an index',
+    writable: true,
+    enumerable: true,
+    configurable: true,
+  })
+  assert.deepEqual(Object.getOwnPropertyNames(withExtra.authority.scope.grants), ['0', 'length', 'extra'])
+  assert.equal(
+    JSON.stringify(withExtra.authority.scope.grants),
+    JSON.stringify(child.authority.scope.grants),
+  )
+
+  let seen: AuthorityDelegationV1 | undefined
+  const checked = verifyAuthorityDelegationChain([root, withExtra], {
+    ...chainOptions(root.delegation_id),
+    resolveRevocation: candidate => { if (candidate.parent_delegation_id !== null) seen = candidate; return 'active' },
+  })
+  assert.equal(checked.state, 'valid')
+  assert.deepEqual(Object.getOwnPropertyNames(seen!.authority.scope.grants), ['0', 'length'])
+})
+
 test('a record, a facet or a facet member held in a wrapper object with an Object.prototype or null prototype is SCHEMA_INVALID everywhere', () => {
   assertPlainDataAttackIsRejected('record held in a Boolean wrapper whose prototype is Object.prototype', target =>
     wrapperWithMembers(new Boolean(false), Object.prototype, target))
