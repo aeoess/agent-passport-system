@@ -39,10 +39,15 @@ const isRawJSON: (value: object) => boolean =
  * trap, so a Proxy is rejected before anything belonging to it, its prototype, its own
  * keys, or any of its descriptors, is read. An exact plain array is a value for which
  * Array.isArray is true, that is not itself a Proxy, whose prototype is the
- * Array.prototype of some JavaScript realm, whose own string keys are exactly the
- * indices 0 through length-1 plus "length", every index of which is an enumerable data
- * property, no hole, no accessor, no extra member, and which carries no own
- * symbol-keyed property. An exact plain object is a non-array, non-Proxy object whose
+ * Array.prototype of some JavaScript realm, whose length is a non-negative integer read
+ * from its own descriptor, every index 0 through length-1 of which is an enumerable data
+ * property, no hole and no accessor, and which carries neither an own symbol-keyed
+ * property nor an own "toJSON" property. An own property of an array that is neither an
+ * index nor "length" is left out of the snapshot rather than refused: JSON.stringify
+ * serializes an array by its length and its indices, so such a property is invisible to
+ * the JSON form as well, and "toJSON", the one own name that would change that form, is
+ * refused. Refusing the others instead would mean enumerating the array's own property
+ * names, which this engine cannot do at 2**23 members or more. An exact plain object is a non-array, non-Proxy object whose
  * prototype is null, or whose prototype is the Object.prototype of some realm, which
  * holds no primitive value of its own (it is not a Boolean, Number, String, BigInt or
  * Symbol wrapper object, as node:util's types.isBoxedPrimitive decides) and is not a
@@ -265,27 +270,33 @@ interface PlainArrayShape {
   descriptors: PropertyDescriptor[]
 }
 
-/** Reads every own property descriptor of `value` exactly once. Returns null when
- *  `value` is not an exact plain array: wrong prototype, an own symbol-keyed property,
- *  a hole, an accessor, a non-enumerable member, or an extra named member. Callers pass
- *  only values for which Array.isArray(value) is already true and isProxy(value) is
- *  already false. */
+/** Reads `value`'s length and then every index's own property descriptor, each exactly
+ *  once. Returns null when `value` is not an exact plain array: wrong prototype, an own
+ *  symbol-keyed property, an own "toJSON" property, a length that is not a non-negative
+ *  integer, a hole, an accessor, or a non-enumerable index. An own property that is
+ *  neither an index nor "length" is left out of the snapshot rather than refused, which
+ *  is what a JSON serializer does with it too.
+ *
+ *  This never enumerates the array's own property names. Object.getOwnPropertyNames and
+ *  Object.getOwnPropertyDescriptors throw RangeError("Too many properties to enumerate")
+ *  on an array of 2**23 or more members, and that exception, caught by the walk below,
+ *  used to turn a correctly signed record that the Python SDK verifies valid into
+ *  SCHEMA_INVALID. Callers pass only values for which Array.isArray(value) is already
+ *  true and isProxy(value) is already false. */
 function plainArrayShape(value: object, cache: PrototypeIntrinsicCache): PlainArrayShape | null {
   if (!isArrayPrototypeOfSomeRealm(Object.getPrototypeOf(value), cache)) return null
   if (Object.getOwnPropertySymbols(value).length > 0) return null
+  // The one own named property that changes what JSON.stringify reads from an array:
+  // it calls toJSON in place of serializing the members. Anything else own and named is
+  // invisible to JSON.stringify, which serializes an array by its length and indices.
+  if (Object.getOwnPropertyDescriptor(value, 'toJSON') !== undefined) return null
   const lengthDescriptor = Object.getOwnPropertyDescriptor(value, 'length')
   const length = lengthDescriptor ? lengthDescriptor.value : undefined
   if (typeof length !== 'number' || !Number.isInteger(length) || length < 0) return null
-  const names = Object.getOwnPropertyNames(value)
-  if (names.length !== length + 1) return null
-  const nameSet = new Set(names)
-  if (!nameSet.has('length')) return null
   const descriptors: PropertyDescriptor[] = new Array(length)
   for (let i = 0; i < length; i++) {
-    const key = String(i)
-    if (!nameSet.has(key)) return null // a hole
-    const descriptor = Object.getOwnPropertyDescriptor(value, key)
-    if (!descriptor || !('value' in descriptor) || descriptor.enumerable !== true) return null
+    const descriptor = Object.getOwnPropertyDescriptor(value, String(i))
+    if (!descriptor || !('value' in descriptor) || descriptor.enumerable !== true) return null // a hole, an accessor, or a non-enumerable index
     descriptors[i] = descriptor
   }
   return { length, descriptors }
