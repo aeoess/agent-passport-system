@@ -94,7 +94,14 @@ const isRawJSON: (value: object) => boolean =
  * escapes any authority-delegation entry point on this account.
  *
  * The walk keeps an explicit stack instead of recursing, so pathological nesting depth
- * in an attacker-supplied argument cannot overflow the call stack. It also keeps a map
+ * in an attacker-supplied argument cannot overflow the call stack. That stack holds one
+ * frame per container on the current path, never one entry per member: each frame keeps
+ * its container, the copy standing in for it, and the cursor of the member being copied,
+ * and each member's descriptor is read only when the cursor reaches it and is dropped
+ * once its value has been copied. What the walk needs at any moment is therefore the
+ * snapshot it is building plus the depth of the input, not a task and a descriptor per
+ * decoded member: a 28 MB decoded record used to exhaust the heap and abort the process
+ * where the same record now verifies. It also keeps a map
  * from each container object it has already finished (or already rejected) to that
  * result, keyed by object identity, so a container reached again through another
  * reference, while it is not on the current path, is not walked a second time: the copy
@@ -265,17 +272,14 @@ function isPlainObjectPrototype(prototype: unknown, cache: PrototypeIntrinsicCac
   return verdict
 }
 
-interface PlainArrayShape {
-  length: number
-  descriptors: PropertyDescriptor[]
-}
-
-/** Reads `value`'s length and then every index's own property descriptor, each exactly
- *  once. Returns null when `value` is not an exact plain array: wrong prototype, an own
- *  symbol-keyed property, an own "toJSON" property, a length that is not a non-negative
- *  integer, a hole, an accessor, or a non-enumerable index. An own property that is
- *  neither an index nor "length" is left out of the snapshot rather than refused, which
- *  is what a JSON serializer does with it too.
+/** Checks `value`'s prototype, symbols and length, each read exactly once, and returns
+ *  its length. Returns null when `value` is not an exact plain array: wrong prototype,
+ *  an own symbol-keyed property, an own "toJSON" property, or a length that is not a
+ *  non-negative integer. Each index is checked as the walk below reaches it: it must be
+ *  an own enumerable data property, so a hole, an accessor or a non-enumerable index
+ *  makes the array not plain data. An own property that is neither an index nor "length"
+ *  is left out of the snapshot rather than refused, which is what a JSON serializer does
+ *  with it too.
  *
  *  This never enumerates the array's own property names. Object.getOwnPropertyNames and
  *  Object.getOwnPropertyDescriptors throw RangeError("Too many properties to enumerate")
@@ -283,7 +287,7 @@ interface PlainArrayShape {
  *  used to turn a correctly signed record that the Python SDK verifies valid into
  *  SCHEMA_INVALID. Callers pass only values for which Array.isArray(value) is already
  *  true and isProxy(value) is already false. */
-function plainArrayShape(value: object, cache: PrototypeIntrinsicCache): PlainArrayShape | null {
+function plainArrayLength(value: object, cache: PrototypeIntrinsicCache): number | null {
   if (!isArrayPrototypeOfSomeRealm(Object.getPrototypeOf(value), cache)) return null
   if (Object.getOwnPropertySymbols(value).length > 0) return null
   // The one own named property that changes what JSON.stringify reads from an array:
@@ -293,43 +297,45 @@ function plainArrayShape(value: object, cache: PrototypeIntrinsicCache): PlainAr
   const lengthDescriptor = Object.getOwnPropertyDescriptor(value, 'length')
   const length = lengthDescriptor ? lengthDescriptor.value : undefined
   if (typeof length !== 'number' || !Number.isInteger(length) || length < 0) return null
-  const descriptors: PropertyDescriptor[] = new Array(length)
-  for (let i = 0; i < length; i++) {
-    const descriptor = Object.getOwnPropertyDescriptor(value, String(i))
-    if (!descriptor || !('value' in descriptor) || descriptor.enumerable !== true) return null // a hole, an accessor, or a non-enumerable index
-    descriptors[i] = descriptor
-  }
-  return { length, descriptors }
+  return length
 }
 
-/** Reads every own string-keyed property descriptor of `value` exactly once. Returns
- *  null when `value` is not an exact plain object: a wrapper object holding a
- *  primitive, a raw JSON object, wrong prototype, an own symbol-keyed property, an
- *  accessor, or a non-enumerable member. Callers pass only values for which
- *  Array.isArray(value) is already false and isProxy(value) is already false. */
-function plainObjectShape(value: object, cache: PrototypeIntrinsicCache): Map<string, PropertyDescriptor> | null {
+/** Returns `value`'s own string-keyed property names, read exactly once. Returns null
+ *  when `value` is not an exact plain object: a wrapper object holding a primitive, a
+ *  raw JSON object, wrong prototype, or an own symbol-keyed property. Each named
+ *  property is checked as the walk below reaches it: it must be an enumerable data
+ *  property, so an accessor or a non-enumerable member makes the object not plain data.
+ *  Callers pass only values for which Array.isArray(value) is already false and
+ *  isProxy(value) is already false. */
+function plainObjectKeys(value: object, cache: PrototypeIntrinsicCache): string[] | null {
   if (types.isBoxedPrimitive(value) || isRawJSON(value)) return null
   if (!isPlainObjectPrototype(Object.getPrototypeOf(value), cache)) return null
   if (Object.getOwnPropertySymbols(value).length > 0) return null
-  const shape = new Map<string, PropertyDescriptor>()
-  for (const key of Object.getOwnPropertyNames(value)) {
-    const descriptor = Object.getOwnPropertyDescriptor(value, key)
-    if (!descriptor || !('value' in descriptor) || descriptor.enumerable !== true) return null
-    shape.set(key, descriptor)
-  }
-  return shape
+  return Object.getOwnPropertyNames(value)
 }
 
-interface PendingValue {
-  kind: 'value'
-  value: unknown
-  place: (result: unknown) => void
+/** One container the walk below has entered and not yet left: its source, the copy
+ *  standing in for it in the snapshot, and the cursor of the member being copied. The
+ *  walk holds one of these per level of the current path, never one per member, so the
+ *  memory it needs is bounded by the snapshot it is building plus the depth of the
+ *  input, not by the input's member count. */
+interface ArrayFrame {
+  kind: 'array'
+  source: object
+  copy: unknown[]
+  length: number
+  index: number
 }
 
-interface PendingExit {
-  kind: 'exit'
-  container: object
+interface ObjectFrame {
+  kind: 'object'
+  source: object
+  copy: Record<string, unknown>
+  keys: string[]
+  index: number
 }
+
+type Frame = ArrayFrame | ObjectFrame
 
 /**
  * Deep snapshot of `root` under the plain-JSON-data rule documented above. Each entry
@@ -338,6 +344,8 @@ interface PendingExit {
  */
 export function snapshotPlainData(root: unknown): unknown {
   let output: unknown
+  // Every container the walk has entered and not yet left, by object identity: a
+  // container reached again while it is still here contains itself and is a cycle.
   const onPath = new Set<object>()
   // Every container this walk has already finished, or already rejected for its own
   // shape, keyed by its object identity: see the doc comment above. Never consulted for
@@ -346,76 +354,81 @@ export function snapshotPlainData(root: unknown): unknown {
   // Realm-intrinsic prototype verdicts already computed during this one call: see
   // PrototypeIntrinsicCache above.
   const prototypeCache = newPrototypeIntrinsicCache()
-  const stack: (PendingValue | PendingExit)[] = [
-    { kind: 'value', value: root, place: result => { output = result } },
-  ]
-  while (stack.length > 0) {
-    const task = stack.pop()!
-    if (task.kind === 'exit') {
-      onPath.delete(task.container)
-      continue
+  const frames: Frame[] = []
+
+  /** Puts one finished value in the member slot the innermost open container is at, or
+   *  makes it the whole snapshot when no container is open. */
+  const place = (result: unknown): void => {
+    if (frames.length === 0) {
+      output = result
+      return
     }
-    const { value, place } = task
+    const frame = frames[frames.length - 1]
+    if (frame.kind === 'array') {
+      frame.copy[frame.index] = result
+      return
+    }
+    // defineProperty, not assignment: assigning to a member named "__proto__" would set
+    // the copy's prototype instead of creating the member, and the member would silently
+    // disappear from the snapshot.
+    Object.defineProperty(frame.copy, frame.keys[frame.index], {
+      value: result,
+      writable: true,
+      enumerable: true,
+      configurable: true,
+    })
+  }
+
+  /** Rejects the innermost open container, once one of its members turns out not to be
+   *  an enumerable data property or cannot be read at all. Its copy has already been put
+   *  in its own parent's slot and in the memo, and both are replaced by the marker. No
+   *  other reference can be holding that copy: a second reference reached while this
+   *  container is open is a cycle, and the memo is only read for containers that have
+   *  already been left. */
+  const rejectOpenContainer = (): void => {
+    const frame = frames.pop()!
+    onPath.delete(frame.source)
+    done.set(frame.source, NOT_PLAIN_DATA)
+    place(NOT_PLAIN_DATA)
+  }
+
+  let member: unknown = root
+  let hasMember = true
+  while (hasMember) {
     try {
-      if (isPlainScalar(value)) {
-        place(value)
-        continue
-      }
-      if (isProxy(value)) {
+      if (isPlainScalar(member)) {
+        place(member)
+      } else if (isProxy(member)) {
         place(NOT_PLAIN_DATA) // a Proxy, including a revoked one, is never plain data
-        continue
-      }
-      if (typeof value !== 'object' || value === null) {
+      } else if (typeof member !== 'object' || member === null) {
         place(NOT_PLAIN_DATA) // undefined, bigint, function, symbol, or a non-finite number
-        continue
-      }
-      if (onPath.has(value)) {
+      } else if (onPath.has(member)) {
         place(NOT_PLAIN_DATA) // a container on its own current path: a cycle
-        continue
-      }
-      if (done.has(value)) {
-        place(done.get(value)) // reached again, off its own path: reuse the result already found
-        continue
-      }
-      if (Array.isArray(value)) {
-        const shape = plainArrayShape(value, prototypeCache)
-        if (!shape) { done.set(value, NOT_PLAIN_DATA); place(NOT_PLAIN_DATA); continue }
-        const copy: unknown[] = new Array(shape.length)
-        done.set(value, copy)
-        place(copy)
-        onPath.add(value)
-        stack.push({ kind: 'exit', container: value })
-        // Pushed last-first so that they are popped, and placed, in their original order.
-        for (let i = shape.length - 1; i >= 0; i--) {
-          const index = i
-          stack.push({
-            kind: 'value',
-            value: shape.descriptors[index].value,
-            place: result => { copy[index] = result },
-          })
+      } else if (done.has(member)) {
+        place(done.get(member)) // reached again, off its own path: reuse the result already found
+      } else if (Array.isArray(member)) {
+        const length = plainArrayLength(member, prototypeCache)
+        if (length === null) {
+          done.set(member, NOT_PLAIN_DATA)
+          place(NOT_PLAIN_DATA)
+        } else {
+          const copy: unknown[] = new Array(length)
+          done.set(member, copy)
+          place(copy)
+          onPath.add(member)
+          frames.push({ kind: 'array', source: member, copy, length, index: -1 })
         }
       } else {
-        const shape = plainObjectShape(value, prototypeCache)
-        if (!shape) { done.set(value, NOT_PLAIN_DATA); place(NOT_PLAIN_DATA); continue }
-        const copy: Record<string, unknown> = {}
-        done.set(value, copy)
-        place(copy)
-        onPath.add(value)
-        stack.push({ kind: 'exit', container: value })
-        // Pushed last-first so that the copy's members are defined in the original
-        // member order: the snapshot then serializes, and is returned to callers,
-        // exactly as the original would be.
-        for (const [key, descriptor] of [...shape].reverse()) {
-          stack.push({
-            kind: 'value',
-            value: descriptor.value,
-            // defineProperty, not assignment: assigning to a member named "__proto__"
-            // would set the copy's prototype instead of creating the member, and the
-            // member would silently disappear from the snapshot.
-            place: result => {
-              Object.defineProperty(copy, key, { value: result, writable: true, enumerable: true, configurable: true })
-            },
-          })
+        const keys = plainObjectKeys(member, prototypeCache)
+        if (keys === null) {
+          done.set(member, NOT_PLAIN_DATA)
+          place(NOT_PLAIN_DATA)
+        } else {
+          const copy: Record<string, unknown> = {}
+          done.set(member, copy)
+          place(copy)
+          onPath.add(member)
+          frames.push({ kind: 'object', source: member, copy, keys, index: -1 })
         }
       }
     } catch {
@@ -423,6 +436,38 @@ export function snapshotPlainData(root: unknown): unknown {
       // among them, makes this value NOT_PLAIN_DATA rather than an exception out of the
       // walk.
       place(NOT_PLAIN_DATA)
+    }
+
+    // Move to the next member of the innermost open container, leaving containers whose
+    // members are all copied. Members are read, and placed, in their original order, so
+    // the snapshot serializes exactly as the original would.
+    hasMember = false
+    while (frames.length > 0) {
+      const frame = frames[frames.length - 1]
+      const next = frame.index + 1
+      if (next >= (frame.kind === 'array' ? frame.length : frame.keys.length)) {
+        onPath.delete(frame.source)
+        frames.pop()
+        continue
+      }
+      frame.index = next
+      let descriptor: PropertyDescriptor | undefined
+      try {
+        descriptor = Object.getOwnPropertyDescriptor(
+          frame.source,
+          frame.kind === 'array' ? String(next) : frame.keys[next],
+        )
+      } catch {
+        descriptor = undefined
+      }
+      if (!descriptor || !('value' in descriptor) || descriptor.enumerable !== true) {
+        // a hole, an accessor, or a non-enumerable member
+        rejectOpenContainer()
+        continue
+      }
+      member = descriptor.value
+      hasMember = true
+      break
     }
   }
   return output
