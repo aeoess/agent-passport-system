@@ -10,11 +10,42 @@ import {
   assertIJson,
   assertPlainRecord,
   assertSortedUnique,
-  assertUtcMilliseconds,
   sortedUnique,
 } from '../identity-binding/validation.js'
 
 const DOMAIN = 'APS-ACTION-REF-V2\0'
+
+const ACTION_REF_ISSUED_AT =
+  /^([0-9]{4})-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])T([01][0-9]|2[0-3]):[0-5][0-9]:([0-5][0-9]|60)\.[0-9]{3}Z$/
+
+const DAYS_IN_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+
+function isLeapYear(year: number): boolean {
+  return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0
+}
+
+/** issued_at check local to the action reference surface.
+ *
+ *  draft-pidlisnyi-aps-03 section 4.1 names RFC 3339 for issued_at, and RFC
+ *  3339's grammar admits time-second 60 for a leap second. A validator has
+ *  no leap-second table to consult, so second 60 is accepted lexically at
+ *  any hour and minute the grammar allows. The shared assertUtcMilliseconds
+ *  helper (identity-binding/validation.ts) rejects second 60 and also
+ *  serves passport and principal-binding validation, so this check stays
+ *  local here instead of changing that helper and the surfaces it serves.
+ *
+ *  Calendar validity is checked with integer arithmetic, never Date, since
+ *  Date cannot represent a leap second.
+ */
+function assertActionRefIssuedAt(value: string): void {
+  const match = ACTION_REF_ISSUED_AT.exec(value)
+  if (!match) throw new Error('issued_at: expected canonical UTC milliseconds')
+  const year = Number(match[1])
+  const month = Number(match[2])
+  const day = Number(match[3])
+  const maxDay = month === 2 && isLeapYear(year) ? 29 : DAYS_IN_MONTH[month - 1]
+  if (day > maxDay) throw new Error('issued_at: invalid calendar timestamp')
+}
 
 export interface ActionReferenceInputV2 {
   profile: 'aps-action-ref-v2'
@@ -84,7 +115,7 @@ export function validateActionReferenceInputV2(candidate: unknown): asserts cand
     if (scope !== scope.normalize('NFC')) throw new Error('scope_required: non-NFC value')
   }
   if (typeof candidate.issued_at !== 'string') throw new Error('issued_at: expected canonical UTC milliseconds')
-  assertUtcMilliseconds(candidate.issued_at, 'issued_at')
+  assertActionRefIssuedAt(candidate.issued_at)
   if (typeof candidate.nonce !== 'string') throw new Error('nonce: expected 32 lowercase hexadecimal characters')
   assertHex(candidate.nonce, 32, 'nonce')
 }
