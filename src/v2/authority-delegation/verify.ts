@@ -29,10 +29,22 @@ function indexed(failure: AuthorityFailure, index: number): AuthorityFailure {
  * Full root-to-leaf structural, cryptographic, temporal, and revocation validation.
  *
  * Each chain member is snapshotted to plain JSON data (see plain-data.ts) before any
- * other read of it. Every later read in this function comes from that snapshot: the
- * record passed to `options.trustRoot` and to `options.resolveRevocation` is the
- * snapshot, and the strings passed to `options.resolveVerificationKey` are read from
- * the snapshot, never from the caller's original chain member.
+ * other read of it, and every later read in this function comes from that snapshot,
+ * never from the caller's original chain member: the strings passed to
+ * `options.resolveVerificationKey` are read from it, and `options.trustRoot` and
+ * `options.resolveRevocation` are each handed a fresh copy of it.
+ *
+ * A callback is handed a copy, not the snapshot itself, because this function reads the
+ * snapshot again after the callback returns: the duplicate-identifier, parent-linkage,
+ * continuity, issuance-time, attenuation, validity and revocation checks all run on it.
+ * A callback that writes to what it is given would otherwise change what those checks
+ * see, and a chain that widens its parent's authority would verify valid. What a
+ * callback does to its own copy changes nothing here.
+ *
+ * The four members of `options` are read once each, before anything else, so a caller
+ * object whose property is a getter cannot answer one way when a value is checked and
+ * another way when it is used; a getter that throws leaves that member undefined, which
+ * gives the same coded result an unusable one gives. This function never throws.
  */
 export function verifyAuthorityDelegationChain(
   rawChain: readonly unknown[],
@@ -42,10 +54,19 @@ export function verifyAuthorityDelegationChain(
   if (!container) {
     return result('invalid', [{ code: 'SCHEMA_INVALID', message: 'chain must contain 1 through 256 records' }])
   }
-  if (!options || !isCanonicalTimestamp(options.now)) {
+  // Each member of `options` is read exactly once, here, and every use below is of the
+  // value read here. A getter that throws leaves the member undefined, which reaches the
+  // same coded result an unusable member of that name reaches.
+  const read = (key: keyof AuthorityChainVerificationOptions): unknown => {
+    try { return options ? options[key] : undefined } catch { return undefined }
+  }
+  const now = read('now') as AuthorityChainVerificationOptions['now']
+  const trustRoot = read('trustRoot') as AuthorityChainVerificationOptions['trustRoot'] | undefined
+  const resolveVerificationKey = read('resolveVerificationKey') as AuthorityChainVerificationOptions['resolveVerificationKey'] | undefined
+  const resolveRevocation = read('resolveRevocation') as AuthorityChainVerificationOptions['resolveRevocation'] | undefined
+  if (!isCanonicalTimestamp(now)) {
     return result('invalid', [{ code: 'NONCANONICAL_VALUE', message: 'verification clock must be canonical UTC milliseconds' }])
   }
-  const now = options.now
 
   const chain: AuthorityDelegationV1[] = []
   for (let i = 0; i < container.length; i++) {
@@ -71,7 +92,7 @@ export function verifyAuthorityDelegationChain(
     }
     let publicKey: string | null = null
     try {
-      publicKey = options.resolveVerificationKey(
+      publicKey = resolveVerificationKey!(
         delegation.issuer,
         delegation.verification_method,
         delegation.issued_at,
@@ -91,11 +112,12 @@ export function verifyAuthorityDelegationChain(
   if (root.parent_delegation_id !== null) {
     return result('invalid', [{ code: 'PARENT_MISMATCH', index: 0, message: 'full chain root must carry null parent_delegation_id' }])
   }
-  if (typeof options.trustRoot !== 'function') {
+  if (typeof trustRoot !== 'function') {
     return result('indeterminate', [{ code: 'ROOT_UNTRUSTED', index: 0, message: 'root trust policy is unavailable' }])
   }
   let trustDecision: unknown
-  try { trustDecision = options.trustRoot(root) } catch {
+  // A fresh copy, never the snapshot this function keeps reading: see the doc comment.
+  try { trustDecision = trustRoot(snapshotPlainData(root) as AuthorityDelegationV1) } catch {
     return result('indeterminate', [{ code: 'ROOT_UNTRUSTED', index: 0, message: 'root trust policy could not decide' }])
   }
   if (typeof trustDecision !== 'boolean') {
@@ -137,7 +159,7 @@ export function verifyAuthorityDelegationChain(
     }
     let revocation: 'active' | 'revoked' | 'unknown' = 'unknown'
     try {
-      const resolved = options.resolveRevocation(delegation)
+      const resolved = resolveRevocation!(snapshotPlainData(delegation) as AuthorityDelegationV1)
       revocation = resolved === 'active' || resolved === 'revoked' ? resolved : 'unknown'
     } catch { revocation = 'unknown' }
     if (revocation === 'revoked') {

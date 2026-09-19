@@ -138,6 +138,14 @@ export interface SubAuthorityIssueOptions {
  * snapshot, and the signing itself, reads only that snapshot, never the caller's
  * original parent or body, so a getter or a Proxy trap cannot answer differently the
  * second time it would otherwise have been read.
+ *
+ * `options.resolveRevocation` is handed a fresh copy of the parent snapshot, not the
+ * snapshot itself, because the linkage, continuity, issuance-time and attenuation
+ * checks below read that snapshot after the callback returns. A callback that wrote to
+ * what it was given would otherwise change what those checks compare the child body
+ * against, and this issuer would sign a child that widens its parent, which is exactly
+ * the invalidity section 3.6 requires an issuer to refuse rather than leave for a later
+ * verifier. What a callback does to its own copy changes nothing here.
  */
 export function issueSubAuthorityDelegation(
   parent: AuthorityDelegationV1,
@@ -185,7 +193,7 @@ export function issueSubAuthorityDelegation(
 
   let parentRevocation: unknown
   try {
-    parentRevocation = resolveRevocation(parentSnapshot)
+    parentRevocation = resolveRevocation(snapshotPlainData(parentSnapshot) as AuthorityDelegationV1)
   } catch {
     parentRevocation = null
   }

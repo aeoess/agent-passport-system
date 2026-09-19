@@ -857,6 +857,92 @@ test('a record, a facet or a facet member held in a wrapper object with an Objec
   })
 })
 
+test('a callback that writes to the record it is given cannot change what the checks after it read', () => {
+  const wideningBody = childBody(root)
+  wideningBody.authority.scope = { profile: SCOPE_PROFILE_V1, grants: ['payments:*'] }
+  const wideningChild = signDirectly(wideningBody, childKeys.privateKey)
+
+  // Control: the same child under a parent that really does allow it is valid, so the
+  // assertions below fail if a callback's writes reach the attenuation check.
+  const openRootBody = rootBody()
+  openRootBody.authority.scope = { profile: SCOPE_PROFILE_V1, grants: ['*'] }
+  const openRoot = issueAuthorityDelegation(openRootBody, rootKeys.privateKey)
+  const openChildBody = childBody(openRoot)
+  openChildBody.authority.scope = { profile: SCOPE_PROFILE_V1, grants: ['payments:*'] }
+  const openChild = signDirectly(openChildBody, childKeys.privateKey)
+  assert.equal(
+    verifyAuthorityDelegationChain([openRoot, openChild], chainOptions(openRoot.delegation_id)).state,
+    'valid',
+  )
+
+  const honest = verifyAuthorityDelegationChain([root, wideningChild], chainOptions(root.delegation_id))
+  assert.equal(honest.state, 'invalid')
+  assert.deepEqual(codesOf(honest), ['SCOPE_WIDENING'])
+
+  let given: AuthorityDelegationV1 | undefined
+  const mutating = verifyAuthorityDelegationChain([root, wideningChild], {
+    ...chainOptions(root.delegation_id),
+    trustRoot: candidate => {
+      given = candidate
+      ;(candidate as AuthorityDelegationV1).authority.scope.grants = ['*']
+      return true
+    },
+  })
+  assert.equal(mutating.state, 'invalid')
+  assert.deepEqual(codesOf(mutating), ['SCOPE_WIDENING'])
+  assert.notEqual(given, root)
+  assert.deepEqual(root.authority.scope.grants, ['commerce:*'])
+
+  const mutatingRevocation = verifyAuthorityDelegationChain([root, wideningChild], {
+    ...chainOptions(root.delegation_id),
+    resolveRevocation: candidate => {
+      ;(candidate as AuthorityDelegationV1).authority.scope.grants = ['*']
+      return 'active'
+    },
+  })
+  assert.equal(mutatingRevocation.state, 'invalid')
+
+  // The child issuer reads the parent again after its revocation callback.
+  const issuerOptions = { now: NOW, resolveVerificationKey: resolveKeys, resolveRevocation: () => 'active' as const }
+  assert.doesNotThrow(() => issueSubAuthorityDelegation(openRoot, openChildBody, childKeys.privateKey, {
+    ...issuerOptions,
+    resolveVerificationKey: (_issuer: string, method: string) =>
+      method === openRoot.verification_method ? rootKeys.publicKey : resolveKeys(_issuer, method),
+  }))
+  assert.throws(
+    () => issueSubAuthorityDelegation(root, wideningBody, childKeys.privateKey, {
+      ...issuerOptions,
+      resolveRevocation: parent => {
+        ;(parent as AuthorityDelegationV1).authority.scope.grants = ['*']
+        return 'active'
+      },
+    }),
+    /\(SCOPE_WIDENING\)$/,
+  )
+})
+
+test('the verifier reads each member of its options object exactly once, and a throwing options getter is a defined result', () => {
+  let reads = 0
+  const twoFaced = {
+    get now() {
+      reads += 1
+      return reads === 1 ? '2026-07-19T00:00:00.000Z' : NOW
+    },
+    resolveVerificationKey: resolveKeys,
+    trustRoot: (candidate: AuthorityDelegationV1) => candidate.delegation_id === root.delegation_id,
+    resolveRevocation: () => 'active' as const,
+  }
+  const checked = verifyAuthorityDelegationChain([root], twoFaced as unknown as AuthorityChainVerificationOptions)
+  assert.equal(reads, 1)
+  assert.equal(checked.state, 'invalid')
+  assert.deepEqual(codesOf(checked), ['EXPIRED'])
+
+  const throwing = new Proxy({}, { get() { throw new Error('boom') } }) as AuthorityChainVerificationOptions
+  const contained = verifyAuthorityDelegationChain([root], throwing)
+  assert.equal(contained.state, 'invalid')
+  assert.deepEqual(codesOf(contained), ['NONCANONICAL_VALUE'])
+})
+
 test('a chain container with an own Symbol.iterator is SCHEMA_INVALID, and the ledger gives CONFLICT', () => {
   const properChild = issueSubAuthorityDelegation(root, childBody(root), childKeys.privateKey, {
     now: ROOT_NOT_BEFORE,
