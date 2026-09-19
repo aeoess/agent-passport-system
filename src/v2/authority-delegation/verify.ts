@@ -68,7 +68,7 @@ export function verifyAuthorityDelegationChain(
     } catch {
       publicKey = null
     }
-    if (publicKey === null) {
+    if (publicKey === null || publicKey === undefined) {
       return result('indeterminate', [{ code: 'KEY_RESOLUTION_FAILED', index: i, message: 'issuer verification key could not be resolved' }])
     }
     if (!verifyAuthorityDelegationSignature(delegation, publicKey)) {

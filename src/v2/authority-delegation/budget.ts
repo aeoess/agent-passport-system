@@ -39,10 +39,10 @@ export class InMemoryAuthorityBudgetLedger {
     unit: string,
     amountString: string,
   ): BudgetOperationResult {
-    if (!ACTION_REF.test(actionRef) || !isCanonicalQuantity(amountString)) {
+    if (typeof actionRef !== 'string' || !ACTION_REF.test(actionRef) || !isCanonicalQuantity(amountString)) {
       return { ok: false, code: 'CONFLICT' }
     }
-    if (verifiedChain.length === 0 || verifiedChain.length > 256) {
+    if (!Array.isArray(verifiedChain) || verifiedChain.length === 0 || verifiedChain.length > 256) {
       return { ok: false, code: 'CONFLICT' }
     }
     const seen = new Set<string>()
