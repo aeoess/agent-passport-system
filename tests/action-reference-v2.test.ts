@@ -198,3 +198,81 @@ describe('action_ref v2, section 4.1 type coercion rejection', () => {
     )
   })
 })
+
+describe('action_ref v2, section 4.1 second-60 (leap second) admissibility (draft03-repair)', () => {
+  // AR-P01 of the cross-implementation vector file: a complete, already
+  // valid ActionReferenceInputV2. Every case below is this object as-is or
+  // with only issued_at replaced.
+  const base: ActionReferenceInputV2 = {
+    profile: 'aps-action-ref-v2',
+    agent_id: 'did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK',
+    action_type: 'commerce_preflight',
+    target: 'https://api.example/payments',
+    payload_ref: '9e1d86673f6f2401f5504fdac162c3a429dc2b539f9fa2e0d22a588fb3ffabdf',
+    scope_required: ['commerce:read', 'commerce:write'],
+    issued_at: '2026-04-08T12:00:00.000Z',
+    nonce: '00112233445566778899aabbccddeeff',
+  }
+
+  it('AR-P01: the base digest is unchanged by the fix', () => {
+    assert.equal(
+      computeActionRefV2(base),
+      '4931f6d13c63a865901de8135ee442cd9ee40a1075e52c72594fa18c713a8382',
+    )
+  })
+
+  it('AR-P17: second 60 on an actual leap-second date is accepted, digest from the section 4.1 formula', () => {
+    const value: ActionReferenceInputV2 = { ...base, issued_at: '2016-12-31T23:59:60.000Z' }
+    assert.equal(
+      computeActionRefV2(value),
+      '970594ab1ede3ececd07231e045f2764fc1b5cefad1017df556f98d41ab5a5eb',
+    )
+  })
+
+  it('AR-P18: second 60 on a date with no actual leap second is still accepted lexically, digest from the section 4.1 formula', () => {
+    const value: ActionReferenceInputV2 = { ...base, issued_at: '2026-04-08T12:00:60.000Z' }
+    assert.equal(
+      computeActionRefV2(value),
+      '87b24dc0fb1b8ccd6e4cb71dfcc329169cfa184a9291b0ee8cf48be93a44b2b4',
+    )
+  })
+
+  it('AR-P17 and AR-P18 agree through the serialized entry point', () => {
+    const ar17: ActionReferenceInputV2 = { ...base, issued_at: '2016-12-31T23:59:60.000Z' }
+    const ar18: ActionReferenceInputV2 = { ...base, issued_at: '2026-04-08T12:00:60.000Z' }
+    assert.equal(computeActionRefV2FromJson(JSON.stringify(ar17)), computeActionRefV2(ar17))
+    assert.equal(computeActionRefV2FromJson(JSON.stringify(ar18)), computeActionRefV2(ar18))
+  })
+
+  const rejectionCases: Array<[string, string, RegExp]> = [
+    ['second 61, past the leap-second allowance', '2026-04-08T12:00:61.000Z',
+      /^Error: issued_at: expected canonical UTC milliseconds$/],
+    ['day 30 of February in a non-leap year', '2026-02-30T00:00:00.000Z',
+      /^Error: issued_at: invalid calendar timestamp$/],
+    ['day 29 of February in a non-leap year', '2027-02-29T00:00:00.000Z',
+      /^Error: issued_at: invalid calendar timestamp$/],
+    ['hour 24', '2026-04-08T24:00:00.000Z',
+      /^Error: issued_at: expected canonical UTC milliseconds$/],
+    ['second 60 with no fractional digits', '2026-04-08T12:00:60Z',
+      /^Error: issued_at: expected canonical UTC milliseconds$/],
+  ]
+
+  for (const [label, issuedAt, message] of rejectionCases) {
+    it(`rejects issued_at: ${label}`, () => {
+      const value: ActionReferenceInputV2 = { ...base, issued_at: issuedAt }
+      assert.throws(() => computeActionRefV2(value), message)
+    })
+  }
+
+  const acceptedCases: Array<[string, string]> = [
+    ['second 60 on the last day of February in a leap year', '2028-02-29T23:59:60.000Z'],
+    ['year 0000, a leap year under the proleptic Gregorian rule', '0000-02-29T00:00:00.000Z'],
+  ]
+
+  for (const [label, issuedAt] of acceptedCases) {
+    it(`accepts issued_at: ${label}`, () => {
+      const value: ActionReferenceInputV2 = { ...base, issued_at: issuedAt }
+      assert.match(computeActionRefV2(value), /^[0-9a-f]{64}$/)
+    })
+  }
+})
