@@ -20,8 +20,9 @@ const IDENTIFIER = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/
 const MAX_QUANTITY = 9223372036854775807n
 // RFC 3339 exact UTC-millisecond form. Group 1 = year, 2 = month, 3 = day,
 // 4 = hour, 5 = second (minute is not captured; the pattern alone bounds it
-// to 00-59). Second 60 is accepted lexically at any hour and minute, because
-// a validator cannot consult the leap-second table.
+// to 00-59). Second 60 is accepted wherever the RFC 3339 section 5.6 grammar
+// allows it. The section 5.7 restriction of a leap second to the last minute
+// of a month is not checked.
 const CANONICAL_TIMESTAMP =
   /^([0-9]{4})-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])T([01][0-9]|2[0-3]):[0-5][0-9]:([0-5][0-9]|60)\.[0-9]{3}Z$/
 const DAYS_IN_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
@@ -43,14 +44,64 @@ function exactKeys(value: Record<string, unknown>, expected: readonly string[]):
   return actual.length === wanted.length && actual.every((key, i) => key === wanted[i])
 }
 
-function wellFormedUnicode(value: string): boolean {
+/**
+ * RFC 7493 section 2.1 I-JSON string check: false for any unpaired UTF-16
+ * surrogate (including a trailing lone high surrogate) and for any
+ * noncharacter code point (U+FDD0..U+FDEF, or any code point whose low 16
+ * bits are FFFE or FFFF). A valid surrogate pair is decoded to its code
+ * point before the noncharacter test.
+ */
+function isIJSONString(value: string): boolean {
   for (let i = 0; i < value.length; i++) {
     const unit = value.charCodeAt(i)
+    let codePoint = unit
     if (unit >= 0xd800 && unit <= 0xdbff) {
       const next = value.charCodeAt(++i)
       if (!(next >= 0xdc00 && next <= 0xdfff)) return false
+      codePoint = (unit - 0xd800) * 0x400 + (next - 0xdc00) + 0x10000
     } else if (unit >= 0xdc00 && unit <= 0xdfff) {
       return false
+    }
+    if (codePoint >= 0xfdd0 && codePoint <= 0xfdef) return false
+    if ((codePoint & 0xffff) >= 0xfffe) return false
+  }
+  return true
+}
+
+/**
+ * Record-wide I-JSON check over an already-decoded value: every object member
+ * name and every string value, at any depth, must pass isIJSONString().
+ * Iterative with an explicit stack (no recursion, so pathological nesting
+ * depth cannot overflow the call stack) and tracks visited containers by
+ * reference so a cyclic in-memory value terminates instead of looping
+ * forever. Never throws.
+ */
+function recordStringsAreIJSON(root: Record<string, unknown>): boolean {
+  const visited = new Set<unknown>()
+  const stack: unknown[] = [root]
+  while (stack.length > 0) {
+    const current = stack.pop()
+    if (current === null || typeof current !== 'object') continue
+    if (visited.has(current)) continue
+    visited.add(current)
+    if (Array.isArray(current)) {
+      for (const item of current) {
+        if (typeof item === 'string') {
+          if (!isIJSONString(item)) return false
+        } else if (item !== null && typeof item === 'object') {
+          stack.push(item)
+        }
+      }
+    } else {
+      for (const key of Object.keys(current as Record<string, unknown>)) {
+        if (!isIJSONString(key)) return false
+        const member = (current as Record<string, unknown>)[key]
+        if (typeof member === 'string') {
+          if (!isIJSONString(member)) return false
+        } else if (member !== null && typeof member === 'object') {
+          stack.push(member)
+        }
+      }
     }
   }
   return true
@@ -98,6 +149,10 @@ export function validateAuthorityDelegationShape(value: unknown): AuthorityFailu
     'subject', 'verification_method', 'issued_at', 'nonce', 'authority', 'signature',
   ])) return [failure('SCHEMA_INVALID', 'delegation must be an exact closed v1 object')]
 
+  if (!recordStringsAreIJSON(top)) {
+    failures.push(failure('SCHEMA_INVALID', 'record strings must be I-JSON: no unpaired surrogates or noncharacters'))
+  }
+
   if (top.record_type !== AUTHORITY_DELEGATION_RECORD_TYPE || top.version !== AUTHORITY_DELEGATION_VERSION) {
     failures.push(failure('UNSUPPORTED_VERSION', 'unsupported authority-delegation record_type or version'))
   }
@@ -110,7 +165,7 @@ export function validateAuthorityDelegationShape(value: unknown): AuthorityFailu
   }
   for (const key of ['issuer', 'subject', 'verification_method'] as const) {
     const item = top[key]
-    if (typeof item !== 'string' || item.length === 0 || Buffer.byteLength(item, 'utf8') > 1024 || !wellFormedUnicode(item)) {
+    if (typeof item !== 'string' || item.length === 0 || Buffer.byteLength(item, 'utf8') > 1024) {
       failures.push(failure('SCHEMA_INVALID', `${key} must be a non-empty well-formed Unicode string`))
     }
   }

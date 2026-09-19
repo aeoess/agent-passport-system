@@ -13,6 +13,7 @@ import { publicKeyFromPrivate } from '../../src/crypto/keys.js'
 import {
   AUTHORITY_DELEGATION_RECORD_TYPE,
   AUTHORITY_DELEGATION_VERSION,
+  InMemoryAuthorityBudgetLedger,
   REPUTATION_PROFILE_V1,
   REVERSIBILITY_PROFILE_V1,
   SCOPE_PROFILE_V1,
@@ -318,4 +319,124 @@ test('a facet with no profile member, or a non-string profile, is SCHEMA_INVALID
   const checkedB = verifyAuthorityDelegationChain([rootB], activeOptions(STANDARD_NOW, rootB.delegation_id))
   assert.equal(checkedB.state, 'invalid')
   assert.equal(checkedB.failures[0]?.code, 'SCHEMA_INVALID')
+})
+
+// ── Second round: record-wide I-JSON (RFC 7493 section 2.1), key resolver
+// null/undefined equivalence, and budget ledger input guards. ──
+
+/** A record whose JCS cannot be computed because it carries a lone surrogate:
+ *  placeholder delegation_id and signature stand in for values that can never
+ *  actually be derived, matching the shape validator's field-format checks. */
+function unsignable(body: AuthorityDelegationBodyV1): AuthorityDelegationV1 {
+  return { ...body, delegation_id: `sha256:${'0'.repeat(64)}`, signature: '0'.repeat(128) }
+}
+
+/** Builds an array nested `depth` levels deep, iteratively (no recursion). */
+function nestedArray(depth: number): unknown[] {
+  let arr: unknown[] = []
+  for (let i = 1; i < depth; i++) arr = [arr]
+  return arr
+}
+
+test('a noncharacter code point in issuer is SCHEMA_INVALID, decoded from its surrogate pair when needed', () => {
+  const noncharacters = ['﷐', '￿', '\u{1FFFE}', '\u{10FFFF}']
+  for (const mark of noncharacters) {
+    const body = structuredClone(standardRootBody())
+    body.issuer = `did:example:principal${mark}`
+    const root = sign(body, ROOT_KEY)
+    const checked = verifyAuthorityDelegationChain([root], activeOptions(STANDARD_NOW, root.delegation_id))
+    assert.equal(checked.state, 'invalid', JSON.stringify(mark))
+    assert.deepEqual(checked.failures.map(item => item.code), ['SCHEMA_INVALID'], JSON.stringify(mark))
+  }
+})
+
+test('a lone surrogate in subject is SCHEMA_INVALID even when JCS cannot be computed', () => {
+  const body = structuredClone(standardRootBody())
+  body.subject = `${ROOT_SUBJECT}\ud800`
+  const root = unsignable(body)
+  const checked = verifyAuthorityDelegationChain([root], activeOptions(STANDARD_NOW, root.delegation_id))
+  assert.equal(checked.state, 'invalid')
+  assert.deepEqual(checked.failures.map(item => item.code), ['SCHEMA_INVALID'])
+})
+
+test('an unsupported scope profile with a noncharacter is SCHEMA_INVALID and UNSUPPORTED_PROFILE', () => {
+  const body = structuredClone(standardRootBody())
+  ;(body.authority as unknown as Record<string, unknown>).scope = {
+    profile: 'aps-hierarchical-v2￿',
+    grants: ['commerce:*'],
+  }
+  const root = sign(body, ROOT_KEY)
+  const checked = verifyAuthorityDelegationChain([root], activeOptions(STANDARD_NOW, root.delegation_id))
+  assert.equal(checked.state, 'invalid')
+  assert.deepEqual(checked.failures.map(item => item.code), ['SCHEMA_INVALID', 'UNSUPPORTED_PROFILE'])
+})
+
+test('an unsupported values profile with a lone surrogate is SCHEMA_INVALID and UNSUPPORTED_PROFILE', () => {
+  const body = structuredClone(standardRootBody())
+  ;(body.authority as unknown as Record<string, unknown>).values = { profile: '\ud800', required: [] }
+  const root = unsignable(body)
+  const checked = verifyAuthorityDelegationChain([root], activeOptions(STANDARD_NOW, root.delegation_id))
+  assert.equal(checked.state, 'invalid')
+  assert.deepEqual(checked.failures.map(item => item.code), ['SCHEMA_INVALID', 'UNSUPPORTED_PROFILE'])
+})
+
+test('an unsupported version with a noncharacter is SCHEMA_INVALID and UNSUPPORTED_VERSION', () => {
+  const body = structuredClone(standardRootBody())
+  ;(body as unknown as Record<string, unknown>).version = '2.0﷐'
+  const root = sign(body, ROOT_KEY)
+  const checked = verifyAuthorityDelegationChain([root], activeOptions(STANDARD_NOW, root.delegation_id))
+  assert.equal(checked.state, 'invalid')
+  assert.deepEqual(checked.failures.map(item => item.code), ['SCHEMA_INVALID', 'UNSUPPORTED_VERSION'])
+})
+
+test('a pathologically deep nested array under an unsupported scope profile does not throw', () => {
+  const body = structuredClone(standardRootBody())
+  ;(body.authority as unknown as Record<string, unknown>).scope = {
+    profile: 'aps-hierarchical-v2',
+    grants: [nestedArray(100000)],
+  }
+  const root = unsignable(body)
+  const checked = verifyAuthorityDelegationChain([root], activeOptions(STANDARD_NOW, root.delegation_id))
+  assert.equal(checked.state, 'unsupported')
+})
+
+test('a cyclic array under an unsupported scope profile does not throw', () => {
+  const cyclic: unknown[] = []
+  cyclic.push(cyclic)
+  const body = structuredClone(standardRootBody())
+  ;(body.authority as unknown as Record<string, unknown>).scope = {
+    profile: 'aps-hierarchical-v2',
+    grants: [cyclic],
+  }
+  const root = unsignable(body)
+  const checked = verifyAuthorityDelegationChain([root], activeOptions(STANDARD_NOW, root.delegation_id))
+  assert.equal(checked.state, 'unsupported')
+})
+
+test('a key resolver returning undefined for the root is indeterminate, KEY_RESOLUTION_FAILED, at index 0', () => {
+  const root = issueAuthorityDelegation(standardRootBody(), ROOT_KEY)
+  const checked = verifyAuthorityDelegationChain([root], {
+    now: STANDARD_NOW,
+    resolveVerificationKey: (() => undefined) as never,
+    trustRoot: () => true,
+    resolveRevocation: () => 'active',
+  })
+  assert.equal(checked.state, 'indeterminate')
+  assert.equal(checked.failures[0]?.code, 'KEY_RESOLUTION_FAILED')
+  assert.equal(checked.failures[0]?.index, 0)
+})
+
+test('budget reserve rejects a non-string actionRef instead of coercing it into a Map key, and a non-array verifiedChain instead of throwing', () => {
+  const root = issueAuthorityDelegation(standardRootBody(), ROOT_KEY)
+  const unit = 'iso4217:USD:minor'
+  const ledger = new InMemoryAuthorityBudgetLedger()
+  const badRef = ['ab'.repeat(32)] as any
+
+  assert.deepEqual(ledger.reserve([root], badRef, unit, '1'), { ok: false, code: 'CONFLICT' })
+  assert.deepEqual(ledger.reserve([root], badRef, unit, '1'), { ok: false, code: 'CONFLICT' })
+  assert.deepEqual(ledger.reserve([root], badRef, unit, '1'), { ok: false, code: 'CONFLICT' })
+  assert.equal(ledger.counter(root.delegation_id).reserved, '0')
+
+  assert.equal(ledger.reserve(null as any, 'a'.repeat(64), unit, '1').code, 'CONFLICT')
+  assert.equal(ledger.reserve({ 0: root } as any, 'b'.repeat(64), unit, '1').code, 'CONFLICT')
 })
