@@ -171,10 +171,14 @@ function buildLeapSecondChain(): [AuthorityDelegationV1, AuthorityDelegationV1] 
 test('isCanonicalTimestamp: exact RFC 3339 UTC-millisecond grammar with real calendar days', () => {
   const valid = [
     '2016-12-31T23:59:60.000Z',
-    '2026-04-08T12:00:60.000Z',
     '0000-02-29T00:00:00.000Z',
     '2028-02-29T23:59:60.999Z',
     '2026-07-18T22:00:00.000Z',
+    // RFC 3339 section 5.7 and Appendix D: second 60 at 23:59 on
+    // the last day of its month.
+    '2026-06-30T23:59:60.000Z',
+    '2027-02-28T23:59:60.000Z',
+    '0000-02-29T23:59:60.000Z',
   ]
   for (const value of valid) {
     assert.equal(isCanonicalTimestamp(value), true, value)
@@ -191,6 +195,15 @@ test('isCanonicalTimestamp: exact RFC 3339 UTC-millisecond grammar with real cal
     ['2026-07-18T22:00:00.000Z'],
     0,
     null,
+    // RFC 3339 section 5.7 and Appendix D: second 60 is valid only
+    // at 23:59 on the last day of its month; 2026-04-08T12:00:60.000Z was
+    // formerly accepted here and now moves to this list.
+    '2026-04-08T12:00:60.000Z',
+    '2026-06-29T23:59:60.000Z',
+    '2016-12-31T23:58:60.000Z',
+    '2016-12-31T22:59:60.000Z',
+    '2028-02-28T23:59:60.000Z',
+    '2027-02-29T23:59:60.000Z',
   ]
   for (const value of invalid) {
     assert.equal(isCanonicalTimestamp(value), false, JSON.stringify(value))

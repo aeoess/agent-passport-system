@@ -19,12 +19,13 @@ const DECIMAL = /^(0|[1-9][0-9]*)$/
 const IDENTIFIER = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/
 const MAX_QUANTITY = 9223372036854775807n
 // RFC 3339 exact UTC-millisecond form. Group 1 = year, 2 = month, 3 = day,
-// 4 = hour, 5 = second (minute is not captured; the pattern alone bounds it
-// to 00-59). Second 60 is accepted wherever the RFC 3339 section 5.6 grammar
-// allows it. The section 5.7 restriction of a leap second to the last minute
-// of a month is not checked.
+// 4 = hour, 5 = minute, 6 = second. Second 60 is valid only at 23:59 on the
+// last day of its month in the proleptic Gregorian calendar (RFC 3339
+// section 5.7; Appendix D writes the leap second as "YYYY-MM-DDT23:59:60Z"),
+// checked below; the pattern alone only bounds hour, minute and second to
+// their lexical ranges.
 const CANONICAL_TIMESTAMP =
-  /^([0-9]{4})-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])T([01][0-9]|2[0-3]):[0-5][0-9]:([0-5][0-9]|60)\.[0-9]{3}Z$/
+  /^([0-9]{4})-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])T([01][0-9]|2[0-3]):([0-5][0-9]):([0-5][0-9]|60)\.[0-9]{3}Z$/
 const DAYS_IN_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
 
 /** Proleptic Gregorian leap year, so year 0000 is a leap year. */
@@ -114,8 +115,13 @@ export function isCanonicalTimestamp(value: unknown): value is string {
   const year = Number(match[1])
   const month = Number(match[2])
   const day = Number(match[3])
+  const hour = Number(match[4])
+  const minute = Number(match[5])
+  const second = Number(match[6])
   const maxDay = month === 2 && isLeapYear(year) ? 29 : DAYS_IN_MONTH[month - 1]
-  return day <= maxDay
+  if (day > maxDay) return false
+  if (second === 60 && !(hour === 23 && minute === 59 && day === maxDay)) return false
+  return true
 }
 
 /**
