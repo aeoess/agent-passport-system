@@ -150,7 +150,25 @@ function failure(code: AuthorityFailure['code'], message: string): AuthorityFail
 export function validateAuthorityDelegationShape(value: unknown): AuthorityFailure[] {
   const failures: AuthorityFailure[] = []
   const top = record(value)
-  if (!top || !exactKeys(top, [
+  if (!top) return [failure('SCHEMA_INVALID', 'delegation must be an exact closed v1 object')]
+
+  // A recognised record_type carrying a recognised-shape but unsupported version
+  // string is unsupported without ever being judged by the v1 body schema: no
+  // exact-keys check, no facet or value checks. This runs before the top-level
+  // exact-keys check so an unsupported version can carry extra or missing
+  // members. The record-wide I-JSON check still runs first: if it fails, the
+  // record is also invalid.
+  if (top.record_type === AUTHORITY_DELEGATION_RECORD_TYPE &&
+      typeof top.version === 'string' && top.version !== AUTHORITY_DELEGATION_VERSION) {
+    return recordStringsAreIJSON(top)
+      ? [failure('UNSUPPORTED_VERSION', 'unsupported authority-delegation record_type or version')]
+      : [
+          failure('SCHEMA_INVALID', 'record strings must be I-JSON: no unpaired surrogates or noncharacters'),
+          failure('UNSUPPORTED_VERSION', 'unsupported authority-delegation record_type or version'),
+        ]
+  }
+
+  if (!exactKeys(top, [
     'record_type', 'version', 'delegation_id', 'parent_delegation_id', 'issuer',
     'subject', 'verification_method', 'issued_at', 'nonce', 'authority', 'signature',
   ])) return [failure('SCHEMA_INVALID', 'delegation must be an exact closed v1 object')]
@@ -159,7 +177,9 @@ export function validateAuthorityDelegationShape(value: unknown): AuthorityFailu
     failures.push(failure('SCHEMA_INVALID', 'record strings must be I-JSON: no unpaired surrogates or noncharacters'))
   }
 
-  if (top.record_type !== AUTHORITY_DELEGATION_RECORD_TYPE || top.version !== AUTHORITY_DELEGATION_VERSION) {
+  if (typeof top.record_type !== 'string' || typeof top.version !== 'string') {
+    failures.push(failure('SCHEMA_INVALID', 'record_type and version must be strings'))
+  } else if (top.record_type !== AUTHORITY_DELEGATION_RECORD_TYPE || top.version !== AUTHORITY_DELEGATION_VERSION) {
     failures.push(failure('UNSUPPORTED_VERSION', 'unsupported authority-delegation record_type or version'))
   }
   if (typeof top.delegation_id !== 'string' || !ID.test(top.delegation_id)) {
