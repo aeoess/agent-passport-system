@@ -223,3 +223,49 @@ test('composite: an unverifiable receipt fails at stage one and later stages do 
   assert.equal(result.decision_ref_bound, false)
   assert.equal(result.temporal_relation_valid, false)
 })
+
+test('composite: an action-result does not claim a temporal check that was not made', () => {
+  // The window belongs to the decision, and the draft states no relation between it and
+  // the issuance time of a later record, so the comparison is deliberately skipped for
+  // this stage. Reporting true said a check had passed that never ran.
+  const decision = decisionEvidence('2026-04-08T12:00:05.000Z')
+  const { decision_ref } = buildDecisionRefV1({ action_ref: hex('a'), ...decision })
+  const result = createReceiptV1({
+    profile: 'aps-receipt-v1', receipt_type: 'aps:action-result:v1', issuer: BOUNDARY,
+    subject_agent: 'did:example:agent', action_ref: hex('a'), delegation_ref: `sha256:${hex('c')}`,
+    decision_ref, prev: hex('d'),
+    issued_at: '2099-01-01T00:00:00.000Z', evidence_refs: [],
+    result: { profile: 'aps-action-result-v1', status: 'succeeded', effect_ref: hex('f'), error_code: null },
+  } as never, [{ signer: BOUNDARY, key_id: 'k1', private_key: privateKey }])
+  const verified = verify(result, decision)
+  assert.equal(verified.valid, true)
+  assert.equal(verified.temporal_relation_valid, 'not_applicable', 'issued 73 years after the window closed')
+  assert.equal(verified.decision_output_bound, 'not_applicable')
+  // The policy-decision stage still reports a real answer.
+  assert.equal(verify(receiptFor(decision), decision).temporal_relation_valid, true)
+})
+
+test('composite: a decision output that is not canonical cannot bind, even where the output is not compared', () => {
+  // buildDecisionRefV1 normalizes before hashing, so ["b","a","a"] and ["a","b"] produce
+  // the same decision_ref. On an action-result record the output is not compared with the
+  // receipt's result, so without validating the supplied output first, a component this
+  // SDK's own verifier rejects would bind.
+  const canonical = decisionEvidence('2026-04-08T12:00:05.000Z')
+  const { decision_ref } = buildDecisionRefV1({ action_ref: hex('a'), ...canonical })
+  const result = createReceiptV1({
+    profile: 'aps-receipt-v1', receipt_type: 'aps:action-result:v1', issuer: BOUNDARY,
+    subject_agent: 'did:example:agent', action_ref: hex('a'), delegation_ref: `sha256:${hex('c')}`,
+    decision_ref, prev: hex('d'), issued_at: ISSUED_AT, evidence_refs: [],
+    result: { profile: 'aps-action-result-v1', status: 'succeeded', effect_ref: hex('f'), error_code: null },
+  } as never, [{ signer: BOUNDARY, key_id: 'k1', private_key: privateKey }])
+  assert.equal(verify(result, canonical).valid, true, 'control: the canonical output binds')
+
+  const nonCanonical = {
+    ...canonical,
+    decision_output: { ...canonical.decision_output, constraints: ['b', 'a', 'a'] },
+  }
+  const refused = verify(result, nonCanonical)
+  assert.equal(refused.valid, false)
+  assert.ok(refused.errors.includes('decision_input_invalid'))
+  assert.equal(refused.decision_ref_bound, false)
+})

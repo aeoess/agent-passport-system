@@ -11,30 +11,34 @@ const publicKey = publicKeyFromPrivate(privateKey)
 const resolveKey = () => publicKey
 const hex = (c: string) => c.repeat(64)
 
+// A real section 5.3 stage. The earlier fixture used receipt_type "aps:action:v1" with a
+// free-form result, which names no stage, so once the verifier enforces the type-specific
+// schema of line 1214 that document is unsupported rather than valid and the duplicate
+// member cases below would have passed for the wrong reason.
 const receipt = createReceiptV1({
   profile: 'aps-receipt-v1',
-  receipt_type: 'aps:action:v1',
-  issuer: 'did:example:issuer',
+  receipt_type: 'aps:action-intent:v1',
+  issuer: 'did:example:agent',
   subject_agent: 'did:example:agent',
   action_ref: hex('a'),
   delegation_ref: `sha256:${hex('b')}`,
   issued_at: '2026-04-08T12:00:00.000Z',
   evidence_refs: [],
-  result: { status: 'ok' },
-}, [{ signer: 'did:example:issuer', key_id: 'k1', private_key: privateKey }])
+  result: { profile: 'aps-action-intent-result-v1', status: 'declared' },
+}, [{ signer: 'did:example:agent', key_id: 'k1', private_key: privateKey }])
 
 const clean = JSON.stringify(receipt)
 // JSON.stringify cannot emit a duplicate member, so the duplicate is spliced in
 // textually. That is the point: the fact exists only in the byte stream.
 const withDuplicate = clean.replace(
-  '"issuer":"did:example:issuer"',
-  '"issuer":"did:example:issuer","issuer":"did:example:attacker"',
+  '"issuer":"did:example:agent"',
+  '"issuer":"did:example:agent","issuer":"did:example:attacker"',
 )
 // The same member name reached through an escape alias, caught only if names are
 // compared AFTER decoding rather than as raw source text.
 const withEscapedDuplicate = clean.replace(
-  '"issuer":"did:example:issuer"',
-  '"issuer":"did:example:issuer","\\u0069ssuer":"did:example:attacker"',
+  '"issuer":"did:example:agent"',
+  '"issuer":"did:example:agent","\\u0069ssuer":"did:example:attacker"',
 )
 
 test('serialized: fixture guard, the duplicate survives in raw bytes and a permissive parser loses it', () => {
