@@ -66,6 +66,21 @@ export function isExactUtcMilliseconds(value: string): boolean {
   return !Number.isNaN(parsed.valueOf()) && parsed.toISOString() === value
 }
 
+/**
+ * Order two values that isExactUtcMilliseconds has accepted: true when `later` is
+ * strictly after `earlier`.
+ *
+ * The comparison is lexicographic on purpose. The accepted form is fixed width and
+ * zero padded, YYYY-MM-DDTHH:MM:SS.sssZ, with the only letters at fixed positions, so
+ * byte order is chronological order, and a leap second at :60 sorts after :59 in the
+ * same minute, which is where it belongs. Date.parse cannot be used: it returns NaN
+ * for a second-60 instant, so every comparison involving a conforming leap second
+ * would silently answer false and reject a record the draft allows.
+ */
+export function isLaterUtcMillisecond(later: string, earlier: string): boolean {
+  return later > earlier
+}
+
 function isNoncharacterCodePoint(codePoint: number): boolean {
   if (codePoint >= 0xfdd0 && codePoint <= 0xfdef) return true
   return (codePoint & 0xffff) === 0xfffe || (codePoint & 0xffff) === 0xffff

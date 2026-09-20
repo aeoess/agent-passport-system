@@ -3,7 +3,7 @@
 
 import { buildDecisionRefV1 } from './decision-ref.js'
 import { strictJCS } from './jcs.js'
-import { isExactUtcMilliseconds, verifyReceiptV1 } from './receipt.js'
+import { isExactUtcMilliseconds, isLaterUtcMillisecond, verifyReceiptV1 } from './receipt.js'
 import type { ReceiptVerificationStatusV1, ReceiptVerificationV1 } from './receipt.js'
 import { validateReceiptStageV1 } from './stage.js'
 import type { ReceiptStageOptionsV1, ReceiptStageResultV1 } from './stage.js'
@@ -208,7 +208,7 @@ export function verifyReceiptWithDecisionV1(
   // action-result record the window belongs to the decision it follows, and the draft
   // states no relation between that window and the result's own issuance time, so none is
   // invented: the check applies to the decision stage only.
-  if (isPolicyDecision && !(Date.parse(validUntil) > Date.parse(receipt.issued_at))) {
+  if (isPolicyDecision && !isLaterUtcMillisecond(validUntil, receipt.issued_at)) {
     errors.push('valid_until_not_after_issued_at')
     return { ...bound, decision_output_bound: decisionOutputBound }
   }
