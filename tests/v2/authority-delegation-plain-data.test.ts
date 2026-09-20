@@ -893,16 +893,9 @@ test('a callback that writes to the record it is given cannot change what the ch
   assert.notEqual(given, root)
   assert.deepEqual(root.authority.scope.grants, ['commerce:*'])
 
-  const mutatingRevocation = verifyAuthorityDelegationChain([root, wideningChild], {
-    ...chainOptions(root.delegation_id),
-    resolveRevocation: candidate => {
-      ;(candidate as AuthorityDelegationV1).authority.scope.grants = ['*']
-      return 'active'
-    },
-  })
-  assert.equal(mutatingRevocation.state, 'invalid')
-
-  // The child issuer reads the parent again after its revocation callback.
+  // The verifier's revocation callback runs after every other check of that member, so
+  // a write there cannot change this function's own reads; it is handed a copy anyway.
+  // The child issuer is where a revocation callback's write does reach later checks.
   const issuerOptions = { now: NOW, resolveVerificationKey: resolveKeys, resolveRevocation: () => 'active' as const }
   assert.doesNotThrow(() => issueSubAuthorityDelegation(openRoot, openChildBody, childKeys.privateKey, {
     ...issuerOptions,
@@ -919,6 +912,25 @@ test('a callback that writes to the record it is given cannot change what the ch
     }),
     /\(SCOPE_WIDENING\)$/,
   )
+})
+
+test('the child issuer refuses with a coded error when its options object cannot be read', () => {
+  const body = childBody(root)
+  const good = { now: NOW, resolveVerificationKey: resolveKeys, resolveRevocation: () => 'active' as const }
+  assert.doesNotThrow(() => issueSubAuthorityDelegation(root, childBody(root), childKeys.privateKey, good))
+
+  for (const [label, options] of [
+    ['a throwing now getter', { get now(): string { throw new Error('trap') }, resolveVerificationKey: resolveKeys, resolveRevocation: () => 'active' as const }],
+    ['a throwing resolver getter', { now: NOW, get resolveVerificationKey(): never { throw new Error('trap') }, resolveRevocation: () => 'active' as const }],
+    ['a Proxy whose get trap throws', new Proxy({}, { get() { throw new Error('trap') } })],
+    ['no options at all', undefined],
+  ] as const) {
+    assert.throws(
+      () => issueSubAuthorityDelegation(root, body, childKeys.privateKey, options as never),
+      /\([A-Z_]+\)$/,
+      label,
+    )
+  }
 })
 
 test('the verifier reads each member of its options object exactly once, and a throwing options getter is a defined result', () => {

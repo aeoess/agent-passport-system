@@ -154,7 +154,16 @@ export function issueSubAuthorityDelegation(
   privateKey: string,
   options: SubAuthorityIssueOptions,
 ): AuthorityDelegationV1 {
-  const { now, resolveVerificationKey, resolveRevocation } = options
+  // Each member is read exactly once, and a getter that throws, a Proxy options object
+  // whose get trap throws, or no options object at all, leaves that member undefined,
+  // which reaches the same coded refusal an unusable member of that name reaches: the
+  // caller gets a coded error rather than whatever its own object threw.
+  const read = (key: keyof SubAuthorityIssueOptions): unknown => {
+    try { return options ? options[key] : undefined } catch { return undefined }
+  }
+  const now = read('now') as SubAuthorityIssueOptions['now']
+  const resolveVerificationKey = read('resolveVerificationKey') as SubAuthorityIssueOptions['resolveVerificationKey']
+  const resolveRevocation = read('resolveRevocation') as SubAuthorityIssueOptions['resolveRevocation']
 
   if (!isCanonicalTimestamp(now)) {
     throw new Error('authority delegation now must be a canonical UTC-millisecond timestamp (NONCANONICAL_VALUE)')

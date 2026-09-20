@@ -58,6 +58,8 @@ export class InMemoryAuthorityBudgetLedger {
     ) {
       return { ok: false, code: 'CONFLICT' }
     }
+    // Provisional: the same 256-record limit the chain verifier applies, and the same
+    // choice of this SDK's own, pending a protocol ruling.
     const container = readPlainDataChainContainer(verifiedChain, 1, 256)
     if (!container) {
       return { ok: false, code: 'CONFLICT' }

@@ -34,22 +34,30 @@ function indexed(failure: AuthorityFailure, index: number): AuthorityFailure {
  * `options.resolveVerificationKey` are read from it, and `options.trustRoot` and
  * `options.resolveRevocation` are each handed a fresh copy of it.
  *
- * A callback is handed a copy, not the snapshot itself, because this function reads the
- * snapshot again after the callback returns: the duplicate-identifier, parent-linkage,
- * continuity, issuance-time, attenuation, validity and revocation checks all run on it.
- * A callback that writes to what it is given would otherwise change what those checks
- * see, and a chain that widens its parent's authority would verify valid. What a
- * callback does to its own copy changes nothing here.
+ * `options.trustRoot` is handed a copy, not the snapshot itself, because this function
+ * reads that snapshot again after the callback returns: the parent-linkage, continuity,
+ * issuance-time, attenuation, validity and revocation checks all run after it, on the
+ * root and on every member. A trust callback that wrote to what it was given would
+ * otherwise change what those checks see, and a chain that widens its parent's authority
+ * would verify valid. `options.resolveRevocation` is handed a copy for the same reason
+ * rather than from the same need: it is called last, after every other check of that
+ * member, so a write there changes nothing this function still reads. The child issuer
+ * is where a revocation callback's write does reach later checks, and it copies too.
+ * What a callback does to its own copy changes nothing in either place.
  *
- * The four members of `options` are read once each, before anything else, so a caller
- * object whose property is a getter cannot answer one way when a value is checked and
- * another way when it is used; a getter that throws leaves that member undefined, which
- * gives the same coded result an unusable one gives. This function never throws.
+ * The four members of `options` are read once each, immediately after the chain
+ * container check, so a caller object whose property is a getter cannot answer one way
+ * when a value is checked and another way when it is used. A container that fails that
+ * check returns before any of them is read. A getter that throws leaves that member
+ * undefined, which gives the same coded result an unusable one gives. This function
+ * never throws.
  */
 export function verifyAuthorityDelegationChain(
   rawChain: readonly unknown[],
   options: AuthorityChainVerificationOptions,
 ): AuthorityValidationResult {
+  // Provisional: the draft states no maximum chain length. This 256-record limit is
+  // this SDK's own choice, shared with the Python port, pending a protocol ruling.
   const container = readPlainDataChainContainer(rawChain, 1, 256)
   if (!container) {
     return result('invalid', [{ code: 'SCHEMA_INVALID', message: 'chain must contain 1 through 256 records' }])
