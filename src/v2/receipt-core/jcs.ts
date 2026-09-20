@@ -168,7 +168,20 @@ export function parseStrictIJson(raw: string, maxUtf8Bytes = 1_048_576, maxDepth
     assertIJson(value)
     return value as number
   }
-  const value = parseValue(1)
+  let value: JsonValue
+  try {
+    value = parseValue(1)
+  } catch (err) {
+    // The runtime's own call-stack ceiling, reached before the configured depth limit when
+    // a caller raises maxDepth above what this stack can walk. That is this implementation
+    // declining to finish reading the document, exactly like the configured ceiling, so it
+    // carries the same class and never reports the document as malformed. Unreachable
+    // through verifyReceiptV1Serialized, which parses at the default ceiling.
+    if (err instanceof RangeError) {
+      throw new IJsonResourceLimitError('$: JSON parser recursion limit exceeded')
+    }
+    throw err
+  }
   skipWhitespace()
   if (offset !== raw.length) throw new IJsonValidationError('$: trailing JSON data')
   assertIJson(value)
