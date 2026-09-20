@@ -108,10 +108,25 @@ function isIJSONValue(value: unknown): boolean {
  * snapshotPlainData(), so it can no longer contain an actual cycle: a container
  * that contained itself was replaced by the marker symbol at that position, which
  * isIJSONValue() rejects. The visited set below only avoids revisiting a container
- * reachable more than once without a cycle. Never throws.
+ * reachable more than once without a cycle, and the checked set does the same for a
+ * string: one string object reached through 60,000 references used to be scanned
+ * 60,000 times, which made an in-memory record costly out of all proportion to the
+ * distinct content it holds, where the Python port's walk, which remembers every
+ * string it has checked, answers the same record in milliseconds. A string that has
+ * been scanned once and found well formed is well formed wherever else the same object
+ * appears. Never throws.
  */
 function recordStringsAreIJSON(root: Record<string, unknown>): boolean {
   const visited = new Set<unknown>()
+  const checked = new Set<string>()
+  const wellFormed = (value: string): boolean => {
+    if (checked.has(value)) return true
+    if (!isIJSONString(value)) return false
+    checked.add(value)
+    return true
+  }
+  const memberIsIJSON = (value: unknown): boolean =>
+    typeof value === 'string' ? wellFormed(value) : isIJSONValue(value)
   const stack: unknown[] = [root]
   while (stack.length > 0) {
     const current = stack.pop()
@@ -120,14 +135,14 @@ function recordStringsAreIJSON(root: Record<string, unknown>): boolean {
     visited.add(current)
     if (Array.isArray(current)) {
       for (const item of current) {
-        if (!isIJSONValue(item)) return false
+        if (!memberIsIJSON(item)) return false
         if (item !== null && typeof item === 'object') stack.push(item)
       }
     } else {
       for (const key of Object.keys(current as Record<string, unknown>)) {
-        if (!isIJSONString(key)) return false
+        if (!wellFormed(key)) return false
         const member = (current as Record<string, unknown>)[key]
-        if (!isIJSONValue(member)) return false
+        if (!memberIsIJSON(member)) return false
         if (member !== null && typeof member === 'object') stack.push(member)
       }
     }
