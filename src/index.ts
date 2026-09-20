@@ -2073,6 +2073,18 @@ export type {
   ReceiptSignerV1,
 } from './v2/receipt-core/types.js'
 export type { ReceiptVerificationV1 } from './v2/receipt-core/receipt.js'
+// Section 5.3 stage rules. validateReceiptV1 enforces the common envelope; which stage a
+// record belongs to, and the rules that stage adds, are decided by receipt.receipt_type
+// here. A record that passes the envelope check and fails its stage is not a valid receipt.
+export { validateReceiptStageV1, RECEIPT_STAGE_TYPES_V1 } from './v2/receipt-core/stage.js'
+export type {
+  ReceiptStageV1,
+  ReceiptStageStatusV1,
+  ReceiptStageResultV1,
+  ReceiptStageFailureV1,
+  ReceiptStageOptionsV1,
+  BoundaryIdentityResultV1,
+} from './v2/receipt-core/stage.js'
 export { verifyReceiptWithDecisionV1 } from './v2/receipt-core/composite.js'
 export type {
   DecisionEvidenceV1,

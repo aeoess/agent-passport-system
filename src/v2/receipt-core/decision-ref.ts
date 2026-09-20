@@ -41,14 +41,19 @@ export function computeDecisionRefV1(input: DecisionRefInputV1): string {
   return sha256Hex(tagged(DECISION_REF_TAG, strictJCS(input)))
 }
 
-export function normalizeCoreDecisionOutputV1(input: CoreDecisionOutputV1): CoreDecisionOutputV1 {
+/** The five-member shape of CoreDecisionOutputV1, draft lines 1074-1091, everything except
+ *  the canonical form of the constraints array. Both entry points below run this. */
+function assertCoreDecisionOutputShapeV1(input: CoreDecisionOutputV1): void {
   assertExactKeys(input as unknown as Record<string, unknown>,
     ['profile', 'verdict', 'effective_authority_ref', 'constraints', 'valid_until'],
     ['profile', 'verdict', 'effective_authority_ref', 'constraints', 'valid_until'], 'CoreDecisionOutputV1')
   strictJCS(input)
   if (input.profile !== 'aps-core-decision-output-v1') throw new TypeError('CoreDecisionOutputV1: profile')
   if (!['permit', 'deny', 'narrow'].includes(input.verdict)) throw new TypeError('CoreDecisionOutputV1: verdict')
-  if (input.effective_authority_ref !== null && !HEX64.test(input.effective_authority_ref)) {
+  // typeof before the pattern: a regular expression coerces its argument, so an
+  // effective_authority_ref given as a one-element array of the right digest passed here.
+  if (input.effective_authority_ref !== null &&
+      (typeof input.effective_authority_ref !== 'string' || !HEX64.test(input.effective_authority_ref))) {
     throw new TypeError('CoreDecisionOutputV1: effective_authority_ref')
   }
   if (input.verdict === 'deny' && input.effective_authority_ref !== null) {
@@ -65,13 +70,44 @@ export function normalizeCoreDecisionOutputV1(input: CoreDecisionOutputV1): Core
   } else if (typeof input.valid_until !== 'string' || !isExactUtcMilliseconds(input.valid_until)) {
     throw new TypeError('CoreDecisionOutputV1: permit/narrow require valid_until as exact UTC milliseconds')
   }
-  const constraints = [...new Set(input.constraints.map(v => v.normalize('NFC')))]
-    .sort((a, b) => {
-      const aa = Array.from(a, c => c.codePointAt(0) as number)
-      const bb = Array.from(b, c => c.codePointAt(0) as number)
-      for (let i = 0; i < Math.min(aa.length, bb.length); i++) if (aa[i] !== bb[i]) return aa[i] - bb[i]
-      return aa.length - bb.length
-    })
+}
+
+/** UTF-8 byte order, which for well-formed strings is code point order. */
+const compareUtf8 = (a: string, b: string): number => Buffer.compare(Buffer.from(a, 'utf8'), Buffer.from(b, 'utf8'))
+
+/**
+ * Validate a CoreDecisionOutputV1 exactly as received, repairing nothing.
+ *
+ * This is the verification-side entry point. Draft line 1086 says constraints is a
+ * duplicate-free array of NFC strings sorted by UTF-8 bytes, and section 5.6 makes a
+ * structural failure invalid, so a received array that is unsorted, duplicated or not in
+ * NFC is rejected here rather than quietly repaired. Section 4.1 lines 822-824 state the
+ * same principle for the other canonical array in this protocol: a verifier accepts only
+ * the resulting canonical form and does not normalize an untrusted wire object.
+ *
+ * normalizeCoreDecisionOutputV1 keeps repairing, for the issuing side, where the caller is
+ * building the value it is about to sign.
+ */
+export function validateCoreDecisionOutputV1(value: unknown): CoreDecisionOutputV1 {
+  const input = value as CoreDecisionOutputV1
+  assertCoreDecisionOutputShapeV1(input)
+  for (let i = 0; i < input.constraints.length; i++) {
+    const constraint = input.constraints[i]
+    if (constraint.normalize('NFC') !== constraint) {
+      throw new TypeError(`CoreDecisionOutputV1: constraints[${i}] is not in NFC`)
+    }
+    if (i > 0) {
+      const order = compareUtf8(input.constraints[i - 1], constraint)
+      if (order === 0) throw new TypeError('CoreDecisionOutputV1: duplicate constraint')
+      if (order > 0) throw new TypeError('CoreDecisionOutputV1: constraints not sorted by UTF-8 bytes')
+    }
+  }
+  return input
+}
+
+export function normalizeCoreDecisionOutputV1(input: CoreDecisionOutputV1): CoreDecisionOutputV1 {
+  assertCoreDecisionOutputShapeV1(input)
+  const constraints = [...new Set(input.constraints.map(v => v.normalize('NFC')))].sort(compareUtf8)
   return { ...input, constraints }
 }
 
