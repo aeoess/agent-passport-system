@@ -17,11 +17,14 @@ const ID = /^sha256:[0-9a-f]{64}$/
 const HEX_32 = /^[0-9a-f]{32}$/
 const HEX_128 = /^[0-9a-f]{128}$/
 const DECIMAL = /^(0|[1-9][0-9]*)$/
-// Provisional: draft line 547 calls values identifiers profile-defined and states no
-// grammar, and the draft states no grammar for a bounded spend's unit, which this
-// pattern is also used for. Both are this SDK's own choice, shared with the Python
-// port, pending a protocol ruling.
-const IDENTIFIER = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/
+// No pattern here. Draft line 547 calls values identifiers profile-defined, and the
+// draft states no grammar for a bounded spend's unit either. This SDK used one pattern
+// for both, which made an SDK grammar into a protocol rejection: a record carrying a
+// unit or an identifier the draft permits was reported invalid. Both are now any
+// non-empty string that the record-wide I-JSON check already admits; a profile that
+// wants a narrower form is where that belongs.
+const isAdmissibleIdentifier = (value: unknown): value is string =>
+  typeof value === 'string' && value.length > 0
 const MAX_QUANTITY = 9223372036854775807n
 // RFC 3339 exact UTC-millisecond form. Group 1 = year, 2 = month, 3 = day,
 // 4 = hour, 5 = minute, 6 = second. Second 60 is valid only at 23:59 on the
@@ -202,24 +205,26 @@ export function validateAuthorityDelegationShape(value: unknown): AuthorityFailu
   const top = record(snapshotPlainData(value))
   if (!top) return [failure('SCHEMA_INVALID', 'delegation must be an exact closed v1 object')]
 
-  // A recognised record_type whose version is any string other than "1.0" is
-  // unsupported without ever being judged by the v1 body schema: no
-  // exact-keys check, no facet or value checks. This runs before the top-level
-  // exact-keys check so an unsupported version can carry extra or missing
-  // members. The record-wide I-JSON check still runs first: if it fails, the
-  // record is also invalid. Reporting the I-JSON failure first, so a record is
-  // invalid even when its version is unknown or a facet's profile is
-  // unsupported, is a provisional choice kept identical to the Python SDK. It
-  // stands pending a protocol ruling, because the first step of the draft's
-  // order at line 580 does not order the two.
-  if (top.record_type === AUTHORITY_DELEGATION_RECORD_TYPE &&
-      typeof top.version === 'string' && top.version !== AUTHORITY_DELEGATION_VERSION) {
-    return recordStringsAreIJSON(top)
-      ? [failure('UNSUPPORTED_VERSION', 'unsupported authority-delegation record_type or version')]
-      : [
-          failure('SCHEMA_INVALID', 'record strings must be I-JSON: no unpaired surrogates or noncharacters'),
-          failure('UNSUPPORTED_VERSION', 'unsupported authority-delegation record_type or version'),
-        ]
+  // Recognition comes first, and nothing the v1 body schema says is applied to a record
+  // this schema does not claim. A non-string record_type or version is invalid, because
+  // no recognition is possible at all. A string record_type that is not this one, or
+  // this record_type with any other string version, is unsupported, and the record is
+  // returned unjudged: no exact-keys check, no facet checks, not even the record-wide
+  // I-JSON check, which is part of evaluating the v1 body.
+  //
+  // Both halves are ruled. Recognition preceding v1 schema evaluation inside the first
+  // phase of the draft's order at line 580 is one ruling; an unknown string record_type
+  // being unsupported where a non-string one is invalid is another. This SDK previously
+  // judged an unrecognised record_type by the v1 schema and reported an I-JSON failure
+  // ahead of an unsupported version, both of which said more than recognition can.
+  if (typeof top.record_type !== 'string' || typeof top.version !== 'string') {
+    return [failure('SCHEMA_INVALID', 'record_type and version must be strings')]
+  }
+  if (top.record_type !== AUTHORITY_DELEGATION_RECORD_TYPE) {
+    return [failure('UNSUPPORTED_RECORD_TYPE', 'record_type names another record, not judged by this schema')]
+  }
+  if (top.version !== AUTHORITY_DELEGATION_VERSION) {
+    return [failure('UNSUPPORTED_VERSION', 'unsupported authority-delegation version')]
   }
 
   if (!exactKeys(top, [
@@ -231,15 +236,6 @@ export function validateAuthorityDelegationShape(value: unknown): AuthorityFailu
     failures.push(failure('SCHEMA_INVALID', 'record strings must be I-JSON: no unpaired surrogates or noncharacters'))
   }
 
-  // Provisional, and left open rather than settled: an unrecognised record_type string
-  // is still judged by the checks below, exactly like a recognised one. The draft does
-  // not say which body schema, if any, judges a record whose record_type names some
-  // other string. The Python port follows this SDK, pending a protocol ruling.
-  if (typeof top.record_type !== 'string' || typeof top.version !== 'string') {
-    failures.push(failure('SCHEMA_INVALID', 'record_type and version must be strings'))
-  } else if (top.record_type !== AUTHORITY_DELEGATION_RECORD_TYPE || top.version !== AUTHORITY_DELEGATION_VERSION) {
-    failures.push(failure('UNSUPPORTED_VERSION', 'unsupported authority-delegation record_type or version'))
-  }
   if (typeof top.delegation_id !== 'string' || !ID.test(top.delegation_id)) {
     failures.push(failure('SCHEMA_INVALID', 'delegation_id must be sha256:<64 lowercase hex>'))
   }
@@ -247,13 +243,17 @@ export function validateAuthorityDelegationShape(value: unknown): AuthorityFailu
       (typeof top.parent_delegation_id !== 'string' || !ID.test(top.parent_delegation_id))) {
     failures.push(failure('SCHEMA_INVALID', 'parent_delegation_id must be null or a delegation digest'))
   }
-  // Provisional: the draft states no maximum length for issuer, subject or
-  // verification_method. This 1024 UTF-8 byte cap is this SDK's own choice, shared with
-  // the Python port, pending a protocol ruling.
+  // The draft states no maximum length for issuer, subject or verification_method. The
+  // 1024 UTF-8 byte cap below is this implementation's own ceiling, and a ceiling is not
+  // a conformance rule: a record that exceeds it is one this implementation declines to
+  // judge, reported under its own code and mapped to indeterminate, never to a
+  // protocol failure. Absence or the wrong type is still a schema failure.
   for (const key of ['issuer', 'subject', 'verification_method'] as const) {
     const item = top[key]
-    if (typeof item !== 'string' || item.length === 0 || Buffer.byteLength(item, 'utf8') > 1024) {
+    if (typeof item !== 'string' || item.length === 0) {
       failures.push(failure('SCHEMA_INVALID', `${key} must be a non-empty well-formed Unicode string`))
+    } else if (Buffer.byteLength(item, 'utf8') > 1024) {
+      failures.push(failure('RESOURCE_LIMIT', `${key} exceeds this implementation's 1024-byte ceiling`))
     }
   }
   if (!isCanonicalTimestamp(top.issued_at)) failures.push(failure('NONCANONICAL_VALUE', 'issued_at must be canonical UTC milliseconds'))
@@ -285,7 +285,7 @@ export function validateAuthorityDelegationShape(value: unknown): AuthorityFailu
     if (!exactKeys(spend, ['mode'])) failures.push(failure('SCHEMA_INVALID', 'unbounded spend has no other fields'))
   } else if (spend.mode === 'bounded') {
     if (!exactKeys(spend, ['mode', 'unit', 'per_action', 'cumulative']) ||
-        typeof spend.unit !== 'string' || !IDENTIFIER.test(spend.unit) ||
+        !isAdmissibleIdentifier(spend.unit) ||
         !isCanonicalQuantity(spend.per_action) || !isCanonicalQuantity(spend.cumulative)) {
       failures.push(failure('NONCANONICAL_VALUE', 'bounded spend fields are malformed'))
     } else if (BigInt(spend.per_action) > BigInt(spend.cumulative)) {
@@ -326,7 +326,7 @@ export function validateAuthorityDelegationShape(value: unknown): AuthorityFailu
   } else if (values.profile !== VALUES_PROFILE_V1) {
     failures.push(failure('UNSUPPORTED_PROFILE', 'unsupported values profile'))
   } else if (!exactKeys(values, ['profile', 'required']) || !Array.isArray(values.required) ||
-      !values.required.every(item => typeof item === 'string' && IDENTIFIER.test(item))) {
+      !values.required.every(isAdmissibleIdentifier)) {
     failures.push(failure('SCHEMA_INVALID', 'values.required must contain valid identifiers'))
   } else {
     const required = values.required as string[]

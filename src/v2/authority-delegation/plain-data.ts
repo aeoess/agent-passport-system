@@ -547,16 +547,31 @@ export function snapshotPlainData(root: unknown): unknown {
  * and on any exception raised while inspecting `value`; the caller then gives exactly
  * the result a non-array chain gives.
  */
+/** Why a container could not be read. `over-ceiling` is the one case that is not a
+ *  defect in the caller's value: the container is a plain array of plain-data members
+ *  and simply holds more of them than this implementation will judge. A caller must be
+ *  able to tell the two apart without ever touching the raw value itself, which is the
+ *  whole point of this module: `Array.isArray` on a revoked Proxy throws. */
+export type PlainDataChainRejection = 'not-a-container' | 'over-ceiling'
+
 export function readPlainDataChainContainer(
   value: unknown,
   minLength: number,
   maxLength: number,
+  rejection?: { reason: PlainDataChainRejection },
 ): unknown[] | null {
+  if (rejection) rejection.reason = 'not-a-container'
   try {
     if (isProxy(value) || typeof value !== 'object' || value === null) return null
     if (!Array.isArray(value)) return null
     const length = plainArrayLength(value, newPrototypeIntrinsicCache())
-    if (length === null || length < minLength || length > maxLength) return null
+    if (length !== null && length > maxLength) {
+      // Read before any member is touched, so a 5,000,000-element array costs one
+      // length read rather than five million descriptor reads.
+      if (rejection) rejection.reason = 'over-ceiling'
+      return null
+    }
+    if (length === null || length < minLength) return null
     const members: unknown[] = new Array(length)
     for (let i = 0; i < length; i++) {
       const descriptor = Object.getOwnPropertyDescriptor(value, String(i))

@@ -87,7 +87,13 @@ export interface AuthorityDelegationV1 extends AuthorityDelegationBodyV1 {
 export type AuthorityFailureCode =
   | 'SCHEMA_INVALID'
   | 'UNSUPPORTED_VERSION'
+  /** record_type names a record this schema does not claim. The body is not judged. */
+  | 'UNSUPPORTED_RECORD_TYPE'
   | 'UNSUPPORTED_PROFILE'
+  /** A ceiling this implementation imposes, which the draft does not state. Never a
+   *  conformance failure: it says this implementation declines to judge the record, and
+   *  it maps to indeterminate. */
+  | 'RESOURCE_LIMIT'
   | 'NONCANONICAL_VALUE'
   | 'ID_MISMATCH'
   | 'KEY_RESOLUTION_FAILED'

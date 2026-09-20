@@ -414,13 +414,18 @@ test('an unsupported values profile with a lone surrogate is SCHEMA_INVALID and 
   assert.deepEqual(checked.failures.map(item => item.code), ['SCHEMA_INVALID', 'UNSUPPORTED_PROFILE'])
 })
 
-test('an unsupported version with a noncharacter is SCHEMA_INVALID and UNSUPPORTED_VERSION', () => {
+test('an unsupported version with a noncharacter is UNSUPPORTED_VERSION alone: recognition precedes the v1 schema', () => {
   const body = structuredClone(standardRootBody())
+  // Was invalid with both codes. Recognition reads record_type and version and stops:
+  // the version is a string other than "1.0", so the record is unsupported and the v1
+  // body, including the record-wide I-JSON check that the noncharacter here would fail,
+  // is never evaluated. The consequence is deliberate and is recorded in the handoff: a
+  // record whose version string is not I-JSON is now unsupported rather than invalid.
   ;(body as unknown as Record<string, unknown>).version = '2.0\uFDD0'
   const root = sign(body, ROOT_KEY)
   const checked = verifyAuthorityDelegationChain([root], activeOptions(STANDARD_NOW, root.delegation_id))
-  assert.equal(checked.state, 'invalid')
-  assert.deepEqual(checked.failures.map(item => item.code), ['SCHEMA_INVALID', 'UNSUPPORTED_VERSION'])
+  assert.equal(checked.state, 'unsupported')
+  assert.deepEqual(checked.failures.map(item => item.code), ['UNSUPPORTED_VERSION'])
 })
 
 test('a pathologically deep nested array under an unsupported scope profile does not throw', () => {

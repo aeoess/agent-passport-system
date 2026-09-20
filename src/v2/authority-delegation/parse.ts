@@ -4,8 +4,10 @@
 import { validateAuthorityDelegationShape } from './schema.js'
 import type { AuthorityDelegationV1 } from './types.js'
 
-// Provisional: the draft states no maximum wire size. This 1 MiB limit is this SDK's
-// own choice, shared with the Python port, pending a protocol ruling.
+// The draft states no maximum wire size. This 1 MiB limit is this implementation's own
+// ceiling, not a protocol rule: crossing it means this parser declines to read the
+// document, which is why it throws rather than reporting a conformance failure. The
+// chain verifier reports its equivalent ceiling as RESOURCE_LIMIT and indeterminate.
 const MAX_WIRE_BYTES = 1_048_576
 
 /**
@@ -64,13 +66,13 @@ function rejectDuplicateMembers(source: string): void {
     } else {
       const start = cursor
       while (cursor < source.length && !/[\u0009\u000a\u000d\u0020,}\]]/.test(source[cursor])) cursor++
-      const token = source.slice(start, cursor)
-      // Provisional: the draft does not say whether a number token carrying a fraction
-      // or an exponent may denote an integer on the wire. This parser rejects the
-      // spelling, pending a protocol ruling; the Python port follows it.
-      if (/^[-0-9]/.test(token) && !/^-?(0|[1-9][0-9]*)$/.test(token)) {
-        throw new SyntaxError('non-integer JSON numbers are not permitted')
-      }
+      // No spelling rule here. An integral-valued I-JSON number is admissible on the
+      // wire however it is written, and RFC 8785 canonicalises the spelling, so "2.0"
+      // and "2e0" are the same value as "2" and produce the same canonical bytes. This
+      // parser used to refuse the spelling, which made an SDK rule into a wire
+      // rejection. A token whose VALUE is not an integer where the schema requires one
+      // is still refused, by the schema, which is where value rules belong.
+      void source.slice(start, cursor) // token boundaries consumed above; nothing to judge
     }
   }
 
@@ -80,7 +82,7 @@ function rejectDuplicateMembers(source: string): void {
 /** Strict untrusted-wire entry point: valid JSON, I-JSON names, and closed v1 schema. */
 export function parseAuthorityDelegationJson(source: string): AuthorityDelegationV1 {
   if (typeof source !== 'string' || Buffer.byteLength(source, 'utf8') > MAX_WIRE_BYTES) {
-    throw new TypeError('authority delegation JSON must be a string no larger than 1 MiB')
+    throw new TypeError("authority delegation JSON must be a string within this implementation's 1 MiB ceiling")
   }
   const decoded: unknown = JSON.parse(source)
   rejectDuplicateMembers(source)
