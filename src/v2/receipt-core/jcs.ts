@@ -11,6 +11,20 @@ export class IJsonValidationError extends TypeError {
   }
 }
 
+/** A parse stopped at one of this implementation's own resource ceilings, which is not a
+ *  statement about the document. The draft states no maximum nesting depth or wire size,
+ *  so a ceiling hit is this implementation declining to finish judging the artifact, and
+ *  its callers report it as indeterminate under
+ *  RESOURCE_LIMIT rather than invalid. A subclass, so every existing catch of
+ *  IJsonValidationError keeps working. A caller misconfiguring the limits is NOT this:
+ *  that is an ordinary argument error and stays IJsonValidationError. */
+export class IJsonResourceLimitError extends IJsonValidationError {
+  constructor(message: string) {
+    super(message)
+    this.name = 'IJsonResourceLimitError'
+  }
+}
+
 function assertUnicodeScalarString(value: string, path: string): void {
   for (let i = 0; i < value.length; i++) {
     const unit = value.charCodeAt(i)
@@ -75,8 +89,13 @@ export function strictJCS(value: unknown): string {
  *  such as "a" and "\u0061" are the same member name and are rejected. */
 export function parseStrictIJson(raw: string, maxUtf8Bytes = 1_048_576, maxDepth = 128): JsonValue {
   if (typeof raw !== 'string') throw new IJsonValidationError('$: raw JSON string required')
-  if (!Number.isSafeInteger(maxUtf8Bytes) || maxUtf8Bytes < 1 || Buffer.byteLength(raw, 'utf8') > maxUtf8Bytes) {
-    throw new IJsonValidationError('$: raw JSON size limit exceeded')
+  // A limit this caller cannot have meant is an argument error, not a ceiling this parser
+  // hit, so the two are raised apart: only the second is a RESOURCE_LIMIT ceiling.
+  if (!Number.isSafeInteger(maxUtf8Bytes) || maxUtf8Bytes < 1) {
+    throw new IJsonValidationError('$: invalid size limit')
+  }
+  if (Buffer.byteLength(raw, 'utf8') > maxUtf8Bytes) {
+    throw new IJsonResourceLimitError('$: raw JSON size limit exceeded')
   }
   if (!Number.isSafeInteger(maxDepth) || maxDepth < 1) throw new IJsonValidationError('$: invalid depth limit')
   let offset = 0
@@ -101,7 +120,7 @@ export function parseStrictIJson(raw: string, maxUtf8Bytes = 1_048_576, maxDepth
     throw new IJsonValidationError('$: unterminated JSON string')
   }
   const parseValue = (depth: number): JsonValue => {
-    if (depth > maxDepth) throw new IJsonValidationError('$: JSON nesting limit exceeded')
+    if (depth > maxDepth) throw new IJsonResourceLimitError('$: JSON nesting limit exceeded')
     skipWhitespace()
     const token = raw[offset]
     if (token === '"') return parseString()
