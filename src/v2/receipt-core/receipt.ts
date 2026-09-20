@@ -4,6 +4,11 @@
 import { createHash } from 'node:crypto'
 import { sign, verify } from '../../crypto/keys.js'
 import { assertExactKeys, parseStrictIJson, strictJCS } from './jcs.js'
+// Function-level cycle with stage.ts, which imports validateReceiptV1 from here. Neither
+// module reads the other during initialization, so the live bindings are resolved by the
+// time either function is called.
+import { validateReceiptStageV1 } from './stage.js'
+import type { ReceiptStageOptionsV1, ReceiptStageResultV1 } from './stage.js'
 import type { EvidenceRefV1, JsonValue, ReceiptSignatureV1, ReceiptSignerV1, ReceiptV1 } from './types.js'
 
 export const RECEIPT_ID_TAG = 'APS-RECEIPT-ID-V1' as const
@@ -220,13 +225,21 @@ export interface ReceiptVerificationV1 {
   /** True only when status is valid. Kept so existing callers are unaffected. */
   valid: boolean
   status: ReceiptVerificationStatusV1
-  receipt_id_valid: boolean
+  /** `not_checked` where the record never reached the recomputation. Reporting false
+   *  there said the identifier did not match when it was never computed. */
+  receipt_id_valid: boolean | 'not_checked'
   /** The signer-authority axis of section 5.6 line 1223, kept apart from artifact
    *  integrity. `not_established` means a key could not be resolved or the resolver
    *  failed: section 2.4 line 322 and section 2.5 lines 360-369 make that a resolution
    *  outcome, and section 5.6 line 1226 makes missing live state indeterminate. It is not
    *  evidence that a signature is wrong. */
   signer_authority: 'verified' | 'not_established' | 'invalid' | 'not_checked'
+  /** The section 5.3 stage result for this record's own receipt_type. Section 5.6 line
+   *  1214 has a verifier enforce the closed envelope AND the type-specific schema, so a
+   *  result that reports the draft's own state word has to include it. `not_checked` is
+   *  reported only where the record never reached the stage layer, which is when the
+   *  envelope itself failed or the artifact is under another profile. */
+  stage: ReceiptStageResultV1 | 'not_checked'
   signature_results: { signer: string; key_id: string; valid: boolean; reason?: string }[]
   errors: string[]
 }
@@ -250,13 +263,18 @@ function declaresForeignProfile(receipt: unknown): boolean {
  * duplicate members that may have existed in serialized JSON. For verification of
  * serialized artifacts, use the Serialized variant.
  */
-export function verifyReceiptV1(receipt: ReceiptV1, resolveKey: (signer: string, keyId: string, issuedAt: string) => string | undefined): ReceiptVerificationV1 {
+export function verifyReceiptV1(
+  receipt: ReceiptV1,
+  resolveKey: (signer: string, keyId: string, issuedAt: string) => string | undefined,
+  stageOptions: ReceiptStageOptionsV1 = {},
+): ReceiptVerificationV1 {
   const errors: string[] = []
   if (declaresForeignProfile(receipt)) {
     return {
       valid: false,
       status: 'unsupported',
-      receipt_id_valid: false,
+      receipt_id_valid: 'not_checked',
+      stage: 'not_checked',
       signer_authority: 'not_checked',
       signature_results: [],
       errors: ['unsupported_profile'],
@@ -266,7 +284,8 @@ export function verifyReceiptV1(receipt: ReceiptV1, resolveKey: (signer: string,
     return {
       valid: false,
       status: 'invalid',
-      receipt_id_valid: false,
+      receipt_id_valid: 'not_checked',
+      stage: 'not_checked',
       signer_authority: 'not_checked',
       signature_results: [],
       errors: [err instanceof Error ? err.message : String(err)],
@@ -297,9 +316,24 @@ export function verifyReceiptV1(receipt: ReceiptV1, resolveKey: (signer: string,
   const signerAuthority = badBytes.length > 0
     ? 'invalid' as const
     : unresolved.length > 0 ? 'not_established' as const : 'verified' as const
+  // Section 5.6 line 1214: a verifier enforces the closed ReceiptV1 schema AND the
+  // type-specific schema. Reporting status "valid" for a record that breaks its own
+  // section 5.3 stage would use the draft's word for something the draft does not call
+  // valid, which is what let a gateway-issued action intent carrying a decision_ref and a
+  // free-form result pass every check this SDK had. The stage rules live in their own
+  // module and are called here rather than reimplemented.
+  const stage = validateReceiptStageV1(receipt, stageOptions)
+  if (stage.status !== 'valid') errors.push(`stage_${stage.status}`, ...stage.failures.map(f => f.code))
+
   const status: ReceiptVerificationStatusV1 =
-    badBytes.length > 0 || !receipt_id_valid ? 'invalid' : unresolved.length > 0 ? 'indeterminate' : 'valid'
-  return { valid: status === 'valid', status, receipt_id_valid, signer_authority: signerAuthority, signature_results, errors }
+    badBytes.length > 0 || receipt_id_valid !== true || stage.status === 'invalid'
+      ? 'invalid'
+      : stage.status === 'unsupported'
+        ? 'unsupported'
+        : unresolved.length > 0 || stage.status === 'indeterminate'
+          ? 'indeterminate'
+          : 'valid'
+  return { valid: status === 'valid', status, receipt_id_valid, stage, signer_authority: signerAuthority, signature_results, errors }
 }
 
 /**
@@ -327,6 +361,7 @@ export function verifyReceiptV1(receipt: ReceiptV1, resolveKey: (signer: string,
 export function verifyReceiptV1Serialized(
   raw: string,
   resolveKey: (signer: string, keyId: string, issuedAt: string) => string | undefined,
+  stageOptions: ReceiptStageOptionsV1 = {},
 ): ReceiptVerificationV1 {
   let parsed: JsonValue
   try {
@@ -335,7 +370,8 @@ export function verifyReceiptV1Serialized(
     return {
       valid: false,
       status: 'invalid',
-      receipt_id_valid: false,
+      receipt_id_valid: 'not_checked',
+      stage: 'not_checked',
       signer_authority: 'not_checked',
       signature_results: [],
       errors: ['parse_error', err instanceof Error ? err.message : String(err)],
@@ -350,5 +386,5 @@ export function verifyReceiptV1Serialized(
   // Removing the need for it would mean widening validateReceiptV1 to an assertion over
   // unknown, which its body's direct field accesses would force a rewrite of. That is a
   // public API decision, recorded in the handoff rather than taken here.
-  return verifyReceiptV1(parsed as unknown as ReceiptV1, resolveKey)
+  return verifyReceiptV1(parsed as unknown as ReceiptV1, resolveKey, stageOptions)
 }

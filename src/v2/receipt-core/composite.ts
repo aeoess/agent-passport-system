@@ -1,11 +1,10 @@
 // Copyright (c) 2026 Tymofii Pidlisnyi
 // SPDX-License-Identifier: Apache-2.0
 
-import { buildDecisionRefV1 } from './decision-ref.js'
+import { buildDecisionRefV1, validateCoreDecisionOutputV1 } from './decision-ref.js'
 import { strictJCS } from './jcs.js'
 import { isExactUtcMilliseconds, isLaterUtcMillisecond, verifyReceiptV1 } from './receipt.js'
 import type { ReceiptVerificationStatusV1, ReceiptVerificationV1 } from './receipt.js'
-import { validateReceiptStageV1 } from './stage.js'
 import type { ReceiptStageOptionsV1, ReceiptStageResultV1 } from './stage.js'
 import type { CoreDecisionOutputV1, JsonValue, ReceiptV1 } from './types.js'
 
@@ -54,7 +53,11 @@ export interface ReceiptWithDecisionVerificationV1 {
    *  whose output differs from the receipt's own result is not the decision this receipt
    *  carries, however well its digest binds. `not_applicable` for the other stages. */
   decision_output_bound: boolean | 'not_applicable'
-  temporal_relation_valid: boolean
+  /** `not_applicable` on the stages where the comparison is deliberately not made: the
+   *  window belongs to the decision, and the draft states no relation between it and the
+   *  issuance time of a later record. Reporting true there said a check had passed that
+   *  never ran, which is the same overstatement in the other direction. */
+  temporal_relation_valid: boolean | 'not_applicable'
   errors: string[]
 }
 
@@ -134,18 +137,14 @@ export function verifyReceiptWithDecisionV1(
   const code = (prefix: string, status: ReceiptVerificationStatusV1): string =>
     `${prefix}_${status === 'valid' ? 'valid' : status}`
 
-  // Stage 1: structural and cryptographic, unchanged.
-  const receiptResult = verifyReceiptV1(receipt, resolveKey)
+  // Stages 1 and 2 together: structural, cryptographic and the section 5.3 rules for this
+  // record's own receipt_type. verifyReceiptV1 runs the stage dispatch itself and returns
+  // its result, so the two are not evaluated twice and cannot disagree.
+  const receiptResult = verifyReceiptV1(receipt, resolveKey, options)
+  const stage = receiptResult.stage === 'not_checked' ? notRun : receiptResult.stage
   if (!receiptResult.valid) {
     errors.push(code('receipt', receiptResult.status), ...receiptResult.errors)
-    return base(receiptResult, receiptResult.status, notRun)
-  }
-
-  // Stage 2: the rules of this record's own stage.
-  const stage = validateReceiptStageV1(receipt, options)
-  if (stage.status !== 'valid') {
-    errors.push(code('stage', stage.status), ...stage.failures.map(f => f.code))
-    return base(receiptResult, stage.status, stage)
+    return base(receiptResult, receiptResult.status, stage)
   }
 
   // Stage 3: the reference must be there to be bound.
@@ -155,8 +154,16 @@ export function verifyReceiptWithDecisionV1(
   }
 
   // Stage 4: reference binding, through the builder rather than a reimplementation.
+  //
+  // The supplied output is validated exactly as received first. buildDecisionRefV1
+  // normalizes before hashing, which is right for an issuer building a value it is about
+  // to sign and wrong here: it would let ["b","a","a"] bind to the digest of ["a","b"],
+  // so a component this SDK's own verifier rejects would still match. Draft lines 1145 to
+  // 1147 compute each component reference over the EXACT value evaluated, and lines 1183
+  // to 1184 say decision_output is the exact object the receipt carries.
   let recomputed: string
   try {
+    validateCoreDecisionOutputV1(decision.decision_output as unknown as JsonValue)
     recomputed = buildDecisionRefV1({
       action_ref: receipt.action_ref,
       authority_state: decision.authority_state,
@@ -201,7 +208,7 @@ export function verifyReceiptWithDecisionV1(
     return {
       ...bound,
       decision_output_bound: decisionOutputBound,
-      temporal_relation_valid: true,
+      temporal_relation_valid: isPolicyDecision ? true : 'not_applicable',
       valid: true,
       status: 'valid',
     }
@@ -228,7 +235,7 @@ export function verifyReceiptWithDecisionV1(
     decision_ref_present: true,
     decision_ref_bound: true,
     decision_output_bound: decisionOutputBound,
-    temporal_relation_valid: true,
+    temporal_relation_valid: isPolicyDecision ? true : 'not_applicable',
     errors,
   }
 }
