@@ -5,6 +5,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { publicKeyFromPrivate } from '../src/crypto/keys.js'
 import { createReceiptV1, verifyReceiptV1, verifyReceiptV1Serialized } from '../src/v2/receipt-core/receipt.js'
+import { IJsonResourceLimitError, parseStrictIJson } from '../src/v2/receipt-core/jcs.js'
 
 const privateKey = '00'.repeat(32)
 const publicKey = publicKeyFromPrivate(privateKey)
@@ -107,6 +108,21 @@ test('serialized: parse failure is distinguishable from structural and from sign
   // All three are distinct, which is the requirement.
   assert.notDeepEqual(parseFail.errors, structuralFail.errors)
   assert.notDeepEqual(structuralFail.errors, signatureFail.errors)
+})
+
+test('serialized: a stack ceiling reached under a raised depth limit is a resource limit, not a parse failure', () => {
+  // A caller may configure maxDepth above what this runtime's call stack can walk. The
+  // parser then stops on the stack rather than on the configured limit, which is the same
+  // kind of event and must not surface as a bare RangeError or as a malformed document.
+  // Not reachable through verifyReceiptV1Serialized, which parses at the default ceiling.
+  const deep = '{"a":'.repeat(10_000) + '1' + '}'.repeat(10_000)
+  assert.throws(
+    () => parseStrictIJson(deep, 1_048_576 * 8, 1_000_000),
+    (err: unknown) => err instanceof IJsonResourceLimitError && !(err instanceof RangeError),
+  )
+  // A document within both ceilings is unaffected. The parser returns null-prototype
+  // objects, so this reads the member rather than comparing against a plain literal.
+  assert.equal((parseStrictIJson('{"a":1}') as Record<string, unknown>).a, 1)
 })
 
 test('serialized: a resource ceiling is indeterminate under RESOURCE_LIMIT, not invalid', () => {
