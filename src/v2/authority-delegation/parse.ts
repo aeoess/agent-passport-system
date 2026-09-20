@@ -14,6 +14,16 @@ const MAX_WIRE_BYTES = 1_048_576
  * JSON.parse silently keeps the last occurrence of a duplicate member. RFC
  * 8785 operates on I-JSON, so scan the already-syntax-checked source and reject
  * repeated names at every object depth before accepting a signed record.
+ *
+ * The walk is iterative, with an explicit stack of open containers, rather than
+ * one function call per nesting level. A recursive-descent version of this same
+ * walk overflowed the native call stack (an uncaught RangeError) on a deeply
+ * nested but otherwise valid document, before this check ever reached the
+ * schema. This walk's depth is bounded only by the caller's MAX_WIRE_BYTES
+ * ceiling below and by the heap the open-container stack uses, never by the
+ * JS call stack, so it reaches the same accept-or-reject answer for every
+ * document this parser already accepted or rejected, and now also answers a
+ * document that used to crash it.
  */
 function rejectDuplicateMembers(source: string): void {
   let cursor = 0
@@ -33,35 +43,33 @@ function rejectDuplicateMembers(source: string): void {
     }
     throw new SyntaxError('unterminated JSON string')
   }
-  const value = (): void => {
-    skipWhitespace()
+
+  type Frame = { object: true; names: Set<string> } | { object: false }
+  const stack: Frame[] = []
+
+  // Consumes one JSON value at the cursor (leading whitespace already skipped
+  // by the caller). Returns true when the value is a non-empty container, now
+  // pushed on the stack, still awaiting its first member or element. Returns
+  // false when the value is already complete (a scalar, or an empty object or
+  // array), in which case the caller runs the "a value just completed" step
+  // below for whichever frame that value belongs to.
+  const openValue = (): boolean => {
     const first = source[cursor]
     if (first === '{') {
       cursor++
       skipWhitespace()
-      const names = new Set<string>()
-      if (source[cursor] === '}') { cursor++; return }
-      while (cursor < source.length) {
-        const name = readString()
-        if (names.has(name)) throw new SyntaxError('duplicate JSON object member')
-        names.add(name)
-        skipWhitespace()
-        cursor++ // colon
-        value()
-        skipWhitespace()
-        if (source[cursor++] === '}') return
-        skipWhitespace() // comma was consumed
-      }
-    } else if (first === '[') {
+      if (source[cursor] === '}') { cursor++; return false }
+      stack.push({ object: true, names: new Set() })
+      return true
+    }
+    if (first === '[') {
       cursor++
       skipWhitespace()
-      if (source[cursor] === ']') { cursor++; return }
-      while (cursor < source.length) {
-        value()
-        skipWhitespace()
-        if (source[cursor++] === ']') return
-      }
-    } else if (first === '"') {
+      if (source[cursor] === ']') { cursor++; return false }
+      stack.push({ object: false })
+      return true
+    }
+    if (first === '"') {
       readString()
     } else {
       const start = cursor
@@ -74,9 +82,39 @@ function rejectDuplicateMembers(source: string): void {
       // is still refused, by the schema, which is where value rules belong.
       void source.slice(start, cursor) // token boundaries consumed above; nothing to judge
     }
+    return false
   }
 
-  value()
+  skipWhitespace()
+  let awaitingValue = true
+  for (;;) {
+    if (awaitingValue) {
+      const top = stack.at(-1)
+      if (top && top.object) {
+        skipWhitespace()
+        const name = readString()
+        if (top.names.has(name)) throw new SyntaxError('duplicate JSON object member')
+        top.names.add(name)
+        skipWhitespace()
+        cursor++ // colon
+        skipWhitespace()
+      }
+      if (openValue()) continue // a new container was pushed; its first key or element is next
+      awaitingValue = false
+    } else {
+      const top = stack.at(-1)
+      if (!top) return // the whole document is one complete value
+      skipWhitespace()
+      if (source[cursor] === (top.object ? '}' : ']')) {
+        cursor++
+        stack.pop()
+        continue // that container just completed as a value for its own parent frame
+      }
+      cursor++ // comma
+      skipWhitespace()
+      awaitingValue = true
+    }
+  }
 }
 
 /** Strict untrusted-wire entry point: valid JSON, I-JSON names, and closed v1 schema. */
