@@ -101,6 +101,20 @@ export function verifyAuthorityDelegationChain(
     return result('invalid', [{ code: 'NONCANONICAL_VALUE', message: 'verification clock must be canonical UTC milliseconds' }])
   }
 
+  // Draft line 580 lists the order as phases over the whole root-to-leaf chain, not as a
+  // pass over each member in turn: closed schema and canonical values; delegation_id;
+  // historical signing-key resolution and signature; duplicate identifiers; root trust;
+  // parent_delegation_id; issuer-to-subject continuity; child issuance time; the seven
+  // facet comparisons; current validity; and revocation state for every member.
+  //
+  // This function used to run phases 2, 3 and 4 inside one loop over the members, so a
+  // later member's signature failure could be reported where an earlier member's
+  // duplicate identifier comes first in the listed order. The first failing listed phase
+  // now decides the state and the code, and within that phase the lowest member index
+  // wins. Two faults inside one phase that the draft does not order have no normative
+  // winner, and no vector claims one.
+
+  // Phase 1: closed schema and canonical values, member by member.
   const chain: AuthorityDelegationV1[] = []
   for (let i = 0; i < container.length; i++) {
     const snapshot = snapshotPlainData(container[i])
@@ -111,17 +125,17 @@ export function verifyAuthorityDelegationChain(
     chain.push(snapshot as AuthorityDelegationV1)
   }
 
-  const seen = new Set<string>()
+  // Phase 2: delegation_id.
   for (let i = 0; i < chain.length; i++) {
     const delegation = chain[i]
-    if (seen.has(delegation.delegation_id)) {
-      return result('invalid', [{ code: 'CHAIN_DUPLICATE_ID', index: i, message: 'delegation ID repeats in chain' }])
-    }
-    seen.add(delegation.delegation_id)
-    const expectedId = computeAuthorityDelegationId(authorityDelegationBody(delegation))
-    if (expectedId !== delegation.delegation_id) {
+    if (computeAuthorityDelegationId(authorityDelegationBody(delegation)) !== delegation.delegation_id) {
       return result('invalid', [{ code: 'ID_MISMATCH', index: i, message: 'delegation content address does not match body' }])
     }
+  }
+
+  // Phase 3: historical signing-key resolution, then the signature it resolves.
+  for (let i = 0; i < chain.length; i++) {
+    const delegation = chain[i]
     let publicKey: string | null = null
     try {
       publicKey = resolveVerificationKey!(
@@ -140,10 +154,19 @@ export function verifyAuthorityDelegationChain(
     }
   }
 
-  const root = chain[0]
-  if (root.parent_delegation_id !== null) {
-    return result('invalid', [{ code: 'PARENT_MISMATCH', index: 0, message: 'full chain root must carry null parent_delegation_id' }])
+  // Phase 4: duplicate identifiers. The index reported is the member that repeats one
+  // an earlier member already carried.
+  const seen = new Set<string>()
+  for (let i = 0; i < chain.length; i++) {
+    const id = chain[i].delegation_id
+    if (seen.has(id)) {
+      return result('invalid', [{ code: 'CHAIN_DUPLICATE_ID', index: i, message: 'delegation ID repeats in chain' }])
+    }
+    seen.add(id)
   }
+
+  // Phase 5: root trust.
+  const root = chain[0]
   if (typeof trustRoot !== 'function') {
     return result('indeterminate', [{ code: 'ROOT_UNTRUSTED', index: 0, message: 'root trust policy is unavailable' }])
   }
@@ -159,21 +182,35 @@ export function verifyAuthorityDelegationChain(
     return result('invalid', [{ code: 'ROOT_UNTRUSTED', index: 0, message: 'root is not accepted by verifier trust policy' }])
   }
 
+  // Phase 6: parent_delegation_id, the root's null and every child's link.
+  if (root.parent_delegation_id !== null) {
+    return result('invalid', [{ code: 'PARENT_MISMATCH', index: 0, message: 'full chain root must carry null parent_delegation_id' }])
+  }
   for (let i = 1; i < chain.length; i++) {
-    const parent = chain[i - 1]
-    const child = chain[i]
-    if (child.parent_delegation_id !== parent.delegation_id) {
+    if (chain[i].parent_delegation_id !== chain[i - 1].delegation_id) {
       return result('invalid', [{ code: 'PARENT_MISMATCH', index: i, message: 'child does not name immediate parent content address' }])
     }
-    if (child.issuer !== parent.subject) {
+  }
+
+  // Phase 7: issuer-to-subject continuity.
+  for (let i = 1; i < chain.length; i++) {
+    if (chain[i].issuer !== chain[i - 1].subject) {
       return result('invalid', [{ code: 'CHAIN_CONTINUITY', index: i, message: 'child issuer is not parent subject' }])
     }
-    const issued = child.issued_at
-    if (issued < parent.authority.time.not_before ||
-        issued >= parent.authority.time.not_after) {
+  }
+
+  // Phase 8: child issuance time.
+  for (let i = 1; i < chain.length; i++) {
+    const parent = chain[i - 1]
+    const issued = chain[i].issued_at
+    if (issued < parent.authority.time.not_before || issued >= parent.authority.time.not_after) {
       return result('invalid', [{ code: 'ISSUED_AT_OUTSIDE_PARENT', index: i, message: 'child was issued outside parent validity window' }])
     }
-    const attenuationFailures = compareAuthority(parent.authority, child.authority)
+  }
+
+  // Phase 9: the seven facet comparisons.
+  for (let i = 1; i < chain.length; i++) {
+    const attenuationFailures = compareAuthority(chain[i - 1].authority, chain[i].authority)
     if (attenuationFailures.length > 0) {
       const indexedFailures = attenuationFailures.map(item => indexed(item, i))
       const unsupported = indexedFailures.every(item => item.code === 'UNSUPPORTED_PROFILE')
@@ -181,17 +218,22 @@ export function verifyAuthorityDelegationChain(
     }
   }
 
+  // Phase 10: current validity.
   for (let i = 0; i < chain.length; i++) {
-    const delegation = chain[i]
-    if (now < delegation.authority.time.not_before) {
+    const time = chain[i].authority.time
+    if (now < time.not_before) {
       return result('invalid', [{ code: 'NOT_YET_VALID', index: i, message: 'delegation is not yet valid' }])
     }
-    if (now >= delegation.authority.time.not_after) {
+    if (now >= time.not_after) {
       return result('invalid', [{ code: 'EXPIRED', index: i, message: 'delegation has expired' }])
     }
+  }
+
+  // Phase 11: revocation state for every member.
+  for (let i = 0; i < chain.length; i++) {
     let revocation: 'active' | 'revoked' | 'unknown' = 'unknown'
     try {
-      const resolved = resolveRevocation!(snapshotPlainData(delegation) as AuthorityDelegationV1)
+      const resolved = resolveRevocation!(snapshotPlainData(chain[i]) as AuthorityDelegationV1)
       revocation = resolved === 'active' || resolved === 'revoked' ? resolved : 'unknown'
     } catch { revocation = 'unknown' }
     if (revocation === 'revoked') {
