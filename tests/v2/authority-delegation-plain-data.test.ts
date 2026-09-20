@@ -207,14 +207,18 @@ test('a value with no JSON form inside a facet with an unsupported profile is SC
   }
 })
 
-test('a value with no JSON form inside a record whose version is "2.0" is SCHEMA_INVALID first, the same combined list a noncharacter gives there', () => {
+test('a value with no JSON form inside a record whose version is "2.0" is UNSUPPORTED_VERSION alone, because the v1 body is never evaluated', () => {
+  // Recognition stops at the version, so the body is never evaluated and every exotic
+  // value inside it reaches the same answer the noncharacter reference reaches. The
+  // point of the case is unchanged: no exotic value produces a DIFFERENT answer from the
+  // reference, so none of them is treated specially.
   const reference = recordWithScopeGrants('\uFDD0', SCOPE_PROFILE_V1, '2.0')
   const referenceCodes = codesOf(verifyAuthorityDelegationChain([reference], chainOptions(reference.delegation_id)))
-  assert.deepEqual(referenceCodes, ['SCHEMA_INVALID', 'UNSUPPORTED_VERSION'])
+  assert.deepEqual(referenceCodes, ['UNSUPPORTED_VERSION'])
   for (const [label, value] of exoticValues()) {
     const record = recordWithScopeGrants(value, SCOPE_PROFILE_V1, '2.0')
     const checked = verifyAuthorityDelegationChain([record], chainOptions(record.delegation_id))
-    assert.equal(checked.state, 'invalid', label)
+    assert.equal(checked.state, 'unsupported', label)
     assert.deepEqual(codesOf(checked), referenceCodes, label)
   }
 })
@@ -525,6 +529,8 @@ test('a Proxy chain container is invalid even when its own descriptors show a fu
   })
   const checked = verifyAuthorityDelegationChain(widenedLengthView as unknown as unknown[], chainOptions(root.delegation_id))
   assert.notEqual(checked.state, 'valid')
+  // A Proxy is refused as a container before any length is consulted, so the widened
+  // view never reaches the record ceiling and this stays a container failure.
   assert.deepEqual(codesOf(checked), ['SCHEMA_INVALID'])
 
   const ledger = new InMemoryAuthorityBudgetLedger()
@@ -1086,10 +1092,19 @@ test('a 5,000,000-element array as the chain container is rejected within 100 ms
   const checked = verifyAuthorityDelegationChain(hugeChain, chainOptions(root.delegation_id))
   const elapsedMs = Number(process.hrtime.bigint() - start) / 1e6
   assert.ok(elapsedMs < 100, `expected under 100 ms, took ${elapsedMs.toFixed(1)} ms`)
-  assert.equal(checked.state, 'invalid')
-  assert.deepEqual(codesOf(checked), ['SCHEMA_INVALID'])
+  // The record ceiling is this implementation's, not the draft's, so crossing it says
+  // this implementation declines to judge the chain rather than that the chain is bad.
+  assert.equal(checked.state, 'indeterminate')
+  assert.deepEqual(codesOf(checked), ['RESOURCE_LIMIT'])
 
   const smallOverLength = new Array(257).fill(root) as unknown as AuthorityDelegationV1[]
   const reference = verifyAuthorityDelegationChain(smallOverLength, chainOptions(root.delegation_id))
+  assert.equal(reference.state, 'indeterminate')
   assert.deepEqual(codesOf(checked), codesOf(reference))
+
+  // A container that is not over the ceiling but is not a chain at all stays invalid:
+  // the two answers are distinct, which is the point of giving the ceiling its own code.
+  const notAContainer = verifyAuthorityDelegationChain([] as unknown as AuthorityDelegationV1[], chainOptions(root.delegation_id))
+  assert.equal(notAContainer.state, 'invalid')
+  assert.deepEqual(codesOf(notAContainer), ['SCHEMA_INVALID'])
 })

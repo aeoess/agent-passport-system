@@ -151,8 +151,8 @@ test('an unrecognised version alongside a noncharacter elsewhere in the record i
   body.subject = `${ROOT_SUBJECT}\uFDD0`
   const root = sign(body, ROOT_KEY)
   const checked = verifyAuthorityDelegationChain([root], activeOptions(STANDARD_NOW, root.delegation_id))
-  assert.equal(checked.state, 'invalid')
-  assert.deepEqual(codesOf(checked), ['SCHEMA_INVALID', 'UNSUPPORTED_VERSION'])
+  assert.equal(checked.state, 'unsupported')
+  assert.deepEqual(codesOf(checked), ['UNSUPPORTED_VERSION'])
 })
 
 test('the v1 record_type with an unrecognised version over an otherwise valid v1 body is unsupported', () => {
@@ -164,23 +164,41 @@ test('the v1 record_type with an unrecognised version over an otherwise valid v1
   assert.deepEqual(codesOf(checked), ['UNSUPPORTED_VERSION'])
 })
 
-test('an unrecognised record_type over an otherwise valid v1 body is unsupported: UNSUPPORTED_VERSION', () => {
+test('an unrecognised record_type is unsupported and carries its own code', () => {
   const body = mutableBody()
   body.record_type = 'aps:authority-delegation:v2'
   const root = sign(body, ROOT_KEY)
   const checked = verifyAuthorityDelegationChain([root], activeOptions(STANDARD_NOW, root.delegation_id))
   assert.equal(checked.state, 'unsupported')
-  assert.deepEqual(codesOf(checked), ['UNSUPPORTED_VERSION'])
+  assert.deepEqual(codesOf(checked), ['UNSUPPORTED_RECORD_TYPE'])
 })
 
-test('an unrecognised record_type is still judged against the v1 body schema: an extra top-level member is SCHEMA_INVALID', () => {
+test('an unrecognised record_type is not judged against the v1 body schema at all', () => {
+  // Was: the extra member made this SCHEMA_INVALID, because an unrecognised record_type
+  // was still run through the v1 body checks. Recognition precedes v1 schema evaluation,
+  // and a record this schema does not claim is returned unjudged, so the body's own
+  // defects are not reported against a schema that is not its schema.
   const body = mutableBody()
   body.record_type = 'aps:authority-delegation:v2'
   body.extensions = {}
   const root = sign(body, ROOT_KEY)
   const checked = verifyAuthorityDelegationChain([root], activeOptions(STANDARD_NOW, root.delegation_id))
-  assert.equal(checked.state, 'invalid')
-  assert.deepEqual(codesOf(checked), ['SCHEMA_INVALID'])
+  assert.equal(checked.state, 'unsupported')
+  assert.deepEqual(codesOf(checked), ['UNSUPPORTED_RECORD_TYPE'])
+})
+
+test('a record_type or version that is not a string is invalid, because no recognition is possible', () => {
+  for (const mutate of [
+    (body: Record<string, unknown>) => { body.record_type = 5 },
+    (body: Record<string, unknown>) => { body.version = ['1.0'] },
+  ]) {
+    const body = mutableBody()
+    mutate(body)
+    const root = sign(body, ROOT_KEY)
+    const checked = verifyAuthorityDelegationChain([root], activeOptions(STANDARD_NOW, root.delegation_id))
+    assert.equal(checked.state, 'invalid')
+    assert.deepEqual(codesOf(checked), ['SCHEMA_INVALID'])
+  }
 })
 
 test('a facet profile that is not a string is SCHEMA_INVALID, unchanged by this rule', () => {
@@ -224,8 +242,8 @@ test('an unrecognised version alongside a non-finite number elsewhere is SCHEMA_
   ;(body.authority as Record<string, unknown>).risk = { profile: 'x', ceiling: 1 }
   const root = unsignable(body)
   const checked = verifyAuthorityDelegationChain([root], activeOptions(STANDARD_NOW, root.delegation_id))
-  assert.equal(checked.state, 'invalid')
-  assert.deepEqual(codesOf(checked), ['SCHEMA_INVALID', 'UNSUPPORTED_VERSION'])
+  assert.equal(checked.state, 'unsupported')
+  assert.deepEqual(codesOf(checked), ['UNSUPPORTED_VERSION'])
 })
 
 test('an unsupported reputation profile with a non-finite ceiling is SCHEMA_INVALID and UNSUPPORTED_PROFILE', () => {
@@ -244,4 +262,79 @@ test('an eighth, unrecognised facet holding undefined is SCHEMA_INVALID', () => 
   const checked = verifyAuthorityDelegationChain([root], activeOptions(STANDARD_NOW, root.delegation_id))
   assert.equal(checked.state, 'invalid')
   assert.deepEqual(codesOf(checked), ['SCHEMA_INVALID', 'SCHEMA_INVALID'])
+})
+
+// --- No SDK grammar becomes protocol, as ruled --------------------------------------
+
+test('a spend unit the draft admits is no longer refused by an SDK grammar', () => {
+  // Draft line 466 shows "iso4217:USD:minor" and states no grammar at all. The previous
+  // pattern refused a unit carrying a space, a slash or a non-ASCII character, which is
+  // an SDK rule presented as a protocol rejection.
+  for (const unit of ['iso4217:USD:minor', 'USD cents', 'urn:x:units/kWh', 'creditsµ', 'x'.repeat(400)]) {
+    const body = mutableBody()
+    ;(body.authority as Record<string, Record<string, unknown>>).spend = {
+      mode: 'bounded', unit, per_action: '5000', cumulative: '10000',
+    }
+    const root = sign(body, ROOT_KEY)
+    const checked = verifyAuthorityDelegationChain([root], activeOptions(STANDARD_NOW, root.delegation_id))
+    assert.equal(checked.state, 'valid', unit)
+  }
+  // An empty unit is still refused: a bounded spend has to name one.
+  const empty = mutableBody()
+  ;(empty.authority as Record<string, Record<string, unknown>>).spend = {
+    mode: 'bounded', unit: '', per_action: '5000', cumulative: '10000',
+  }
+  const emptyRoot = sign(empty, ROOT_KEY)
+  assert.equal(verifyAuthorityDelegationChain([emptyRoot], activeOptions(STANDARD_NOW, emptyRoot.delegation_id)).state, 'invalid')
+})
+
+test('a values identifier is profile-defined, so no SDK pattern judges it', () => {
+  for (const identifier of ['F-001', 'urn:values:fairness', 'policy/no-deception', '价值']) {
+    const body = mutableBody()
+    ;(body.authority as Record<string, Record<string, unknown>>).values = {
+      profile: 'aps-values-identifiers-v1', required: [identifier],
+    }
+    const root = sign(body, ROOT_KEY)
+    const checked = verifyAuthorityDelegationChain([root], activeOptions(STANDARD_NOW, root.delegation_id))
+    assert.equal(checked.state, 'valid', identifier)
+  }
+})
+
+test('a scope grant obeys the stated requirement and nothing narrower', () => {
+  const accepted = ['commerce:checkout', 'a:b:c:d:e:f:g:h:i:j:k:l:m:n:o:p:q:r', 'x'.repeat(400), 'A_B', 'v1.2+3', 'commerce:*', '*']
+  for (const grant of accepted) {
+    const body = mutableBody()
+    ;(body.authority as Record<string, Record<string, unknown>>).scope = {
+      profile: 'aps-hierarchical-v1', grants: [grant],
+    }
+    const root = sign(body, ROOT_KEY)
+    assert.equal(
+      verifyAuthorityDelegationChain([root], activeOptions(STANDARD_NOW, root.delegation_id)).state,
+      'valid',
+      grant,
+    )
+  }
+  // Still refused, because the draft states these: a non-ASCII grant, an empty segment,
+  // a wildcard that is not the terminal segment, and an empty grant.
+  for (const grant of ['commerce:é', 'commerce::checkout', 'commerce:*:checkout', '*:checkout', '']) {
+    const body = mutableBody()
+    ;(body.authority as Record<string, Record<string, unknown>>).scope = {
+      profile: 'aps-hierarchical-v1', grants: [grant],
+    }
+    const root = sign(body, ROOT_KEY)
+    assert.equal(
+      verifyAuthorityDelegationChain([root], activeOptions(STANDARD_NOW, root.delegation_id)).state,
+      'invalid',
+      grant,
+    )
+  }
+})
+
+test('an identifier over this implementation ceiling is indeterminate, never a conformance failure', () => {
+  const body = mutableBody()
+  body.subject = `did:example:${'x'.repeat(1100)}`
+  const root = sign(body, ROOT_KEY)
+  const checked = verifyAuthorityDelegationChain([root], activeOptions(STANDARD_NOW, root.delegation_id))
+  assert.equal(checked.state, 'indeterminate')
+  assert.deepEqual(codesOf(checked), ['RESOURCE_LIMIT'])
 })

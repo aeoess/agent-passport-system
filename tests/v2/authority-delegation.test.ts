@@ -97,9 +97,19 @@ test('strict wire parser rejects unknown and duplicate members', () => {
     () => parseAuthorityDelegationJson(wire.replace('did:example:root', 'did:example:\\ud800')),
     /SCHEMA_INVALID/,
   )
+  // An integral-valued number is admissible however it is spelled, and RFC 8785
+  // canonicalises the spelling, so "3.0" is the same value as "3" and the record keeps
+  // the content address it was signed under. This parser used to refuse the spelling,
+  // which made an SDK rule into a wire rejection.
+  const respelled = parseAuthorityDelegationJson(wire.replace('"remaining":3', '"remaining":3.0'))
+  assert.equal(respelled.authority.depth.remaining, 3)
+  assert.equal(respelled.delegation_id, JSON.parse(wire).delegation_id)
+  assert.equal(parseAuthorityDelegationJson(wire.replace('"remaining":3', '"remaining":3e0')).authority.depth.remaining, 3)
+  // A value that is not an integer is still refused, by the schema, which is where
+  // value rules belong.
   assert.throws(
-    () => parseAuthorityDelegationJson(wire.replace('"remaining":3', '"remaining":3.0')),
-    /non-integer JSON numbers/,
+    () => parseAuthorityDelegationJson(wire.replace('"remaining":3', '"remaining":3.5')),
+    /SCHEMA_INVALID/,
   )
 })
 

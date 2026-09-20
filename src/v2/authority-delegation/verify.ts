@@ -25,6 +25,24 @@ function indexed(failure: AuthorityFailure, index: number): AuthorityFailure {
   return { ...failure, index }
 }
 
+const UNSUPPORTED_CODES = new Set(['UNSUPPORTED_VERSION', 'UNSUPPORTED_RECORD_TYPE', 'UNSUPPORTED_PROFILE'])
+
+/**
+ * The state a set of shape failures on one member produces.
+ *
+ * A conformance failure dominates: it is a statement about the record, where the other
+ * two are statements about what could be evaluated. Between the remaining two,
+ * unsupported dominates indeterminate, because a record this schema does not claim was
+ * never going to be judged by it whatever ceiling it also crossed. The draft orders none
+ * of this: it is fail-closed precedence inside one phase, and no vector claims it is
+ * normative.
+ */
+function shapeState(failures: readonly AuthorityFailure[]): AuthorityValidationState {
+  if (failures.some(item => !UNSUPPORTED_CODES.has(item.code) && item.code !== 'RESOURCE_LIMIT')) return 'invalid'
+  if (failures.some(item => UNSUPPORTED_CODES.has(item.code))) return 'unsupported'
+  return 'indeterminate'
+}
+
 /**
  * Full root-to-leaf structural, cryptographic, temporal, and revocation validation.
  *
@@ -57,11 +75,17 @@ export function verifyAuthorityDelegationChain(
   rawChain: readonly unknown[],
   options: AuthorityChainVerificationOptions,
 ): AuthorityValidationResult {
-  // Provisional: the draft states no maximum chain length. This 256-record limit is
-  // this SDK's own choice, shared with the Python port, pending a protocol ruling.
-  const container = readPlainDataChainContainer(rawChain, 1, 256)
+  // A chain that is not a usable container at all is invalid: there is nothing to
+  // verify. A chain longer than this implementation's 256-record ceiling is a different
+  // answer. The draft states no maximum chain length, so the ceiling is this
+  // implementation declining to judge rather than the protocol refusing the record, and
+  // it is reported under its own code as indeterminate.
+  const rejection = { reason: 'not-a-container' as const } as { reason: 'not-a-container' | 'over-ceiling' }
+  const container = readPlainDataChainContainer(rawChain, 1, 256, rejection)
   if (!container) {
-    return result('invalid', [{ code: 'SCHEMA_INVALID', message: 'chain must contain 1 through 256 records' }])
+    return rejection.reason === 'over-ceiling'
+      ? result('indeterminate', [{ code: 'RESOURCE_LIMIT', message: "chain exceeds this implementation's 256-record ceiling" }])
+      : result('invalid', [{ code: 'SCHEMA_INVALID', message: 'chain must be a container of at least one record' }])
   }
   // Each member of `options` is read exactly once, here, and every use below is of the
   // value read here. A getter that throws leaves the member undefined, which reaches the
@@ -82,8 +106,7 @@ export function verifyAuthorityDelegationChain(
     const snapshot = snapshotPlainData(container[i])
     const failures = validateAuthorityDelegationShape(snapshot).map(item => indexed(item, i))
     if (failures.length > 0) {
-      const unsupported = failures.every(item => item.code === 'UNSUPPORTED_VERSION' || item.code === 'UNSUPPORTED_PROFILE')
-      return result(unsupported ? 'unsupported' : 'invalid', failures)
+      return result(shapeState(failures), failures)
     }
     chain.push(snapshot as AuthorityDelegationV1)
   }
