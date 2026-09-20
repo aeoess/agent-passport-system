@@ -240,8 +240,63 @@ export interface ReceiptVerificationV1 {
    *  reported only where the record never reached the stage layer, which is when the
    *  envelope itself failed or the artifact is under another profile. */
   stage: ReceiptStageResultV1 | 'not_checked'
-  signature_results: { signer: string; key_id: string; valid: boolean; reason?: string }[]
+  /** Every signature the record carries, required or not, with the outcome of its own
+   *  key resolution. `required` marks the ones the aggregate state depends on. */
+  signature_results: {
+    signer: string
+    key_id: string
+    valid: boolean
+    required: boolean
+    reason?: string
+  }[]
+  /** Signatures outside the required set, on their own axis. Draft line 1041 has a
+   *  verifier verify every REQUIRED signature, and line 999 names one: the issuer's. A
+   *  signature nobody required that does not verify says nothing about the record, and it
+   *  must not move the aggregate state: signatures sit outside receipt_id by
+   *  construction (lines 1003-1009), so anyone can append one to a published receipt
+   *  without changing a digest, and letting that flip a conforming record to invalid
+   *  puts the verification outcome in a third party's hands. */
+  other_signatures: 'none' | 'all_verified' | 'not_all_verified'
   errors: string[]
+}
+
+/** Verifier input for the signature layer. */
+export interface ReceiptSignatureRequirementsV1 {
+  /** Signers the applicable profile or this verifier requires, beyond the issuer. A
+   *  named signer that carries no descriptor at all is a missing required signature. */
+  requiredSigners?: readonly string[]
+}
+
+/** The section 2.5 resolution outcomes a receipt key resolver may name, alongside the
+ *  key itself. Draft lines 360-364 require a resolver to keep them apart; this SDK
+ *  reported every one of them as the same answer. */
+export interface KeyResolutionFailure {
+  outcome: 'not_found' | 'ambiguous' | 'malformed' | 'unreachable' | 'unsupported_scheme'
+}
+
+const KEY_MATERIAL = /^[0-9a-fA-F]{64}$/
+
+const KEY_OUTCOME_REASONS: Record<string, string> = {
+  not_found: 'key_not_found',
+  ambiguous: 'key_ambiguous',
+  unreachable: 'key_unreachable',
+  malformed: 'key_material_malformed',
+  unsupported_scheme: 'key_scheme_unsupported',
+}
+
+/** The reason a resolver's answer is not usable key material, or undefined when it is.
+ *
+ *  Material that is not a 32-byte Ed25519 key never reaches the signature check: the
+ *  check returns false on a length mismatch, so malformed material used to be reported
+ *  as a failed signature, which says the bytes were checked when nothing was. */
+function keyResolutionReason(resolved: string | undefined | KeyResolutionFailure): string | undefined {
+  if (typeof resolved === 'string') {
+    return KEY_MATERIAL.test(resolved) ? undefined : 'key_material_malformed'
+  }
+  if (resolved && typeof resolved === 'object' && typeof resolved.outcome === 'string') {
+    return KEY_OUTCOME_REASONS[resolved.outcome] ?? 'key_unresolved'
+  }
+  return 'key_unresolved'
 }
 
 /** True when the artifact declares an envelope profile other than aps-receipt-v1. Such an
@@ -265,8 +320,9 @@ function declaresForeignProfile(receipt: unknown): boolean {
  */
 export function verifyReceiptV1(
   receipt: ReceiptV1,
-  resolveKey: (signer: string, keyId: string, issuedAt: string) => string | undefined,
+  resolveKey: (signer: string, keyId: string, issuedAt: string) => string | undefined | KeyResolutionFailure,
   stageOptions: ReceiptStageOptionsV1 = {},
+  requirements: ReceiptSignatureRequirementsV1 = {},
 ): ReceiptVerificationV1 {
   const errors: string[] = []
   if (declaresForeignProfile(receipt)) {
@@ -277,6 +333,7 @@ export function verifyReceiptV1(
       stage: 'not_checked',
       signer_authority: 'not_checked',
       signature_results: [],
+      other_signatures: 'none',
       errors: ['unsupported_profile'],
     }
   }
@@ -288,34 +345,60 @@ export function verifyReceiptV1(
       stage: 'not_checked',
       signer_authority: 'not_checked',
       signature_results: [],
+      other_signatures: 'none',
       errors: [err instanceof Error ? err.message : String(err)],
     }
   }
   const receipt_id_valid = computeReceiptIdV1(receipt) === receipt.receipt_id
   if (!receipt_id_valid) errors.push('receipt_id_mismatch')
+
+  // The required set: the issuer, whom line 999 requires, plus whatever the applicable
+  // profile or this verifier names. Everything else the record carries is checked and
+  // reported, and decides nothing.
+  const requiredSigners = new Set<string>([receipt.issuer, ...(requirements.requiredSigners ?? [])])
   const signature_results = receipt.signatures.map(proof => {
+    const required = requiredSigners.has(proof.signer)
+    let resolved: string | undefined | KeyResolutionFailure
     try {
-      const key = resolveKey(proof.signer, proof.key_id, receipt.issued_at)
-      if (!key) return { signer: proof.signer, key_id: proof.key_id, valid: false, reason: 'key_unresolved' }
-      const { value, ...descriptor } = proof
-      return { signer: proof.signer, key_id: proof.key_id, valid: verify(receiptSignaturePayloadV1(receipt, descriptor), value, key) }
+      resolved = resolveKey(proof.signer, proof.key_id, receipt.issued_at)
     } catch {
-      return { signer: proof.signer, key_id: proof.key_id, valid: false, reason: 'key_resolution_error' }
+      return { signer: proof.signer, key_id: proof.key_id, valid: false, required, reason: 'key_resolution_error' }
+    }
+    const reason = keyResolutionReason(resolved)
+    if (reason) return { signer: proof.signer, key_id: proof.key_id, valid: false, required, reason }
+    const { value, ...descriptor } = proof
+    return {
+      signer: proof.signer,
+      key_id: proof.key_id,
+      required,
+      valid: verify(receiptSignaturePayloadV1(receipt, descriptor), value, resolved as string),
     }
   })
+  for (const signer of requiredSigners) {
+    if (!signature_results.some(item => item.signer === signer)) {
+      errors.push('required_signature_missing')
+    }
+  }
   // A key that could not be resolved and a signature that does not verify are different
   // findings. Reporting both as signature_invalid said that the bytes were wrong when the
   // verifier had never checked them, which is exactly the collapse section 5.6 line 1227
   // forbids in the other direction. Unresolvable key material leaves signer authority
   // unestablished, which is indeterminate; only a resolved key whose signature fails is
   // invalid.
-  const unresolved = signature_results.filter(r => r.reason === 'key_unresolved' || r.reason === 'key_resolution_error')
-  const badBytes = signature_results.filter(r => !r.valid && r.reason === undefined)
+  const required = signature_results.filter(item => item.required)
+  const others = signature_results.filter(item => !item.required)
+  const unresolved = required.filter(r => r.reason !== undefined && r.reason !== 'key_scheme_unsupported')
+  const unsupportedScheme = required.some(r => r.reason === 'key_scheme_unsupported')
+  const badBytes = required.filter(r => !r.valid && r.reason === undefined)
   if (badBytes.length > 0) errors.push('signature_invalid')
+  if (unsupportedScheme) errors.push('signer_key_scheme_unsupported')
   if (unresolved.length > 0) errors.push('signer_authority_indeterminate')
   const signerAuthority = badBytes.length > 0
     ? 'invalid' as const
-    : unresolved.length > 0 ? 'not_established' as const : 'verified' as const
+    : unresolved.length > 0 || unsupportedScheme ? 'not_established' as const : 'verified' as const
+  const other_signatures = others.length === 0
+    ? 'none' as const
+    : others.every(item => item.valid) ? 'all_verified' as const : 'not_all_verified' as const
   // Section 5.6 line 1214: a verifier enforces the closed ReceiptV1 schema AND the
   // type-specific schema. Reporting status "valid" for a record that breaks its own
   // section 5.3 stage would use the draft's word for something the draft does not call
@@ -326,14 +409,23 @@ export function verifyReceiptV1(
   if (stage.status !== 'valid') errors.push(`stage_${stage.status}`, ...stage.failures.map(f => f.code))
 
   const status: ReceiptVerificationStatusV1 =
-    badBytes.length > 0 || receipt_id_valid !== true || stage.status === 'invalid'
+    badBytes.length > 0 || receipt_id_valid !== true || stage.status === 'invalid' || errors.includes('required_signature_missing')
       ? 'invalid'
-      : stage.status === 'unsupported'
+      : stage.status === 'unsupported' || unsupportedScheme
         ? 'unsupported'
         : unresolved.length > 0 || stage.status === 'indeterminate'
           ? 'indeterminate'
           : 'valid'
-  return { valid: status === 'valid', status, receipt_id_valid, stage, signer_authority: signerAuthority, signature_results, errors }
+  return {
+    valid: status === 'valid',
+    status,
+    receipt_id_valid,
+    stage,
+    signer_authority: signerAuthority,
+    signature_results,
+    other_signatures,
+    errors,
+  }
 }
 
 /**
@@ -360,8 +452,9 @@ export function verifyReceiptV1(
  */
 export function verifyReceiptV1Serialized(
   raw: string,
-  resolveKey: (signer: string, keyId: string, issuedAt: string) => string | undefined,
+  resolveKey: (signer: string, keyId: string, issuedAt: string) => string | undefined | KeyResolutionFailure,
   stageOptions: ReceiptStageOptionsV1 = {},
+  requirements: ReceiptSignatureRequirementsV1 = {},
 ): ReceiptVerificationV1 {
   let parsed: JsonValue
   try {
@@ -374,6 +467,7 @@ export function verifyReceiptV1Serialized(
       stage: 'not_checked',
       signer_authority: 'not_checked',
       signature_results: [],
+      other_signatures: 'none',
       errors: ['parse_error', err instanceof Error ? err.message : String(err)],
     }
   }
@@ -386,5 +480,5 @@ export function verifyReceiptV1Serialized(
   // Removing the need for it would mean widening validateReceiptV1 to an assertion over
   // unknown, which its body's direct field accesses would force a rewrite of. That is a
   // public API decision, recorded in the handoff rather than taken here.
-  return verifyReceiptV1(parsed as unknown as ReceiptV1, resolveKey, stageOptions)
+  return verifyReceiptV1(parsed as unknown as ReceiptV1, resolveKey, stageOptions, requirements)
 }
