@@ -51,6 +51,7 @@ import { canonicalizeJCS } from '../../src/core/canonical-jcs.js'
 import { createActionReferenceInputV2, computeActionRefV2, computePayloadRefV1 } from '../../src/v2/action-reference/v2.js'
 import { createReceiptV1 } from '../../src/v2/receipt-core/receipt.js'
 import { buildDecisionRefV1 } from '../../src/v2/receipt-core/decision-ref.js'
+import type { CoreDecisionOutputV1 } from '../../src/v2/receipt-core/types.js'
 import { issueAuthorityDelegation, issueSubAuthorityDelegation } from '../../src/v2/authority-delegation/issue.js'
 import type { AuthorityDelegationBodyV1 } from '../../src/v2/authority-delegation/types.js'
 
@@ -298,19 +299,25 @@ export async function buildEnvelope(opts: BuildEnvelopeOptions): Promise<Envelop
   const { root, leaf } = buildChain(chainOverrides)
 
   // --- intent --------------------------------------------------------------
-  const intentResult = {
+  // The action being declared. This is the payload the action reference commits
+  // to and the input the policy evaluates. It is NOT the receipt's result:
+  // section 5.3.1 fixes an action-intent result to exactly
+  // {profile: 'aps-action-intent-result-v1', status: 'declared'}, so the
+  // description lives here and the receipt carries the stage result below.
+  const intentPayload = {
     intent_id: 'itn-20260825-0001',
     description: 'swap ETH for USDC up to 10k USD',
     action: 'swap',
     resources: ['chain:eip155:1', `asset:${USDC_ETH}`],
     amount_usd: 10_000,
   }
+  const intentResult = { profile: 'aps-action-intent-result-v1', status: 'declared' } as const
   const actionRefInput = createActionReferenceInputV2({
     agent_id: AGENT_DID,
     action_type: 'swap',
     target: USDC_ETH,
-    payload_ref: computePayloadRefV1(intentResult),
-    scope_required: intentResult.resources,
+    payload_ref: computePayloadRefV1(intentPayload),
+    scope_required: intentPayload.resources,
     issued_at: BASELINE_ISO,
     nonce: fixtureNonce('intent'),
   })
@@ -344,6 +351,17 @@ export async function buildEnvelope(opts: BuildEnvelopeOptions): Promise<Envelop
     ]
 
   // --- decision ------------------------------------------------------------
+  // Section 5.3.2 fixes a policy-decision result to the core decision output,
+  // and the composite verifier compares the receipt's result to the decision
+  // output the reference was computed over, canonical bytes against canonical
+  // bytes. So this object is built once and used for both.
+  const decisionOutput = {
+    profile: 'aps-core-decision-output-v1',
+    verdict: policyVerdict,
+    effective_authority_ref: policyVerdict === 'deny' ? null : leaf.delegation_id.slice(7),
+    constraints: [],
+    valid_until: policyVerdict === 'deny' ? null : new Date(BASELINE_MS + 600_000).toISOString(),
+  } satisfies CoreDecisionOutputV1
   const decisionRef = buildDecisionRefV1({
     action_ref,
     authority_state: {
@@ -353,20 +371,14 @@ export async function buildEnvelope(opts: BuildEnvelopeOptions): Promise<Envelop
     },
     policy_input: {
       action_ref,
-      resources: intentResult.resources,
-      amount_usd: intentResult.amount_usd,
+      resources: intentPayload.resources,
+      amount_usd: intentPayload.amount_usd,
     },
     decision_context: {
       subject_chain_id: 1,
       evaluated_at: BASELINE_ISO,
     },
-    decision_output: {
-      profile: 'aps-core-decision-output-v1',
-      verdict: policyVerdict,
-      effective_authority_ref: policyVerdict === 'deny' ? null : leaf.delegation_id.slice(7),
-      constraints: [],
-      valid_until: policyVerdict === 'deny' ? null : new Date(BASELINE_MS + 600_000).toISOString(),
-    },
+    decision_output: decisionOutput,
   })
 
   const decision = createReceiptV1(
@@ -381,21 +393,13 @@ export async function buildEnvelope(opts: BuildEnvelopeOptions): Promise<Envelop
       issued_at: BASELINE_ISO,
       prev: intent.receipt_id,
       evidence_refs: evidenceRefs,
-      result: {
-        verdict: policyVerdict,
-        // The reason must describe the layer that decided it, and only that
-        // layer. This receipt is signed by the policy engine, which evaluates
-        // authority and policy; it does not evaluate the oracle evidence. In
-        // every oracle-negative vector the evidence is still committed here and
-        // still reaches the gate, but saying "oracle verified" inside a signed
-        // envelope would be a false statement: on tampered-oracle the artifact
-        // was mutated before this receipt was signed. The composite gate is
-        // what halts on oracle evidence.
-        reason:
-          policyVerdict === 'permit'
-            ? 'authorized by delegation and policy'
-            : 'scope denied by policy',
-      },
+      // The decision output itself, byte for byte what the reference above was
+      // computed over. The earlier free-form {verdict, reason} pair is gone: it
+      // named no profile and section 5.3.2 admits only this shape. The layer
+      // that decided is still readable here, because a policy-decision receipt
+      // signed by the policy engine carries a policy verdict and nothing about
+      // the oracle evidence, which the composite gate is what halts on.
+      result: decisionOutput,
     },
     [{ signer: GATEWAY_DID, key_id: GATEWAY_KEY_ID, private_key: deriveEd25519('gateway').privateKeyHex }]
   )
