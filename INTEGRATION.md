@@ -131,3 +131,33 @@ The physical constraint layer is the dimension missing from all other integratio
 
 See: [`packages/bridge-a2a/src/aps-mapping.ts`](https://github.com/sint-ai/sint-protocol/tree/main/packages/bridge-a2a/src/aps-mapping.ts), 38 tests
 See: [`packages/capability-tokens/__tests__/aps-crossverify.test.ts`](https://github.com/sint-ai/sint-protocol/tree/main/packages/capability-tokens/__tests__/aps-crossverify.test.ts), 9 tests
+
+### Exact-Call Execution Evidence (PriorSeal)
+You handle the authorization and execution evidence for one exact EVM call. APS handles the policy decision that call was admitted under.
+
+This is a sibling adapter. It lives in the PriorSeal repository and is maintained there, with two separate trust roots. It imports only the `agent-passport-system@6.0.1` package root.
+
+```typescript
+import {
+  verifyReceiptV1Serialized,
+  verifyReceiptWithDecisionV1,
+  verifyAuthorityDelegationChain,
+} from 'agent-passport-system'
+
+// 1. Verify the aps:policy-decision:v1 receipt from its serialized bytes, then
+//    verify that its decision_ref binds the supplied DecisionEvidenceV1.
+// 2. Check currency at a fixed reference time. The composite verifier only
+//    establishes valid_until > issued_at, so this check belongs to the adapter.
+// 3. Verify the delegation chain against a separately pinned principal key.
+// 4. Carry decision_ref as an opaque context commitment inside a
+//    principal-signed PriorSeal exact-call authorization.
+```
+
+The APS side is a committed input set: `permit`, `narrow`, `deny` and `expired`, each an action-intent receipt, a policy-decision receipt and its decision evidence, built at the v6.0.1 tag. In 6.0.1 a `deny` binds and still returns `valid: false`, and `expired` returns `valid: true` and fails only the adapter's reference time check. Both stop before the authorization callback.
+
+What the composition claims: an execution correlated to a principal-signed authorization and to an APS decision. What it does not claim: single use of a decision, live revocation state, currency of the APS decision at chain time, or an independently observed chain execution. `action_ref` is not recomputed, because 6.0.1 does not export that function from the package root. All keys and executions are test material.
+
+Checked on 2026-09-20 at PriorSeal `a9288dc2`: the APS inputs there are byte-identical to APS commit `948f99b8`, the unmodified APS consumer script passes, and the adapter suite passes 24 of 24.
+
+See: [`fixtures/priorseal-decision-binding`](https://github.com/aeoess/agent-passport-system/tree/948f99b85343bef2c6fa677c8543965caacfc087/fixtures/priorseal-decision-binding), the APS inputs
+See: [`examples/aps-priorseal-decision-binding-v1`](https://github.com/imokokok/PriorSeal/tree/a9288dc22eff0804492112c7319d9b8510001e02/examples/aps-priorseal-decision-binding-v1), the adapter, its tests and run report
