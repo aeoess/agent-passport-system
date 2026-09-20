@@ -96,7 +96,16 @@ export type AuthorityFailureCode =
   | 'RESOURCE_LIMIT'
   | 'NONCANONICAL_VALUE'
   | 'ID_MISMATCH'
+  /** The resolver said nothing about why it could not resolve. */
   | 'KEY_RESOLUTION_FAILED'
+  /** Section 2.5 outcomes, each reported apart from the others. The first is
+   *  unsupported; the rest are indeterminate. None of them is SIGNATURE_INVALID,
+   *  because no signature check ran. */
+  | 'KEY_SCHEME_UNSUPPORTED'
+  | 'KEY_NOT_FOUND'
+  | 'KEY_AMBIGUOUS'
+  | 'KEY_UNREACHABLE'
+  | 'KEY_MATERIAL_MALFORMED'
   | 'SIGNATURE_INVALID'
   | 'ROOT_UNTRUSTED'
   | 'CHAIN_DUPLICATE_ID'
@@ -132,11 +141,30 @@ export interface AuthorityValidationResult {
   failures: AuthorityFailure[]
 }
 
+/** The resolution outcomes draft section 2.5 lines 360-364 requires a resolver to keep
+ *  apart: "At minimum a resolver distinguishes: resolved; subject or key not found;
+ *  ambiguous (including duplicate key identifiers); structurally malformed key material;
+ *  transport unreachability; and an unsupported identifier scheme."
+ *
+ *  A resolver that returns a key string has resolved. One that returns null has said
+ *  nothing about why, which stays the unspecified case. One that returns an outcome here
+ *  says which of the five it is, and the verifier reports each under its own code. */
+export type KeyResolutionOutcome =
+  | 'not_found'
+  | 'ambiguous'
+  | 'malformed'
+  | 'unreachable'
+  | 'unsupported_scheme'
+
+export interface KeyResolutionFailure {
+  outcome: KeyResolutionOutcome
+}
+
 export type VerificationKeyResolver = (
   issuer: string,
   verificationMethod: string,
   issuedAt: string,
-) => string | null
+) => string | null | KeyResolutionFailure
 
 export type RevocationResolution = 'active' | 'revoked' | 'unknown'
 

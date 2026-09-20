@@ -13,8 +13,10 @@ import type {
   AuthorityChainVerificationOptions,
   AuthorityDelegationV1,
   AuthorityFailure,
+  AuthorityFailureCode,
   AuthorityValidationResult,
   AuthorityValidationState,
+  KeyResolutionFailure,
 } from './types.js'
 
 function result(state: AuthorityValidationState, failures: AuthorityFailure[]): AuthorityValidationResult {
@@ -23,6 +25,48 @@ function result(state: AuthorityValidationState, failures: AuthorityFailure[]): 
 
 function indexed(failure: AuthorityFailure, index: number): AuthorityFailure {
   return { ...failure, index }
+}
+
+/** Well-formed Ed25519 public key material: 32 bytes as hexadecimal. A resolver that
+ *  hands back anything else has produced structurally malformed material, and the
+ *  signature check must not run on it: reporting SIGNATURE_INVALID there would say the
+ *  bytes were checked and failed when nothing was checked at all. Case is not narrowed
+ *  here, because the verifier accepted either case before this and the ruling is about
+ *  which outcome is reported, not about which keys resolve. */
+const KEY_MATERIAL = /^[0-9a-fA-F]{64}$/
+
+interface KeyFailure {
+  state: AuthorityValidationState
+  code: AuthorityFailureCode
+  message: string
+}
+
+/** Map a resolver's answer to the draft's section 2.5 outcomes, or null when it
+ *  resolved. An unsupported identifier scheme is unsupported; everything else that is
+ *  not a usable key is indeterminate, each under its own code. */
+function keyResolutionFailure(resolved: string | null | KeyResolutionFailure | undefined): KeyFailure | null {
+  if (typeof resolved === 'string') {
+    return KEY_MATERIAL.test(resolved)
+      ? null
+      : { state: 'indeterminate', code: 'KEY_MATERIAL_MALFORMED', message: 'resolved key material is not a 32-byte Ed25519 public key' }
+  }
+  if (resolved && typeof resolved === 'object' && typeof (resolved as KeyResolutionFailure).outcome === 'string') {
+    switch ((resolved as KeyResolutionFailure).outcome) {
+      case 'unsupported_scheme':
+        return { state: 'unsupported', code: 'KEY_SCHEME_UNSUPPORTED', message: 'identifier scheme is not supported by the resolver' }
+      case 'not_found':
+        return { state: 'indeterminate', code: 'KEY_NOT_FOUND', message: 'subject or key was not found' }
+      case 'ambiguous':
+        return { state: 'indeterminate', code: 'KEY_AMBIGUOUS', message: 'key resolution was ambiguous' }
+      case 'unreachable':
+        return { state: 'indeterminate', code: 'KEY_UNREACHABLE', message: 'key material was unreachable' }
+      case 'malformed':
+        return { state: 'indeterminate', code: 'KEY_MATERIAL_MALFORMED', message: 'resolved key material is structurally malformed' }
+      default:
+        break
+    }
+  }
+  return { state: 'indeterminate', code: 'KEY_RESOLUTION_FAILED', message: 'issuer verification key could not be resolved' }
 }
 
 const UNSUPPORTED_CODES = new Set(['UNSUPPORTED_VERSION', 'UNSUPPORTED_RECORD_TYPE', 'UNSUPPORTED_PROFILE'])
@@ -133,23 +177,25 @@ export function verifyAuthorityDelegationChain(
     }
   }
 
-  // Phase 3: historical signing-key resolution, then the signature it resolves.
+  // Phase 3: historical signing-key resolution, then the signature it resolves. The
+  // resolver is called with the record's own issued_at, which is what selects the key
+  // version: a key current at verification time is not the one that signed this record
+  // (draft lines 313-315 and 353-357).
   for (let i = 0; i < chain.length; i++) {
     const delegation = chain[i]
-    let publicKey: string | null = null
+    let resolved: string | null | KeyResolutionFailure = null
     try {
-      publicKey = resolveVerificationKey!(
+      resolved = resolveVerificationKey!(
         delegation.issuer,
         delegation.verification_method,
         delegation.issued_at,
       )
     } catch {
-      publicKey = null
+      resolved = null
     }
-    if (publicKey === null || publicKey === undefined) {
-      return result('indeterminate', [{ code: 'KEY_RESOLUTION_FAILED', index: i, message: 'issuer verification key could not be resolved' }])
-    }
-    if (!verifyAuthorityDelegationSignature(delegation, publicKey)) {
+    const failure = keyResolutionFailure(resolved)
+    if (failure) return result(failure.state, [{ code: failure.code, index: i, message: failure.message }])
+    if (!verifyAuthorityDelegationSignature(delegation, resolved as string)) {
       return result('invalid', [{ code: 'SIGNATURE_INVALID', index: i, message: 'Ed25519 signature is invalid' }])
     }
   }

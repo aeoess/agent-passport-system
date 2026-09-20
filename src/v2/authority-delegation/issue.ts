@@ -12,6 +12,7 @@ import { compareAuthority } from './compare.js'
 import { snapshotPlainData } from './plain-data.js'
 import { isCanonicalTimestamp, validateAuthorityDelegationShape } from './schema.js'
 import type {
+  KeyResolutionFailure,
   AuthorityDelegationBodyV1,
   AuthorityDelegationV1,
   RevocationResolution,
@@ -180,14 +181,25 @@ export function issueSubAuthorityDelegation(
     throw new Error('authority delegation parent content address does not match its body (ID_MISMATCH)')
   }
 
-  let parentKey: string | null | undefined
+  let parentKey: string | null | undefined | KeyResolutionFailure
   try {
     parentKey = resolveVerificationKey(parentSnapshot.issuer, parentSnapshot.verification_method, parentSnapshot.issued_at)
   } catch {
     parentKey = null
   }
-  if (parentKey === null || parentKey === undefined) {
-    throw new Error('authority delegation parent issuer verification key could not be resolved (KEY_RESOLUTION_FAILED)')
+  // An issuer refuses either way, but it refuses for the right reason. A resolver that
+  // named a section 2.5 outcome, or that handed back material which is not a 32-byte
+  // Ed25519 key, has not produced a signature failure: nothing was checked. Saying
+  // SIGNATURE_INVALID there would tell a caller its parent record is forged when its own
+  // resolver is what could not answer.
+  if (typeof parentKey !== 'string') {
+    const outcome = parentKey && typeof parentKey === 'object' && typeof parentKey.outcome === 'string'
+      ? parentKey.outcome
+      : 'unresolved'
+    throw new Error(`authority delegation parent issuer verification key could not be resolved (KEY_RESOLUTION_FAILED: ${outcome})`)
+  }
+  if (!/^[0-9a-fA-F]{64}$/.test(parentKey)) {
+    throw new Error('authority delegation parent issuer key material is structurally malformed (KEY_MATERIAL_MALFORMED)')
   }
   if (!verifyAuthorityDelegationSignature(parentSnapshot, parentKey)) {
     throw new Error('authority delegation parent Ed25519 signature is invalid (SIGNATURE_INVALID)')

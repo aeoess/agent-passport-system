@@ -211,3 +211,44 @@ test('a throwing key resolver is KEY_RESOLUTION_FAILED, not valid', () => {
   assert.equal(r.valid, false)
   assert.equal(r.failures[0]?.code, 'KEY_RESOLUTION_FAILED')
 })
+
+// --- The section 2.5 resolution outcomes are kept apart, as ruled ------------------
+
+test('each key resolution outcome reports its own code and its own state', () => {
+  const cases: [string, unknown, string, string][] = [
+    ['unsupported_scheme', { outcome: 'unsupported_scheme' }, 'unsupported', 'KEY_SCHEME_UNSUPPORTED'],
+    ['not_found', { outcome: 'not_found' }, 'indeterminate', 'KEY_NOT_FOUND'],
+    ['ambiguous', { outcome: 'ambiguous' }, 'indeterminate', 'KEY_AMBIGUOUS'],
+    ['unreachable', { outcome: 'unreachable' }, 'indeterminate', 'KEY_UNREACHABLE'],
+    ['malformed', { outcome: 'malformed' }, 'indeterminate', 'KEY_MATERIAL_MALFORMED'],
+    ['null', null, 'indeterminate', 'KEY_RESOLUTION_FAILED'],
+    ['an unknown outcome name', { outcome: 'weather' }, 'indeterminate', 'KEY_RESOLUTION_FAILED'],
+  ]
+  for (const [label, answer, state, code] of cases) {
+    const checked = verifyAuthorityDelegationChain([root], options({ resolveVerificationKey: () => answer as never }))
+    assert.equal(checked.state, state, label)
+    assert.deepEqual(checked.failures.map(item => item.code), [code], label)
+  }
+})
+
+test('key material that is not a 32-byte Ed25519 key is malformed, never a failed signature', () => {
+  for (const material of ['', 'not-hex', 'ab'.repeat(16), 'ab'.repeat(40), `${'a'.repeat(63)}z`]) {
+    const checked = verifyAuthorityDelegationChain([root], options({ resolveVerificationKey: () => material }))
+    assert.equal(checked.state, 'indeterminate', material)
+    assert.deepEqual(checked.failures.map(item => item.code), ['KEY_MATERIAL_MALFORMED'], material)
+  }
+  // A well-formed key that did not sign this record is still a signature failure: that
+  // check did run, and it failed.
+  const wrongKey = verifyAuthorityDelegationChain([root], options({ resolveVerificationKey: () => 'b'.repeat(64) }))
+  assert.equal(wrongKey.state, 'invalid')
+  assert.deepEqual(wrongKey.failures.map(item => item.code), ['SIGNATURE_INVALID'])
+})
+
+test('the resolver is called with the record own issued_at, which is what selects the key version', () => {
+  const seen: string[] = []
+  verifyAuthorityDelegationChain([root], options({
+    resolveVerificationKey: (_issuer, _method, issuedAt) => { seen.push(issuedAt); return null },
+  }))
+  assert.deepEqual(seen, [root.issued_at])
+  assert.notEqual(root.issued_at, NOW, 'the fixture would not distinguish the two otherwise')
+})
