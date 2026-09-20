@@ -35,9 +35,10 @@ function indexed(failure: AuthorityFailure, index: number): AuthorityFailure {
  * `options.resolveRevocation` are each handed a fresh copy of it.
  *
  * `options.trustRoot` is handed a copy, not the snapshot itself, because this function
- * reads that snapshot again after the callback returns: the parent-linkage, continuity,
- * issuance-time, attenuation, validity and revocation checks all run after it, on the
- * root and on every member. A trust callback that wrote to what it was given would
+ * reads that snapshot again after the callback returns: the child-to-parent linkage
+ * loop, with its continuity, issuance-time and attenuation checks, and then the
+ * validity and revocation checks on every member, all run after it. The root's own
+ * null-parent check and the duplicate-identifier check run before it. A trust callback that wrote to what it was given would
  * otherwise change what those checks see, and a chain that widens its parent's authority
  * would verify valid. `options.resolveRevocation` is handed a copy for the same reason
  * rather than from the same need: it is called last, after every other check of that

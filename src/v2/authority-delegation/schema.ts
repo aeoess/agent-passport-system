@@ -216,6 +216,10 @@ export function validateAuthorityDelegationShape(value: unknown): AuthorityFailu
     failures.push(failure('SCHEMA_INVALID', 'record strings must be I-JSON: no unpaired surrogates or noncharacters'))
   }
 
+  // Provisional, and left open rather than settled: an unrecognised record_type string
+  // is still judged by the checks below, exactly like a recognised one. The draft does
+  // not say which body schema, if any, judges a record whose record_type names some
+  // other string. The Python port follows this SDK, pending a protocol ruling.
   if (typeof top.record_type !== 'string' || typeof top.version !== 'string') {
     failures.push(failure('SCHEMA_INVALID', 'record_type and version must be strings'))
   } else if (top.record_type !== AUTHORITY_DELEGATION_RECORD_TYPE || top.version !== AUTHORITY_DELEGATION_VERSION) {
