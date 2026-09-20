@@ -105,8 +105,8 @@ export interface AttributionRevocationOptions {
  *  interface, which returns a Promise: a Promise has no `revoked` and no
  *  `checkedAt`, so under fail_open it would have read as not-revoked. That is
  *  benign only because fail_open is already permissive, which is not a
- *  property worth relying on. Same class as the MA1 resolver-normalization
- *  gap in the v2 authority-delegation verifier, handled the same way. */
+ *  property worth relying on. Same class as the resolver-normalization gap in
+ *  the v2 authority-delegation verifier, handled the same way. */
 function resolveEvidence(
   revocation: AttributionRevocationOptions | undefined,
   delegation: Delegation,

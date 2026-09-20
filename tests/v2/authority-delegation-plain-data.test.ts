@@ -23,6 +23,7 @@ import {
   REVERSIBILITY_PROFILE_V1,
   SCOPE_PROFILE_V1,
   VALUES_PROFILE_V1,
+  compareAuthority,
   computeAuthorityDelegationIdForWrite,
   isAuthorityDelegationV1,
   issueAuthorityDelegation,
@@ -912,6 +913,31 @@ test('a callback that writes to the record it is given cannot change what the ch
     }),
     /\(SCOPE_WIDENING\)$/,
   )
+})
+
+test('a reversibility ceiling outside the three ranked values is not narrower, and the comparison answers rather than throwing', () => {
+  const body = childBody(root)
+  const parentAuthority = rootBody().authority
+  const ranked = compareAuthority(parentAuthority, body.authority)
+  assert.deepEqual(ranked.map(item => item.code), [])
+
+  for (const ceiling of ['destructive', 'TENTATIVE', '', 5, null, undefined] as const) {
+    const child = structuredClone(body)
+    ;(child.authority.reversibility as Record<string, unknown>).ceiling = ceiling
+    const failures = compareAuthority(parentAuthority, child.authority)
+    assert.deepEqual(
+      failures.map(item => item.code),
+      ['REVERSIBILITY_WIDENING'],
+      `child ceiling ${String(ceiling)}`,
+    )
+    const withUnrankedParent = structuredClone(parentAuthority)
+    ;(withUnrankedParent.reversibility as Record<string, unknown>).ceiling = ceiling
+    assert.deepEqual(
+      compareAuthority(withUnrankedParent, body.authority).map(item => item.code),
+      ['REVERSIBILITY_WIDENING'],
+      `parent ceiling ${String(ceiling)}`,
+    )
+  }
 })
 
 test('the child issuer refuses with a coded error when its options object cannot be read', () => {
