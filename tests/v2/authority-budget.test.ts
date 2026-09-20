@@ -128,6 +128,34 @@ test('action_ref retries are idempotent, conflicts fail, and dispatched reservat
   assert.equal(ledger.commit(actionRef).ok, true)
 })
 
+test('a reserve retried after its cancellation books a fresh reservation, and the ceiling still holds', () => {
+  const { delegation: parent, subjectKey, resolveRootKey } = root()
+  const leaf = child(parent, resolveRootKey, subjectKey, 'did:example:leaf', '66666666666666666666666666666666')
+  const ledger = new InMemoryAuthorityBudgetLedger()
+  const first = 'e'.repeat(64)
+  const second = 'f'.repeat(64)
+
+  assert.equal(ledger.reserve([parent, leaf], first, 'iso4217:USD:minor', '60').code, 'RESERVED')
+  assert.deepEqual(ledger.counter(parent.delegation_id), { reserved: '60', committed: '0' })
+  assert.equal(ledger.cancel(first).code, 'CANCELLED')
+  assert.deepEqual(ledger.counter(parent.delegation_id), { reserved: '0', committed: '0' })
+
+  // The cancelled reservation holds nothing, so this call is a new reservation, not an
+  // idempotent repeat of one: what it reports is what the counters hold.
+  const retry = ledger.reserve([parent, leaf], first, 'iso4217:USD:minor', '60')
+  assert.equal(retry.ok, true)
+  assert.equal(retry.code, 'RESERVED')
+  assert.deepEqual(ledger.counter(parent.delegation_id), { reserved: '60', committed: '0' })
+
+  // A second action_ref cannot now take the rest of a ceiling the retry holds.
+  assert.deepEqual(
+    ledger.reserve([parent, leaf], second, 'iso4217:USD:minor', '60'),
+    { ok: false, code: 'CUMULATIVE_EXCEEDED' },
+  )
+  assert.equal(ledger.commit(first).ok, true)
+  assert.deepEqual(ledger.counter(parent.delegation_id), { reserved: '0', committed: '60' })
+})
+
 test('budget ledger rejects truncated, malformed, and duplicate chains', () => {
   const { delegation: parent, subjectKey, resolveRootKey } = root()
   const leaf = child(parent, resolveRootKey, subjectKey, 'did:example:leaf', '55555555555555555555555555555555')

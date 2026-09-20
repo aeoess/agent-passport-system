@@ -60,12 +60,14 @@ const isRawJSON: (value: object) => boolean =
  * and an object is the one input shape this module cannot judge at every size: this
  * engine returns at most 2**23 own property names and throws RangeError beyond that, so
  * an object with 2**23 + 1 or more own members is not plain data here, where the Python
- * SDK judges the same object by its content. What that costs is one extra failure code
- * on a record the v1 body schema does not judge: a record whose version is unknown and
- * which carries such an object is SCHEMA_INVALID and UNSUPPORTED_VERSION here and
- * UNSUPPORTED_VERSION there, and neither SDK reports it valid. A record the v1 schema
- * does judge is SCHEMA_INVALID in both, since a member holding that object is not a
- * member of the closed schema. An object with exactly 2**23 own members is fine, and so
+ * SDK judges the same object by its content. The two SDKs then differ in what they
+ * report. A record whose version is unknown and which carries such an object is invalid
+ * here, with SCHEMA_INVALID and UNSUPPORTED_VERSION, and unsupported there, with
+ * UNSUPPORTED_VERSION alone: the state a caller acts on differs, though neither SDK
+ * reports it valid. A record the v1 schema does judge is invalid in both, on the same
+ * code wherever that member's own check is SCHEMA_INVALID, and on SCHEMA_INVALID plus
+ * NONCANONICAL_VALUE here against NONCANONICAL_VALUE alone there for nonce, issued_at
+ * and the time facet, whose own checks report the latter. An object with exactly 2**23 own members is fine, and so
  * is an array of any length, since an array's names are no longer enumerated. Reading
  * the names of only the enumerable members would lift that ceiling, but it would also
  * stop this module from refusing an own non-enumerable member, which a JSON serializer
