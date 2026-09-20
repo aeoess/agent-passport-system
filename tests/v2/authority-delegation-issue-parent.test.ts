@@ -382,3 +382,27 @@ test('child: the sound child is byte-identical to the raw id and signature helpe
   assert.equal(child.delegation_id, delegation_id)
   assert.equal(child.signature, signature)
 })
+
+test('the child issuer names the resolver outcome it was given, not a signature failure', () => {
+  const outcomes: [string, string][] = [
+    ['unsupported_scheme', 'KEY_SCHEME_UNSUPPORTED'],
+    ['not_found', 'KEY_NOT_FOUND'],
+    ['ambiguous', 'KEY_AMBIGUOUS'],
+    ['unreachable', 'KEY_UNREACHABLE'],
+    ['malformed', 'KEY_MATERIAL_MALFORMED'],
+  ]
+  for (const [outcome, code] of outcomes) {
+    throwsCode(
+      () => issueSubAuthorityDelegation(root, childBody(root), childKeys.privateKey,
+        options({ resolveVerificationKey: (() => ({ outcome })) as never })),
+      code,
+    )
+  }
+  // Material that is not a 32-byte Ed25519 key never reaches the signature check, so it
+  // is reported as malformed material rather than as an invalid parent signature.
+  throwsCode(
+    () => issueSubAuthorityDelegation(root, childBody(root), childKeys.privateKey,
+      options({ resolveVerificationKey: () => 'ab'.repeat(16) })),
+    'KEY_MATERIAL_MALFORMED',
+  )
+})

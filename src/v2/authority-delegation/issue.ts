@@ -149,6 +149,16 @@ export interface SubAuthorityIssueOptions {
  * the invalidity section 3.6 requires an issuer to refuse rather than leave for a later
  * verifier. What a callback does to its own copy changes nothing here.
  */
+/** The draft's section 2.5 outcomes, each under the code the chain verifier reports for
+ *  it. An issuer refuses either way, but it refuses for the reason its resolver gave.  */
+const KEY_OUTCOME_CODES: Record<string, string> = {
+  unsupported_scheme: 'KEY_SCHEME_UNSUPPORTED',
+  not_found: 'KEY_NOT_FOUND',
+  ambiguous: 'KEY_AMBIGUOUS',
+  unreachable: 'KEY_UNREACHABLE',
+  malformed: 'KEY_MATERIAL_MALFORMED',
+}
+
 export function issueSubAuthorityDelegation(
   parent: AuthorityDelegationV1,
   body: AuthorityDelegationBodyV1,
@@ -195,8 +205,9 @@ export function issueSubAuthorityDelegation(
   if (typeof parentKey !== 'string') {
     const outcome = parentKey && typeof parentKey === 'object' && typeof parentKey.outcome === 'string'
       ? parentKey.outcome
-      : 'unresolved'
-    throw new Error(`authority delegation parent issuer verification key could not be resolved (KEY_RESOLUTION_FAILED: ${outcome})`)
+      : ''
+    const code = KEY_OUTCOME_CODES[outcome] ?? 'KEY_RESOLUTION_FAILED'
+    throw new Error(`authority delegation parent issuer verification key could not be resolved (${code})`)
   }
   if (!/^[0-9a-fA-F]{64}$/.test(parentKey)) {
     throw new Error('authority delegation parent issuer key material is structurally malformed (KEY_MATERIAL_MALFORMED)')
