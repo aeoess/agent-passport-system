@@ -1,5 +1,84 @@
 # Changelog
 
+## 7.0.0 (2026-09-20)
+
+Reconciles three surfaces against draft-pidlisnyi-aps-03: action references,
+AuthorityDelegationV1 and ReceiptV1. Major, because previously accepted inputs can now
+return `invalid`, `unsupported` or `indeterminate`, so a caller that branches on
+verification state can observe different behaviour without changing its own code. This is
+not a claim of complete draft-03 implementation. See "What a valid result does not
+establish" below.
+
+### Breaking
+
+- Receipt verification applies the section 5.3 stage rules. `verifyReceiptV1` and
+  `verifyReceiptV1Serialized` return `invalid` for a record that breaks its own stage and
+  `unsupported` for a `receipt_type` outside section 5.3. A deployment carrying receipts
+  under its own receipt_type sees `unsupported` where it previously saw `valid`.
+- `delegation_ref` must be `sha256:` followed by 64 lowercase hex. A bare digest, accepted
+  before by both the envelope validator and the issuer, is refused. The shared
+  known-answer receipt used a bare digest, which is why its digests moved.
+- Only required signatures decide the aggregate receipt state. A non-required signature
+  appended by a third party can no longer flip a conforming receipt. Because signatures sit
+  outside the `receipt_id` preimage, such an append does not change `receipt_id`. A
+  malformed signature descriptor still makes the envelope invalid.
+- Key resolution is reported on its own axis. An unsupported identifier scheme is
+  `unsupported`. Not found, ambiguous, structurally malformed key material and unreachable
+  resolution are `indeterminate`, each with its own code. Malformed key material no longer
+  falls through to `signature_invalid`, because no signature check ran.
+- Composite verification of a policy-decision receipt is `indeterminate` when the caller
+  supplies no expected enforcement-boundary identity. A call that returned `valid: true`
+  now returns `valid: false` until `boundaryIdentity` is passed. A conforming deny decision
+  now verifies, where it previously failed.
+- The serialized verifier's own nesting-depth and wire-size ceilings return `indeterminate`
+  with the code `RESOURCE_LIMIT` rather than `invalid` with `parse_error`. Those limits
+  belong to this implementation, not to the protocol. Malformed input is unchanged and
+  stays `invalid` with `parse_error`, and an unusable limit argument remains an argument
+  error.
+- `computeActionRefV2` rejects an empty `scope_required` unless the caller supplies
+  applicable profile context that permits it, where it previously accepted empty
+  unconditionally.
+- An artifact under another envelope profile is `unsupported` and is not judged against the
+  aps-receipt-v1 schema.
+- A receipt string containing a Unicode noncharacter is refused. Section 4.1 also rejects
+  Unicode noncharacters.
+- Authority-delegation verification separates invalid, indeterminate and unsupported across
+  trust, key-resolution and implementation-resource outcomes, applies the draft's
+  chain-check ordering, and no longer treats SDK-only grammars or local resource ceilings as
+  protocol validity rules. A reservation made again after cancellation is a fresh
+  reservation and rechecks its limits.
+- Trust and revocation callbacks receive a plain-data copy of each record rather than the
+  caller's object. A resolver keyed on object identity no longer matches.
+
+### Unchanged
+
+Timestamp handling accepts second 60 only at 23:59 on the last calendar day of a month, and
+no leap-second table is consulted. For inputs that remain conforming, identifiers,
+signatures and canonical bytes are unchanged.
+
+### New public API
+
+The stage validator `validateReceiptStageV1` and its types, `RECEIPT_STAGE_TYPES_V1`, and
+the DecisionRefV1 builders.
+
+### What a valid result does not establish
+
+A structurally valid stage result does not bind `delegation_ref` to a supplied chain,
+recompute `action_ref` from a supplied action, resolve `prev`, recompute `effect_ref`, or
+perform section 5.5 evidence resolution. None of those composition points is implemented,
+and each is named in the stage module so a caller cannot read silence as a check.
+
+### Public reachability
+
+Not exported from the package root on the authority-delegation surface: both conforming
+issuers, the ledger, `compareAuthority`, and the schema and scope helpers. A package
+consumer can mint only through the raw canonical helpers, which perform none of the section
+3.6 issuance checks and read a caller's value as given, getters and Proxy traps included.
+The guarded verifier and issuer paths refuse non-plain in-memory values as `SCHEMA_INVALID`,
+and the ledger rejects invalid reservation input with `CONFLICT`. Output from an unmodified
+JSON parser is unaffected throughout.
+
+
 ## 6.0.1 (2026-09-04)
 
 Documentation only. The README published with 6.0.0 listed three registries; the package page now lists npm, PyPI, crates.io, Go and the MCP server, and the skills advertise the MCP version npm publishes. No code change.
