@@ -165,8 +165,11 @@ export function createActionReferenceInputV2(input: {
   return value
 }
 
-export function computeActionRefV2(input: ActionReferenceInputV2): string {
-  validateActionReferenceInputV2(input)
+export function computeActionRefV2(
+  input: ActionReferenceInputV2,
+  profileContext: ActionReferenceProfileContextV2 = {},
+): string {
+  validateActionReferenceInputV2(input, profileContext)
   return createHash('sha256').update(DOMAIN + canonicalizeJCS(input), 'utf8').digest('hex')
 }
 
@@ -178,7 +181,22 @@ export function computePayloadRefV1(payload: unknown): string {
     .digest('hex')
 }
 
-export function validateActionReferenceInputV2(candidate: unknown): asserts candidate is ActionReferenceInputV2 {
+/** Profile context a caller supplies alongside a generic action reference.
+ *
+ *  Draft line 799 reads: "All string fields MUST be non-empty except that a profile MAY
+ *  permit an empty scope_required array." The permission belongs to a profile, so the
+ *  generic computation cannot grant it to itself, and a caller who holds the applicable
+ *  profile says so here. Without it, an empty array is refused.
+ */
+export interface ActionReferenceProfileContextV2 {
+  /** True only when the applicable profile explicitly permits an empty scope_required. */
+  emptyScopeRequiredPermitted?: boolean
+}
+
+export function validateActionReferenceInputV2(
+  candidate: unknown,
+  profileContext: ActionReferenceProfileContextV2 = {},
+): asserts candidate is ActionReferenceInputV2 {
   assertPlainRecord(candidate, 'action reference')
   assertExactKeys(candidate, [
     'profile', 'agent_id', 'action_type', 'target', 'payload_ref',
@@ -193,6 +211,13 @@ export function validateActionReferenceInputV2(candidate: unknown): asserts cand
   if (typeof candidate.payload_ref !== 'string') throw new Error('payload_ref: expected 64 lowercase hexadecimal characters')
   assertHex(candidate.payload_ref, 64, 'payload_ref')
   if (!Array.isArray(candidate.scope_required)) throw new Error('scope_required')
+  // An empty scope_required is not permitted by default. Line 799 puts the permission in
+  // a profile, and this computation is the generic one, so it cannot grant it to itself;
+  // a caller holding the applicable profile passes the context that does. This SDK used
+  // to accept an empty array outright, which read the MAY as a standing permission.
+  if ((candidate.scope_required as string[]).length === 0 && profileContext.emptyScopeRequiredPermitted !== true) {
+    throw new Error('scope_required: empty is permitted only by an applicable profile')
+  }
   assertSortedUnique(candidate.scope_required as string[], 'scope_required')
   for (const scope of candidate.scope_required as string[]) {
     if (scope !== scope.normalize('NFC')) throw new Error('scope_required: non-NFC value')
@@ -219,9 +244,12 @@ export function validateActionReferenceInputV2(candidate: unknown): asserts cand
  *  name. The result is then handed to the EXISTING validator unchanged: nothing
  *  here weakens or bypasses validateActionReferenceInputV2, it runs in full.
  */
-export function parseActionReferenceInputV2(raw: string): ActionReferenceInputV2 {
+export function parseActionReferenceInputV2(
+  raw: string,
+  profileContext: ActionReferenceProfileContextV2 = {},
+): ActionReferenceInputV2 {
   const parsed: unknown = parseStrictIJson(raw)
-  validateActionReferenceInputV2(parsed)
+  validateActionReferenceInputV2(parsed, profileContext)
   return parsed
 }
 
@@ -232,6 +260,9 @@ export function parseActionReferenceInputV2(raw: string): ActionReferenceInputV2
  *  to the parsed path for any document that parses, because it IS the parsed
  *  path once the bytes have been read.
  */
-export function computeActionRefV2FromJson(raw: string): string {
-  return computeActionRefV2(parseActionReferenceInputV2(raw))
+export function computeActionRefV2FromJson(
+  raw: string,
+  profileContext: ActionReferenceProfileContextV2 = {},
+): string {
+  return computeActionRefV2(parseActionReferenceInputV2(raw, profileContext), profileContext)
 }

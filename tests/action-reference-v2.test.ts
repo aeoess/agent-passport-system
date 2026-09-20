@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Tymofii Pidlisnyi
 // SPDX-License-Identifier: Apache-2.0
 
-import { describe, it } from 'node:test'
+import { describe, it, test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   computeActionRefV2,
@@ -9,6 +9,7 @@ import {
   computePayloadRefV1,
   createActionReferenceInputV2,
   parseActionReferenceInputV2,
+  validateActionReferenceInputV2,
   type ActionReferenceInputV2,
 } from '../src/v2/action-reference/v2.js'
 
@@ -371,4 +372,49 @@ describe('action_ref v2, section 4.1 rejects noncharacters (draft section 4.1 li
     const value: ActionReferenceInputV2 = { ...base, target: base.target + '\ud83d\ude00' }
     assert.match(computeActionRefV2(value), /^[0-9a-f]{64}$/)
   })
+})
+
+// --- An empty scope_required needs profile permission, as ruled --------------------
+
+test('an empty scope_required is refused by the generic computation and permitted only by profile context', () => {
+  const input = {
+    profile: 'aps-action-ref-v2' as const,
+    agent_id: 'did:key:z6MkAgent',
+    action_type: 'commerce_preflight',
+    target: 'https://api.example/payments',
+    payload_ref: 'a'.repeat(64),
+    scope_required: [] as string[],
+    issued_at: '2026-04-08T12:00:00.000Z',
+    nonce: 'b'.repeat(32),
+  }
+  // Draft line 799: all string fields MUST be non-empty "except that a profile MAY
+  // permit an empty scope_required array". The permission is a profile's to give, so
+  // the generic computation does not give it to itself.
+  assert.throws(() => computeActionRefV2(input), /scope_required/)
+  assert.throws(() => validateActionReferenceInputV2(input), /scope_required/)
+
+  const permitted = computeActionRefV2(input, { emptyScopeRequiredPermitted: true })
+  assert.match(permitted, /^[0-9a-f]{64}$/)
+  // The context changes what is admitted, never what is hashed: the digest of a
+  // permitted empty array is the digest of that input, with no marker mixed in.
+  const nonEmpty = computeActionRefV2({ ...input, scope_required: ['commerce:read'] })
+  assert.notEqual(permitted, nonEmpty)
+  assert.equal(permitted, computeActionRefV2(input, { emptyScopeRequiredPermitted: true }))
+  // A non-empty array is unaffected by the context either way.
+  assert.equal(nonEmpty, computeActionRefV2({ ...input, scope_required: ['commerce:read'] }, { emptyScopeRequiredPermitted: true }))
+})
+
+test('the serialized entry points carry the same profile context', () => {
+  const raw = JSON.stringify({
+    profile: 'aps-action-ref-v2',
+    agent_id: 'did:key:z6MkAgent',
+    action_type: 'commerce_preflight',
+    target: 'https://api.example/payments',
+    payload_ref: 'a'.repeat(64),
+    scope_required: [],
+    issued_at: '2026-04-08T12:00:00.000Z',
+    nonce: 'b'.repeat(32),
+  })
+  assert.throws(() => computeActionRefV2FromJson(raw), /scope_required/)
+  assert.match(computeActionRefV2FromJson(raw, { emptyScopeRequiredPermitted: true }), /^[0-9a-f]{64}$/)
 })
