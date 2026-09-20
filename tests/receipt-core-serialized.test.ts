@@ -17,7 +17,7 @@ const receipt = createReceiptV1({
   issuer: 'did:example:issuer',
   subject_agent: 'did:example:agent',
   action_ref: hex('a'),
-  delegation_ref: hex('b'),
+  delegation_ref: `sha256:${hex('b')}`,
   issued_at: '2026-04-08T12:00:00.000Z',
   evidence_refs: [],
   result: { status: 'ok' },

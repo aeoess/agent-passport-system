@@ -41,7 +41,7 @@ const receiptFor = (decision: ReturnType<typeof decisionEvidence>, withDecisionR
     issuer: 'did:example:issuer',
     subject_agent: 'did:example:agent',
     action_ref: hex('a'),
-    delegation_ref: hex('c'),
+    delegation_ref: `sha256:${hex('c')}`,
     ...(withDecisionRef ? { decision_ref } : {}),
     issued_at: ISSUED_AT,
     evidence_refs: [],
