@@ -83,6 +83,7 @@ test('composite: temporal negative, valid_until EQUAL to issued_at rejects', () 
   assert.equal(result.status, 'invalid')
   assert.ok(result.errors.includes('stage_invalid'))
   assert.ok(result.errors.includes('DECISION_VALID_UNTIL_NOT_AFTER_ISSUED_AT'))
+  assert.ok(!result.errors.includes('stage_indeterminate'))
   assert.equal(result.temporal_relation_valid, false)
 })
 
@@ -194,6 +195,10 @@ test('composite: an unresolvable signing key is indeterminate, not a failed sign
   assert.equal(result.receipt.signer_authority, 'not_established')
   assert.ok(result.errors.includes('signer_authority_indeterminate'))
   assert.ok(!result.errors.includes('signature_invalid'))
+  // The sub-result code names the status it reports, so a caller reading the codes is
+  // not told the receipt was invalid when an axis was merely unestablished.
+  assert.ok(result.errors.includes('receipt_indeterminate'))
+  assert.ok(!result.errors.includes('receipt_invalid'))
 })
 
 test('composite: with no boundary identity supplied the composite is indeterminate', () => {
@@ -202,6 +207,9 @@ test('composite: with no boundary identity supplied the composite is indetermina
   assert.equal(result.valid, false)
   assert.equal(result.status, 'indeterminate')
   assert.equal(result.stage.boundary_identity, 'not_established')
+  assert.ok(result.errors.includes('stage_indeterminate'))
+  assert.ok(!result.errors.includes('stage_invalid'))
+  assert.deepEqual(result.stage.failures, [], 'indeterminate here is an unestablished axis, not a failed rule')
 })
 
 test('composite: an unverifiable receipt fails at stage one and later stages do not run', () => {
