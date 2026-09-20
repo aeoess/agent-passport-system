@@ -33,20 +33,71 @@ export function scopeGrantCovers(parent: string, child: string): boolean {
   return parent === child
 }
 
+// Validity and strict order below are still one O(n) pass. Redundancy (no grant
+// covered by any other grant in the list) used to be the pairwise O(n^2) scan the
+// antichain definition suggests; a 16,000-grant list took over three seconds.
+//
+// Once every grant is valid and the list strictly sorted (so every grant is
+// distinct), whether some OTHER grant covers a given grant g reduces to two cheap
+// tests: is the bare wildcard "*" present (it covers everything), or is "Q:*"
+// present for a Q that is a whole-segment prefix of g's own prefix (g itself with a
+// trailing ":*" removed, if it has one)? scopeGrantCovers's definition is: an exact
+// grant covers only itself, and a grant ending in ":*" with prefix P covers a grant
+// with prefix C exactly when C equals P or C starts with P + ":". Because a colon
+// only ever falls on a segment boundary in a valid grant, "C starts with P + ':'"
+// for a valid P is exactly "P equals the join of some whole number of C's leading
+// segments" (and "C equals P" is that same statement for all of C's segments), so
+// some other grant covers g exactly when one of the at-most-16 candidate strings
+// built by joining g's leading segments and appending ":*" is itself a grant in the
+// list, other than g. Building those candidates and doing a set lookup for each
+// replaces comparing g against every other grant: O(n * segments) instead of O(n^2).
 export function grantsAreCanonical(grants: readonly string[]): boolean {
   if (!Array.isArray(grants)) return false
   for (let i = 0; i < grants.length; i++) {
     const grant = grants[i]
     if (!isValidScopeGrant(grant)) return false
     if (i > 0 && grants[i - 1] >= grant) return false
-    // A canonical set is an antichain: no entry is redundant under another entry.
-    for (let j = 0; j < grants.length; j++) {
-      if (i !== j && scopeGrantCovers(grants[j], grant)) return false
+  }
+
+  const grantSet = new Set(grants)
+  for (const grant of grants) {
+    if (grant === '*') continue
+    if (grantSet.has('*')) return false
+    const prefix = grant.endsWith(':*') ? grant.slice(0, -2) : grant
+    const segments = prefix.split(':')
+    for (let m = 1; m <= segments.length; m++) {
+      const candidate = segments.slice(0, m).join(':') + ':*'
+      if (candidate !== grant && grantSet.has(candidate)) return false
     }
   }
   return true
 }
 
+// Linear in len(parent) + len(child) * segments, instead of the pairwise
+// O(len(parent) * len(child)) scan the definition above suggests: parent goes into
+// a set once, and a child grant is covered by the same reasoning grantsAreCanonical
+// uses above, applied to two different lists instead of one list against itself.
+//
+// This equals the pairwise scopeGrantCovers definition only for a parent and a
+// child list that have each already passed grantsAreCanonical (valid, strictly
+// sorted, irredundant). compareAuthority, the only caller that reaches this
+// function from the chain verifier, never calls it before both authority vectors'
+// scope facets have passed schema validation, so that precondition always holds on
+// that path. Called directly with an unvalidated or malformed grant list, this
+// function is not specified to agree with the pairwise definition.
 export function scopeNarrows(parent: readonly string[], child: readonly string[]): boolean {
-  return child.every(grant => parent.some(parentGrant => scopeGrantCovers(parentGrant, grant)))
+  const parentSet = new Set(parent)
+  if (parentSet.has('*')) return true
+  for (const grant of child) {
+    if (parentSet.has(grant)) continue
+    const prefix = grant.endsWith(':*') ? grant.slice(0, -2) : grant
+    const segments = prefix.split(':')
+    let covered = false
+    for (let m = 1; m <= segments.length; m++) {
+      const candidate = segments.slice(0, m).join(':') + ':*'
+      if (parentSet.has(candidate)) { covered = true; break }
+    }
+    if (!covered) return false
+  }
+  return true
 }
