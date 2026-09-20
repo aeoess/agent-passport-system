@@ -17,6 +17,10 @@ const ID = /^sha256:[0-9a-f]{64}$/
 const HEX_32 = /^[0-9a-f]{32}$/
 const HEX_128 = /^[0-9a-f]{128}$/
 const DECIMAL = /^(0|[1-9][0-9]*)$/
+// Provisional: draft line 547 calls values identifiers profile-defined and states no
+// grammar, and the draft states no grammar for a bounded spend's unit, which this
+// pattern is also used for. Both are this SDK's own choice, shared with the Python
+// port, pending a protocol ruling.
 const IDENTIFIER = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/
 const MAX_QUANTITY = 9223372036854775807n
 // RFC 3339 exact UTC-millisecond form. Group 1 = year, 2 = month, 3 = day,
@@ -224,6 +228,9 @@ export function validateAuthorityDelegationShape(value: unknown): AuthorityFailu
       (typeof top.parent_delegation_id !== 'string' || !ID.test(top.parent_delegation_id))) {
     failures.push(failure('SCHEMA_INVALID', 'parent_delegation_id must be null or a delegation digest'))
   }
+  // Provisional: the draft states no maximum length for issuer, subject or
+  // verification_method. This 1024 UTF-8 byte cap is this SDK's own choice, shared with
+  // the Python port, pending a protocol ruling.
   for (const key of ['issuer', 'subject', 'verification_method'] as const) {
     const item = top[key]
     if (typeof item !== 'string' || item.length === 0 || Buffer.byteLength(item, 'utf8') > 1024) {

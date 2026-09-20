@@ -1,6 +1,10 @@
 // Copyright (c) 2026 Tymofii Pidlisnyi
 // SPDX-License-Identifier: Apache-2.0
 
+// Provisional: draft line 516 says only that scope grants use ASCII colon-separated
+// segments. This segment grammar, and the limits of 16 segments and 255 characters
+// below, are narrower than that text. They are this SDK's own choice, shared with the
+// Python port, pending a protocol ruling.
 const SEGMENT = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/
 
 export function isValidScopeGrant(grant: string): boolean {

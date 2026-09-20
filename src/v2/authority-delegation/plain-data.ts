@@ -59,8 +59,13 @@ const isRawJSON: (value: object) => boolean =
  * An object's own property names are enumerated, because every one of them is copied,
  * and an object is the one input shape this module cannot judge at every size: this
  * engine returns at most 2**23 own property names and throws RangeError beyond that, so
- * an object with 2**23 + 1 or more own members is not plain data here, while the Python
- * SDK accepts the same record. An object with exactly 2**23 own members is fine, and so
+ * an object with 2**23 + 1 or more own members is not plain data here, where the Python
+ * SDK judges the same object by its content. What that costs is one extra failure code
+ * on a record the v1 body schema does not judge: a record whose version is unknown and
+ * which carries such an object is SCHEMA_INVALID and UNSUPPORTED_VERSION here and
+ * UNSUPPORTED_VERSION there, and neither SDK reports it valid. A record the v1 schema
+ * does judge is SCHEMA_INVALID in both, since a member holding that object is not a
+ * member of the closed schema. An object with exactly 2**23 own members is fine, and so
  * is an array of any length, since an array's names are no longer enumerated. Reading
  * the names of only the enumerable members would lift that ceiling, but it would also
  * stop this module from refusing an own non-enumerable member, which a JSON serializer

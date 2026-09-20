@@ -4,6 +4,8 @@
 import { validateAuthorityDelegationShape } from './schema.js'
 import type { AuthorityDelegationV1 } from './types.js'
 
+// Provisional: the draft states no maximum wire size. This 1 MiB limit is this SDK's
+// own choice, shared with the Python port, pending a protocol ruling.
 const MAX_WIRE_BYTES = 1_048_576
 
 /**
@@ -63,6 +65,9 @@ function rejectDuplicateMembers(source: string): void {
       const start = cursor
       while (cursor < source.length && !/[\u0009\u000a\u000d\u0020,}\]]/.test(source[cursor])) cursor++
       const token = source.slice(start, cursor)
+      // Provisional: the draft does not say whether a number token carrying a fraction
+      // or an exponent may denote an integer on the wire. This parser rejects the
+      // spelling, pending a protocol ruling; the Python port follows it.
       if (/^[-0-9]/.test(token) && !/^-?(0|[1-9][0-9]*)$/.test(token)) {
         throw new SyntaxError('non-integer JSON numbers are not permitted')
       }
