@@ -387,7 +387,7 @@ describe('reachability: the attribution chain walk', () => {
 
   // The resolver is caller-supplied code inside a ledger read. Every
   // mis-wired shape must fail CLOSED under fail_closed and must never crash
-  // the read. Same class as the MA1 resolver-normalization gap in the v2
+  // the read. Same class as the resolver-normalization gap in the v2
   // authority-delegation verifier.
   it('a throwing resolver grades absent instead of propagating out of a ledger read', () => {
     const { delegations, receipt } = chainFixture()

@@ -4,10 +4,23 @@
 import { scopeNarrows } from './scope.js'
 import type { AuthorityFailure, AuthorityVectorV1, ReversibilityClassV1 } from './types.js'
 
+// draft-pidlisnyi-aps-03 lines 553-565 order reversibility from narrowest to widest as
+// tentative, compensable, irreversible, and require a child ceiling not to move to the
+// right. The order is defined over exactly those three values, so a ceiling outside it
+// is not in the order and cannot be shown to be no wider: reversibilityRank() returns
+// null for it and the comparison below reports REVERSIBILITY_WIDENING rather than
+// silently passing. A validated record never reaches this, because the closed schema
+// refuses such a ceiling first; a caller of the exported comparison can.
 const REVERSIBILITY_RANK: Record<ReversibilityClassV1, number> = {
   tentative: 0,
   compensable: 1,
   irreversible: 2,
+}
+
+function reversibilityRank(ceiling: unknown): number | null {
+  if (typeof ceiling !== 'string') return null
+  const rank = (REVERSIBILITY_RANK as Record<string, number | undefined>)[ceiling]
+  return rank === undefined ? null : rank
 }
 
 function fail(
@@ -71,9 +84,12 @@ export function compareAuthority(
 
   if (child.reversibility.profile !== parent.reversibility.profile) {
     fail(failures, 'UNSUPPORTED_PROFILE', 'reversibility', 'reversibility profile changes are incomparable')
-  } else if (REVERSIBILITY_RANK[child.reversibility.ceiling] >
-             REVERSIBILITY_RANK[parent.reversibility.ceiling]) {
-    fail(failures, 'REVERSIBILITY_WIDENING', 'reversibility', 'child reversibility ceiling exceeds parent')
+  } else {
+    const childRank = reversibilityRank(child.reversibility.ceiling)
+    const parentRank = reversibilityRank(parent.reversibility.ceiling)
+    if (childRank === null || parentRank === null || childRank > parentRank) {
+      fail(failures, 'REVERSIBILITY_WIDENING', 'reversibility', 'child reversibility ceiling exceeds parent')
+    }
   }
 
   return failures
