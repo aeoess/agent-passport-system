@@ -89,6 +89,15 @@ export function scopeNarrows(parent: readonly string[], child: readonly string[]
   const parentSet = new Set(parent)
   if (parentSet.has('*')) return true
   for (const grant of child) {
+    // A non-string child grant cannot be covered by any parent grant, a string, under
+    // any reading of scopeGrantCovers. Reported as uncovered rather than left to throw
+    // on the .endsWith call below: the old pairwise scopeNarrows this replaced could
+    // reach the same non-string grant without crashing, when no parent grant happened
+    // to end in ":*" (scopeGrantCovers's other branches never inspect the child's
+    // type), so a caller outside this function's own validated precondition saw an
+    // inconsistent old behaviour, sometimes a defined false and sometimes a crash.
+    // This is the defined false in every case, never the crash.
+    if (typeof grant !== 'string') return false
     if (parentSet.has(grant)) continue
     const prefix = grant.endsWith(':*') ? grant.slice(0, -2) : grant
     const segments = prefix.split(':')
