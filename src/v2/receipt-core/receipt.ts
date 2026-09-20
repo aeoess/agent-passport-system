@@ -197,11 +197,32 @@ export function createReceiptV1(
   return draft
 }
 
+/** Section 3.3 line 588 and section 5.6 lines 1225-1228: one of four states, and a caller
+ *  MUST NOT collapse indeterminate or unsupported into valid. */
+export type ReceiptVerificationStatusV1 = 'valid' | 'invalid' | 'indeterminate' | 'unsupported'
+
 export interface ReceiptVerificationV1 {
+  /** True only when status is valid. Kept so existing callers are unaffected. */
   valid: boolean
+  status: ReceiptVerificationStatusV1
   receipt_id_valid: boolean
+  /** The signer-authority axis of section 5.6 line 1223, kept apart from artifact
+   *  integrity. `not_established` means a key could not be resolved or the resolver
+   *  failed: section 2.4 line 322 and section 2.5 lines 360-369 make that a resolution
+   *  outcome, and section 5.6 line 1226 makes missing live state indeterminate. It is not
+   *  evidence that a signature is wrong. */
+  signer_authority: 'verified' | 'not_established' | 'invalid' | 'not_checked'
   signature_results: { signer: string; key_id: string; valid: boolean; reason?: string }[]
   errors: string[]
+}
+
+/** True when the artifact declares an envelope profile other than aps-receipt-v1. Such an
+ *  artifact is unsupported (section 5.6 line 1226) rather than invalid, and is not judged
+ *  against the aps-receipt-v1 schema, which is not its schema. */
+function declaresForeignProfile(receipt: unknown): boolean {
+  if (typeof receipt !== 'object' || receipt === null || Array.isArray(receipt)) return false
+  const profile = (receipt as Record<string, unknown>).profile
+  return typeof profile === 'string' && profile !== 'aps-receipt-v1'
 }
 
 /**
@@ -216,8 +237,25 @@ export interface ReceiptVerificationV1 {
  */
 export function verifyReceiptV1(receipt: ReceiptV1, resolveKey: (signer: string, keyId: string, issuedAt: string) => string | undefined): ReceiptVerificationV1 {
   const errors: string[] = []
+  if (declaresForeignProfile(receipt)) {
+    return {
+      valid: false,
+      status: 'unsupported',
+      receipt_id_valid: false,
+      signer_authority: 'not_checked',
+      signature_results: [],
+      errors: ['unsupported_profile'],
+    }
+  }
   try { validateReceiptV1(receipt) } catch (err) {
-    return { valid: false, receipt_id_valid: false, signature_results: [], errors: [err instanceof Error ? err.message : String(err)] }
+    return {
+      valid: false,
+      status: 'invalid',
+      receipt_id_valid: false,
+      signer_authority: 'not_checked',
+      signature_results: [],
+      errors: [err instanceof Error ? err.message : String(err)],
+    }
   }
   const receipt_id_valid = computeReceiptIdV1(receipt) === receipt.receipt_id
   if (!receipt_id_valid) errors.push('receipt_id_mismatch')
@@ -231,8 +269,22 @@ export function verifyReceiptV1(receipt: ReceiptV1, resolveKey: (signer: string,
       return { signer: proof.signer, key_id: proof.key_id, valid: false, reason: 'key_resolution_error' }
     }
   })
-  if (signature_results.some(r => !r.valid)) errors.push('signature_invalid')
-  return { valid: errors.length === 0, receipt_id_valid, signature_results, errors }
+  // A key that could not be resolved and a signature that does not verify are different
+  // findings. Reporting both as signature_invalid said that the bytes were wrong when the
+  // verifier had never checked them, which is exactly the collapse section 5.6 line 1227
+  // forbids in the other direction. Unresolvable key material leaves signer authority
+  // unestablished, which is indeterminate; only a resolved key whose signature fails is
+  // invalid.
+  const unresolved = signature_results.filter(r => r.reason === 'key_unresolved' || r.reason === 'key_resolution_error')
+  const badBytes = signature_results.filter(r => !r.valid && r.reason === undefined)
+  if (badBytes.length > 0) errors.push('signature_invalid')
+  if (unresolved.length > 0) errors.push('signer_authority_indeterminate')
+  const signerAuthority = badBytes.length > 0
+    ? 'invalid' as const
+    : unresolved.length > 0 ? 'not_established' as const : 'verified' as const
+  const status: ReceiptVerificationStatusV1 =
+    badBytes.length > 0 || !receipt_id_valid ? 'invalid' : unresolved.length > 0 ? 'indeterminate' : 'valid'
+  return { valid: status === 'valid', status, receipt_id_valid, signer_authority: signerAuthority, signature_results, errors }
 }
 
 /**
@@ -267,7 +319,9 @@ export function verifyReceiptV1Serialized(
   } catch (err) {
     return {
       valid: false,
+      status: 'invalid',
       receipt_id_valid: false,
+      signer_authority: 'not_checked',
       signature_results: [],
       errors: ['parse_error', err instanceof Error ? err.message : String(err)],
     }

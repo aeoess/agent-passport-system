@@ -79,12 +79,20 @@ test('serialized: parse failure is distinguishable from structural and from sign
   const parseFail = verifyReceiptV1Serialized('{"a":1,"a":2}', resolveKey)
   assert.equal(parseFail.errors[0], 'parse_error')
 
-  // Structural stage: the document parses but is not a receipt, so the validator
-  // message surfaces and no parse_error code appears.
-  const structuralFail = verifyReceiptV1Serialized('{"profile":"not-a-receipt"}', resolveKey)
+  // Structural stage: the document parses and claims this envelope profile but is not a
+  // receipt, so the validator message surfaces and no parse_error code appears.
+  const structuralFail = verifyReceiptV1Serialized('{"profile":"aps-receipt-v1"}', resolveKey)
   assert.equal(structuralFail.valid, false)
+  assert.equal(structuralFail.status, 'invalid')
   assert.ok(!structuralFail.errors.includes('parse_error'))
   assert.ok(structuralFail.errors.some(e => e.includes('ReceiptV1')))
+
+  // Another envelope profile is a fourth outcome: unsupported, not invalid, and not judged
+  // against a schema that is not its own (draft line 1226).
+  const foreignProfile = verifyReceiptV1Serialized('{"profile":"not-a-receipt"}', resolveKey)
+  assert.equal(foreignProfile.valid, false)
+  assert.equal(foreignProfile.status, 'unsupported')
+  assert.deepEqual(foreignProfile.errors, ['unsupported_profile'])
 
   // Signature stage: parses and validates, but the key does not verify it.
   const signatureFail = verifyReceiptV1Serialized(clean, () => publicKeyFromPrivate('11'.repeat(32)))
