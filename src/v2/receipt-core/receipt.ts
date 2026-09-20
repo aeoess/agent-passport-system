@@ -10,7 +10,15 @@ export const RECEIPT_ID_TAG = 'APS-RECEIPT-ID-V1' as const
 export const RECEIPT_SIG_TAG = 'APS-RECEIPT-SIG-V1' as const
 const HEX64 = /^[0-9a-f]{64}$/
 const HEX128 = /^[0-9a-f]{128}$/
-const UTC_MS = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/
+const UTC_MS = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})\.\d{3}Z$/
+/** delegation_ref carries the "sha256:" prefix of a delegation_id, not a bare digest.
+ *  draft-pidlisnyi-aps-03 section 5.1 line 982 says delegation_ref identifies the selected
+ *  AuthorityDelegationV1 leaf, the envelope example at line 964 writes it as
+ *  "sha256:<64 lowercase hexadecimal characters>", and section 3.1 line 484 gives
+ *  delegation_id that exact form. Binding the value to a leaf needs a supplied chain and is
+ *  the section 5.6 composition point; this check is the standalone structural form only. */
+const DELEGATION_REF = /^sha256:[0-9a-f]{64}$/
+const DAYS_IN_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
 const sha256Hex = (s: string): string => createHash('sha256').update(s, 'utf8').digest('hex')
 const compareUtf8 = (a: string, b: string): number => Buffer.compare(Buffer.from(a, 'utf8'), Buffer.from(b, 'utf8'))
 
@@ -22,10 +30,76 @@ function compareSignatures(a: Pick<ReceiptSignatureV1, 'signer' | 'key_id'>, b: 
   return compareUtf8(a.signer, b.signer) || compareUtf8(a.key_id, b.key_id)
 }
 
+function isLeapYear(year: number): boolean {
+  return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0
+}
+
+/**
+ * Exact UTC milliseconds, YYYY-MM-DDTHH:MM:SS.sssZ (draft line 986, with lines 198-199).
+ *
+ * Second 60 is accepted only at 23:59 on the last day of its month in the proleptic
+ * Gregorian calendar, and rejected everywhere else. RFC 3339 section 5.7 admits time-second
+ * 60 only for a leap second and Appendix D writes it as "YYYY-MM-DDT23:59:60Z"; the hour,
+ * minute and day settle it, so no leap-second table is consulted and none is needed. The
+ * same rule is applied on the section 4.1 surface (src/v2/action-reference/v2.ts) and on the
+ * section 3 surface, and it stays local to each of them rather than changing a shared
+ * helper that other record families also use.
+ *
+ * The second-60 branch is integer arithmetic because Date cannot represent a leap second.
+ * Every other timestamp keeps the previous Date round-trip check unchanged, so the set of
+ * accepted values grows by the conforming second-60 instants and by nothing else.
+ */
 export function isExactUtcMilliseconds(value: string): boolean {
-  if (!UTC_MS.test(value)) return false
+  const match = UTC_MS.exec(value)
+  if (!match) return false
+  const [, y, mo, d, h, mi, s] = match
+  const year = Number(y)
+  const month = Number(mo)
+  const day = Number(d)
+  const second = Number(s)
+  if (second === 60) {
+    if (month < 1 || month > 12) return false
+    const maxDay = month === 2 && isLeapYear(year) ? 29 : DAYS_IN_MONTH[month - 1]
+    return day === maxDay && Number(h) === 23 && Number(mi) === 59
+  }
   const parsed = new Date(value)
   return !Number.isNaN(parsed.valueOf()) && parsed.toISOString() === value
+}
+
+function isNoncharacterCodePoint(codePoint: number): boolean {
+  if (codePoint >= 0xfdd0 && codePoint <= 0xfdef) return true
+  return (codePoint & 0xffff) === 0xfffe || (codePoint & 0xffff) === 0xffff
+}
+
+/** I-JSON walk local to the receipt surface.
+ *
+ *  Section 5.6 line 1213 has a verifier parse bounded I-JSON. strictJCS already rejects an
+ *  unpaired surrogate; it does not reject one of the 66 Unicode noncharacters, and it also
+ *  serves other record families, so the noncharacter rule is applied here rather than by
+ *  changing that helper. The same reading and the same locality were used for the section
+ *  4.1 and section 3 surfaces in the two preceding jobs.
+ */
+function assertNoNoncharacters(value: unknown, path: string): void {
+  if (typeof value === 'string') {
+    for (let index = 0; index < value.length; index++) {
+      const codePoint = value.codePointAt(index) as number
+      if (isNoncharacterCodePoint(codePoint)) {
+        throw new TypeError(`${path}: noncharacter U+${codePoint.toString(16).toUpperCase()}`)
+      }
+      if (codePoint > 0xffff) index++
+    }
+    return
+  }
+  if (Array.isArray(value)) {
+    value.forEach((item, i) => assertNoNoncharacters(item, `${path}[${i}]`))
+    return
+  }
+  if (typeof value === 'object' && value !== null) {
+    for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
+      assertNoNoncharacters(key, `${path} key`)
+      assertNoNoncharacters(item, `${path}.${key}`)
+    }
+  }
 }
 
 function receiptWithout<T extends 'receipt_id' | 'signatures'>(receipt: ReceiptV1, ...keys: T[]): Omit<ReceiptV1, T> {
@@ -58,19 +132,31 @@ export function validateReceiptV1(receipt: ReceiptV1, requireValues = true): voi
     ['profile', 'receipt_id', 'receipt_type', 'issuer', 'subject_agent', 'action_ref', 'delegation_ref', 'decision_ref', 'issued_at', 'evidence_refs', 'result', 'prev', 'signatures'],
     ['profile', 'receipt_id', 'receipt_type', 'issuer', 'subject_agent', 'action_ref', 'delegation_ref', 'issued_at', 'evidence_refs', 'result', 'signatures'], 'ReceiptV1')
   strictJCS(receipt)
+  assertNoNoncharacters(receipt, 'ReceiptV1')
   if (receipt.profile !== 'aps-receipt-v1') throw new TypeError('ReceiptV1: profile')
-  if (!receipt.receipt_type || !receipt.issuer || !receipt.subject_agent || !receipt.delegation_ref) throw new TypeError('ReceiptV1: empty identifier')
-  if (requireValues && !HEX64.test(receipt.receipt_id)) throw new TypeError('ReceiptV1: receipt_id')
-  if (!HEX64.test(receipt.action_ref)) throw new TypeError('ReceiptV1: action_ref')
-  if (receipt.decision_ref !== undefined && !HEX64.test(receipt.decision_ref)) throw new TypeError('ReceiptV1: decision_ref')
-  if (receipt.prev !== undefined && !HEX64.test(receipt.prev)) throw new TypeError('ReceiptV1: prev')
-  if (!isExactUtcMilliseconds(receipt.issued_at)) throw new TypeError('ReceiptV1: issued_at')
+  // Every member the draft types as a string is checked as a string before its form.
+  // A regular expression coerces its argument, so ['<64 hex>'] passed HEX64.test here and
+  // a number or object passed the truthiness test that preceded this. Section 9 lines
+  // 1652-1660 require a defined result for a structurally malformed artifact, and nothing
+  // in section 5.1 permits a non-string to stand in for a string member.
+  for (const key of ['receipt_type', 'issuer', 'subject_agent'] as const) {
+    if (typeof receipt[key] !== 'string' || receipt[key] === '') throw new TypeError('ReceiptV1: empty identifier')
+  }
+  if (typeof receipt.delegation_ref !== 'string' || !DELEGATION_REF.test(receipt.delegation_ref)) {
+    throw new TypeError('ReceiptV1: delegation_ref')
+  }
+  if (requireValues && (typeof receipt.receipt_id !== 'string' || !HEX64.test(receipt.receipt_id))) throw new TypeError('ReceiptV1: receipt_id')
+  if (typeof receipt.action_ref !== 'string' || !HEX64.test(receipt.action_ref)) throw new TypeError('ReceiptV1: action_ref')
+  if (receipt.decision_ref !== undefined && (typeof receipt.decision_ref !== 'string' || !HEX64.test(receipt.decision_ref))) throw new TypeError('ReceiptV1: decision_ref')
+  if (receipt.prev !== undefined && (typeof receipt.prev !== 'string' || !HEX64.test(receipt.prev))) throw new TypeError('ReceiptV1: prev')
+  if (typeof receipt.issued_at !== 'string' || !isExactUtcMilliseconds(receipt.issued_at)) throw new TypeError('ReceiptV1: issued_at')
   if (typeof receipt.result !== 'object' || receipt.result === null || Array.isArray(receipt.result)) throw new TypeError('ReceiptV1: result')
   if (!Array.isArray(receipt.evidence_refs) || !Array.isArray(receipt.signatures)) throw new TypeError('ReceiptV1: arrays')
   const seenEvidence = new Set<string>()
   receipt.evidence_refs.forEach((ref, i) => {
     assertExactKeys(ref as unknown as Record<string, unknown>, ['artifact_type', 'sha256'], ['artifact_type', 'sha256'], 'EvidenceRefV1')
-    if (!ref.artifact_type || !HEX64.test(ref.sha256)) throw new TypeError('EvidenceRefV1: value')
+    if (typeof ref.artifact_type !== 'string' || ref.artifact_type === '' ||
+        typeof ref.sha256 !== 'string' || !HEX64.test(ref.sha256)) throw new TypeError('EvidenceRefV1: value')
     const key = `${ref.artifact_type}\0${ref.sha256}`
     if (seenEvidence.has(key)) throw new TypeError('ReceiptV1: duplicate evidence_ref')
     seenEvidence.add(key)
@@ -79,7 +165,10 @@ export function validateReceiptV1(receipt: ReceiptV1, requireValues = true): voi
   const seenSigs = new Set<string>()
   receipt.signatures.forEach((proof, i) => {
     assertExactKeys(proof as unknown as Record<string, unknown>, ['signer', 'key_id', 'alg', 'value'], ['signer', 'key_id', 'alg', 'value'], 'ReceiptSignatureV1')
-    if (!proof.signer || !proof.key_id || proof.alg !== 'Ed25519' || (requireValues && !HEX128.test(proof.value))) throw new TypeError('ReceiptSignatureV1: value')
+    if (typeof proof.signer !== 'string' || proof.signer === '' ||
+        typeof proof.key_id !== 'string' || proof.key_id === '' ||
+        proof.alg !== 'Ed25519' ||
+        (requireValues && (typeof proof.value !== 'string' || !HEX128.test(proof.value)))) throw new TypeError('ReceiptSignatureV1: value')
     const key = `${proof.signer}\0${proof.key_id}`
     if (seenSigs.has(key)) throw new TypeError('ReceiptV1: duplicate signature')
     seenSigs.add(key)
