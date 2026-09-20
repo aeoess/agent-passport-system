@@ -338,3 +338,55 @@ test('an identifier over this implementation ceiling is indeterminate, never a c
   assert.equal(checked.state, 'indeterminate')
   assert.deepEqual(codesOf(checked), ['RESOURCE_LIMIT'])
 })
+
+// --- Section 3.3 is phase major over the whole chain, as ruled ---------------------
+
+test('the first failing listed phase decides, not the first failing member', () => {
+  // Two faults in one chain, in different phases and different members. The draft lists
+  // delegation_id (phase 2) before duplicate identifiers (phase 4), so the id mismatch
+  // decides whatever member each sits on. This verifier used to walk member by member,
+  // running phases 2, 3 and 4 inside one pass, so the answer depended on which member
+  // carried which fault.
+  const root = sign(mutableBody(), ROOT_KEY)
+  const tampered = structuredClone(root) as Record<string, unknown>
+  tampered.delegation_id = `sha256:${'0'.repeat(64)}`
+  // Member 0 repeats member 1's identifier, so a member-major pass would reach the
+  // duplicate on the later member only after the earlier member's id check.
+  const chain = [root, tampered] as unknown as Record<string, unknown>[]
+  const checked = verifyAuthorityDelegationChain(chain, activeOptions(STANDARD_NOW, root.delegation_id))
+  assert.equal(checked.state, 'invalid')
+  assert.deepEqual(codesOf(checked), ['ID_MISMATCH'])
+  assert.equal(checked.failures[0].index, 1, 'the member carrying the phase-2 fault')
+})
+
+test('within one phase the lowest member index wins', () => {
+  const rootBody = mutableBody()
+  const root = sign(rootBody, ROOT_KEY)
+  const first = structuredClone(root) as Record<string, unknown>
+  const second = structuredClone(root) as Record<string, unknown>
+  first.delegation_id = `sha256:${'1'.repeat(64)}`
+  second.delegation_id = `sha256:${'2'.repeat(64)}`
+  const checked = verifyAuthorityDelegationChain(
+    [first, second] as unknown as Record<string, unknown>[],
+    activeOptions(STANDARD_NOW, root.delegation_id),
+  )
+  assert.deepEqual(codesOf(checked), ['ID_MISMATCH'])
+  assert.equal(checked.failures[0].index, 0)
+})
+
+test('root trust is consulted before the root parent_delegation_id check, as the list orders them', () => {
+  // Root trust is phase 5 and parent_delegation_id is phase 6. A root carrying a
+  // non-null parent under an untrusted policy reports the trust answer, not the parent
+  // one. This ordering was the other way round.
+  const body = mutableBody()
+  body.parent_delegation_id = `sha256:${'a'.repeat(64)}`
+  const root = sign(body, ROOT_KEY)
+  const untrusted = { ...activeOptions(STANDARD_NOW, root.delegation_id), trustRoot: () => false }
+  const checked = verifyAuthorityDelegationChain([root], untrusted)
+  assert.equal(checked.state, 'invalid')
+  assert.deepEqual(codesOf(checked), ['ROOT_UNTRUSTED'])
+
+  // With a trusting policy the parent check is reached and reports its own code.
+  const trusted = verifyAuthorityDelegationChain([root], activeOptions(STANDARD_NOW, root.delegation_id))
+  assert.deepEqual(codesOf(trusted), ['PARENT_MISMATCH'])
+})
