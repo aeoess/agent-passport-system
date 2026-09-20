@@ -7,7 +7,8 @@
 
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { createReceiptV1 } from '../src/v2/receipt-core/receipt.js'
+import { createReceiptV1, verifyReceiptV1 } from '../src/v2/receipt-core/receipt.js'
+import { publicKeyFromPrivate } from '../src/crypto/keys.js'
 import { validateReceiptStageV1 } from '../src/v2/receipt-core/stage.js'
 import type { ReceiptV1 } from '../src/v2/receipt-core/types.js'
 
@@ -22,6 +23,9 @@ const VALID_UNTIL = '2026-07-18T12:00:05.000Z'
  *  "A member that is not applicable is absent, not null" (draft line 988). The signer is
  *  always the record's own issuer, so every fixture satisfies line 999 before the stage
  *  rules are reached and no test passes for the wrong reason. */
+const testPublicKey = publicKeyFromPrivate(privateKey)
+const resolveTestKey = (): string => testPublicKey
+
 const sign = (fields: Record<string, unknown>): ReceiptV1 => {
   const body = Object.fromEntries(Object.entries(fields).filter(([, v]) => v !== undefined))
   const signer = body.issuer as string
@@ -235,4 +239,80 @@ test('a conforming leap second in a decision window is compared, not silently re
     { boundaryIdentity: BOUNDARY },
   )
   assert.deepEqual(reversed.failures.map(f => f.code), ['DECISION_VALID_UNTIL_NOT_AFTER_ISSUED_AT'])
+})
+
+// --- Only the required signatures decide the state, as ruled ----------------------
+
+test('a signature nobody required cannot move the aggregate state', () => {
+  // Signatures sit outside receipt_id by construction (lines 1003-1009), so a third
+  // party holding no key material can append a descriptor to a published receipt
+  // without changing a digest. Letting that flip a conforming record to invalid put the
+  // verification outcome in that party's hands.
+  const control = intent()
+  const baseline = verifyReceiptV1(control, resolveTestKey)
+  assert.equal(baseline.status, 'valid')
+  assert.equal(baseline.other_signatures, 'none')
+
+  const appended = structuredClone(control) as unknown as Record<string, unknown>
+  ;(appended.signatures as Record<string, unknown>[]).push({
+    signer: AGENT, key_id: `${AGENT}#appended`, alg: 'Ed25519', value: '0'.repeat(128),
+  })
+  ;(appended.signatures as Record<string, unknown>[]).sort((a, b) =>
+    String(a.key_id) < String(b.key_id) ? -1 : String(a.key_id) > String(b.key_id) ? 1 : 0)
+  // The appended descriptor names the issuer, so it IS required and does decide.
+  const sameSigner = verifyReceiptV1(appended as never, resolveTestKey)
+  assert.equal(sameSigner.status, 'invalid', 'a second issuer signature is still required')
+
+  // One from another signer is not required, so it is reported and decides nothing.
+  const other = structuredClone(control) as unknown as Record<string, unknown>
+  ;(other.signatures as Record<string, unknown>[]).push({
+    signer: 'did:example:bystander', key_id: 'did:example:bystander#k', alg: 'Ed25519', value: '0'.repeat(128),
+  })
+  const outsider = verifyReceiptV1(other as never, resolveTestKey)
+  assert.equal(outsider.status, 'valid')
+  assert.equal(outsider.other_signatures, 'not_all_verified')
+  assert.ok(!outsider.errors.includes('signature_invalid'))
+  assert.equal(outsider.signature_results.find(r => r.signer === 'did:example:bystander')?.required, false)
+  assert.equal(outsider.signature_results.find(r => r.signer === AGENT)?.required, true)
+})
+
+test('a verifier can require a signer beyond the issuer, and a missing one is invalid', () => {
+  const control = intent()
+  const missing = verifyReceiptV1(control, resolveTestKey, {}, { requiredSigners: ['did:example:cosigner'] })
+  assert.equal(missing.status, 'invalid')
+  assert.ok(missing.errors.includes('required_signature_missing'))
+})
+
+// --- Key resolution outcomes kept apart, as ruled, on the receipt surface ----------
+
+test('each key resolution outcome is reported apart from the others', () => {
+  const control = intent()
+  const cases: [unknown, string, string][] = [
+    [{ outcome: 'not_found' }, 'key_not_found', 'indeterminate'],
+    [{ outcome: 'ambiguous' }, 'key_ambiguous', 'indeterminate'],
+    [{ outcome: 'unreachable' }, 'key_unreachable', 'indeterminate'],
+    [{ outcome: 'malformed' }, 'key_material_malformed', 'indeterminate'],
+    [{ outcome: 'unsupported_scheme' }, 'key_scheme_unsupported', 'unsupported'],
+    [undefined, 'key_unresolved', 'indeterminate'],
+  ]
+  for (const [answer, reason, status] of cases) {
+    const result = verifyReceiptV1(control, (() => answer) as never)
+    assert.equal(result.signature_results[0].reason, reason, String(reason))
+    assert.equal(result.status, status, String(reason))
+    assert.ok(!result.errors.includes('signature_invalid'), 'no signature check ran')
+  }
+})
+
+test('malformed key material is not a failed signature', () => {
+  const control = intent()
+  for (const material of ['', 'not-hex', 'ab'.repeat(16), 'ab'.repeat(40)]) {
+    const result = verifyReceiptV1(control, () => material)
+    assert.equal(result.status, 'indeterminate', material)
+    assert.equal(result.signature_results[0].reason, 'key_material_malformed', material)
+    assert.ok(!result.errors.includes('signature_invalid'), material)
+  }
+  // A well-formed key that did not sign this receipt is still a signature failure.
+  const wrong = verifyReceiptV1(control, () => 'b'.repeat(64))
+  assert.equal(wrong.status, 'invalid')
+  assert.ok(wrong.errors.includes('signature_invalid'))
 })
