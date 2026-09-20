@@ -2085,6 +2085,21 @@ export type {
   ReceiptStageOptionsV1,
   BoundaryIdentityResultV1,
 } from './v2/receipt-core/stage.js'
+// DecisionRefV1 (section 5.4). A policy-decision receipt REQUIRES decision_ref (line
+// 984) and section 5.4 fixes how it is computed, so a consumer that cannot reach these
+// cannot build a conforming policy-decision record at all. They were present in source
+// and absent from the package.
+export {
+  DECISION_REF_TAG,
+  DECISION_COMPONENT_TAGS,
+  computeDecisionComponentRefV1,
+  validateDecisionRefInputV1,
+  computeDecisionRefV1,
+  validateCoreDecisionOutputV1,
+  normalizeCoreDecisionOutputV1,
+  buildDecisionRefV1,
+} from './v2/receipt-core/decision-ref.js'
+export type { DecisionRefInputV1, CoreDecisionOutputV1, EvidenceRefV1 } from './v2/receipt-core/types.js'
 export { verifyReceiptWithDecisionV1 } from './v2/receipt-core/composite.js'
 export type {
   DecisionEvidenceV1,
