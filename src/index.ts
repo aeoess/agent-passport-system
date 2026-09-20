@@ -42,6 +42,25 @@ export { computeActionRef, actionRefsMatch } from './core/action-ref.js'
 // Distinct primitive from the APS-native action_ref above.
 export { computeExternalActionRefV1 } from './core/external-action-ref.js'
 export type { ExternalActionRefV1Input } from './core/external-action-ref.js'
+// The draft-native section 4.1 action reference (aps-action-ref-v2), the whole surface
+// rather than the digest alone. computeActionRefV2FromJson and parseActionReferenceInputV2
+// take the wire bytes, so they can reject a duplicate member, which is evidence an
+// already-parsed object no longer carries: the later member has overwritten the earlier one
+// before any check can see it. Exporting only the digest would publish half the surface and
+// hide the safe entry point. computeActionRef above remains the pre-draft compatibility
+// digest over a different preimage and is not this construction.
+export {
+  createActionReferenceInputV2,
+  computeActionRefV2,
+  computePayloadRefV1,
+  validateActionReferenceInputV2,
+  parseActionReferenceInputV2,
+  computeActionRefV2FromJson,
+} from './v2/action-reference/v2.js'
+export type {
+  ActionReferenceInputV2,
+  ActionReferenceProfileContextV2,
+} from './v2/action-reference/v2.js'
 export { computeIdempotencyKey } from './core/idempotency.js'
 
 // ── Attestation Freshness (A2A#1712) ──

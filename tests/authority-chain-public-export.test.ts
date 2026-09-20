@@ -2,8 +2,39 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import * as api from '../src/index.js'
 
-test('verifyAuthorityDelegationChain is a public export', () => {
-  assert.equal(typeof api.verifyAuthorityDelegationChain, 'function')
+test('the draft-03 release surface is exported from the package root', () => {
+  // Release check, not a unit test. A symbol implemented under src but absent
+  // here is not reachable through the package root consumers install.
+  const functions = [
+    // Section 3
+    'verifyAuthorityDelegationChain',
+
+    // Section 4.1
+    'createActionReferenceInputV2',
+    'computeActionRefV2',
+    'computePayloadRefV1',
+    'validateActionReferenceInputV2',
+    'parseActionReferenceInputV2',
+    'computeActionRefV2FromJson',
+
+    // Section 4.2
+    'computeExternalActionRefV1',
+
+    // Section 5
+    'validateReceiptStageV1',
+    'verifyReceiptV1',
+    'verifyReceiptV1Serialized',
+    'verifyReceiptWithDecisionV1',
+    'buildDecisionRefV1',
+  ] as const
+
+  for (const name of functions) {
+    assert.equal(typeof api[name], 'function', `${name} is not exported from the package root`)
+  }
+
+  assert.equal(typeof api.RECEIPT_STAGE_TYPES_V1, 'object')
+  // ActionReferenceInputV2 and ActionReferenceProfileContextV2 are types and do not exist at
+  // runtime. Their export is checked by compilation and by the generated index.d.ts.
 })
 
 test('verifyAuthorityDelegationChain rejects a non-canonical now with NONCANONICAL_VALUE', () => {
