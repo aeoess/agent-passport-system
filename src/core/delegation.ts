@@ -69,6 +69,19 @@ export interface CreateDelegationOptions {
   privateKey: string
 }
 
+/**
+ * Legacy Delegation, a pre-draft compatibility surface. Deprecated.
+ *
+ * The delegated authority record of draft-pidlisnyi-aps-03 is AuthorityDelegationV1
+ * (section 3.1, record_type "aps:authority-delegation:v1"), implemented in
+ * src/v2/authority-delegation/. This record is not that one: it predates the draft's
+ * wire format, carries a different member set, and is not on the draft path. It is
+ * kept so existing deployments keep working, and its authority semantics are frozen.
+ *
+ * A draft-03 conformant chain is built with issueAuthorityDelegation and
+ * issueSubAuthorityDelegation and verified with verifyAuthorityDelegationChain. New
+ * work uses those.
+ */
 export function createDelegation(opts: CreateDelegationOptions): Delegation {
   if (!opts || typeof opts !== 'object') throw new Error('createDelegation: opts must be an object')
   if (!opts.delegatedTo || typeof opts.delegatedTo !== 'string') throw new Error('createDelegation: delegatedTo must be a non-empty string')
@@ -142,6 +155,15 @@ export interface SubDelegateOptions {
   revocation?: RevocationCheckOptions
 }
 
+/**
+ * Narrow a legacy Delegation into a child. Pre-draft compatibility surface,
+ * deprecated, and frozen: see the note on createDelegation.
+ *
+ * Its scope narrowing goes through scopeCovers, which is the pre-draft rule and not
+ * the rule of draft-pidlisnyi-aps-03 section 3.2. The difference is stated at
+ * scopeCovers. The draft-path narrowing check is compareAuthority in
+ * src/v2/authority-delegation/compare.ts.
+ */
 export function subDelegate(opts: SubDelegateOptions): Delegation {
   const parent = opts.parentDelegation
 
@@ -316,6 +338,16 @@ export interface RevocationCheckOptions {
 // is drawn exclusively from `opts.cachedRevocationState` — callers that need
 // live revocation enforcement (or ancestor-chain walks) use DelegationStore.
 
+/**
+ * Verify a legacy Delegation. Pre-draft compatibility surface, deprecated, frozen:
+ * see the note on createDelegation.
+ *
+ * This is not the draft-03 chain verifier. draft-pidlisnyi-aps-03 section 3.3 runs a
+ * root-to-leaf chain through a fixed order of checks and returns one of valid,
+ * invalid, indeterminate or unsupported; that is verifyAuthorityDelegationChain in
+ * src/v2/authority-delegation/verify.ts. This function checks one legacy record's
+ * signature, window and depth, and reads revocation only from what the caller passed.
+ */
 export function verifyDelegation(delegation: Delegation, opts?: RevocationCheckOptions & {
   /** Walk parent chain and check each ancestor's revocation status.
    *  No-op without a DelegationStore; the option is preserved for API
@@ -574,6 +606,18 @@ export function verifyReceipt(
 // - Universal wildcard: '*' covers everything
 // - Prefix wildcard: 'commerce:*' covers 'commerce' and 'commerce:checkout'
 // - NO reverse: 'code:deploy' does NOT cover 'code' (child does not satisfy parent)
+//
+// THIS IS THE PRE-DRAFT RULE, NOT THE SECTION 3.2 RULE, and it is deliberately kept.
+// draft-pidlisnyi-aps-03 section 3.2 (published lines 516-521) allows "*" and a
+// terminal ":*" as wildcards and nothing else: "An exact grant covers itself. A
+// terminal wildcard p:* covers p and every grant beginning p:". The third line above,
+// a bare 'code' covering 'code:deploy', is a fourth form the draft does not allow, so
+// this function is wider than the draft rule on exactly that case.
+//
+// The draft-path check is scopeGrantCovers in src/v2/authority-delegation/scope.ts,
+// which follows section 3.2. This one governs the legacy Delegation surface only, and
+// its behaviour is frozen: converging the two would change what already-signed legacy
+// records authorize. Draft-path code uses scopeGrantCovers and never this function.
 
 export function scopeCovers(granted: string, required: string): boolean {
   if (granted === required) return true

@@ -127,6 +127,32 @@ function resolveEvidence(
   return { revoked: candidate.revoked, checkedAt: candidate.checkedAt }
 }
 
+/**
+ * Legacy lineage authenticity for a chain of legacy Delegation records.
+ *
+ * WHAT THIS IS NOT. This is not draft-03 principal attribution and not a
+ * beneficiary determination under the protocol. draft-pidlisnyi-aps-03 section 12
+ * keeps four attribution axes apart: authority (the delegation chain), contribution,
+ * principal (the entity on whose behalf the agent acted, reported as self_asserted,
+ * principal_attested or externally_verified_principal under section 2.3), and
+ * beneficiary (the entity that receives the value the work creates). The draft
+ * specifies the authority and principal axes and states that it does not specify a
+ * beneficiary-attribution model, so nothing this function returns is a draft-03
+ * beneficiary result.
+ *
+ * The beneficiary here is whatever the caller's beneficiaryMap says it is. Where the
+ * map has no entry, the reported beneficiary falls back to the root of the legacy
+ * delegation chain, which is an authority fact, not a statement about who benefits.
+ *
+ * What the result does establish is lineage authenticity: whether each hop of the
+ * supplied legacy chain carries a delegation whose signature and temporal validity
+ * check out under the caller's revocation posture. It implies no allocation of
+ * credit, benefit, compensation, liability or ownership, which section 12 places
+ * outside the document and does not imply from the authority chain.
+ *
+ * The record type is the pre-draft compatibility Delegation, not the draft-03
+ * AuthorityDelegationV1 of section 3.1. See the note on createDelegation.
+ */
 export function traceBeneficiary(
   receipt: ActionReceipt,
   delegations: Delegation[],
