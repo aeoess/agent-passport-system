@@ -215,3 +215,24 @@ test('the caller never selects the stage: a mismatch with receipt_type is itself
   assert.equal(mismatch.status, 'invalid')
   assert.deepEqual(mismatch.failures.map(f => f.code), ['STAGE_MISMATCH'])
 })
+
+test('a conforming leap second in a decision window is compared, not silently rejected', () => {
+  // isExactUtcMilliseconds accepts a leap second, and Date cannot represent one:
+  // Date.parse("...T23:59:60.000Z") is NaN, so any comparison through it answers false
+  // and refuses a record the draft allows. The comparison is lexicographic on the fixed
+  // width form instead, which is chronological for these strings.
+  const leapIssued = '2026-06-30T23:59:59.000Z'
+  const leapUntil = '2026-06-30T23:59:60.000Z'
+  const ok = validateReceiptStageV1(
+    decision({ issued_at: leapIssued }, { valid_until: leapUntil }),
+    { boundaryIdentity: BOUNDARY },
+  )
+  assert.equal(ok.status, 'valid', JSON.stringify(ok.failures))
+
+  // And the ordering still holds in the other direction at the same boundary.
+  const reversed = validateReceiptStageV1(
+    decision({ issued_at: leapUntil }, { valid_until: leapIssued }),
+    { boundaryIdentity: BOUNDARY },
+  )
+  assert.deepEqual(reversed.failures.map(f => f.code), ['DECISION_VALID_UNTIL_NOT_AFTER_ISSUED_AT'])
+})

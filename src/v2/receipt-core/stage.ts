@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { validateCoreDecisionOutputV1 } from './decision-ref.js'
-import { isExactUtcMilliseconds, validateReceiptV1 } from './receipt.js'
+import { isExactUtcMilliseconds, isLaterUtcMillisecond, validateReceiptV1 } from './receipt.js'
 import type { JsonValue, ReceiptV1 } from './types.js'
 
 const HEX64 = /^[0-9a-f]{64}$/
@@ -199,7 +199,7 @@ function checkPolicyDecision(receipt: ReceiptV1, fail: Fail): void {
   // are already known to be exact UTC milliseconds, and they are compared as instants.
   if (output.verdict !== 'deny') {
     const validUntil = output.valid_until as string
-    if (!isExactUtcMilliseconds(validUntil) || !(Date.parse(validUntil) > Date.parse(receipt.issued_at))) {
+    if (!isExactUtcMilliseconds(validUntil) || !isLaterUtcMillisecond(validUntil, receipt.issued_at)) {
       fail('DECISION_VALID_UNTIL_NOT_AFTER_ISSUED_AT', `valid_until ${validUntil} is not later than issued_at ${receipt.issued_at}`)
     }
   }
