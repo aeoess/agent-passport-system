@@ -63,6 +63,8 @@ What ships in every deployment.
 
 **Delegation** -- Scoped authority with monotonic narrowing. Sub-delegation can only reduce scope. Cascade revocation propagates through the full chain. `subDelegateAdvisor` implements the bounded-escalation delegation pattern used in multi-model agent workflows where a lower-cost executor escalates to a higher-capability advisor at decision points -- the advisor delegation is count-bounded, cannot execute tools, and cascade-revokes with its parent.
 
+Two delegation records ship, and they are not interchangeable. `AuthorityDelegationV1` (`record_type` `aps:authority-delegation:v1`) is the delegated authority record of `draft-pidlisnyi-aps-03` section 3.1, with the seven signed facets and the chain verifier that returns valid, invalid, indeterminate or unsupported. The older `Delegation` from `createDelegation`, `subDelegate` and `verifyDelegation` is a pre-draft compatibility surface, deprecated and frozen: it predates the draft wire format and is not on the draft path. Its scope matching is the pre-draft rule, under which a bare grant `p` covers `p:x`; section 3.2 allows only `*` and a terminal `p:*` as wildcards, and the draft-path check follows section 3.2. The two rules are deliberately not converged, because changing either would change what records already signed under it authorize. New work uses `AuthorityDelegationV1`.
+
 **Enforcement** -- 3-signature action chain: agent signs intent, policy engine signs evaluation, agent signs execution receipt. The agent cannot skip the check. Gateway evaluation runs under 2ms.
 
 **Commerce** -- 5-gate preflight: valid passport, scope check, spend limit, merchant allowlist, idempotency. Human approval thresholds for high-value transactions.
