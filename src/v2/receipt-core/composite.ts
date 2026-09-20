@@ -127,17 +127,24 @@ export function verifyReceiptWithDecisionV1(
     errors,
   })
 
+  // A sub-result that is not valid is named for what it is. Calling an indeterminate
+  // receipt "receipt_invalid" would tell a caller the record was wrong when the verifier
+  // could not establish one of its axes, which is the collapse section 5.6 line 1227
+  // forbids, just pointed the other way.
+  const code = (prefix: string, status: ReceiptVerificationStatusV1): string =>
+    `${prefix}_${status === 'valid' ? 'valid' : status}`
+
   // Stage 1: structural and cryptographic, unchanged.
   const receiptResult = verifyReceiptV1(receipt, resolveKey)
   if (!receiptResult.valid) {
-    errors.push('receipt_invalid', ...receiptResult.errors)
+    errors.push(code('receipt', receiptResult.status), ...receiptResult.errors)
     return base(receiptResult, receiptResult.status, notRun)
   }
 
   // Stage 2: the rules of this record's own stage.
   const stage = validateReceiptStageV1(receipt, options)
   if (stage.status !== 'valid') {
-    errors.push('stage_invalid', ...stage.failures.map(f => f.code))
+    errors.push(code('stage', stage.status), ...stage.failures.map(f => f.code))
     return base(receiptResult, stage.status, stage)
   }
 
