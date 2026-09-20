@@ -109,8 +109,35 @@ test('serialized: parse failure is distinguishable from structural and from sign
   assert.notDeepEqual(structuralFail.errors, signatureFail.errors)
 })
 
-test('serialized: a non-string or oversize input is refused rather than parsed', () => {
+test('serialized: a resource ceiling is indeterminate under RESOURCE_LIMIT, not invalid', () => {
+  // Both ceilings belong to this parser, not to the draft, so
+  // hitting one says this verifier stopped, never that the receipt is bad. Previously both
+  // returned invalid/parse_error, which made validity depend on verifier capacity: the same
+  // bytes verify under a higher ceiling.
   const tooBig = verifyReceiptV1Serialized('"' + 'x'.repeat(2_000_000) + '"', resolveKey)
   assert.equal(tooBig.valid, false)
-  assert.equal(tooBig.errors[0], 'parse_error')
+  assert.equal(tooBig.status, 'indeterminate')
+  assert.equal(tooBig.errors[0], 'RESOURCE_LIMIT')
+  assert.ok(!tooBig.errors.includes('parse_error'))
+
+  const tooDeep = verifyReceiptV1Serialized('{"a":'.repeat(200) + '1' + '}'.repeat(200), resolveKey)
+  assert.equal(tooDeep.valid, false)
+  assert.equal(tooDeep.status, 'indeterminate')
+  assert.equal(tooDeep.errors[0], 'RESOURCE_LIMIT')
+  assert.ok(!tooDeep.errors.includes('parse_error'))
+
+  // The distinction the ruling turns on: a document that is actually malformed, and one
+  // that is well formed but not a receipt, are unchanged and stay invalid.
+  const malformed = verifyReceiptV1Serialized('{"a": }', resolveKey)
+  assert.equal(malformed.status, 'invalid')
+  assert.equal(malformed.errors[0], 'parse_error')
+
+  const duplicate = verifyReceiptV1Serialized('{"a":1,"a":2}', resolveKey)
+  assert.equal(duplicate.status, 'invalid')
+  assert.equal(duplicate.errors[0], 'parse_error')
+
+  // A conforming receipt under both ceilings is untouched.
+  const ok = verifyReceiptV1Serialized(clean, resolveKey)
+  assert.equal(ok.valid, true)
+  assert.equal(ok.status, 'valid')
 })

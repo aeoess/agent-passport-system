@@ -3,7 +3,7 @@
 
 import { createHash } from 'node:crypto'
 import { sign, verify } from '../../crypto/keys.js'
-import { assertExactKeys, parseStrictIJson, strictJCS } from './jcs.js'
+import { assertExactKeys, IJsonResourceLimitError, parseStrictIJson, strictJCS } from './jcs.js'
 // Function-level cycle with stage.ts, which imports validateReceiptV1 from here. Neither
 // module reads the other during initialization, so the live bindings are resolved by the
 // time either function is called.
@@ -460,6 +460,23 @@ export function verifyReceiptV1Serialized(
   try {
     parsed = parseStrictIJson(raw)
   } catch (err) {
+    // This parser's own nesting-depth and wire-size ceilings are properties of this
+    // implementation, not validity conditions the draft states, so hitting one establishes
+    // that this verifier stopped, never that the receipt is malformed. The same bytes can verify under a higher ceiling. It is reported on the
+    // indeterminate axis under RESOURCE_LIMIT, as the authority-delegation surface already
+    // reports its three ceilings. Every genuine parse failure below is unchanged.
+    if (err instanceof IJsonResourceLimitError) {
+      return {
+        valid: false,
+        status: 'indeterminate',
+        receipt_id_valid: 'not_checked',
+        stage: 'not_checked',
+        signer_authority: 'not_checked',
+        signature_results: [],
+        other_signatures: 'none',
+        errors: ['RESOURCE_LIMIT', err.message],
+      }
+    }
     return {
       valid: false,
       status: 'invalid',
