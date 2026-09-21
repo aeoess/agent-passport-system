@@ -57,6 +57,8 @@ The two hashes must match (macOS ships `shasum -a 256` instead of `sha256sum`). 
 3. Ensure all tests pass (`npm test`) and `tsc --noEmit` is clean
 4. Open a pull request with a description of what you changed and why
 
+For anything beyond a typo, the [Contribution Brief](https://github.com/aeoess/.github/blob/main/CONTRIBUTION-BRIEF.md) lists what a reviewer needs.
+
 ## Code review
 
 Every external pull request is reviewed by the maintainer before merge. What review checks, in order:
@@ -91,6 +93,12 @@ Open an issue on GitHub with:
 ## Protocol Contributions
 
 If you're proposing changes to the protocol itself (new layers, modified signature schemes, governance changes), please open a discussion issue first so we can align on the design before implementation.
+
+Protocol changes follow the [Contribution Brief](https://github.com/aeoess/.github/blob/main/CONTRIBUTION-BRIEF.md), with three parts made explicit, since they are where protocol changes go wrong:
+
+- **Compatibility.** What an implementation of the current draft does when it meets the new behavior. Where it cannot understand the change, it should fail closed.
+- **Negative vectors.** The cases the change must reject, alongside the ones it must accept.
+- **Claims not made.** What the change does not establish, stated in the pull request.
 
 ---
 
