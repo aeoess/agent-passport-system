@@ -39,11 +39,20 @@ export interface DecisionEvidenceV1 {
 export interface ReceiptWithDecisionOptionsV1 extends ReceiptStageOptionsV1 {
   /** The policy-decision record this receipt's prev names, when the caller holds it.
    *
-   *  OPTIONAL, and omitting it is the default. Absent, the predecessor axis is reported
-   *  `not_checked` and the composite's valid, status and errors are exactly what they were
-   *  before this option existed. Supplying null is the same as omitting it: nothing was
-   *  supplied, so nothing is checked. See verifyReceiptPredecessorV1 for what supplying it
-   *  does and does not establish, including that its signatures are NOT verified here. */
+   *  OPTIONAL, and omitting it is the default. THE OPT-IN IS THE PRESENCE OF THE PROPERTY,
+   *  not its value: the axis is checked whenever `predecessor` is an own property of the
+   *  options object, even where that property holds undefined or null. Absent, the axis is
+   *  reported `not_checked` and the composite's valid, status and errors are exactly what
+   *  they were before this option existed.
+   *
+   *  Present and holding undefined or null, the caller asked for the binding and could not
+   *  supply the record, so the axis is NOT ESTABLISHED: `not_established`, `indeterminate`,
+   *  never valid. `{ predecessor: store.get(receipt.prev) }` with a lookup miss is exactly
+   *  that case, and reading it as an omitted option would hand back a valid composite for a
+   *  binding the caller requested and nobody performed.
+   *
+   *  See verifyReceiptPredecessorV1 for what supplying a record does and does not establish,
+   *  including that its signatures are NOT verified here. */
   predecessor?: ReceiptV1 | null
 }
 
@@ -78,16 +87,23 @@ export interface ReceiptWithDecisionVerificationV1 {
    *  never ran, which is the same overstatement in the other direction. */
   temporal_relation_valid: boolean | 'not_applicable'
   /** The section 5.3.3 prev binding for an action-result record, run only when the caller
-   *  supplies `options.predecessor`. OPT-IN HARDENING, not a draft-03 conformance check:
-   *  draft-03 states the prev linkage without a BCP 14 keyword, so it does not require a
-   *  verifier to make this comparison.
+   *  opts in by giving `options` a `predecessor` property. OPT-IN HARDENING, not a draft-03
+   *  conformance check: draft-03 states the prev linkage without a BCP 14 keyword, so it
+   *  does not require a verifier to make this comparison.
    *
-   *  `not_checked` where no predecessor was supplied, which is the default and leaves every
-   *  other field exactly as it was before this axis existed. `not_applicable` where a
-   *  predecessor was supplied for a record that is not an action-result. `false` makes the
-   *  composite invalid under the error code `predecessor_not_bound`. Reporting false for
-   *  the unsupplied case would say a link had been refused when nothing was compared. */
-  predecessor_bound: boolean | 'not_checked' | 'not_applicable'
+   *  `not_checked` where the option carries no such property, which is the default and
+   *  leaves every other field exactly as it was before this axis existed. `not_applicable`
+   *  where the property is present on a record that is not an action-result. `false` makes
+   *  the composite invalid under the error code `predecessor_not_bound`.
+   *
+   *  `not_established` where the property is present but holds undefined or null: the caller
+   *  asked for the binding and supplied no record, so nothing was compared. That is the
+   *  primitive's `indeterminate`, carried through under section 5.6 line 1228, and it makes
+   *  the composite `indeterminate` and not valid. The three non-boolean states are kept
+   *  apart because they are three different things: nothing was asked, nothing applies, and
+   *  something was asked that could not be established. Reporting false for any of them
+   *  would say a link had been refused when nothing was compared. */
+  predecessor_bound: boolean | 'not_checked' | 'not_applicable' | 'not_established'
   errors: string[]
 }
 
@@ -124,16 +140,26 @@ export interface ReceiptWithDecisionVerificationV1 {
  *      compared as canonical bytes. The digest binding alone did not establish this: the
  *      decision_ref commits to a digest of the output, and nothing compared that output
  *      with the result the receipt itself carries and signs.
- *   6. `predecessor_not_bound`  OPTIONAL and off by default. Only when the caller supplies
- *      `options.predecessor`, the section 5.3.3 prev binding for an action-result record,
- *      delegated unchanged to verifyReceiptPredecessorV1. This is OPT-IN HARDENING: the
- *      draft STATES that prev is the consumed policy-decision receipt_id (lines 1104-1105)
- *      and lists prev validation among a verifier's checks (line 1219) without a BCP 14
- *      keyword on either, so it is not required of a verifier and is not enabled unless
- *      asked for. With the option absent, `predecessor_bound` is `not_checked` and this
- *      function's valid, status and errors are byte-identical to what they were before the
- *      option existed. The predecessor's own signatures are NOT verified here; a caller
- *      that wants them checked runs this verifier over the predecessor as well.
+ *   6. `predecessor_not_bound`  OPTIONAL and off by default. Only when the caller opts in,
+ *      the section 5.3.3 prev binding for an action-result record, delegated unchanged to
+ *      verifyReceiptPredecessorV1. This is OPT-IN HARDENING: the draft STATES that prev is
+ *      the consumed policy-decision receipt_id (lines 1104-1105) and lists prev validation
+ *      among a verifier's checks (line 1219) without a BCP 14 keyword on either, so it is
+ *      not required of a verifier and is not enabled unless asked for.
+ *
+ *      THE OPT-IN IS THE PRESENCE OF THE `predecessor` PROPERTY on the options object, not
+ *      the value it holds. With no such property, `predecessor_bound` is `not_checked` and
+ *      this function's valid, status and errors are byte-identical to what they were before
+ *      the option existed. With the property present and holding undefined or null, the
+ *      caller asked for a binding it could not supply the record for: the axis is
+ *      `not_established` and the composite is `indeterminate`, carrying the primitive's own
+ *      `predecessor_not_supplied` code. The distinction is the whole point of reading
+ *      presence rather than value. `{ predecessor: store.get(receipt.prev) }` puts a lookup
+ *      miss in that property, and treating it as an omitted option would report valid for a
+ *      check the caller requested and nobody ran.
+ *
+ *      The predecessor's own signatures are NOT verified here; a caller that wants them
+ *      checked runs this verifier over the predecessor as well.
  *   7. `valid_until_not_after_issued_at`  the temporal relation, checked only
  *      once the operands are known to belong together. Both timestamps are
  *      validated as exact UTC milliseconds and then compared as instants, never
@@ -241,23 +267,42 @@ export function verifyReceiptWithDecisionV1(
   }
   const decisionOutputBound: boolean | 'not_applicable' = isPolicyDecision ? true : 'not_applicable'
 
-  // Stage 6: the section 5.3.3 prev binding, only when the caller supplied a predecessor.
-  // A null predecessor is treated exactly as an omitted one: nothing was supplied, so
-  // nothing is compared and the axis stays not_checked rather than reporting a refusal.
-  // The primitive's own indeterminate state is unreachable from here for that reason; a
-  // caller that wants it calls verifyReceiptPredecessorV1 directly.
-  let predecessorBound: boolean | 'not_checked' | 'not_applicable' = 'not_checked'
-  if (options.predecessor !== undefined && options.predecessor !== null) {
+  // Stage 6: the section 5.3.3 prev binding, only when the caller opted in.
+  //
+  // The opt-in is own-property presence, deliberately not truthiness and not a value test.
+  // A caller writing `{ predecessor: store.get(receipt.prev) }` has asked for the binding;
+  // whether the lookup found anything is the answer to that request, not a withdrawal of
+  // it. Reading the value instead would collapse "did not ask" and "asked and could not
+  // establish" into one state and hand back valid for both.
+  let predecessorBound: boolean | 'not_checked' | 'not_applicable' | 'not_established' = 'not_checked'
+  // Set only for the not_established case. The result is carried to the end rather than
+  // returned here so that an invalid found by stage 7 still dominates, per section 5.6
+  // line 1227: an unestablished axis downgrades a pass, it does not mask a failure.
+  let predecessorNotEstablished = false
+  if (Object.prototype.hasOwnProperty.call(options, 'predecessor')) {
     const predecessorResult = verifyReceiptPredecessorV1(receipt, options.predecessor)
-    predecessorBound = predecessorResult.status === 'not_applicable' ? 'not_applicable' : predecessorResult.bound
-    if (predecessorBound === false) {
-      errors.push('predecessor_not_bound')
-      // The primitive's own code, so a caller reading the errors learns which of the
-      // section 5.3.3 comparisons refused the pair rather than only that one did.
+    if (predecessorResult.status === 'not_applicable') {
+      predecessorBound = 'not_applicable'
+    } else if (predecessorResult.status === 'indeterminate') {
+      // The primitive reached `predecessor_not_supplied`. Its code is pushed so a caller
+      // reading the errors learns the record was never in hand, not that a comparison
+      // refused the pair.
+      predecessorBound = 'not_established'
+      predecessorNotEstablished = true
       if (predecessorResult.failure !== null) errors.push(predecessorResult.failure)
-      return { ...bound, decision_output_bound: decisionOutputBound, predecessor_bound: false }
+    } else {
+      predecessorBound = predecessorResult.bound
+      if (predecessorBound === false) {
+        errors.push('predecessor_not_bound')
+        // The primitive's own code, so a caller reading the errors learns which of the
+        // section 5.3.3 comparisons refused the pair rather than only that one did.
+        if (predecessorResult.failure !== null) errors.push(predecessorResult.failure)
+        return { ...bound, decision_output_bound: decisionOutputBound, predecessor_bound: false }
+      }
     }
   }
+  // Applied at every exit below that would otherwise pass. Invalid exits are left alone.
+  const passStatus: ReceiptVerificationStatusV1 = predecessorNotEstablished ? 'indeterminate' : 'valid'
 
   // Stage 7: temporal relation, on operands now known to belong together.
   const validUntil = decision.decision_output.valid_until
@@ -271,8 +316,8 @@ export function verifyReceiptWithDecisionV1(
       decision_output_bound: decisionOutputBound,
       predecessor_bound: predecessorBound,
       temporal_relation_valid: isPolicyDecision ? true : 'not_applicable',
-      valid: true,
-      status: 'valid',
+      valid: passStatus === 'valid',
+      status: passStatus,
     }
   }
   if (!isExactUtcMilliseconds(receipt.issued_at) || !isExactUtcMilliseconds(validUntil)) {
@@ -290,8 +335,8 @@ export function verifyReceiptWithDecisionV1(
   }
 
   return {
-    valid: true,
-    status: 'valid',
+    valid: passStatus === 'valid',
+    status: passStatus,
     receipt: receiptResult,
     stage,
     decision_ref_present: true,
