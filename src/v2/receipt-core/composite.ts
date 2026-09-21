@@ -3,6 +3,7 @@
 
 import { buildDecisionRefV1, validateCoreDecisionOutputV1 } from './decision-ref.js'
 import { strictJCS } from './jcs.js'
+import { verifyReceiptPredecessorV1 } from './predecessor.js'
 import { isExactUtcMilliseconds, isLaterUtcMillisecond, verifyReceiptV1 } from './receipt.js'
 import type { ReceiptVerificationStatusV1, ReceiptVerificationV1 } from './receipt.js'
 import type { ReceiptStageOptionsV1, ReceiptStageResultV1 } from './stage.js'
@@ -26,6 +27,24 @@ export interface DecisionEvidenceV1 {
   policy_input: JsonValue
   decision_context: JsonValue
   decision_output: CoreDecisionOutputV1
+}
+
+/** The stage options this composite accepts, plus the predecessor record.
+ *
+ *  `predecessor` is added here rather than on ReceiptStageOptionsV1 on purpose: the stage
+ *  layer judges one record against its own section 5.3 rules and holds no second artifact,
+ *  so a predecessor there would be an input nothing reads. Every existing field is
+ *  unchanged and is still forwarded to verifyReceiptV1 as before.
+ */
+export interface ReceiptWithDecisionOptionsV1 extends ReceiptStageOptionsV1 {
+  /** The policy-decision record this receipt's prev names, when the caller holds it.
+   *
+   *  OPTIONAL, and omitting it is the default. Absent, the predecessor axis is reported
+   *  `not_checked` and the composite's valid, status and errors are exactly what they were
+   *  before this option existed. Supplying null is the same as omitting it: nothing was
+   *  supplied, so nothing is checked. See verifyReceiptPredecessorV1 for what supplying it
+   *  does and does not establish, including that its signatures are NOT verified here. */
+  predecessor?: ReceiptV1 | null
 }
 
 /** Per-stage outcome of the composite verification.
@@ -58,6 +77,17 @@ export interface ReceiptWithDecisionVerificationV1 {
    *  issuance time of a later record. Reporting true there said a check had passed that
    *  never ran, which is the same overstatement in the other direction. */
   temporal_relation_valid: boolean | 'not_applicable'
+  /** The section 5.3.3 prev binding for an action-result record, run only when the caller
+   *  supplies `options.predecessor`. OPT-IN HARDENING, not a draft-03 conformance check:
+   *  draft-03 states the prev linkage without a BCP 14 keyword, so it does not require a
+   *  verifier to make this comparison.
+   *
+   *  `not_checked` where no predecessor was supplied, which is the default and leaves every
+   *  other field exactly as it was before this axis existed. `not_applicable` where a
+   *  predecessor was supplied for a record that is not an action-result. `false` makes the
+   *  composite invalid under the error code `predecessor_not_bound`. Reporting false for
+   *  the unsupplied case would say a link had been refused when nothing was compared. */
+  predecessor_bound: boolean | 'not_checked' | 'not_applicable'
   errors: string[]
 }
 
@@ -94,7 +124,17 @@ export interface ReceiptWithDecisionVerificationV1 {
  *      compared as canonical bytes. The digest binding alone did not establish this: the
  *      decision_ref commits to a digest of the output, and nothing compared that output
  *      with the result the receipt itself carries and signs.
- *   6. `valid_until_not_after_issued_at`  the temporal relation, checked only
+ *   6. `predecessor_not_bound`  OPTIONAL and off by default. Only when the caller supplies
+ *      `options.predecessor`, the section 5.3.3 prev binding for an action-result record,
+ *      delegated unchanged to verifyReceiptPredecessorV1. This is OPT-IN HARDENING: the
+ *      draft STATES that prev is the consumed policy-decision receipt_id (lines 1104-1105)
+ *      and lists prev validation among a verifier's checks (line 1219) without a BCP 14
+ *      keyword on either, so it is not required of a verifier and is not enabled unless
+ *      asked for. With the option absent, `predecessor_bound` is `not_checked` and this
+ *      function's valid, status and errors are byte-identical to what they were before the
+ *      option existed. The predecessor's own signatures are NOT verified here; a caller
+ *      that wants them checked runs this verifier over the predecessor as well.
+ *   7. `valid_until_not_after_issued_at`  the temporal relation, checked only
  *      once the operands are known to belong together. Both timestamps are
  *      validated as exact UTC milliseconds and then compared as instants, never
  *      as strings. A deny decision carries a null valid_until by rule (line 1090), so
@@ -102,13 +142,15 @@ export interface ReceiptWithDecisionVerificationV1 {
  *      made every correct deny decision fail this verifier.
  *
  * The binding checks run BEFORE the temporal one on purpose. A temporal result
- * computed over an unbound pair is not evidence about this receipt at all.
+ * computed over an unbound pair is not evidence about this receipt at all. The predecessor
+ * check is a binding check, so it sits with the others and ahead of the temporal one for
+ * the same reason.
  */
 export function verifyReceiptWithDecisionV1(
   receipt: ReceiptV1,
   decision: DecisionEvidenceV1,
   resolveKey: (signer: string, keyId: string, issuedAt: string) => string | undefined,
-  options: ReceiptStageOptionsV1 = {},
+  options: ReceiptWithDecisionOptionsV1 = {},
 ): ReceiptWithDecisionVerificationV1 {
   const errors: string[] = []
   const notRun: ReceiptStageResultV1 = {
@@ -127,6 +169,7 @@ export function verifyReceiptWithDecisionV1(
     decision_ref_bound: false,
     decision_output_bound: 'not_applicable',
     temporal_relation_valid: false,
+    predecessor_bound: 'not_checked',
     errors,
   })
 
@@ -198,7 +241,25 @@ export function verifyReceiptWithDecisionV1(
   }
   const decisionOutputBound: boolean | 'not_applicable' = isPolicyDecision ? true : 'not_applicable'
 
-  // Stage 6: temporal relation, on operands now known to belong together.
+  // Stage 6: the section 5.3.3 prev binding, only when the caller supplied a predecessor.
+  // A null predecessor is treated exactly as an omitted one: nothing was supplied, so
+  // nothing is compared and the axis stays not_checked rather than reporting a refusal.
+  // The primitive's own indeterminate state is unreachable from here for that reason; a
+  // caller that wants it calls verifyReceiptPredecessorV1 directly.
+  let predecessorBound: boolean | 'not_checked' | 'not_applicable' = 'not_checked'
+  if (options.predecessor !== undefined && options.predecessor !== null) {
+    const predecessorResult = verifyReceiptPredecessorV1(receipt, options.predecessor)
+    predecessorBound = predecessorResult.status === 'not_applicable' ? 'not_applicable' : predecessorResult.bound
+    if (predecessorBound === false) {
+      errors.push('predecessor_not_bound')
+      // The primitive's own code, so a caller reading the errors learns which of the
+      // section 5.3.3 comparisons refused the pair rather than only that one did.
+      if (predecessorResult.failure !== null) errors.push(predecessorResult.failure)
+      return { ...bound, decision_output_bound: decisionOutputBound, predecessor_bound: false }
+    }
+  }
+
+  // Stage 7: temporal relation, on operands now known to belong together.
   const validUntil = decision.decision_output.valid_until
   if (validUntil === null) {
     // A deny decision carries no validity window by rule, so there is no instant that
@@ -208,6 +269,7 @@ export function verifyReceiptWithDecisionV1(
     return {
       ...bound,
       decision_output_bound: decisionOutputBound,
+      predecessor_bound: predecessorBound,
       temporal_relation_valid: isPolicyDecision ? true : 'not_applicable',
       valid: true,
       status: 'valid',
@@ -215,7 +277,7 @@ export function verifyReceiptWithDecisionV1(
   }
   if (!isExactUtcMilliseconds(receipt.issued_at) || !isExactUtcMilliseconds(validUntil)) {
     errors.push('timestamp_invalid')
-    return { ...bound, decision_output_bound: decisionOutputBound }
+    return { ...bound, decision_output_bound: decisionOutputBound, predecessor_bound: predecessorBound }
   }
   // The comparison is against the issued_at of the record that carries the window. For a
   // policy-decision record that is its own issued_at, which is what line 1091 fixes. For an
@@ -224,7 +286,7 @@ export function verifyReceiptWithDecisionV1(
   // invented: the check applies to the decision stage only.
   if (isPolicyDecision && !isLaterUtcMillisecond(validUntil, receipt.issued_at)) {
     errors.push('valid_until_not_after_issued_at')
-    return { ...bound, decision_output_bound: decisionOutputBound }
+    return { ...bound, decision_output_bound: decisionOutputBound, predecessor_bound: predecessorBound }
   }
 
   return {
@@ -236,6 +298,7 @@ export function verifyReceiptWithDecisionV1(
     decision_ref_bound: true,
     decision_output_bound: decisionOutputBound,
     temporal_relation_valid: isPolicyDecision ? true : 'not_applicable',
+    predecessor_bound: predecessorBound,
     errors,
   }
 }
