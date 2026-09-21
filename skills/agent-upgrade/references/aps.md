@@ -49,10 +49,10 @@ This skill tracks the protocol. It is version-bumped in `_meta.json` on the same
 ## Key facts
 
 - Policy evaluation under 2ms, 14 constraint dimensions per action
-- 5,281 tests
+- 5,491 tests in the 7.0.0 release
 - 152 MCP tools expose the full protocol surface; the `essential` profile is the default
 - 9 papers, all with Zenodo DOIs
-- SDK 6.0.1 on npm, MCP 6.0.1 on npm, Python 3.0.1 on PyPI, Rust 0.3.0 on crates.io, Go v0.7.0
+- SDK 7.0.0 on npm, MCP 6.0.1 on npm, Python 4.0.0 on PyPI, Rust 0.3.0 on crates.io, Go v0.7.0
 - Apache-2.0
 
 ## Links
