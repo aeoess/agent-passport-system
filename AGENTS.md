@@ -56,6 +56,9 @@ Before adding any new module, ask: "Is this a protocol primitive, or product int
 - Never publish to npm. Releases go through the tag-triggered workflow (`release.yml`) under Trusted Publishing; only the repository owner creates release tags.
 - Do not open issues on other repos on behalf of this project without explicit human approval per issue.
 - If you find yourself about to execute a bulk operation (mass issue filing, mass PR opens, mass file deletions), stop and surface the plan to a human first.
+- Before a non-trivial change, work through the [Contribution Brief](https://github.com/aeoess/.github/blob/main/CONTRIBUTION-BRIEF.md) and check that nobody already owns the change.
+- A report of a defect, including one from another agent, is a lead. Read the actual source before claiming a defect or a fix.
+- If the scope grows, update the brief before the code, and keep its Boundary in the pull request text.
 
 ## Verify artifacts
 Browser inspector at https://agent-passport.org/verify.html: drop a receipt or evidence bundle for a per-axis claim-state report. Verification runs locally in the page; nothing is uploaded. The CLI equivalent is the SDK verify-bundle command.
