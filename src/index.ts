@@ -2200,13 +2200,20 @@ export {
 export { issueAuthorityRevocation } from './v2/authority-revocation/issue.js'
 export { verifyAuthorityRevocation } from './v2/authority-revocation/verify.js'
 export { InMemoryAuthorityRevocationStore } from './v2/authority-revocation/store.js'
+// The one supported way a revocation enters a store. No exported surface takes an
+// arbitrary, unverified record and writes it: AuthorityRevocationStore's write member is
+// insertVerifiedRevocation, a persistence primitive this function calls only on a `valid`
+// verification against the target delegation.
+export { recordAuthorityRevocation } from './v2/authority-revocation/record.js'
 export { createAuthorityRevocationResolver } from './v2/authority-revocation/resolver.js'
+export type { AuthorityRevocationRecordResult } from './v2/authority-revocation/record.js'
 export type {
   AuthorityRevocationV1,
   AuthorityRevocationBodyV1,
   AuthorityRevocationFailure,
   AuthorityRevocationFailureCode,
   AuthorityRevocationVerificationResult,
+  AuthorityRevocationInsertion,
   AuthorityRevocationStore,
   AuthorityRevocationLookup,
 } from './v2/authority-revocation/types.js'

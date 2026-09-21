@@ -18,7 +18,8 @@
 
   New public surface: `AuthorityRevocationV1` and its body type,
   `issueAuthorityRevocation(delegation, input, privateKey)`,
-  `verifyAuthorityRevocation(candidate, delegation, options)`, the
+  `verifyAuthorityRevocation(candidate, delegation, options)`,
+  `recordAuthorityRevocation(store, delegation, candidate, options)`, the
   `AuthorityRevocationStore` boundary with `InMemoryAuthorityRevocationStore` as a reference
   implementation, `createAuthorityRevocationResolver(store, options)`, and the canonical
   helpers behind three domain tags: `APS-AUTHORITY-REVOCATION-ID-V1`,
@@ -54,10 +55,25 @@
   verification under the existing `REVOKED` outcome as soon as the resolver reports that
   ancestor revoked, with no per-descendant record involved.
 
-  First recorded revocation for a delegation wins and revocation is irreversible (INV-5),
-  so `AuthorityRevocationStore.put()` returns the record already held when one exists
-  rather than replacing it. Two requests with different nonces mint two different valid
-  records; the store keeps the first.
+  First VERIFIED revocation for a delegation wins and revocation is irreversible (INV-5).
+  `recordAuthorityRevocation(store, delegation, candidate, options)` is the one supported
+  way a revocation enters a store: it verifies the candidate against the delegation it
+  names and calls the store's write primitive only on a `valid` result. A valid record
+  arriving second is reported `recorded: true, inserted: false` with the record already
+  held, unchanged; two requests with different nonces mint two different valid records and
+  the store keeps the first. A candidate that does not verify is reported
+  `recorded: false` with its own verification result and no record at all, even when the
+  delegation already has one, so a refused request is never handed somebody else's record
+  as its own result.
+
+  The store's write member is `insertVerifiedRevocation(revocation)`, documented as a
+  persistence primitive that accepts only a record `recordAuthorityRevocation()` has
+  already verified, and returning `{ inserted, stored }`. It is not an entry point for
+  arbitrary records: a store cannot verify, because verification needs the target
+  delegation and a key resolver and a store holds neither. The check for an existing record
+  and the write are one indivisible operation, a single synchronous statement sequence in
+  the in-memory reference, so two callers racing on the same delegation cannot both observe
+  `inserted: true`.
 
 - `verifyReceiptPredecessorV1(receipt, predecessor)` binds an action-result record to the
   policy-decision record it follows. Section 5.3.3 lines 1104-1105 states that for an

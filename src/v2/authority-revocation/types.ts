@@ -85,13 +85,30 @@ export interface AuthorityRevocationVerificationResult {
   failures: AuthorityRevocationFailure[]
 }
 
+/** What a store's first-write primitive reports: whether this call was the write that
+ *  took the first-wins slot, and what the store holds for the target now.
+ *
+ *  `inserted` is the only way a caller learns which of the two happened. `stored` is the
+ *  record passed in when `inserted` is true and the record already held when it is false,
+ *  so a caller that must distinguish them reads `inserted` rather than comparing bytes. */
+export interface AuthorityRevocationInsertion {
+  inserted: boolean
+  stored: AuthorityRevocationV1
+}
+
 /** The read and write boundary a revocation resolver needs.
  *
  *  Nothing in this interface promises durability. An implementation backed by process
  *  memory, a file, or a replicated database all satisfy it; only the implementation says
  *  which. Section 3.5.1 makes the cascade-completion record depend on the last
  *  descendant's revocation being PERSISTENT, and no method here establishes persistence,
- *  which is one reason no completion record is issued in this module. */
+ *  which is one reason no completion record is issued in this module.
+ *
+ *  This interface carries no method that takes an arbitrary, unverified record.
+ *  `insertVerifiedRevocation` is a persistence primitive, not an entry point: the only
+ *  supported way to move a candidate revocation into a store is
+ *  recordAuthorityRevocation() in record.ts, which verifies first and calls the primitive
+ *  only on a `valid` result. See that function for why the split exists. */
 export interface AuthorityRevocationStore {
   /** Whether `delegationId` is inside this store's view at all.
    *
@@ -101,13 +118,25 @@ export interface AuthorityRevocationStore {
   tracks(delegationId: string): boolean
   /** The revocation recorded for `delegationId`, or undefined when none is recorded. */
   get(delegationId: string): AuthorityRevocationV1 | undefined
-  /** Record `revocation` and return what this store now holds for its target.
+  /** Persistence primitive. Writes `revocation` only when this store holds no record for
+   *  `revocation.delegation_id`, and reports what it holds for that target now.
    *
-   *  First valid revocation for a delegation wins. Revocation is irreversible (INV-5), so
-   *  a later call naming a delegation that already has a record does not replace it: it
-   *  returns the record already held. The returned record is therefore not always the one
-   *  passed in, and a caller that needs to know writes the comparison itself. */
-  put(revocation: AuthorityRevocationV1): AuthorityRevocationV1
+   *  ACCEPTS ONLY A RECORD ALREADY VERIFIED AGAINST ITS TARGET DELEGATION by
+   *  recordAuthorityRevocation(). It performs no verification, and none is possible here:
+   *  verification needs the target delegation and a key resolver, neither of which a store
+   *  has. An implementation is a write path, not a trust boundary, and a caller that
+   *  reaches past recordAuthorityRevocation() to this method is the one asserting the
+   *  record was verified.
+   *
+   *  First verified revocation for a delegation wins. Revocation is irreversible (INV-5),
+   *  so a later call naming a delegation that already has a record does not replace it:
+   *  `inserted` is false and `stored` is the record already held, unchanged. The check for
+   *  an existing record and the write MUST be one indivisible operation, so that two
+   *  callers racing on the same delegation cannot both observe `inserted: true`.
+   *
+   *  Brings its target into the tracked view: recording a revocation for a delegation is a
+   *  statement that this store has an opinion about that delegation. */
+  insertVerifiedRevocation(revocation: AuthorityRevocationV1): AuthorityRevocationInsertion
 }
 
 /** What a gateway eventually supplies to the chain verifier. Interface only; no gateway
