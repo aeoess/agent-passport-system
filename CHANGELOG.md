@@ -24,8 +24,8 @@
   implementation, `createAuthorityRevocationResolver(store, options)`, and the canonical
   helpers behind three domain tags: `APS-AUTHORITY-REVOCATION-ID-V1`,
   `APS-AUTHORITY-REVOCATION-SIGNATURE-V1` and
-  `APS-AUTHORITY-REVOCATION-CASCADE-TX-V1`, each followed by one zero byte before the JCS
-  bytes. The identifier covers the record with `revocation_id` and `signature` absent; the
+  `APS-AUTHORITY-REVOCATION-CASCADE-TRANSACTION-ID-V1`, each followed by one zero byte
+  before the JCS bytes. The identifier covers the record with `revocation_id` and `signature` absent; the
   signature covers the record with `signature` absent, so the identifier is signed rather
   than being a label beside the signature; the cascade transaction identity covers the body
   with `cascade_transaction_id` absent. All three are independently recomputable from the
@@ -37,6 +37,13 @@
   after the target's `delegation_id` has been recomputed from its own body. No field inside
   a revocation authorizes that revocation, and verification resolves the signing key under
   the target's `issuer` rather than under the `revoker` the record carries.
+
+  **No grammar is imposed on `reason_code` or on `verification_method` beyond being a
+  non-empty string.** Section 3.5.1 asks for a machine-readable reason code and fixes no
+  grammar for one, so none is invented. Nor does any local rule relate
+  `verification_method` to `revoker`: whether a method belongs to the issuer is decided
+  only by key resolution against the target delegation's `issuer` at `revoked_at`, which
+  verification already performs, and a string shape checked locally could not establish it.
 
   `createAuthorityRevocationResolver` feeds the resolver `verifyAuthorityDelegationChain`
   and `issueSubAuthorityDelegation` already accept. It answers `'revoked'` only for a
@@ -73,7 +80,10 @@
   delegation and a key resolver and a store holds neither. The check for an existing record
   and the write are one indivisible operation, a single synchronous statement sequence in
   the in-memory reference, so two callers racing on the same delegation cannot both observe
-  `inserted: true`.
+  `inserted: true`. For a **durable** implementation the contract is an atomic conditional
+  insert keyed by `delegation_id`; **read-then-write does not satisfy it under
+  concurrency**, since two callers can both read an empty slot before either writes and the
+  second write would then displace the first.
 
 - `verifyReceiptPredecessorV1(receipt, predecessor)` binds an action-result record to the
   policy-decision record it follows. Section 5.3.3 lines 1104-1105 states that for an

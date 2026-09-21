@@ -16,7 +16,6 @@ import type {
 const CONTENT_ADDRESS = /^sha256:[0-9a-f]{64}$/
 const HEX_32 = /^[0-9a-f]{32}$/
 const HEX_128 = /^[0-9a-f]{128}$/
-const REASON_CODE = /^[a-z][a-z0-9_.-]{0,63}$/
 
 /** Every member a valid record may carry. A member outside this list is SCHEMA_INVALID:
  *  the schema is closed, so an unknown field cannot ride inside a signed preimage
@@ -94,16 +93,20 @@ export function validateAuthorityRevocationShape(value: unknown): AuthorityRevoc
   if (typeof top.revoker !== 'string' || top.revoker.length === 0) {
     failures.push(failure('SCHEMA_INVALID', 'revoker must be a non-empty string'))
   }
+  // Nothing here judges whether the method belongs to the revoker. That is decided only by
+  // key resolution against the target delegation's `issuer` at `revoked_at`, which
+  // verifyAuthorityRevocation() performs; a local string shape cannot establish it, and a
+  // method identifier need not be a fragment of the identifier that controls it.
   if (typeof top.verification_method !== 'string' || top.verification_method.length === 0) {
     failures.push(failure('SCHEMA_INVALID', 'verification_method must be a non-empty string'))
-  } else if (typeof top.revoker === 'string' && !top.verification_method.startsWith(`${top.revoker}#`)) {
-    failures.push(failure('VERIFICATION_METHOD_MISMATCH', 'verification_method must begin with the revoker and "#"'))
   }
   if (!isCanonicalTimestamp(top.revoked_at)) {
     failures.push(failure('NONCANONICAL_VALUE', 'revoked_at must be a canonical UTC-millisecond timestamp'))
   }
-  if (typeof top.reason_code !== 'string' || !REASON_CODE.test(top.reason_code)) {
-    failures.push(failure('NONCANONICAL_VALUE', 'reason_code must match ^[a-z][a-z0-9_.-]{0,63}$'))
+  // The draft names a machine-readable reason code and fixes no grammar for one, so no
+  // grammar is invented here.
+  if (typeof top.reason_code !== 'string' || top.reason_code.length === 0) {
+    failures.push(failure('SCHEMA_INVALID', 'reason_code must be a non-empty string'))
   }
   if (Object.prototype.hasOwnProperty.call(top, 'detail') && typeof top.detail !== 'string') {
     failures.push(failure('SCHEMA_INVALID', 'detail, when present, must be a string'))

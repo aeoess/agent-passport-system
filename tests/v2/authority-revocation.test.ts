@@ -395,6 +395,87 @@ test('a tampered field breaks the identifier or the signature', () => {
   )
 })
 
+test('a verification_method that is not DID-fragment shaped issues and verifies', () => {
+  const delegation = root()
+  // Nothing in this module requires a method identifier to be a fragment of the identifier
+  // that controls it. This one shares no prefix with the revoker at all; whether it belongs
+  // to the issuer is settled by the resolver, which is handed target.issuer.
+  const OPAQUE_VM = 'urn:example:hsm/slot-3'
+  const revocation = issueAuthorityRevocation(
+    delegation,
+    {
+      now: REVOKED_AT,
+      revoker: ROOT_ISSUER,
+      verification_method: OPAQUE_VM,
+      reason_code: 'key_compromise',
+      nonce: NONCE,
+    },
+    ROOT_KEY,
+  )
+  assert.equal(revocation.verification_method, OPAQUE_VM)
+  assert.ok(!OPAQUE_VM.startsWith(`${ROOT_ISSUER}#`))
+
+  // The resolver answers for this method only under the target delegation's issuer, so a
+  // 'valid' here is key resolution making the decision, not a string shape.
+  let seenController: string | undefined
+  const result = verifyAuthorityRevocation(revocation, delegation, {
+    resolveVerificationKey: (controller, method) => {
+      seenController = controller
+      return controller === ROOT_ISSUER && method === OPAQUE_VM
+        ? publicKeyFromPrivate(ROOT_KEY)
+        : null
+    },
+  })
+  assert.equal(result.state, 'valid')
+  assert.equal(result.valid, true)
+  assert.equal(seenController, delegation.issuer)
+
+  // And the same record under a resolver that does not bind the method to this issuer is
+  // indeterminate, never valid.
+  assert.equal(
+    verifyAuthorityRevocation(revocation, delegation, { resolveVerificationKey: () => null }).state,
+    'indeterminate',
+  )
+})
+
+test('a reason_code outside the old lowercase grammar issues and verifies', () => {
+  const delegation = root()
+  // Uppercase and a space: rejected by the grammar this module used to impose, accepted
+  // now, because section 3.5.1 asks for a machine-readable reason code and fixes no
+  // grammar for one.
+  const REASON = 'Key Compromise'
+  const revocation = issueAuthorityRevocation(
+    delegation,
+    {
+      now: REVOKED_AT,
+      revoker: ROOT_ISSUER,
+      verification_method: ROOT_VM,
+      reason_code: REASON,
+      nonce: NONCE,
+    },
+    ROOT_KEY,
+  )
+  assert.equal(revocation.reason_code, REASON)
+  assert.equal(verifyAuthorityRevocation(revocation, delegation, verifyOptions).state, 'valid')
+
+  // An empty reason_code is still refused: the member carries a value or the record is not
+  // valid.
+  assert.throws(
+    () => issueAuthorityRevocation(
+      delegation,
+      {
+        now: REVOKED_AT,
+        revoker: ROOT_ISSUER,
+        verification_method: ROOT_VM,
+        reason_code: '',
+        nonce: NONCE,
+      },
+      ROOT_KEY,
+    ),
+    /reason_code/,
+  )
+})
+
 test('verification fails closed on an unusable resolver', () => {
   const delegation = root()
   const revocation = revokeByIssuer(delegation)

@@ -24,12 +24,16 @@ export interface AuthorityRevocationBodyV1 {
    *  revocation, the target delegation's issuer, so a valid record has
    *  `revoker === delegation.issuer` for the delegation it names. */
   revoker: string
-  /** Which of the revoker's keys signed. Must begin `${revoker}#`. */
+  /** Which key signed. A non-empty string, and nothing more is required of its shape: no
+   *  local rule relates it to `revoker`. Whether the method belongs to the issuer is
+   *  decided only by key resolution against the target delegation's `issuer` at
+   *  `revoked_at`, which verifyAuthorityRevocation() performs. */
   verification_method: string
   /** Canonical UTC-millisecond revocation time, supplied by the caller, never read from
    *  a clock inside issuance. */
   revoked_at: string
-  /** Machine-readable reason: `^[a-z][a-z0-9_.-]{0,63}$`. */
+  /** Machine-readable reason. A non-empty string; section 3.5.1 fixes no grammar for one
+   *  and none is invented here. */
   reason_code: string
   /** OPTIONAL free-text detail. Absent means the key is not present at all: JCS has no
    *  canonical form for undefined, so an absent detail is never serialized as null. */
@@ -64,8 +68,6 @@ export type AuthorityRevocationFailureCode =
   | 'TARGET_ID_MISMATCH'
   /** `revoker` is not the target delegation's `issuer`. */
   | 'REVOKER_NOT_ISSUER'
-  /** verification_method does not belong to the revoker. */
-  | 'VERIFICATION_METHOD_MISMATCH'
   | 'KEY_RESOLUTION_FAILED'
   | 'KEY_SCHEME_UNSUPPORTED'
   | 'KEY_NOT_FOUND'
@@ -133,6 +135,18 @@ export interface AuthorityRevocationStore {
    *  `inserted` is false and `stored` is the record already held, unchanged. The check for
    *  an existing record and the write MUST be one indivisible operation, so that two
    *  callers racing on the same delegation cannot both observe `inserted: true`.
+   *
+   *  For a DURABLE implementation that means the first write MUST be an atomic conditional
+   *  insert keyed by `delegation_id` — an insert the storage engine itself makes succeed
+   *  for exactly one of two concurrent callers, such as a unique-constrained primary key,
+   *  a compare-and-set, or an insert-if-absent. Reading the existing record and then
+   *  writing does NOT satisfy this contract: under concurrency two callers can both read
+   *  an empty slot before either writes, both report `inserted: true`, and the second
+   *  write displaces the first, which makes the recorded revocation time, reason and
+   *  revoker mutable after the fact and breaks first-wins and INV-5. The in-memory
+   *  reference meets the contract only because its read and write are one synchronous
+   *  statement sequence on a single-threaded runtime; that is a property of that runtime,
+   *  not a pattern a durable store may copy.
    *
    *  Brings its target into the tracked view: recording a revocation for a delegation is a
    *  statement that this store has an opinion about that delegation. */
