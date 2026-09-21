@@ -30,60 +30,44 @@ const gateway = generateKeyPair()
 
 // ── Mock APS objects ──
 
+// Each fixture is built once and signed over exactly those fields, the same split the
+// verifier makes with { signature, ...unsigned }. Building the signed payload and the
+// returned object from separate new Date() calls let a millisecond tick between them
+// make the two disagree, which failed signature verification intermittently.
 function createMockIntent(): ActionIntent {
-  const payload = canonicalize({
+  const unsigned = {
     intentId: 'intent-001', agentId: 'agent-001', agentPublicKey: agent.publicKey,
     delegationId: 'del-001',
     action: { type: 'commerce:purchase', target: 'widget-store', scopeRequired: 'commerce:purchase' },
     createdAt: new Date().toISOString()
-  })
-  return {
-    intentId: 'intent-001', agentId: 'agent-001', agentPublicKey: agent.publicKey,
-    delegationId: 'del-001',
-    action: { type: 'commerce:purchase', target: 'widget-store', scopeRequired: 'commerce:purchase' },
-    createdAt: new Date().toISOString(),
-    signature: sign(payload, agent.privateKey)
   }
+  return { ...unsigned, signature: sign(canonicalize(unsigned), agent.privateKey) }
 }
 
 function createMockDecision(): PolicyDecision {
-  const payload = canonicalize({
+  const now = Date.now()
+  const unsigned = {
     decisionId: 'dec-001', intentId: 'intent-001',
     evaluatorId: 'evaluator-001', evaluatorPublicKey: evaluator.publicKey,
-    verdict: 'permit',
-    principlesEvaluated: [{ principleId: 'F-001', principleName: 'Traceability', status: 'pass', detail: 'OK' }],
+    verdict: 'permit' as const,
+    principlesEvaluated: [{ principleId: 'F-001', principleName: 'Traceability', status: 'pass' as const, detail: 'OK' }],
     reason: 'All checks passed', floorVersion: 'floor-v0.2',
-    evaluatedAt: new Date().toISOString(),
-    expiresAt: new Date(Date.now() + 3600000).toISOString()
-  })
-  return {
-    decisionId: 'dec-001', intentId: 'intent-001',
-    evaluatorId: 'evaluator-001', evaluatorPublicKey: evaluator.publicKey,
-    verdict: 'permit',
-    principlesEvaluated: [{ principleId: 'F-001', principleName: 'Traceability', status: 'pass', detail: 'OK' }],
-    reason: 'All checks passed', floorVersion: 'floor-v0.2',
-    evaluatedAt: new Date().toISOString(),
-    expiresAt: new Date(Date.now() + 3600000).toISOString(),
-    signature: sign(payload, evaluator.privateKey)
+    evaluatedAt: new Date(now).toISOString(),
+    expiresAt: new Date(now + 3600000).toISOString()
   }
+  return { ...unsigned, signature: sign(canonicalize(unsigned), evaluator.privateKey) }
 }
 
 function createMockReceipt(): PolicyReceipt {
   const intent = createMockIntent()
   const decision = createMockDecision()
-  const payload = canonicalize({
+  const unsigned = {
     receiptId: 'receipt-001', intentId: intent.intentId, decisionId: decision.decisionId,
     verifierId: 'gateway-001', verifierPublicKey: gateway.publicKey,
     chain: { intentSignature: intent.signature, decisionSignature: decision.signature },
     createdAt: new Date().toISOString()
-  })
-  return {
-    receiptId: 'receipt-001', intentId: intent.intentId, decisionId: decision.decisionId,
-    verifierId: 'gateway-001', verifierPublicKey: gateway.publicKey,
-    chain: { intentSignature: intent.signature, decisionSignature: decision.signature },
-    createdAt: new Date().toISOString(),
-    signature: sign(payload, gateway.privateKey)
   }
+  return { ...unsigned, signature: sign(canonicalize(unsigned), gateway.privateKey) }
 }
 
 function createMockDelegation(): Delegation {
