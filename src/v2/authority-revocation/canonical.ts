@@ -13,7 +13,7 @@ import type { AuthorityRevocationBodyV1, AuthorityRevocationV1 } from './types.j
 export const AUTHORITY_REVOCATION_ID_DOMAIN = 'APS-AUTHORITY-REVOCATION-ID-V1\0'
 export const AUTHORITY_REVOCATION_SIGNATURE_DOMAIN = 'APS-AUTHORITY-REVOCATION-SIGNATURE-V1\0'
 export const AUTHORITY_REVOCATION_CASCADE_TRANSACTION_DOMAIN =
-  'APS-AUTHORITY-REVOCATION-CASCADE-TX-V1\0'
+  'APS-AUTHORITY-REVOCATION-CASCADE-TRANSACTION-ID-V1\0'
 
 function sha256Hex(value: string): string {
   return createHash('sha256').update(value, 'utf8').digest('hex')

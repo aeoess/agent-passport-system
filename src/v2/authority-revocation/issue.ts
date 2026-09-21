@@ -35,8 +35,11 @@ export interface AuthorityRevocationIssueInput {
   now: string
   /** The revoking authority. Checked against the target delegation's `issuer`. */
   revoker: string
-  /** Which of the revoker's keys signs. Must begin `${revoker}#`. */
+  /** Which key signs. A non-empty string; no local shape rule relates it to `revoker`.
+   *  Whether it belongs to the issuer is decided only by key resolution against
+   *  `target.issuer` at `revoked_at`, which verifyAuthorityRevocation() performs. */
   verification_method: string
+  /** Machine-readable reason. A non-empty string; the draft fixes no grammar. */
   reason_code: string
   /** OPTIONAL. Omitted from the record entirely when not supplied; never written as null. */
   detail?: string
@@ -59,10 +62,12 @@ export interface AuthorityRevocationIssueInput {
  * and refusing there is what keeps the revoker check meaningful.
  *
  * What this function does NOT establish: that the holder of `privateKey` is in fact
- * `input.revoker`. An identifier-to-key binding is a resolver's answer, not a local one.
- * verifyAuthorityRevocation() makes that check, resolving the key under the TARGET
- * delegation's `issuer`. Issuance can only refuse to mint a record that is already
- * unverifiable; it cannot promise the record will verify.
+ * `input.revoker`, or that `input.verification_method` is one of that party's keys. An
+ * identifier-to-key binding is a resolver's answer, not a local one, and no string shape
+ * imposed on `verification_method` here could stand in for it. verifyAuthorityRevocation()
+ * makes that check, resolving the method under the TARGET delegation's `issuer` at
+ * `revoked_at`. Issuance can only refuse to mint a record that is already unverifiable; it
+ * cannot promise the record will verify.
  *
  * Nothing about a cascade over descendants is emitted here. This function produces one
  * record about one delegation. Enforcement against descendants comes from chain
@@ -108,16 +113,12 @@ export function issueAuthorityRevocation(
   if (typeof revoker !== 'string' || revoker !== target.issuer) {
     throw new Error('authority revocation revoker is not the target delegation issuer (REVOKER_NOT_ISSUER)')
   }
-  if (typeof verificationMethod !== 'string' || !verificationMethod.startsWith(`${revoker}#`)) {
-    throw new Error('authority revocation verification_method must begin with the revoker and "#" (VERIFICATION_METHOD_MISMATCH)')
-  }
-
   const origin: AuthorityRevocationCascadeOriginV1 = {
     record_type: AUTHORITY_REVOCATION_RECORD_TYPE,
     version: AUTHORITY_REVOCATION_VERSION,
     delegation_id: target.delegation_id,
     revoker,
-    verification_method: verificationMethod,
+    verification_method: verificationMethod as string,
     revoked_at: now,
     reason_code: reasonCode as string,
     ...(hasDetail ? { detail: detail as string } : {}),
