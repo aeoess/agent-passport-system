@@ -41,6 +41,7 @@ import {
   computeAuthorityRevocationId,
   createAuthorityRevocationResolver,
   issueAuthorityRevocation,
+  recordAuthorityRevocation,
   signAuthorityRevocation,
   verifyAuthorityRevocation,
 } from '../../src/v2/authority-revocation/index.js'
@@ -150,7 +151,40 @@ function revokeByIssuer(
   )
 }
 
+/** A self-consistent revocation naming a non-issuer as its revoker, signed by that
+ *  non-issuer. issueAuthorityRevocation() refuses to mint one, so it is assembled from the
+ *  module's own published helpers; every digest and the signature still come from the
+ *  module under test. verifyAuthorityRevocation() rejects it with REVOKER_NOT_ISSUER. */
+function revokeByNonIssuer(delegation: AuthorityDelegationV1): AuthorityRevocationV1 {
+  const origin = {
+    record_type: AUTHORITY_REVOCATION_RECORD_TYPE,
+    version: AUTHORITY_REVOCATION_VERSION,
+    delegation_id: delegation.delegation_id,
+    revoker: IMPOSTOR,
+    verification_method: IMPOSTOR_VM,
+    revoked_at: REVOKED_AT,
+    reason_code: 'key_compromise',
+    nonce: NONCE,
+  } as const
+  const body = {
+    ...origin,
+    cascade_transaction_id: computeAuthorityRevocationCascadeTransactionId(origin),
+  }
+  const unsigned = { ...body, revocation_id: computeAuthorityRevocationId(body) }
+  return { ...unsigned, signature: signAuthorityRevocation(unsigned, IMPOSTOR_KEY) }
+}
+
 const verifyOptions = { resolveVerificationKey }
+
+/** Move `candidate` into `store` through the verifying mutation path, the only supported
+ *  way a revocation enters a store. */
+function record(
+  store: InMemoryAuthorityRevocationStore,
+  delegation: AuthorityDelegationV1,
+  candidate: unknown,
+) {
+  return recordAuthorityRevocation(store, delegation, candidate, verifyOptions)
+}
 
 test('issues and verifies a direct revocation of the delegation its issuer signed', () => {
   const delegation = root()
@@ -292,9 +326,15 @@ test('a self-consistent record signed by a non-issuer is rejected by the verifie
   assert.equal(result.state, 'invalid')
   assert.equal(result.failures[0].code, 'REVOKER_NOT_ISSUER')
 
-  // And it can never become a 'revoked' answer, even sitting inside a store.
+  // The mutation path refuses to record it at all, so it never reaches the store.
   const store = new InMemoryAuthorityRevocationStore()
-  store.put(forged)
+  const refused = record(store, delegation, forged)
+  assert.equal(refused.recorded, false)
+  assert.equal(store.get(delegation.delegation_id), undefined)
+
+  // And forced past that gate, straight onto the persistence primitive, it still can never
+  // become a 'revoked' answer: the resolver verifies again on the way out.
+  store.insertVerifiedRevocation(forged)
   assert.equal(createAuthorityRevocationResolver(store, verifyOptions)(delegation), 'unknown')
 })
 
@@ -389,10 +429,16 @@ test('store keeps the first revocation and returns it for a repeated request', (
   })
   assert.notEqual(second.revocation_id, first.revocation_id)
 
-  assert.equal(store.put(first).revocation_id, first.revocation_id)
-  const returned = store.put(second)
-  assert.equal(returned.revocation_id, first.revocation_id)
-  assert.equal(returned.revoked_at, REVOKED_AT)
+  const accepted = record(store, delegation, first)
+  assert.equal(accepted.inserted, true)
+  assert.ok(accepted.stored)
+  assert.equal(accepted.stored.revocation_id, first.revocation_id)
+
+  const returned = record(store, delegation, second)
+  assert.equal(returned.inserted, false)
+  assert.ok(returned.stored)
+  assert.equal(returned.stored.revocation_id, first.revocation_id)
+  assert.equal(returned.stored.revoked_at, REVOKED_AT)
   assert.equal(store.get(delegation.delegation_id)?.revocation_id, first.revocation_id)
   assert.equal(store.tracks(delegation.delegation_id), true)
 })
@@ -405,7 +451,7 @@ test('resolver: revoked, tracked active, untracked unknown', () => {
   assert.equal(resolve(delegation), 'unknown')
   store.track(delegation.delegation_id)
   assert.equal(resolve(delegation), 'active')
-  store.put(revokeByIssuer(delegation))
+  record(store, delegation, revokeByIssuer(delegation))
   assert.equal(resolve(delegation), 'revoked')
 })
 
@@ -414,7 +460,12 @@ test('a stored record that does not verify resolves unknown, never revoked or ac
   const store = new InMemoryAuthorityRevocationStore()
   store.track(delegation.delegation_id)
   const revocation = revokeByIssuer(delegation)
-  store.put({ ...revocation, signature: '0'.repeat(128) })
+  const broken = { ...revocation, signature: '0'.repeat(128) }
+
+  // The mutation path refuses it, so reaching this state at all means going around it,
+  // straight onto the persistence primitive.
+  assert.equal(record(store, delegation, broken).recorded, false)
+  store.insertVerifiedRevocation(broken)
 
   const resolve = createAuthorityRevocationResolver(store, verifyOptions)
   assert.equal(resolve(delegation), 'unknown')
@@ -437,7 +488,7 @@ test('a revoked root makes a valid child chain fail with the existing REVOKED ou
   const before = verifyAuthorityDelegationChain([parent, descendant], options())
   assert.equal(before.state, 'valid')
 
-  store.put(revokeByIssuer(parent))
+  record(store, parent, revokeByIssuer(parent))
 
   const after = verifyAuthorityDelegationChain([parent, descendant], options())
   assert.equal(after.state, 'invalid')
@@ -453,7 +504,7 @@ test('a revoked parent cannot mint a further child', () => {
   const parent = root()
   const store = new InMemoryAuthorityRevocationStore()
   store.track(parent.delegation_id)
-  store.put(revokeByIssuer(parent))
+  record(store, parent, revokeByIssuer(parent))
 
   assert.throws(
     () => issueSubAuthorityDelegation(parent, childBody(parent), CHILD_KEY, {
@@ -481,4 +532,89 @@ test('an untracked root yields indeterminate, never valid', () => {
   assert.equal(outcome.valid, false)
   assert.equal(outcome.failures[0].code, 'REVOCATION_UNKNOWN')
   assert.equal(outcome.failures[0].index, 0)
+})
+
+test('an invalid record cannot take the first-wins slot from the valid one behind it', () => {
+  const delegation = root()
+  const store = new InMemoryAuthorityRevocationStore()
+  store.track(delegation.delegation_id)
+  const resolve = createAuthorityRevocationResolver(store, verifyOptions)
+
+  // An arbitrary object naming the delegation: refused, and the store is not touched.
+  const garbage = record(store, delegation, { delegation_id: delegation.delegation_id })
+  assert.equal(garbage.recorded, false)
+  assert.equal(garbage.inserted, false)
+  assert.equal(garbage.stored, undefined)
+  assert.equal(garbage.verification.valid, false)
+  assert.equal(store.get(delegation.delegation_id), undefined)
+
+  // A self-consistent record signed by a party who is not the issuer: refused on its own
+  // authorization failure, not on a schema complaint.
+  const unauthorized = record(store, delegation, revokeByNonIssuer(delegation))
+  assert.equal(unauthorized.recorded, false)
+  assert.equal(unauthorized.stored, undefined)
+  assert.equal(unauthorized.verification.failures[0].code, 'REVOKER_NOT_ISSUER')
+  assert.equal(store.get(delegation.delegation_id), undefined)
+
+  // The slot is therefore still open. Under the defect this closes, either refused record
+  // held it, the write below was discarded, and this delegation could never be revoked.
+  assert.equal(resolve(delegation), 'active')
+  const valid = revokeByIssuer(delegation)
+  const accepted = record(store, delegation, valid)
+  assert.equal(accepted.recorded, true)
+  assert.equal(accepted.inserted, true)
+  assert.ok(accepted.stored)
+  assert.equal(accepted.stored.revocation_id, valid.revocation_id)
+  assert.equal(resolve(delegation), 'revoked')
+})
+
+test('a second valid revocation returns the stored first record, byte identical', () => {
+  const delegation = root()
+  const store = new InMemoryAuthorityRevocationStore()
+  const first = revokeByIssuer(delegation)
+  const second = revokeByIssuer(delegation, {
+    revoked_at: '2026-07-18T22:45:00.000Z',
+    nonce: 'e0e1e2e3e4e5e6e7e8e9eaebecedeeef',
+  })
+  assert.notEqual(second.revocation_id, first.revocation_id)
+  // Both are genuinely valid, so what separates them is arrival order and nothing else.
+  assert.equal(verifyAuthorityRevocation(first, delegation, verifyOptions).state, 'valid')
+  assert.equal(verifyAuthorityRevocation(second, delegation, verifyOptions).state, 'valid')
+
+  assert.equal(record(store, delegation, first).inserted, true)
+
+  const later = record(store, delegation, second)
+  assert.equal(later.recorded, true)
+  assert.equal(later.inserted, false)
+  assert.equal(later.verification.state, 'valid')
+  assert.ok(later.stored)
+  assert.equal(canonicalizeJCS(later.stored), canonicalizeJCS(first))
+  assert.equal(canonicalizeJCS(store.get(delegation.delegation_id)), canonicalizeJCS(first))
+  assert.equal(later.stored.revoked_at, REVOKED_AT)
+})
+
+test('a refused request is never handed the record already stored', () => {
+  const delegation = root()
+  const store = new InMemoryAuthorityRevocationStore()
+  const first = revokeByIssuer(delegation)
+  assert.equal(record(store, delegation, first).inserted, true)
+
+  // Unauthorized, arriving after a valid record exists.
+  const unauthorized = record(store, delegation, revokeByNonIssuer(delegation))
+  assert.equal(unauthorized.recorded, false)
+  assert.equal(unauthorized.inserted, false)
+  // Not the stored record, and not the candidate either.
+  assert.equal(unauthorized.stored, undefined)
+  assert.equal(unauthorized.verification.state, 'invalid')
+  assert.equal(unauthorized.verification.failures[0].code, 'REVOKER_NOT_ISSUER')
+
+  // Structurally invalid, same answer.
+  const broken = record(store, delegation, { ...first, signature: '0'.repeat(128) })
+  assert.equal(broken.recorded, false)
+  assert.equal(broken.stored, undefined)
+  assert.equal(broken.verification.failures[0].code, 'SIGNATURE_INVALID')
+
+  // Neither refusal disturbed what the store holds.
+  assert.equal(canonicalizeJCS(store.get(delegation.delegation_id)), canonicalizeJCS(first))
+  assert.equal(createAuthorityRevocationResolver(store, verifyOptions)(delegation), 'revoked')
 })
