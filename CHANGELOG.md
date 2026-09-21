@@ -4,6 +4,61 @@
 
 ### Added
 
+- **draft03-repair.** Draft-native direct revocation for `AuthorityDelegationV1`, under
+  `src/v2/authority-revocation/`. Draft-03 section 3.5 states that any delegation may be
+  revoked by its issuer, and section 3.5.1 requires a revocation to produce a signed record
+  carrying the revoked delegation's identity, the revocation time inside the signed content,
+  a reference to the revoking authority, and a machine-readable reason code with optional
+  free-text detail, with a transaction identity shared by every record one cascade produces.
+  The SDK had no such record: the only revocation record it carried was the pre-draft
+  `RevocationRecord`, which has no record type, no domain-separated preimage, no nonce, no
+  cascade transaction identity, a raw public key where the draft names an authority, and
+  free text where the draft requires a reason code. That record is untouched and is not
+  reused here; the two models stay distinguishable.
+
+  New public surface: `AuthorityRevocationV1` and its body type,
+  `issueAuthorityRevocation(delegation, input, privateKey)`,
+  `verifyAuthorityRevocation(candidate, delegation, options)`, the
+  `AuthorityRevocationStore` boundary with `InMemoryAuthorityRevocationStore` as a reference
+  implementation, `createAuthorityRevocationResolver(store, options)`, and the canonical
+  helpers behind three domain tags: `APS-AUTHORITY-REVOCATION-ID-V1`,
+  `APS-AUTHORITY-REVOCATION-SIGNATURE-V1` and
+  `APS-AUTHORITY-REVOCATION-CASCADE-TX-V1`, each followed by one zero byte before the JCS
+  bytes. The identifier covers the record with `revocation_id` and `signature` absent; the
+  signature covers the record with `signature` absent, so the identifier is signed rather
+  than being a label beside the signature; the cascade transaction identity covers the body
+  with `cascade_transaction_id` absent. All three are independently recomputable from the
+  record, and verification recomputes each rather than accepting what the issuer wrote.
+
+  Issuance takes the revocation time from a caller-supplied `now`, never from a clock, so
+  the same inputs produce the same bytes. Authorization applies the section 3.5 rule and
+  nothing else: `input.revoker` is compared to the TARGET delegation's own `issuer` member,
+  after the target's `delegation_id` has been recomputed from its own body. No field inside
+  a revocation authorizes that revocation, and verification resolves the signing key under
+  the target's `issuer` rather than under the `revoker` the record carries.
+
+  `createAuthorityRevocationResolver` feeds the resolver `verifyAuthorityDelegationChain`
+  and `issueSubAuthorityDelegation` already accept. It answers `'revoked'` only for a
+  record that verifies against the delegation, and `'active'` only for a delegation the
+  store says it tracks and holds no revocation for. **Absence from a store is never
+  `'active'`**: an untracked delegation resolves `'unknown'`, which the chain verifier
+  already reports as indeterminate under `REVOCATION_UNKNOWN`. A stored record that does
+  not verify also resolves `'unknown'`, never `'active'`.
+
+  Scope is direct revocation of one delegation. **No cascade-derived record and no
+  cascade-completion record is issued or verified, and nothing in this surface says a
+  cascade is complete.** Section 3.5.1 emits a completion record only after the last
+  descendant's revocation is persistent, which needs an authoritative enumeration of
+  descendants and a durability guarantee this SDK does not have. Enforcement against
+  descendants does not wait on either: a chain containing a revoked ancestor fails chain
+  verification under the existing `REVOKED` outcome as soon as the resolver reports that
+  ancestor revoked, with no per-descendant record involved.
+
+  First recorded revocation for a delegation wins and revocation is irreversible (INV-5),
+  so `AuthorityRevocationStore.put()` returns the record already held when one exists
+  rather than replacing it. Two requests with different nonces mint two different valid
+  records; the store keeps the first.
+
 - `verifyReceiptPredecessorV1(receipt, predecessor)` binds an action-result record to the
   policy-decision record it follows. Section 5.3.3 lines 1104-1105 states that for an
   action-result record prev is the consumed policy-decision receipt_id and that decision_ref
