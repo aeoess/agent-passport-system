@@ -2167,3 +2167,49 @@ export type {
   AuthorityChainVerificationOptions,
   RevocationResolution,
 } from './v2/authority-delegation/types.js'
+
+// ── Authority revocation (v2): draft-03 section 3.5.1 direct revocation evidence ──
+// One signed record revoking one AuthorityDelegationV1, its store boundary, and the
+// resolver that feeds verifyAuthorityDelegationChain from it. Direct revocation only:
+// no cascade-derived record and no cascade-completion record is issued or verified here,
+// and nothing in this surface says a cascade is complete.
+export {
+  AUTHORITY_REVOCATION_RECORD_TYPE,
+  AUTHORITY_REVOCATION_VERSION,
+} from './v2/authority-revocation/types.js'
+export {
+  AUTHORITY_REVOCATION_ID_DOMAIN,
+  AUTHORITY_REVOCATION_SIGNATURE_DOMAIN,
+  AUTHORITY_REVOCATION_CASCADE_TRANSACTION_DOMAIN,
+  authorityRevocationIdInput,
+  authorityRevocationSignatureInput,
+  authorityRevocationCascadeTransactionInput,
+  authorityRevocationBody,
+  authorityRevocationCascadeOrigin,
+  computeAuthorityRevocationId,
+  computeAuthorityRevocationIdForWrite,
+  computeAuthorityRevocationCascadeTransactionId,
+  computeAuthorityRevocationCascadeTransactionIdForWrite,
+  signAuthorityRevocation,
+  verifyAuthorityRevocationSignature,
+} from './v2/authority-revocation/canonical.js'
+export {
+  isAuthorityRevocationV1,
+  validateAuthorityRevocationShape,
+} from './v2/authority-revocation/schema.js'
+export { issueAuthorityRevocation } from './v2/authority-revocation/issue.js'
+export { verifyAuthorityRevocation } from './v2/authority-revocation/verify.js'
+export { InMemoryAuthorityRevocationStore } from './v2/authority-revocation/store.js'
+export { createAuthorityRevocationResolver } from './v2/authority-revocation/resolver.js'
+export type {
+  AuthorityRevocationV1,
+  AuthorityRevocationBodyV1,
+  AuthorityRevocationFailure,
+  AuthorityRevocationFailureCode,
+  AuthorityRevocationVerificationResult,
+  AuthorityRevocationStore,
+  AuthorityRevocationLookup,
+} from './v2/authority-revocation/types.js'
+export type { AuthorityRevocationCascadeOriginV1 } from './v2/authority-revocation/canonical.js'
+export type { AuthorityRevocationIssueInput } from './v2/authority-revocation/issue.js'
+export type { AuthorityRevocationVerificationOptions } from './v2/authority-revocation/verify.js'
