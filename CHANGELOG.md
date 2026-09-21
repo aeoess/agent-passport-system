@@ -21,12 +21,22 @@
   signatures and resolves no keys; callers verify the predecessor separately.
 
 - `verifyReceiptWithDecisionV1` accepts an OPTIONAL `predecessor` in its options and reports
-  a new result field `predecessor_bound`: `'not_checked'` when no predecessor was supplied,
-  `'not_applicable'` for a record that is not an action-result, otherwise `true` or `false`.
-  A `false` makes the composite invalid under the error code `predecessor_not_bound`. With
-  the option absent, which is the default, every other field of the result is unchanged from
-  the previous release, including `valid`, `status` and `errors`. Supplying `null` is the
-  same as supplying nothing.
+  a new result field `predecessor_bound`: `'not_checked'` when the options carry no
+  `predecessor` property, `'not_applicable'` for a record that is not an action-result,
+  `'not_established'` when the property is present but holds `undefined` or `null`,
+  otherwise `true` or `false`. A `false` makes the composite invalid under the error code
+  `predecessor_not_bound`. With the property absent, which is the default, every other field
+  of the result is unchanged from the previous release, including `valid`, `status` and
+  `errors`.
+
+  **The opt-in is the presence of the property, not the value it holds.** A caller writing
+  `{ predecessor: store.get(receipt.prev) }` has asked for the binding, and a lookup miss
+  puts `undefined` in that property. Such a call reports `predecessor_bound:
+  'not_established'` with `status: 'indeterminate'`, `valid: false` and the primitive's
+  `predecessor_not_supplied` code in `errors`, rather than the `valid` it would return for
+  an option nobody passed. An `invalid` found elsewhere still dominates. This axis remains
+  **opt-in hardening, not a draft-03 conformance fix**: draft-03 states the prev linkage
+  without a BCP 14 keyword and does not require a verifier to make the comparison.
 
 ## 7.0.0 (2026-09-20)
 

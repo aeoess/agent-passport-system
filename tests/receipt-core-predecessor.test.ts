@@ -371,8 +371,57 @@ test('composite: a wrong predecessor makes the composite invalid, the right one 
   const notApplicable = verifyReceiptWithDecisionV1(policyDecision, decision, resolveKey, { ...options, predecessor: intent })
   assert.equal(notApplicable.valid, true)
   assert.equal(notApplicable.predecessor_bound, 'not_applicable')
+})
 
-  // An explicitly null predecessor is the same as supplying none.
-  const explicitNull = verifyReceiptWithDecisionV1(actionResult, decision, resolveKey, { ...options, predecessor: null })
-  assert.deepEqual(explicitNull, unchecked)
+test('composite: the opt-in is the property, not the value it holds', () => {
+  // THE CASE THIS DISTINCTION EXISTS FOR. `{ predecessor: store.get(receipt.prev) }` is how
+  // a caller asks for the binding, and a lookup miss puts undefined in that property. Read
+  // by value, the request evaporates and the composite answers valid for a check nobody
+  // ran. Read by presence, the caller learns the axis was not established.
+  const { decision, policyDecision, actionResult } = mintChain()
+  const options = { boundaryIdentity: BOUNDARY }
+
+  // No property at all: the default, and the axis is untouched.
+  const omitted = verifyReceiptWithDecisionV1(actionResult, decision, resolveKey, options)
+  assert.equal(omitted.status, 'valid')
+  assert.equal(omitted.predecessor_bound, 'not_checked')
+  assert.equal(omitted.valid, true)
+  assert.equal(omitted.errors.length, 0)
+
+  // The property present holding undefined. Each state pinned on its own, so a regression
+  // that moves one of them cannot hide behind the other.
+  const undef = verifyReceiptWithDecisionV1(actionResult, decision, resolveKey, { ...options, predecessor: undefined })
+  assert.equal(undef.status, 'indeterminate')
+  assert.equal(undef.predecessor_bound, 'not_established')
+  assert.equal(undef.valid, false)
+  assert.ok(undef.errors.includes('predecessor_not_supplied'),
+    'the primitive\'s own code, so the errors say the record was never in hand')
+
+  // The property present holding null, which is what a store returning null produces.
+  const nul = verifyReceiptWithDecisionV1(actionResult, decision, resolveKey, { ...options, predecessor: null })
+  assert.equal(nul.status, 'indeterminate')
+  assert.equal(nul.predecessor_bound, 'not_established')
+  assert.equal(nul.valid, false)
+  assert.ok(nul.errors.includes('predecessor_not_supplied'))
+
+  // not_established is not a refusal: the code for a comparison that refused the pair is
+  // absent, and every axis established before this one still reports what it found.
+  assert.ok(!undef.errors.includes('predecessor_not_bound'))
+  assert.equal(undef.decision_ref_present, true)
+  assert.equal(undef.decision_ref_bound, true)
+
+  // A spread that carries the property through is the same as writing it, which is how this
+  // reaches a caller who never typed `predecessor` at the call site.
+  const carried: { boundaryIdentity: string; predecessor?: ReceiptV1 } = { ...options, predecessor: undefined }
+  assert.equal(verifyReceiptWithDecisionV1(actionResult, decision, resolveKey, carried).predecessor_bound,
+    'not_established')
+
+  // A record that is not an action-result reports not_applicable whatever the property
+  // holds: no rule this axis knows applies to it, so nothing was asked that could fail.
+  for (const value of [undefined, null] as const) {
+    const result = verifyReceiptWithDecisionV1(policyDecision, decision, resolveKey, { ...options, predecessor: value })
+    assert.equal(result.predecessor_bound, 'not_applicable', `policy-decision with ${String(value)}`)
+    assert.equal(result.status, 'valid')
+    assert.equal(result.valid, true)
+  }
 })
