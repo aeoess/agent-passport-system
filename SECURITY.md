@@ -99,6 +99,17 @@ normal npm provenance property. Version-specific registry metadata is
 available from:
 https://www.npmjs.com/package/agent-passport-system?activeTab=versions
 
+The immutable `agent-passport-system@7.0.0` version is a second dated
+exception. It was published on 2026-09-20 with the registry shasum
+`e233ac32c7d62b874a31f15dcfdae108d978bf84` and registry signatures, outside the
+Trusted Publishing workflow, so it carries no npm provenance. npm records its
+gitHead as `bbbd596eb7f529ec89e0e66d7e69591b09b7c45b`. The exception concerns
+release provenance, not the published code, and npm provenance cannot be added
+to a version already on the registry. No `v7.0.0` tag or GitHub Release exists,
+because a `v*` tag starts the publication workflow, which refuses an existing
+registry version that lacks the expected provenance. The next release through
+that workflow is intended to restore the normal npm provenance property.
+
 ## Secrets policy
 
 The project holds no long-lived secrets. npm publishing uses OIDC Trusted
