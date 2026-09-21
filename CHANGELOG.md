@@ -1,5 +1,33 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- `verifyReceiptPredecessorV1(receipt, predecessor)` binds an action-result record to the
+  policy-decision record it follows. Section 5.3.3 lines 1104-1105 states that for an
+  action-result record prev is the consumed policy-decision receipt_id and that decision_ref
+  MUST equal that decision's decision_ref; section 5.6 line 1219 lists prev validation among
+  a verifier's checks. The prev linkage carries no BCP 14 keyword, so **this check is opt-in
+  hardening, not a draft-03 conformance fix, and draft-03 does not require a verifier to
+  perform it.** The predecessor's receipt_id is recomputed from its body rather than read
+  from its claimed `receipt_id` field, which sits outside its own preimage and is therefore
+  an unauthenticated label. Returns `valid`, `invalid`, `indeterminate` when no predecessor
+  was supplied, or `not_applicable` for a record that is not an action-result, each with a
+  single failure code.
+
+  Scope is action-result records only. The policy-decision to action-intent link of section
+  5.3.2 line 1072 is out of scope. The primitive does **not** verify the predecessor's
+  signatures and resolves no keys; callers verify the predecessor separately.
+
+- `verifyReceiptWithDecisionV1` accepts an OPTIONAL `predecessor` in its options and reports
+  a new result field `predecessor_bound`: `'not_checked'` when no predecessor was supplied,
+  `'not_applicable'` for a record that is not an action-result, otherwise `true` or `false`.
+  A `false` makes the composite invalid under the error code `predecessor_not_bound`. With
+  the option absent, which is the default, every other field of the result is unchanged from
+  the previous release, including `valid`, `status` and `errors`. Supplying `null` is the
+  same as supplying nothing.
+
 ## 7.0.0 (2026-09-20)
 
 Reconciles three surfaces against draft-pidlisnyi-aps-03: action references,

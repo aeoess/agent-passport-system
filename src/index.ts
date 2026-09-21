@@ -2128,7 +2128,19 @@ export { verifyReceiptWithDecisionV1 } from './v2/receipt-core/composite.js'
 export type {
   DecisionEvidenceV1,
   ReceiptWithDecisionVerificationV1,
+  ReceiptWithDecisionOptionsV1,
 } from './v2/receipt-core/composite.js'
+// Section 5.3.3 predecessor binding for an action-result record: prev must name the
+// policy-decision record it follows, recomputed from that record's body rather than read
+// off its claimed receipt_id. OPT-IN HARDENING, not a draft-03 conformance check — the
+// draft states the prev linkage without a BCP 14 keyword. It does not verify the
+// predecessor's signatures; callers verify the predecessor separately.
+export { verifyReceiptPredecessorV1 } from './v2/receipt-core/predecessor.js'
+export type {
+  ReceiptPredecessorVerificationV1,
+  ReceiptPredecessorStatusV1,
+  ReceiptPredecessorFailureV1,
+} from './v2/receipt-core/predecessor.js'
 
 // ── Authority delegation (v2): signed delegation records ──
 export {
