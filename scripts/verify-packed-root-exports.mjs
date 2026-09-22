@@ -173,7 +173,9 @@ ok('InMemoryAuthorityBudgetLedger', reservation.ok === true && reservation.code 
 ok('isAuthorityDelegationV1', isAuthorityDelegationV1(root) === true)
 ok('validateAuthorityDelegationShape', validateAuthorityDelegationShape(root).length === 0)
 
-assert.equal(printed, 12, 'expected all 12 exercised symbols to report OK')
+// 12 = the 11 symbols this change exports from the root, plus verifyAuthorityDelegationChain,
+// which was already exported and is exercised here to verify the issued chain.
+assert.equal(printed, 12, 'expected 11 newly exported symbols and verifyAuthorityDelegationChain to report OK')
 console.log('all confirmed root exports are the working runtime implementation')
 `
 
