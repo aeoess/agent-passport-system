@@ -2156,7 +2156,10 @@ export { parseAuthorityDelegationJson } from './v2/authority-delegation/parse.js
 // Full root-to-leaf chain validation (structural, cryptographic, temporal, revocation,
 // attenuation). Verification only: a valid result is admissibility of
 // the chain at `options.now`, never authorization to dispatch.
-export { verifyAuthorityDelegationChain } from './v2/authority-delegation/verify.js'
+export {
+  verifyAuthorityDelegationChain,
+  verifyAuthorityDelegation,
+} from './v2/authority-delegation/verify.js'
 export type {
   AuthorityDelegationV1,
   AuthorityDelegationBodyV1,
@@ -2167,6 +2170,29 @@ export type {
   AuthorityChainVerificationOptions,
   RevocationResolution,
 } from './v2/authority-delegation/types.js'
+// Conforming issuers: mint a section 3.1 root (null parent_delegation_id) or a section
+// 3.6 child (parent signature, temporal validity and revocation checked before signing).
+export { issueAuthorityDelegation, issueSubAuthorityDelegation } from './v2/authority-delegation/issue.js'
+export type { SubAuthorityIssueOptions } from './v2/authority-delegation/issue.js'
+// Section 3.6 seven-facet attenuation check between a parent and a child authority
+// vector; verifyAuthorityDelegationChain and issueSubAuthorityDelegation call this.
+export { compareAuthority } from './v2/authority-delegation/compare.js'
+// Section 3.2 scope grant matching and narrowing: the draft-path rule, under which only
+// `*` and a terminal `p:*` are wildcards.
+export {
+  isValidScopeGrant,
+  scopeGrantCovers,
+  grantsAreCanonical,
+  scopeNarrows,
+} from './v2/authority-delegation/scope.js'
+// Reference in-process ledger for section 3.6 (lines 602-607) bounded-spend reservation,
+// dispatch and commit. Distributed deployments replace it with a store providing the
+// same all-ancestors atomicity and idempotency.
+export { InMemoryAuthorityBudgetLedger } from './v2/authority-delegation/budget.js'
+export type { BudgetReservationState, BudgetOperationResult } from './v2/authority-delegation/types.js'
+// Structural validation behind issueAuthorityDelegation, issueSubAuthorityDelegation,
+// verifyAuthorityDelegationChain and InMemoryAuthorityBudgetLedger.reserve.
+export { isAuthorityDelegationV1, validateAuthorityDelegationShape } from './v2/authority-delegation/schema.js'
 
 // ── Authority revocation (v2): draft-03 section 3.5.1 direct revocation evidence ──
 // One signed record revoking one AuthorityDelegationV1, its store boundary, and the

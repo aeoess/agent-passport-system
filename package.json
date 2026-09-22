@@ -37,7 +37,8 @@
     "fixtures:oracle-safety-check": "tsx fixtures/oracle-safety-check/generate-fixtures.ts",
     "fixtures:authority-revocation": "tsx fixtures/authority-revocation/generate-fixtures.ts",
     "fixtures:authority-revocation:recompute": "tsx fixtures/authority-revocation/recompute-independent.ts",
-    "test:fixtures-determinism": "tsx fixtures/oracle-safety-check/check-determinism.ts"
+    "test:fixtures-determinism": "tsx fixtures/oracle-safety-check/check-determinism.ts",
+    "test:packaged-root-exports": "node scripts/verify-packed-root-exports.mjs"
   },
   "dependencies": {
     "libsodium-wrappers": "^0.8.4",
