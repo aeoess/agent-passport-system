@@ -8,6 +8,17 @@ test('the draft-03 release surface is exported from the package root', () => {
   const functions = [
     // Section 3
     'verifyAuthorityDelegationChain',
+    'verifyAuthorityDelegation',
+    'issueAuthorityDelegation',
+    'issueSubAuthorityDelegation',
+    'compareAuthority',
+    'isValidScopeGrant',
+    'scopeGrantCovers',
+    'grantsAreCanonical',
+    'scopeNarrows',
+    'InMemoryAuthorityBudgetLedger',
+    'isAuthorityDelegationV1',
+    'validateAuthorityDelegationShape',
 
     // Section 4.1
     'createActionReferenceInputV2',
@@ -35,6 +46,8 @@ test('the draft-03 release surface is exported from the package root', () => {
   assert.equal(typeof api.RECEIPT_STAGE_TYPES_V1, 'object')
   // ActionReferenceInputV2 and ActionReferenceProfileContextV2 are types and do not exist at
   // runtime. Their export is checked by compilation and by the generated index.d.ts.
+  // SubAuthorityIssueOptions, BudgetReservationState and BudgetOperationResult are also
+  // types-only and checked the same way.
 })
 
 test('verifyAuthorityDelegationChain rejects a non-canonical now with NONCANONICAL_VALUE', () => {

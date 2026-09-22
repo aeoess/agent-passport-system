@@ -119,6 +119,21 @@
   **opt-in hardening, not a draft-03 conformance fix**: draft-03 states the prev linkage
   without a BCP 14 keyword and does not require a verifier to make the comparison.
 
+### Fixed
+
+- Previously unreachable draft-03 authority-delegation functions are now exported from the
+  package root: `issueAuthorityDelegation`, `issueSubAuthorityDelegation`,
+  `verifyAuthorityDelegation`, `compareAuthority`, `isValidScopeGrant`, `scopeGrantCovers`,
+  `grantsAreCanonical`, `scopeNarrows`, `InMemoryAuthorityBudgetLedger`,
+  `isAuthorityDelegationV1` and `validateAuthorityDelegationShape`, along with the
+  `SubAuthorityIssueOptions`, `BudgetReservationState` and `BudgetOperationResult` types
+  their signatures need. This closes the "Public reachability" gap the 7.0.0 entry below
+  describes: `core/delegation.ts`'s own doc comment told callers to build a
+  draft-03 chain with `issueAuthorityDelegation` and `issueSubAuthorityDelegation`, and
+  none of these were importable from `agent-passport-system`. No behavior change: every
+  export is the same function already used internally by the chain verifier, the
+  revocation resolver and the budget ledger.
+
 ## 7.0.0 (2026-09-20)
 
 Reconciles three surfaces against draft-pidlisnyi-aps-03: action references,
