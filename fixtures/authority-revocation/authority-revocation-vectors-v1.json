@@ -1,0 +1,434 @@
+{
+  "family": "authority-revocation",
+  "version": "v1",
+  "record_type": "aps:authority-revocation:v1",
+  "record_version": "1.0",
+  "spec": "APS draft-03 section 3.5.1 — direct revocation of an AuthorityDelegationV1",
+  "module": "src/v2/authority-revocation/",
+  "generated_at": "2026-09-21",
+  "sdk_reference": {
+    "repository": "aeoess/agent-passport-system",
+    "commit": "f6792af732f2102b239cca6b18840f6fa7d8fe87",
+    "note": "Every value under valid_case.verification and negative_cases[].verification was produced by the TypeScript reference implementation at this commit. The vector files are added on top of that commit, so the repository HEAD carrying them is a later one."
+  },
+  "canonicalization": "RFC 8785 JCS (src/core/canonical-jcs.ts): keys sorted as UTF-16 code unit sequences, no insignificant whitespace, nulls preserved, an absent OPTIONAL member omitted rather than written as null.",
+  "signature_algorithm": "Ed25519 (RFC 8032), deterministic, over the UTF-8 bytes of the domain-tagged preimage. Raw 64-byte signature as 128 lowercase hex.",
+  "preimage_encoding": "hex of the UTF-8 bytes. Each domain tag ends in one NUL byte, which is why these are recorded as hex rather than as text.",
+  "determinism": "Ed25519 signing is deterministic and nothing here reads a clock or a random source, so re-running fixtures/authority-revocation/generate-fixtures.ts reproduces this file byte for byte. Keys are sha256 of \"agent-passport-system:authority-revocation-vector:<label>\".",
+  "domain_tags": {
+    "revocation_id": {
+      "text": "APS-AUTHORITY-REVOCATION-ID-V1\\0",
+      "hex": "4150532d415554484f524954592d5245564f434154494f4e2d49442d563100"
+    },
+    "signature": {
+      "text": "APS-AUTHORITY-REVOCATION-SIGNATURE-V1\\0",
+      "hex": "4150532d415554484f524954592d5245564f434154494f4e2d5349474e41545552452d563100"
+    },
+    "cascade_transaction_id": {
+      "text": "APS-AUTHORITY-REVOCATION-CASCADE-TRANSACTION-ID-V1\\0",
+      "hex": "4150532d415554484f524954592d5245564f434154494f4e2d434153434144452d5452414e53414354494f4e2d49442d563100"
+    }
+  },
+  "keys": [
+    {
+      "label": "issuer-key",
+      "seed_label": "agent-passport-system:authority-revocation-vector:issuer-key",
+      "seed_derivation": "sha256(utf8(seed_label)) — the 32 bytes ARE the Ed25519 seed",
+      "private_key_hex": "4bee34d35de8a35dcc2e399e4a0ab6ce443f18b1a0373edf771bf3352b13ff47",
+      "public_key_hex": "5bc104a33e1bc847bb26c8ef16b681c17aeab71a479228fef6be9557deb0e423"
+    },
+    {
+      "label": "issuer-rotated-key",
+      "seed_label": "agent-passport-system:authority-revocation-vector:issuer-rotated-key",
+      "seed_derivation": "sha256(utf8(seed_label)) — the 32 bytes ARE the Ed25519 seed",
+      "private_key_hex": "aebc39d8b3e4b38aed170d8769b3777d755298db12b0ed92fd0a912064a05c18",
+      "public_key_hex": "a0ada3ec33b3db96f75803772e94469db3c21befd6aadc7cb679ca967d510ca0"
+    },
+    {
+      "label": "impostor-key",
+      "seed_label": "agent-passport-system:authority-revocation-vector:impostor-key",
+      "seed_derivation": "sha256(utf8(seed_label)) — the 32 bytes ARE the Ed25519 seed",
+      "private_key_hex": "b658575607b4ba6fe0c910dedfaf7de130201ac10d5b290c2162e9eda516c980",
+      "public_key_hex": "c7f4b326bc8aa1bac18d2ace6a0296a7cc2f1e8b7699fdfb6d70d5034f2c4dd7"
+    }
+  ],
+  "key_resolver": {
+    "description": "The resolver input this vector was generated against, as data. Look up the (controller, verification_method) pair; when no entry matches, or when the record's revoked_at is earlier than the entry's key_valid_from, answer the section 2.5 outcome \"not_found\"; otherwise answer public_key_hex. The verifier hands the resolver the TARGET delegation's issuer as the controller, never the revocation's own revoker.",
+    "outcome_vocabulary": [
+      "not_found",
+      "ambiguous",
+      "malformed",
+      "unreachable",
+      "unsupported_scheme"
+    ],
+    "entries": [
+      {
+        "controller": "did:example:aps-root-authority",
+        "verification_method": "did:example:aps-root-authority#key-1",
+        "key_valid_from": "2026-03-01T00:00:00.000Z",
+        "public_key_hex": "5bc104a33e1bc847bb26c8ef16b681c17aeab71a479228fef6be9557deb0e423",
+        "key_label": "issuer-key"
+      },
+      {
+        "controller": "did:example:aps-root-authority",
+        "verification_method": "did:example:aps-root-authority#key-2",
+        "key_valid_from": "2026-03-10T00:00:00.000Z",
+        "public_key_hex": "a0ada3ec33b3db96f75803772e94469db3c21befd6aadc7cb679ca967d510ca0",
+        "key_label": "issuer-rotated-key"
+      },
+      {
+        "controller": "did:example:aps-impostor",
+        "verification_method": "did:example:aps-impostor#key-1",
+        "key_valid_from": "2026-03-01T00:00:00.000Z",
+        "public_key_hex": "c7f4b326bc8aa1bac18d2ace6a0296a7cc2f1e8b7699fdfb6d70d5034f2c4dd7",
+        "key_label": "impostor-key"
+      }
+    ]
+  },
+  "valid_case": {
+    "name": "valid-direct-revocation",
+    "description": "The issuer revokes its own root delegation with a key that is in service at revoked_at.",
+    "target_delegation": {
+      "record_type": "aps:authority-delegation:v1",
+      "version": "1.0",
+      "parent_delegation_id": null,
+      "issuer": "did:example:aps-root-authority",
+      "subject": "did:example:aps-agent-alpha",
+      "verification_method": "did:example:aps-root-authority#key-1",
+      "issued_at": "2026-03-01T00:00:00.000Z",
+      "nonce": "0f0e0d0c0b0a09080706050403020100",
+      "authority": {
+        "scope": {
+          "profile": "aps-hierarchical-v1",
+          "grants": [
+            "commerce:checkout"
+          ]
+        },
+        "spend": {
+          "mode": "bounded",
+          "unit": "iso4217:USD:minor",
+          "per_action": "2500",
+          "cumulative": "50000"
+        },
+        "depth": {
+          "remaining": 2
+        },
+        "time": {
+          "not_before": "2026-03-01T00:00:00.000Z",
+          "not_after": "2026-04-01T00:00:00.000Z"
+        },
+        "reputation": {
+          "profile": "aps-score-0-100-v1",
+          "ceiling": 75
+        },
+        "values": {
+          "profile": "aps-values-identifiers-v1",
+          "required": [
+            "F-001",
+            "F-003"
+          ]
+        },
+        "reversibility": {
+          "profile": "aps-tci-v1",
+          "ceiling": "compensable"
+        }
+      },
+      "delegation_id": "sha256:b7e452c7d640c3aeb1ddd0943d75d8a44dfabac8ad96f85c31428a8aa4e895e6",
+      "signature": "085c9e08b72517aaa3f724a6c2bfeeb307ad017cf468be75bf5cad1c71b1aebf66ea6068fc2181230e957cd31f2ba7bab030fabbf565971b77532b17b0474b0d"
+    },
+    "revocation": {
+      "record_type": "aps:authority-revocation:v1",
+      "version": "1.0",
+      "delegation_id": "sha256:b7e452c7d640c3aeb1ddd0943d75d8a44dfabac8ad96f85c31428a8aa4e895e6",
+      "revoker": "did:example:aps-root-authority",
+      "verification_method": "did:example:aps-root-authority#key-1",
+      "revoked_at": "2026-03-15T12:00:00.000Z",
+      "reason_code": "issuer-key-compromise",
+      "detail": "Issuer signing key retired after a hardware replacement.",
+      "nonce": "3c3d3e3f404142434445464748494a4b",
+      "cascade_transaction_id": "sha256:62d509615d78dd1a0f72222b78ea887e51a5ec3fbf94113539828af9e8c93137",
+      "revocation_id": "sha256:2e4a42ace216ca9041e15a5207804af7ad3e213d44563644ba5db721a34b23dc",
+      "signature": "94e7cd2e8ef0faa8523606380ee12b9dd80c29d9bd08f331960607d76f9719a9343a616008032a143c57edab8528c73877e65296a98aefbc257aa24ff357ac08"
+    },
+    "preimages": {
+      "cascade_transaction_id_preimage_hex": "4150532d415554484f524954592d5245564f434154494f4e2d434153434144452d5452414e53414354494f4e2d49442d5631007b2264656c65676174696f6e5f6964223a227368613235363a62376534353263376436343063336165623164646430393433643735643861343464666162616338616439366638356333313432386138616134653839356536222c2264657461696c223a22497373756572207369676e696e67206b657920726574697265642061667465722061206861726477617265207265706c6163656d656e742e222c226e6f6e6365223a223363336433653366343034313432343334343435343634373438343934613462222c22726561736f6e5f636f6465223a226973737565722d6b65792d636f6d70726f6d697365222c227265636f72645f74797065223a226170733a617574686f726974792d7265766f636174696f6e3a7631222c227265766f6b65645f6174223a22323032362d30332d31355431323a30303a30302e3030305a222c227265766f6b6572223a226469643a6578616d706c653a6170732d726f6f742d617574686f72697479222c22766572696669636174696f6e5f6d6574686f64223a226469643a6578616d706c653a6170732d726f6f742d617574686f72697479236b65792d31222c2276657273696f6e223a22312e30227d",
+      "cascade_transaction_id_preimage_source": "cascade_transaction_id domain tag + JCS(revocation without revocation_id, signature and cascade_transaction_id)",
+      "revocation_id_preimage_hex": "4150532d415554484f524954592d5245564f434154494f4e2d49442d5631007b22636173636164655f7472616e73616374696f6e5f6964223a227368613235363a36326435303936313564373864643161306637323232326237386561383837653531613565633366626639343131333533393832386166396538633933313337222c2264656c65676174696f6e5f6964223a227368613235363a62376534353263376436343063336165623164646430393433643735643861343464666162616338616439366638356333313432386138616134653839356536222c2264657461696c223a22497373756572207369676e696e67206b657920726574697265642061667465722061206861726477617265207265706c6163656d656e742e222c226e6f6e6365223a223363336433653366343034313432343334343435343634373438343934613462222c22726561736f6e5f636f6465223a226973737565722d6b65792d636f6d70726f6d697365222c227265636f72645f74797065223a226170733a617574686f726974792d7265766f636174696f6e3a7631222c227265766f6b65645f6174223a22323032362d30332d31355431323a30303a30302e3030305a222c227265766f6b6572223a226469643a6578616d706c653a6170732d726f6f742d617574686f72697479222c22766572696669636174696f6e5f6d6574686f64223a226469643a6578616d706c653a6170732d726f6f742d617574686f72697479236b65792d31222c2276657273696f6e223a22312e30227d",
+      "revocation_id_preimage_source": "revocation_id domain tag + JCS(revocation without revocation_id and signature)",
+      "signature_preimage_hex": "4150532d415554484f524954592d5245564f434154494f4e2d5349474e41545552452d5631007b22636173636164655f7472616e73616374696f6e5f6964223a227368613235363a36326435303936313564373864643161306637323232326237386561383837653531613565633366626639343131333533393832386166396538633933313337222c2264656c65676174696f6e5f6964223a227368613235363a62376534353263376436343063336165623164646430393433643735643861343464666162616338616439366638356333313432386138616134653839356536222c2264657461696c223a22497373756572207369676e696e67206b657920726574697265642061667465722061206861726477617265207265706c6163656d656e742e222c226e6f6e6365223a223363336433653366343034313432343334343435343634373438343934613462222c22726561736f6e5f636f6465223a226973737565722d6b65792d636f6d70726f6d697365222c227265636f72645f74797065223a226170733a617574686f726974792d7265766f636174696f6e3a7631222c227265766f636174696f6e5f6964223a227368613235363a32653461343261636532313663613930343165313561353230373830346166376164336532313364343435363336343462613564623732316133346232336463222c227265766f6b65645f6174223a22323032362d30332d31355431323a30303a30302e3030305a222c227265766f6b6572223a226469643a6578616d706c653a6170732d726f6f742d617574686f72697479222c22766572696669636174696f6e5f6d6574686f64223a226469643a6578616d706c653a6170732d726f6f742d617574686f72697479236b65792d31222c2276657273696f6e223a22312e30227d",
+      "signature_preimage_source": "signature domain tag + JCS(revocation without signature); revocation_id IS inside these bytes"
+    },
+    "derived": {
+      "cascade_transaction_id": "sha256:62d509615d78dd1a0f72222b78ea887e51a5ec3fbf94113539828af9e8c93137",
+      "revocation_id": "sha256:2e4a42ace216ca9041e15a5207804af7ad3e213d44563644ba5db721a34b23dc",
+      "signature": "94e7cd2e8ef0faa8523606380ee12b9dd80c29d9bd08f331960607d76f9719a9343a616008032a143c57edab8528c73877e65296a98aefbc257aa24ff357ac08",
+      "public_key_hex": "5bc104a33e1bc847bb26c8ef16b681c17aeab71a479228fef6be9557deb0e423",
+      "signing_key_label": "issuer-key"
+    },
+    "verification": {
+      "state": "valid",
+      "valid": true,
+      "failures": []
+    }
+  },
+  "negative_cases": [
+    {
+      "name": "tampered-reason-code-stale-ids",
+      "defect": "reason_code changed from \"issuer-key-compromise\" to \"routine-rotation\"; revocation_id, cascade_transaction_id and signature are the ones minted for the valid record. reason_code is inside the cascade origin, and the verifier checks the cascade identity before the record identifier, so this is caught as CASCADE_TRANSACTION_MISMATCH rather than ID_MISMATCH.",
+      "record": {
+        "record_type": "aps:authority-revocation:v1",
+        "version": "1.0",
+        "delegation_id": "sha256:b7e452c7d640c3aeb1ddd0943d75d8a44dfabac8ad96f85c31428a8aa4e895e6",
+        "revoker": "did:example:aps-root-authority",
+        "verification_method": "did:example:aps-root-authority#key-1",
+        "revoked_at": "2026-03-15T12:00:00.000Z",
+        "reason_code": "routine-rotation",
+        "detail": "Issuer signing key retired after a hardware replacement.",
+        "nonce": "3c3d3e3f404142434445464748494a4b",
+        "cascade_transaction_id": "sha256:62d509615d78dd1a0f72222b78ea887e51a5ec3fbf94113539828af9e8c93137",
+        "revocation_id": "sha256:2e4a42ace216ca9041e15a5207804af7ad3e213d44563644ba5db721a34b23dc",
+        "signature": "94e7cd2e8ef0faa8523606380ee12b9dd80c29d9bd08f331960607d76f9719a9343a616008032a143c57edab8528c73877e65296a98aefbc257aa24ff357ac08"
+      },
+      "verification": {
+        "state": "invalid",
+        "valid": false,
+        "failures": [
+          {
+            "code": "CASCADE_TRANSACTION_MISMATCH",
+            "message": "cascade_transaction_id does not recompute from the record"
+          }
+        ]
+      }
+    },
+    {
+      "name": "tampered-reason-code-cascade-repaired",
+      "defect": "The same reason_code tamper with cascade_transaction_id recomputed over the tampered origin, so the cascade check passes and the stale revocation_id is what fails.",
+      "record": {
+        "record_type": "aps:authority-revocation:v1",
+        "version": "1.0",
+        "delegation_id": "sha256:b7e452c7d640c3aeb1ddd0943d75d8a44dfabac8ad96f85c31428a8aa4e895e6",
+        "revoker": "did:example:aps-root-authority",
+        "verification_method": "did:example:aps-root-authority#key-1",
+        "revoked_at": "2026-03-15T12:00:00.000Z",
+        "reason_code": "routine-rotation",
+        "detail": "Issuer signing key retired after a hardware replacement.",
+        "nonce": "3c3d3e3f404142434445464748494a4b",
+        "cascade_transaction_id": "sha256:9989c63d9acb02bf2835386b04820a1c3cd8a3d4889e47ceffd0dedc714fdd53",
+        "revocation_id": "sha256:2e4a42ace216ca9041e15a5207804af7ad3e213d44563644ba5db721a34b23dc",
+        "signature": "94e7cd2e8ef0faa8523606380ee12b9dd80c29d9bd08f331960607d76f9719a9343a616008032a143c57edab8528c73877e65296a98aefbc257aa24ff357ac08"
+      },
+      "verification": {
+        "state": "invalid",
+        "valid": false,
+        "failures": [
+          {
+            "code": "ID_MISMATCH",
+            "message": "revocation content address does not match its body"
+          }
+        ]
+      }
+    },
+    {
+      "name": "tampered-reason-code-ids-repaired",
+      "defect": "The same reason_code tamper with BOTH identifiers recomputed, carrying the signature minted for the valid record. revocation_id sits inside the signature preimage, so everything recomputes and the signature still fails.",
+      "record": {
+        "record_type": "aps:authority-revocation:v1",
+        "version": "1.0",
+        "delegation_id": "sha256:b7e452c7d640c3aeb1ddd0943d75d8a44dfabac8ad96f85c31428a8aa4e895e6",
+        "revoker": "did:example:aps-root-authority",
+        "verification_method": "did:example:aps-root-authority#key-1",
+        "revoked_at": "2026-03-15T12:00:00.000Z",
+        "reason_code": "routine-rotation",
+        "detail": "Issuer signing key retired after a hardware replacement.",
+        "nonce": "3c3d3e3f404142434445464748494a4b",
+        "cascade_transaction_id": "sha256:9989c63d9acb02bf2835386b04820a1c3cd8a3d4889e47ceffd0dedc714fdd53",
+        "revocation_id": "sha256:bb308ae181efd2ab5963c7033dda5c5b5a5e1efd77f3496b984ae88647e6a65e",
+        "signature": "94e7cd2e8ef0faa8523606380ee12b9dd80c29d9bd08f331960607d76f9719a9343a616008032a143c57edab8528c73877e65296a98aefbc257aa24ff357ac08"
+      },
+      "verification": {
+        "state": "invalid",
+        "valid": false,
+        "failures": [
+          {
+            "code": "SIGNATURE_INVALID",
+            "message": "Ed25519 signature is invalid"
+          }
+        ]
+      }
+    },
+    {
+      "name": "cascade-transaction-id-swapped",
+      "defect": "cascade_transaction_id replaced with the shape-valid identity of a different genuine record (the one in revoked-at-before-key-valid-from). Nothing else changed.",
+      "record": {
+        "record_type": "aps:authority-revocation:v1",
+        "version": "1.0",
+        "delegation_id": "sha256:b7e452c7d640c3aeb1ddd0943d75d8a44dfabac8ad96f85c31428a8aa4e895e6",
+        "revoker": "did:example:aps-root-authority",
+        "verification_method": "did:example:aps-root-authority#key-1",
+        "revoked_at": "2026-03-15T12:00:00.000Z",
+        "reason_code": "issuer-key-compromise",
+        "detail": "Issuer signing key retired after a hardware replacement.",
+        "nonce": "3c3d3e3f404142434445464748494a4b",
+        "cascade_transaction_id": "sha256:54e194c799d379627d1e4a5e3d5a1694686d8a8292914ea403e518c4e71ae434",
+        "revocation_id": "sha256:2e4a42ace216ca9041e15a5207804af7ad3e213d44563644ba5db721a34b23dc",
+        "signature": "94e7cd2e8ef0faa8523606380ee12b9dd80c29d9bd08f331960607d76f9719a9343a616008032a143c57edab8528c73877e65296a98aefbc257aa24ff357ac08"
+      },
+      "verification": {
+        "state": "invalid",
+        "valid": false,
+        "failures": [
+          {
+            "code": "CASCADE_TRANSACTION_MISMATCH",
+            "message": "cascade_transaction_id does not recompute from the record"
+          }
+        ]
+      }
+    },
+    {
+      "name": "revoker-not-issuer",
+      "defect": "revoker is did:example:aps-impostor, which is not the target delegation's issuer. Every identifier recomputes and the Ed25519 signature is genuine under the impostor's own key, so only the section 3.5 authorization rule rejects it.",
+      "record": {
+        "record_type": "aps:authority-revocation:v1",
+        "version": "1.0",
+        "delegation_id": "sha256:b7e452c7d640c3aeb1ddd0943d75d8a44dfabac8ad96f85c31428a8aa4e895e6",
+        "revoker": "did:example:aps-impostor",
+        "verification_method": "did:example:aps-impostor#key-1",
+        "revoked_at": "2026-03-15T12:00:00.000Z",
+        "reason_code": "issuer-key-compromise",
+        "detail": "Issuer signing key retired after a hardware replacement.",
+        "nonce": "3c3d3e3f404142434445464748494a4b",
+        "cascade_transaction_id": "sha256:7397f5c97450c454cb5bf020f346e307761573630c8ca4f64723810aed760a10",
+        "revocation_id": "sha256:2197c43509d23a8d4edec93740a5a16156fff1c1b72b6380bd4dad4e98a9ac88",
+        "signature": "76a0ac859205166e2e70eaa10d0aa1a176e2b277a3eeea7cd17452fd5cba75ab5badf327e6747613deb5c32e98e1451f5b723bb1df137555fbf7c6d73691d703"
+      },
+      "verification": {
+        "state": "invalid",
+        "valid": false,
+        "failures": [
+          {
+            "code": "REVOKER_NOT_ISSUER",
+            "message": "revoker is not the target delegation issuer"
+          }
+        ]
+      }
+    },
+    {
+      "name": "signed-by-non-issuer-key",
+      "defect": "Body identical to the valid record, including revoker and verification_method, but signed with the impostor's private key. The resolver answers did:example:aps-root-authority#key-1 with the issuer's public key, so the signature check is what fails.",
+      "record": {
+        "record_type": "aps:authority-revocation:v1",
+        "version": "1.0",
+        "delegation_id": "sha256:b7e452c7d640c3aeb1ddd0943d75d8a44dfabac8ad96f85c31428a8aa4e895e6",
+        "revoker": "did:example:aps-root-authority",
+        "verification_method": "did:example:aps-root-authority#key-1",
+        "revoked_at": "2026-03-15T12:00:00.000Z",
+        "reason_code": "issuer-key-compromise",
+        "detail": "Issuer signing key retired after a hardware replacement.",
+        "nonce": "3c3d3e3f404142434445464748494a4b",
+        "cascade_transaction_id": "sha256:62d509615d78dd1a0f72222b78ea887e51a5ec3fbf94113539828af9e8c93137",
+        "revocation_id": "sha256:2e4a42ace216ca9041e15a5207804af7ad3e213d44563644ba5db721a34b23dc",
+        "signature": "009855b8bfefa9b15a0113be03c6cc156cd96c91128ae780a8168598fd703842ff071effdc4affbd4251d9a2122e78394ad83430e5f99564648620592eac680d"
+      },
+      "verification": {
+        "state": "invalid",
+        "valid": false,
+        "failures": [
+          {
+            "code": "SIGNATURE_INVALID",
+            "message": "Ed25519 signature is invalid"
+          }
+        ]
+      }
+    },
+    {
+      "name": "revoked-at-before-key-valid-from",
+      "defect": "A genuine record signed by did:example:aps-root-authority#key-2 and timestamped 2026-03-05T08:00:00.000Z, before that key enters service at 2026-03-10T00:00:00.000Z. The resolver selects at revoked_at and answers not_found, so no signature is checked and the outcome is indeterminate, never invalid.",
+      "record": {
+        "record_type": "aps:authority-revocation:v1",
+        "version": "1.0",
+        "delegation_id": "sha256:b7e452c7d640c3aeb1ddd0943d75d8a44dfabac8ad96f85c31428a8aa4e895e6",
+        "revoker": "did:example:aps-root-authority",
+        "verification_method": "did:example:aps-root-authority#key-2",
+        "revoked_at": "2026-03-05T08:00:00.000Z",
+        "reason_code": "issuer-key-compromise",
+        "detail": "Issuer signing key retired after a hardware replacement.",
+        "nonce": "3c3d3e3f404142434445464748494a4b",
+        "cascade_transaction_id": "sha256:54e194c799d379627d1e4a5e3d5a1694686d8a8292914ea403e518c4e71ae434",
+        "revocation_id": "sha256:09f353085726ef13aa67d24ae723c5a1221aa68763b56a080e6a79347f13b836",
+        "signature": "be3244938f29388e5966e59fec9f05b1d420b7661f10e6bb1de2929f94bf2908b461d4368b8d9ed30608eca8af6281afd3c8b08e2982339faa420c7613c9730c"
+      },
+      "verification": {
+        "state": "indeterminate",
+        "valid": false,
+        "failures": [
+          {
+            "code": "KEY_NOT_FOUND",
+            "message": "revoker or key was not found"
+          }
+        ]
+      }
+    },
+    {
+      "name": "record-type-changed",
+      "defect": "record_type changed to aps:authority-revocation:v2. The schema stops at the first member and the body is never judged.",
+      "record": {
+        "record_type": "aps:authority-revocation:v2",
+        "version": "1.0",
+        "delegation_id": "sha256:b7e452c7d640c3aeb1ddd0943d75d8a44dfabac8ad96f85c31428a8aa4e895e6",
+        "revoker": "did:example:aps-root-authority",
+        "verification_method": "did:example:aps-root-authority#key-1",
+        "revoked_at": "2026-03-15T12:00:00.000Z",
+        "reason_code": "issuer-key-compromise",
+        "detail": "Issuer signing key retired after a hardware replacement.",
+        "nonce": "3c3d3e3f404142434445464748494a4b",
+        "cascade_transaction_id": "sha256:62d509615d78dd1a0f72222b78ea887e51a5ec3fbf94113539828af9e8c93137",
+        "revocation_id": "sha256:2e4a42ace216ca9041e15a5207804af7ad3e213d44563644ba5db721a34b23dc",
+        "signature": "94e7cd2e8ef0faa8523606380ee12b9dd80c29d9bd08f331960607d76f9719a9343a616008032a143c57edab8528c73877e65296a98aefbc257aa24ff357ac08"
+      },
+      "verification": {
+        "state": "unsupported",
+        "valid": false,
+        "failures": [
+          {
+            "code": "UNSUPPORTED_RECORD_TYPE",
+            "message": "record_type must be aps:authority-revocation:v1"
+          }
+        ]
+      }
+    },
+    {
+      "name": "version-changed",
+      "defect": "version changed to 2.0. Same early stop as record-type-changed, under its own code.",
+      "record": {
+        "record_type": "aps:authority-revocation:v1",
+        "version": "2.0",
+        "delegation_id": "sha256:b7e452c7d640c3aeb1ddd0943d75d8a44dfabac8ad96f85c31428a8aa4e895e6",
+        "revoker": "did:example:aps-root-authority",
+        "verification_method": "did:example:aps-root-authority#key-1",
+        "revoked_at": "2026-03-15T12:00:00.000Z",
+        "reason_code": "issuer-key-compromise",
+        "detail": "Issuer signing key retired after a hardware replacement.",
+        "nonce": "3c3d3e3f404142434445464748494a4b",
+        "cascade_transaction_id": "sha256:62d509615d78dd1a0f72222b78ea887e51a5ec3fbf94113539828af9e8c93137",
+        "revocation_id": "sha256:2e4a42ace216ca9041e15a5207804af7ad3e213d44563644ba5db721a34b23dc",
+        "signature": "94e7cd2e8ef0faa8523606380ee12b9dd80c29d9bd08f331960607d76f9719a9343a616008032a143c57edab8528c73877e65296a98aefbc257aa24ff357ac08"
+      },
+      "verification": {
+        "state": "unsupported",
+        "valid": false,
+        "failures": [
+          {
+            "code": "UNSUPPORTED_VERSION",
+            "message": "version must be 1.0"
+          }
+        ]
+      }
+    }
+  ],
+  "not_covered": [
+    "Derived revocation records for descendants of the revoked delegation (0B). This family covers one direct revocation of one delegation and nothing that a cascade would produce from it.",
+    "The cascade-completion record (0C). Section 3.5.1 makes completion depend on the last descendant's revocation being persistent, and no store interface in this repository establishes persistence.",
+    "Store behaviour: first-wins insertion, the resolver built over a store, and chain-level enforcement of a revoked ancestor. Those live in tests/v2/authority-revocation.test.ts and are not pinned as vectors here.",
+    "JCS escaping of non-ASCII and control characters. Every string in this family is printable ASCII on purpose; the escaping rules are pinned by tests/cross-impl/jcs-test-vectors.json."
+  ]
+}
