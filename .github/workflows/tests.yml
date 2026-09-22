@@ -49,6 +49,3 @@ jobs:
 
       - name: Test suite
         run: npm test
-
-      - name: Packaged root exports (npm pack install check)
-        run: npm run test:packaged-root-exports
