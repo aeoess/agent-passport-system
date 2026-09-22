@@ -52,7 +52,7 @@ This skill tracks the protocol. It is version-bumped in `_meta.json` on the same
 - 5,491 tests in the 7.0.0 release
 - 152 MCP tools expose the full protocol surface; the `essential` profile is the default
 - 9 papers, all with Zenodo DOIs
-- SDK 7.1.0 on npm, MCP 6.1.0 on npm, Python 4.0.0 on PyPI, Rust 0.3.0 on crates.io, Go v0.7.0
+- SDK 7.1.0 on npm, MCP 6.1.0 on npm, Python 4.1.0 on PyPI, Rust 0.3.0 on crates.io, Go v0.7.0
 - Apache-2.0
 
 ## Links
