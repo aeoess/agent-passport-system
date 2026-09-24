@@ -1,0 +1,902 @@
+{
+  "profile": "aps-chain-selection-parity-v0",
+  "description": "Cross-language parity vectors for chain selection over the set of chains an agent holds. draft-pidlisnyi-aps-03 section 3.3 lines 594-596 for selection and no union; the fallback members are proposed against invariant candidate L11 of the aeoess/agent-authority-lifecycle concept document and are marked so at every symbol that carries them.",
+  "generated_at": "2026-09-24",
+  "sdk_commit": "86fe72df0bbf998b4e952976eefeebcb04753c20",
+  "seed_label_prefix": "agent-passport-system:chain-selection-vector:",
+  "seed_rule": "private key = sha256(seed_label_prefix + <root label>) as 64 lowercase hex, used as the RFC 8032 Ed25519 seed; nonce = the first 32 hex characters of sha256(seed_label_prefix + \"nonce:\" + <record label>). action_ref = sha256(<case id>) in lowercase hex.",
+  "now": "2026-03-15T00:00:00.000Z",
+  "root_labels": [
+    "p1",
+    "p2",
+    "p3"
+  ],
+  "verification_keys": {
+    "did:example:aps-root-p1#key-1": "7670a5207e9817f38773730884eda044c73e905dfbf807ac30075da3a7c057e9",
+    "did:example:aps-root-p2#key-1": "538892349858cdf5ed4b68b2a799d72e1c3c44219c63d6587fc47a34c158e5b7",
+    "did:example:aps-root-p3#key-1": "b8c4c54999ed0241205e2ddb87ccb5db181260559c37014de02ad6960768b73e"
+  },
+  "records": {
+    "read_r1": {
+      "record_type": "aps:authority-delegation:v1",
+      "version": "1.0",
+      "parent_delegation_id": null,
+      "issuer": "did:example:aps-root-p1",
+      "subject": "did:example:aps-agent-l",
+      "verification_method": "did:example:aps-root-p1#key-1",
+      "issued_at": "2026-03-01T00:00:00.000Z",
+      "nonce": "5eac3e85f98b683ffddbcf61a8728177",
+      "authority": {
+        "scope": {
+          "profile": "aps-hierarchical-v1",
+          "grants": [
+            "resource1:read"
+          ]
+        },
+        "spend": {
+          "mode": "bounded",
+          "unit": "iso4217:USD:minor",
+          "per_action": "5",
+          "cumulative": "5"
+        },
+        "depth": {
+          "remaining": 1
+        },
+        "time": {
+          "not_before": "2026-03-01T00:00:00.000Z",
+          "not_after": "2026-04-01T00:00:00.000Z"
+        },
+        "reputation": {
+          "profile": "aps-score-0-100-v1",
+          "ceiling": 100
+        },
+        "values": {
+          "profile": "aps-values-identifiers-v1",
+          "required": []
+        },
+        "reversibility": {
+          "profile": "aps-tci-v1",
+          "ceiling": "irreversible"
+        }
+      },
+      "delegation_id": "sha256:6cb420b021839fabe0c561e9f1d4f27cdd56b6432dac69138ecb8ff4519f81c5",
+      "signature": "e864cf433c9a8e0d23dfd797304b5bd13aa53d1bfe735ad4ac11eb7b67603b90e13c99f005774d94eac4c4e841a5c76566d5d3e28ee6ad5d16aa597472cf5305"
+    },
+    "write_r2": {
+      "record_type": "aps:authority-delegation:v1",
+      "version": "1.0",
+      "parent_delegation_id": null,
+      "issuer": "did:example:aps-root-p2",
+      "subject": "did:example:aps-agent-l",
+      "verification_method": "did:example:aps-root-p2#key-1",
+      "issued_at": "2026-03-01T00:00:00.000Z",
+      "nonce": "eafea5405ca35049e793caa1e81cc847",
+      "authority": {
+        "scope": {
+          "profile": "aps-hierarchical-v1",
+          "grants": [
+            "resource2:write"
+          ]
+        },
+        "spend": {
+          "mode": "bounded",
+          "unit": "iso4217:USD:minor",
+          "per_action": "5",
+          "cumulative": "5"
+        },
+        "depth": {
+          "remaining": 1
+        },
+        "time": {
+          "not_before": "2026-03-01T00:00:00.000Z",
+          "not_after": "2026-04-01T00:00:00.000Z"
+        },
+        "reputation": {
+          "profile": "aps-score-0-100-v1",
+          "ceiling": 100
+        },
+        "values": {
+          "profile": "aps-values-identifiers-v1",
+          "required": []
+        },
+        "reversibility": {
+          "profile": "aps-tci-v1",
+          "ceiling": "irreversible"
+        }
+      },
+      "delegation_id": "sha256:d9240f54db685c80de9f5866217b3c0111d53041a8b7405c732b1a7a23311d53",
+      "signature": "3c2dd033a9c5009ed0e1e077bb0c1d4f9084bbb5b8ebfcdb5e0f96d81d7ad41eba20f0454630c538b74896246fa22f7d9e239456800470100a6804e7d7fa5101"
+    },
+    "read_r1_alt": {
+      "record_type": "aps:authority-delegation:v1",
+      "version": "1.0",
+      "parent_delegation_id": null,
+      "issuer": "did:example:aps-root-p3",
+      "subject": "did:example:aps-agent-l",
+      "verification_method": "did:example:aps-root-p3#key-1",
+      "issued_at": "2026-03-01T00:00:00.000Z",
+      "nonce": "3ca05aeae9cc01a330b5ccdeb8aa131f",
+      "authority": {
+        "scope": {
+          "profile": "aps-hierarchical-v1",
+          "grants": [
+            "resource1:read"
+          ]
+        },
+        "spend": {
+          "mode": "bounded",
+          "unit": "iso4217:USD:minor",
+          "per_action": "5",
+          "cumulative": "5"
+        },
+        "depth": {
+          "remaining": 1
+        },
+        "time": {
+          "not_before": "2026-03-01T00:00:00.000Z",
+          "not_after": "2026-04-01T00:00:00.000Z"
+        },
+        "reputation": {
+          "profile": "aps-score-0-100-v1",
+          "ceiling": 100
+        },
+        "values": {
+          "profile": "aps-values-identifiers-v1",
+          "required": []
+        },
+        "reversibility": {
+          "profile": "aps-tci-v1",
+          "ceiling": "irreversible"
+        }
+      },
+      "delegation_id": "sha256:0d85d29bd955946261e0ad5c822822256b534339ceec010ece0b8f9c126016d3",
+      "signature": "fdfb9a5239c14fc2ff68882634d6af71dcc4c40688000f57ae09024c117d4fdc6bb09151a4ddf1a98918fa1acf0db70c8fd498f274480d062d9f6068d97ee50e"
+    }
+  },
+  "delegation_ids": {
+    "read_r1": "sha256:6cb420b021839fabe0c561e9f1d4f27cdd56b6432dac69138ecb8ff4519f81c5",
+    "write_r2": "sha256:d9240f54db685c80de9f5866217b3c0111d53041a8b7405c732b1a7a23311d53",
+    "read_r1_alt": "sha256:0d85d29bd955946261e0ad5c822822256b534339ceec010ece0b8f9c126016d3"
+  },
+  "chains": {
+    "chain_read_r1": [
+      "read_r1"
+    ],
+    "chain_write_r2": [
+      "write_r2"
+    ],
+    "chain_read_r1_alt": [
+      "read_r1_alt"
+    ],
+    "chain_concat": [
+      "read_r1",
+      "write_r2"
+    ]
+  },
+  "cases": [
+    {
+      "id": "CS-01-select-first-covering-chain",
+      "note": "Control. The first held chain covers the action and is the one selected.",
+      "api": "selectChainForAction",
+      "held": [
+        "chain_read_r1",
+        "chain_write_r2"
+      ],
+      "preferred_chain_id": null,
+      "fallback": null,
+      "required_grants": [
+        "resource1:read"
+      ],
+      "required_spend": {
+        "unit": "iso4217:USD:minor",
+        "amount": "3",
+        "action_ref": "5442315908540cb83cede8eca06c727f0689427a8b52fff5de19b630546bf0a7"
+      },
+      "ledger": "fresh_in_memory",
+      "revocation": {
+        "read_r1": "active",
+        "write_r2": "active",
+        "read_r1_alt": "active"
+      },
+      "expected": {
+        "selected": true,
+        "evaluations": [
+          {
+            "chain_id": "chain_read_r1",
+            "outcome": "authorizes",
+            "code": "RESERVED",
+            "chain_state": "valid"
+          }
+        ],
+        "chain_id": "chain_read_r1",
+        "state": "valid"
+      }
+    },
+    {
+      "id": "CS-02-select-passes-over-non-covering-chain",
+      "note": "The held chain that does not cover the action is passed over and recorded as passed over, not merged with the one that does.",
+      "api": "selectChainForAction",
+      "held": [
+        "chain_write_r2",
+        "chain_read_r1"
+      ],
+      "preferred_chain_id": null,
+      "fallback": null,
+      "required_grants": [
+        "resource1:read"
+      ],
+      "required_spend": {
+        "unit": "iso4217:USD:minor",
+        "amount": "3",
+        "action_ref": "dd18c346429e3bbe41d7242c5f0fc2135868dc0effc2ca485425dd172b192279"
+      },
+      "ledger": "fresh_in_memory",
+      "revocation": {
+        "read_r1": "active",
+        "write_r2": "active",
+        "read_r1_alt": "active"
+      },
+      "expected": {
+        "selected": true,
+        "evaluations": [
+          {
+            "chain_id": "chain_write_r2",
+            "outcome": "refuses",
+            "code": "scope_not_covered",
+            "chain_state": "valid"
+          },
+          {
+            "chain_id": "chain_read_r1",
+            "outcome": "authorizes",
+            "code": "RESERVED",
+            "chain_state": "valid"
+          }
+        ],
+        "chain_id": "chain_read_r1",
+        "state": "valid"
+      }
+    },
+    {
+      "id": "CS-03-no-chain-covers-a-grant-from-each",
+      "note": "The action needs one grant from each held chain. No union: neither chain covers both, so nothing is selected.",
+      "api": "selectChainForAction",
+      "held": [
+        "chain_read_r1",
+        "chain_write_r2"
+      ],
+      "preferred_chain_id": null,
+      "fallback": null,
+      "required_grants": [
+        "resource1:read",
+        "resource2:write"
+      ],
+      "required_spend": {
+        "unit": "iso4217:USD:minor",
+        "amount": "3",
+        "action_ref": "5fd860c5b41183bf886d9cb3af38e6fcc8840fb73c9411ceb76ecdeb32f393db"
+      },
+      "ledger": "fresh_in_memory",
+      "revocation": {
+        "read_r1": "active",
+        "write_r2": "active",
+        "read_r1_alt": "active"
+      },
+      "expected": {
+        "selected": false,
+        "evaluations": [
+          {
+            "chain_id": "chain_read_r1",
+            "outcome": "refuses",
+            "code": "scope_not_covered",
+            "chain_state": "valid"
+          },
+          {
+            "chain_id": "chain_write_r2",
+            "outcome": "refuses",
+            "code": "scope_not_covered",
+            "chain_state": "valid"
+          }
+        ],
+        "code": "no_chain_covers_action"
+      }
+    },
+    {
+      "id": "CS-04-budget-refusal-does-not-scan-past-the-selected-chain",
+      "note": "Amount 8 against a ceiling of 5, with a second held chain whose own ceiling is also 5. Two ceilings are never summed, and the refusal ends the call: the second chain is never read, which is what the single evaluation shows.",
+      "api": "selectChainForAction",
+      "held": [
+        "chain_read_r1",
+        "chain_read_r1_alt"
+      ],
+      "preferred_chain_id": null,
+      "fallback": null,
+      "required_grants": [
+        "resource1:read"
+      ],
+      "required_spend": {
+        "unit": "iso4217:USD:minor",
+        "amount": "8",
+        "action_ref": "29d56f2b688ee5b2e8c44655f08425e3c2c106f42ea51a6928667639dbe38b3c"
+      },
+      "ledger": "fresh_in_memory",
+      "revocation": {
+        "read_r1": "active",
+        "write_r2": "active",
+        "read_r1_alt": "active"
+      },
+      "expected": {
+        "selected": false,
+        "evaluations": [
+          {
+            "chain_id": "chain_read_r1",
+            "outcome": "refuses",
+            "code": "PER_ACTION_EXCEEDED",
+            "chain_state": "valid"
+          }
+        ],
+        "code": "no_chain_covers_action"
+      }
+    },
+    {
+      "id": "CS-05-concatenated-chains-are-refused-as-a-presentation",
+      "note": "Two roots in one array. Refused as a chain set presented as one chain, before verification, and never evaluated as a union.",
+      "api": "selectChainForAction",
+      "held": [
+        "chain_concat"
+      ],
+      "preferred_chain_id": null,
+      "fallback": null,
+      "required_grants": [
+        "resource1:read"
+      ],
+      "required_spend": {
+        "unit": "iso4217:USD:minor",
+        "amount": "3",
+        "action_ref": "9f4bd23ba1ca1b49ddf2c0ff9a03c03e0e4ad5d95ef6608c736359a7f2dd4755"
+      },
+      "ledger": "fresh_in_memory",
+      "revocation": {
+        "read_r1": "active",
+        "write_r2": "active",
+        "read_r1_alt": "active"
+      },
+      "expected": {
+        "selected": false,
+        "evaluations": [
+          {
+            "chain_id": "chain_concat",
+            "outcome": "refuses",
+            "code": "chain_set_presented_as_one",
+            "chain_state": null
+          }
+        ],
+        "code": "no_valid_chain"
+      }
+    },
+    {
+      "id": "CS-06-revoked-chain-is-not-selected-when-another-holds",
+      "note": "No chain had been selected before this call, so choosing the alternative here is a selection, not a switch. Contrast CS-08.",
+      "api": "selectChainForAction",
+      "held": [
+        "chain_read_r1",
+        "chain_read_r1_alt"
+      ],
+      "preferred_chain_id": null,
+      "fallback": null,
+      "required_grants": [
+        "resource1:read"
+      ],
+      "required_spend": {
+        "unit": "iso4217:USD:minor",
+        "amount": "3",
+        "action_ref": "35846f38c7ec01ad0dd9a2c46ede35516b10640a27a8dbf6d1b694ff523c3acf"
+      },
+      "ledger": "fresh_in_memory",
+      "revocation": {
+        "read_r1": "revoked",
+        "write_r2": "active",
+        "read_r1_alt": "active"
+      },
+      "expected": {
+        "selected": true,
+        "evaluations": [
+          {
+            "chain_id": "chain_read_r1",
+            "outcome": "refuses",
+            "code": "REVOKED",
+            "chain_state": "invalid"
+          },
+          {
+            "chain_id": "chain_read_r1_alt",
+            "outcome": "authorizes",
+            "code": "RESERVED",
+            "chain_state": "valid"
+          }
+        ],
+        "chain_id": "chain_read_r1_alt",
+        "state": "valid"
+      }
+    },
+    {
+      "id": "CS-07-every-held-chain-revoked",
+      "note": "Nothing was valid, so the answer names that rather than saying a valid chain failed to cover the action.",
+      "api": "selectChainForAction",
+      "held": [
+        "chain_read_r1",
+        "chain_read_r1_alt"
+      ],
+      "preferred_chain_id": null,
+      "fallback": null,
+      "required_grants": [
+        "resource1:read"
+      ],
+      "required_spend": {
+        "unit": "iso4217:USD:minor",
+        "amount": "3",
+        "action_ref": "f40cdc58c4afcd2a6c7281cfd64c12dbc389d39481fb31d7da8e5f9dbb75fa1a"
+      },
+      "ledger": "fresh_in_memory",
+      "revocation": {
+        "read_r1": "revoked",
+        "write_r2": "active",
+        "read_r1_alt": "revoked"
+      },
+      "expected": {
+        "selected": false,
+        "evaluations": [
+          {
+            "chain_id": "chain_read_r1",
+            "outcome": "refuses",
+            "code": "REVOKED",
+            "chain_state": "invalid"
+          },
+          {
+            "chain_id": "chain_read_r1_alt",
+            "outcome": "refuses",
+            "code": "REVOKED",
+            "chain_state": "invalid"
+          }
+        ],
+        "code": "no_valid_chain"
+      }
+    },
+    {
+      "id": "CS-08-fallback-null-reads-no-other-chain",
+      "note": "L11, PROPOSED. The selected chain is revoked and another held chain would independently cover the same action. With fallback null, that chain is never read: one evaluation, no switch.",
+      "api": "selectWithFallback",
+      "held": [
+        "chain_read_r1",
+        "chain_read_r1_alt"
+      ],
+      "preferred_chain_id": "chain_read_r1",
+      "fallback": null,
+      "required_grants": [
+        "resource1:read"
+      ],
+      "required_spend": {
+        "unit": "iso4217:USD:minor",
+        "amount": "3",
+        "action_ref": "b23f922af7164adeaf94760fd3f88842c3ee5cccbd5fe076d28936205262cb71"
+      },
+      "ledger": "fresh_in_memory",
+      "revocation": {
+        "read_r1": "revoked",
+        "write_r2": "active",
+        "read_r1_alt": "active"
+      },
+      "expected": {
+        "selected": false,
+        "evaluations": [
+          {
+            "chain_id": "chain_read_r1",
+            "outcome": "refuses",
+            "code": "REVOKED",
+            "chain_state": "invalid"
+          }
+        ],
+        "code": "no_valid_chain",
+        "fallback_considered": false
+      }
+    },
+    {
+      "id": "CS-09-authorized-fallback-records-the-switch",
+      "note": "L11, PROPOSED. Same inputs as CS-08 with an opaque authorization reference. The switch happens and is reported: switched_from names the chain the action had selected and the reference is recorded, never interpreted.",
+      "api": "selectWithFallback",
+      "held": [
+        "chain_read_r1",
+        "chain_read_r1_alt"
+      ],
+      "preferred_chain_id": "chain_read_r1",
+      "fallback": {
+        "authorization_ref": "proposed:opaque-fallback-authorization-reference-1"
+      },
+      "required_grants": [
+        "resource1:read"
+      ],
+      "required_spend": {
+        "unit": "iso4217:USD:minor",
+        "amount": "3",
+        "action_ref": "e81f6fbbb06ad31cca9165e7532999b79ea1ffe4f30df96462cbff21cb531b68"
+      },
+      "ledger": "fresh_in_memory",
+      "revocation": {
+        "read_r1": "revoked",
+        "write_r2": "active",
+        "read_r1_alt": "active"
+      },
+      "expected": {
+        "selected": true,
+        "evaluations": [
+          {
+            "chain_id": "chain_read_r1",
+            "outcome": "refuses",
+            "code": "REVOKED",
+            "chain_state": "invalid"
+          },
+          {
+            "chain_id": "chain_read_r1_alt",
+            "outcome": "authorizes",
+            "code": "RESERVED",
+            "chain_state": "valid"
+          }
+        ],
+        "chain_id": "chain_read_r1_alt",
+        "state": "valid",
+        "switched_from": "chain_read_r1",
+        "fallback_ref": "proposed:opaque-fallback-authorization-reference-1",
+        "fallback_considered": true
+      }
+    },
+    {
+      "id": "CS-10-authorized-fallback-with-nowhere-to-go",
+      "note": "L11, PROPOSED. The authorization is present and every held chain is revoked, so the fallback changes nothing and the refusal is reported with the switch never taken.",
+      "api": "selectWithFallback",
+      "held": [
+        "chain_read_r1",
+        "chain_read_r1_alt"
+      ],
+      "preferred_chain_id": "chain_read_r1",
+      "fallback": {
+        "authorization_ref": "proposed:opaque-fallback-authorization-reference-1"
+      },
+      "required_grants": [
+        "resource1:read"
+      ],
+      "required_spend": {
+        "unit": "iso4217:USD:minor",
+        "amount": "3",
+        "action_ref": "0727ff7b7d84fb4176ec7e11077b27366b09368bbb8ba4ef7dc7a0e753995978"
+      },
+      "ledger": "fresh_in_memory",
+      "revocation": {
+        "read_r1": "revoked",
+        "write_r2": "active",
+        "read_r1_alt": "revoked"
+      },
+      "expected": {
+        "selected": false,
+        "evaluations": [
+          {
+            "chain_id": "chain_read_r1",
+            "outcome": "refuses",
+            "code": "REVOKED",
+            "chain_state": "invalid"
+          },
+          {
+            "chain_id": "chain_read_r1_alt",
+            "outcome": "refuses",
+            "code": "REVOKED",
+            "chain_state": "invalid"
+          }
+        ],
+        "code": "no_valid_chain",
+        "fallback_considered": true
+      }
+    },
+    {
+      "id": "CS-11-authorized-fallback-not-used-when-the-selected-chain-holds",
+      "note": "L11, PROPOSED. An authorization that is present but not needed does not cause a switch and does not appear as one.",
+      "api": "selectWithFallback",
+      "held": [
+        "chain_read_r1",
+        "chain_read_r1_alt"
+      ],
+      "preferred_chain_id": "chain_read_r1",
+      "fallback": {
+        "authorization_ref": "proposed:opaque-fallback-authorization-reference-1"
+      },
+      "required_grants": [
+        "resource1:read"
+      ],
+      "required_spend": {
+        "unit": "iso4217:USD:minor",
+        "amount": "3",
+        "action_ref": "f798692bd0faf7b0cddba101c2a934c28ae7a0fa5d2f36db90d74f5fa30ef4cb"
+      },
+      "ledger": "fresh_in_memory",
+      "revocation": {
+        "read_r1": "active",
+        "write_r2": "active",
+        "read_r1_alt": "active"
+      },
+      "expected": {
+        "selected": true,
+        "evaluations": [
+          {
+            "chain_id": "chain_read_r1",
+            "outcome": "authorizes",
+            "code": "RESERVED",
+            "chain_state": "valid"
+          }
+        ],
+        "chain_id": "chain_read_r1",
+        "state": "valid",
+        "fallback_considered": true
+      }
+    },
+    {
+      "id": "CS-12-preferred-chain-is-not-held",
+      "note": "A selection naming a chain the agent does not hold is a request fault, and no chain is read.",
+      "api": "selectWithFallback",
+      "held": [
+        "chain_read_r1"
+      ],
+      "preferred_chain_id": "chain_absent",
+      "fallback": null,
+      "required_grants": [
+        "resource1:read"
+      ],
+      "required_spend": {
+        "unit": "iso4217:USD:minor",
+        "amount": "3",
+        "action_ref": "e8767e2b9a78efcee126a189fbefaf653944984e3fe7c8a9940ea0cbe3fbf00a"
+      },
+      "ledger": "fresh_in_memory",
+      "revocation": {
+        "read_r1": "active",
+        "write_r2": "active",
+        "read_r1_alt": "active"
+      },
+      "expected": {
+        "selected": false,
+        "evaluations": [],
+        "code": "preferred_chain_not_held"
+      }
+    },
+    {
+      "id": "CS-13-duplicate-chain-id",
+      "note": "Two held entries under one label. Refused rather than disambiguated: a result naming that label would not identify a chain.",
+      "api": "selectChainForAction",
+      "held": [
+        "chain_read_r1",
+        "chain_read_r1"
+      ],
+      "preferred_chain_id": null,
+      "fallback": null,
+      "required_grants": [
+        "resource1:read"
+      ],
+      "required_spend": {
+        "unit": "iso4217:USD:minor",
+        "amount": "3",
+        "action_ref": "3a9c3304c2d8da47e2b34e554166fbddaf382e015f2d1beb04ba61b7bbc9cc3b"
+      },
+      "ledger": "fresh_in_memory",
+      "revocation": {
+        "read_r1": "active",
+        "write_r2": "active",
+        "read_r1_alt": "active"
+      },
+      "expected": {
+        "selected": false,
+        "evaluations": [],
+        "code": "duplicate_chain_id"
+      }
+    },
+    {
+      "id": "CS-14-empty-held-set",
+      "note": "An agent holding nothing selects nothing.",
+      "api": "selectChainForAction",
+      "held": [],
+      "preferred_chain_id": null,
+      "fallback": null,
+      "required_grants": [
+        "resource1:read"
+      ],
+      "required_spend": {
+        "unit": "iso4217:USD:minor",
+        "amount": "3",
+        "action_ref": "35d28f7c122836d7b531d15b50a2dab502e075d1ca2b23d1fc42a2f2b82fd114"
+      },
+      "ledger": "fresh_in_memory",
+      "revocation": {
+        "read_r1": "active",
+        "write_r2": "active",
+        "read_r1_alt": "active"
+      },
+      "expected": {
+        "selected": false,
+        "evaluations": [],
+        "code": "held_set_empty"
+      }
+    },
+    {
+      "id": "CS-15-needed-grant-is-not-a-valid-scope-grant",
+      "note": "A request fault, kept apart from scope_not_covered: no chain refused anything here, because no chain was coherently asked.",
+      "api": "selectChainForAction",
+      "held": [
+        "chain_read_r1"
+      ],
+      "preferred_chain_id": null,
+      "fallback": null,
+      "required_grants": [
+        "resource1:*:read"
+      ],
+      "required_spend": {
+        "unit": "iso4217:USD:minor",
+        "amount": "3",
+        "action_ref": "44b7f0001cdc7fc2952d56d761b8108f34afa2b8e19c2580a35c2c85b9b79fb1"
+      },
+      "ledger": "fresh_in_memory",
+      "revocation": {
+        "read_r1": "active",
+        "write_r2": "active",
+        "read_r1_alt": "active"
+      },
+      "expected": {
+        "selected": false,
+        "evaluations": [],
+        "code": "invalid_action_requirement"
+      }
+    },
+    {
+      "id": "CS-16-spend-required-and-no-ledger-is-undecided",
+      "note": "Not established, not a refusal. The chain verified valid and covers the scope; whether its ceiling covers the amount was never asked.",
+      "api": "selectChainForAction",
+      "held": [
+        "chain_read_r1"
+      ],
+      "preferred_chain_id": null,
+      "fallback": null,
+      "required_grants": [
+        "resource1:read"
+      ],
+      "required_spend": {
+        "unit": "iso4217:USD:minor",
+        "amount": "3",
+        "action_ref": "102fb2249566e78d9cb9319b7abff960ed7954ed902fd9ec8c0884f683a788d0"
+      },
+      "ledger": "none",
+      "revocation": {
+        "read_r1": "active",
+        "write_r2": "active",
+        "read_r1_alt": "active"
+      },
+      "expected": {
+        "selected": false,
+        "evaluations": [
+          {
+            "chain_id": "chain_read_r1",
+            "outcome": "undecided",
+            "code": "spend_ledger_unavailable",
+            "chain_state": "valid"
+          }
+        ],
+        "code": "selection_undecided"
+      }
+    },
+    {
+      "id": "CS-17-unknown-revocation-is-undecided-not-refused",
+      "note": "draft-03 section 3.3 makes an unavailable or stale revocation result indeterminate. The selection keeps it out of refused as well, so the answer is not established rather than a denial.",
+      "api": "selectChainForAction",
+      "held": [
+        "chain_read_r1"
+      ],
+      "preferred_chain_id": null,
+      "fallback": null,
+      "required_grants": [
+        "resource1:read"
+      ],
+      "required_spend": {
+        "unit": "iso4217:USD:minor",
+        "amount": "3",
+        "action_ref": "6014439cb794863725d95213a0ce124108f2343baae1f377a279516c8feb30e0"
+      },
+      "ledger": "fresh_in_memory",
+      "revocation": {
+        "read_r1": "unknown",
+        "write_r2": "active",
+        "read_r1_alt": "active"
+      },
+      "expected": {
+        "selected": false,
+        "evaluations": [
+          {
+            "chain_id": "chain_read_r1",
+            "outcome": "undecided",
+            "code": "REVOCATION_UNKNOWN",
+            "chain_state": "indeterminate"
+          }
+        ],
+        "code": "selection_undecided"
+      }
+    },
+    {
+      "id": "CS-18-undecided-chain-does-not-block-a-covering-chain",
+      "note": "An undecided candidate is recorded and the selection continues; the chain that does authorize the action is still the one selected.",
+      "api": "selectChainForAction",
+      "held": [
+        "chain_read_r1",
+        "chain_read_r1_alt"
+      ],
+      "preferred_chain_id": null,
+      "fallback": null,
+      "required_grants": [
+        "resource1:read"
+      ],
+      "required_spend": {
+        "unit": "iso4217:USD:minor",
+        "amount": "3",
+        "action_ref": "3a1fbc97cbe3356deaa99ba76c9fe0efdb73e8f6117cedd7234d86edebb178fa"
+      },
+      "ledger": "fresh_in_memory",
+      "revocation": {
+        "read_r1": "unknown",
+        "write_r2": "active",
+        "read_r1_alt": "active"
+      },
+      "expected": {
+        "selected": true,
+        "evaluations": [
+          {
+            "chain_id": "chain_read_r1",
+            "outcome": "undecided",
+            "code": "REVOCATION_UNKNOWN",
+            "chain_state": "indeterminate"
+          },
+          {
+            "chain_id": "chain_read_r1_alt",
+            "outcome": "authorizes",
+            "code": "RESERVED",
+            "chain_state": "valid"
+          }
+        ],
+        "chain_id": "chain_read_r1_alt",
+        "state": "valid"
+      }
+    },
+    {
+      "id": "CS-19-no-spend-requirement-selects-on-scope-alone",
+      "note": "An action that reserves nothing needs no ledger, and the evaluation says which check admitted it.",
+      "api": "selectChainForAction",
+      "held": [
+        "chain_read_r1"
+      ],
+      "preferred_chain_id": null,
+      "fallback": null,
+      "required_grants": [
+        "resource1:read"
+      ],
+      "required_spend": null,
+      "ledger": "fresh_in_memory",
+      "revocation": {
+        "read_r1": "active",
+        "write_r2": "active",
+        "read_r1_alt": "active"
+      },
+      "expected": {
+        "selected": true,
+        "evaluations": [
+          {
+            "chain_id": "chain_read_r1",
+            "outcome": "authorizes",
+            "code": "scope_covered",
+            "chain_state": "valid"
+          }
+        ],
+        "chain_id": "chain_read_r1",
+        "state": "valid"
+      }
+    }
+  ]
+}
