@@ -282,6 +282,86 @@
   `conformance/authority-state/v0/vectors.json` holds 49 hand-specified cases and is the
   shared fixture. The Python SDK vendors a byte-identical copy and runs the same cases, and
   both repositories pin the file's SHA-256 inside their own test.
+- **`src/v2/suspension/`, suspension and restriction as a SET OF CAUSES. PROPOSED and OPT-IN.**
+  Nothing here is required by draft-pidlisnyi-aps-03. The published draft states no
+  suspension rule, no restriction rule, no release rule and no lifecycle-standing rule: a
+  case-insensitive search of its plain text returns zero occurrences of `suspend` and
+  `suspension`, and the only status answer the protocol has is the revocation resolver's
+  closed set `'active' | 'revoked' | 'unknown'`. There is nowhere in that type to put one
+  cause, let alone three. Section 3.2 closes the authority vector at seven facets and calls
+  a missing facet invalid, so no cause can ride inside a signed `AuthorityDelegationV1`
+  either. `AuthorityValidationState`, `AuthorityValidationResult`, `RevocationResolution`
+  and everything `verifyAuthorityDelegationChain` and `verifyAuthorityDelegation` return are
+  byte for byte what they were, and a caller that does not import the new module sees no
+  change at all.
+
+  The concept source is the aeoess/agent-authority-lifecycle concept document: invariant L8
+  (suspension is not revocation, which says nothing about ARITY, so an implementation
+  holding exactly one suspension at a time conforms to every word of it and is still wrong)
+  and invariant candidate CAND-05 (suspension and restriction causes compose), with the
+  `OPEN-QUESTIONS.md` entry "Release from suspension" as the paragraph that names the gap:
+  lifting one suspension should not clear another or bypass a revocation that happened while
+  the agent was suspended, causes probably need to compose with each released separately,
+  and none of it is specified. CAND-05 states that composition is forced by the corpus and
+  externally unsourced. Every exported symbol says so in its doc comment.
+
+  New public surface:
+
+  - `SuspensionCause`, a lifecycle cause as a SEPARATE SIGNED ARTIFACT referencing a
+    `delegation_id`, carrying its `kind` (`suspension` or `restriction`, the two invariant
+    L8 separates), who imposed it, when, and a stable reason code.
+  - `SuspensionRelease`, a record naming every cause it claims to clear. One release may
+    clear several causes, which CAND-05 explicitly does not forbid. What is forbidden is
+    releasing cause A having the side effect of clearing cause B, so each named cause is
+    decided independently and a record with standing over two of three clears exactly those
+    two. A release record is not a list of assertions a verifier accepts wholesale.
+  - `evaluatePauseState(input)`, returning a `LifecycleStateResult` whose `outstanding`
+    member is the remaining cause set. NEVER A COUNT AND NEVER A BOOLEAN: that member being
+    a list is the whole of CAND-05 in one field.
+  - `explainPauseState(input)`, the same computation with the per-record and per-cause
+    audit trail, for a caller that has to record why each record did or did not move the
+    answer.
+  - `composeChainAndPause(chain, pause)`, the rule that A RELEASE NEVER CLEARS A REVOCATION
+    THAT HAPPENED MEANWHILE. When the chain result is anything other than `valid` it is
+    returned unchanged and the pause state is not reported; draft-03 section 3.5 says
+    verbatim "Revocation is irreversible" and a release record is a later record about the
+    causes, not about the chain.
+  - `SUSPENSION_CAUSE_TYPE`, `SUSPENSION_RELEASE_TYPE`, `PAUSE_KINDS`, `RELEASE_STANDINGS`,
+    `SUSPENSION_REASON_CODES`, `suspensionRecordPreimage`, `SuspensionCauseError` and the
+    disposition and resolver types.
+
+  Three design positions worth naming, each of them a reading rather than a rule:
+
+  - **Standing is resolved outside the record, always.** `resolveReleaseStanding` is a
+    caller-supplied callback and the module never reads standing from the artifact asserting
+    it. A cause may carry an advisory `release_authority`, and the evaluator does not consult
+    it; a negative-control test sets that member to the releasing party and asserts the
+    release is still ineffective when the resolver says `no_standing`. Standing is also not
+    authorship: CAND-05 says a source may hold standing over a cause it did not impose, and
+    an implementer who reads "standing over that cause" as "the source that imposed it" gets
+    the superior-authority case wrong.
+  - **An unverified claim does not become a lifecycle state.** A cause record whose signature
+    does not verify, or whose verification method is not bound to the imposer it names, holds
+    nothing. Reporting `suspended` on it would convert an unauthenticated assertion into a
+    pause the artifact never carried.
+  - **A standing answer of `unknown` gives `not_established`, not `suspended`.** Failing to
+    establish that a cause was released is not establishing that it still holds. The other
+    reading is available and the proposed text settles neither.
+
+  Three things this module deliberately does not decide, all recorded rather than papered
+  over: no precedence order among causes, because CAND-05 defines none and says so; what
+  wins in the reverse ordering, a revoked chain with causes still outstanding, where
+  `composeChainAndPause` reports the chain as a choice of what to report first rather than a
+  claim that the causes stopped mattering; and where standing comes from, which no published
+  or proposed text answers and which the parity fixture supplies as a fixture object.
+
+  Cross-language parity: `conformance/suspension-causes/v0/vectors.json`, 29 evaluation
+  cases, 6 composition cases and 6 malformed-input cases, is the shared fixture. Records are
+  minted deterministically from published seed labels, so the file carries no secret material
+  and regenerates byte for byte. The Python SDK vendors a byte-identical copy and runs the
+  same cases through its own port, and both repositories pin the file's SHA-256 inside their
+  own test, so a one-sided edit fails on the side that was edited. Tests live at
+  `tests/v2/suspension.test.ts`.
 
 - **`src/v2/lifecycle-state/`, the lifecycle state vocabulary. PROPOSED and OPT-IN.**
   A second verdict vocabulary, reported alongside chain verification and never merged into
