@@ -49,7 +49,7 @@
     "@jazzer.js/core": "^4.0.0",
     "@types/libsodium-wrappers": "^0.8.2",
     "@types/node": "^20.19.43",
-    "canonicalize": "4.0.0",
+    "canonicalize": "5.1.0",
     "fast-check": "^4.9.0",
     "mcp-use": "2.5.1",
     "tsx": "^4.23.12",
