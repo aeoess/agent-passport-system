@@ -366,6 +366,69 @@
   has always taken the same override for the same reason; this brings the legacy entry path
   level with it. No new field on `ToolRegistryEntry` and no change on the default path.
 
+- **`src/v2/status-coverage/`, multiple trusted status sources with freshness bounds.
+  PROPOSED, EXPERIMENTAL and OPT-IN.**
+  Decides what one authorization boundary can establish about one `authority_ref` from a SET
+  of status answers, each measured against the freshness bound declared for its own source.
+  Conflict between accepted sources, or staleness past a declared bound, gives not
+  established. An offline verifier holding a snapshot inside a bound it declared in advance
+  may admit, and the record names the snapshot and the age it admitted at.
+
+  Nothing here is required by draft-pidlisnyi-aps-03. Section 3.3 rules one revocation
+  result per chain member and closes verification at, verbatim: "Verification returns one of
+  valid, invalid, indeterminate, or unsupported with a stable failure code." It says nothing
+  about two sources answering about the same member, nothing about a per-source freshness
+  bound, nothing about coverage over a declared source set, and nothing about an offline
+  admission on a snapshot. `AuthorityValidationResult`, `verifyAuthorityDelegationChain` and
+  the whole of `src/v2/revocation-enforcement/`, including `FreshnessPolicy`,
+  `decideFreshness` and `RevocationObservation`, are unchanged. This decision is reported
+  alongside a chain result, never merged into it, and a caller that does not import the new
+  module sees no change at all.
+
+  The concept source is the aeoess/agent-authority-lifecycle concept document: invariant L7
+  (unknown revocation state is not active), which is the published-text half, and invariant
+  candidate BROAD-L7, all three limbs, which broadens L7 to any current lifecycle state
+  claim. BROAD-L7 is proposed, and every exported symbol says so in its doc comment.
+
+  New public surface:
+
+  - `decideMultiSourceStatus(input)`, the decision. Pure: no clock, no network, no crypto.
+    It returns a `MultiSourceStatusDecision` carrying two subjects kept apart, the boundary
+    `outcome` and the artifact `lifecycle` verdict in the `src/v2/lifecycle-state/`
+    vocabulary, plus a module-local `reason_code` and a `basis` block.
+  - `StatusTrustPolicy`, `RequiredSourceSet`, `DeclaredStatusSource` and `SnapshotSource`:
+    what the relying party accepts, with a freshness bound declared PER SOURCE rather than
+    globally, and, in offline mode, a snapshot source with the maximum age it declared in
+    advance that it would admit on. The declared bound is required, so admitting on a
+    snapshot with no declared bound is unreachable rather than merely discouraged.
+  - `MultiSourceStatusBasis`, the audit half, and it is not optional. Every answer gets a
+    line carrying its age, the bound it was measured against, whether it was within that
+    bound, whether it was used, and a `StatusUseBasis` saying why. An admission on a
+    snapshot additionally records the snapshot and the age it admitted at, so the admission
+    can be recomputed from the record alone.
+  - `ConflictPolicy` and `StaleAnswerPolicy`, both REQUIRED PARAMETERS WITH NO DEFAULTS.
+    That is unusual for an SDK and it is deliberate. What a conflict returns, and whether an
+    answer past its own bound still counts, each have two defensible readings of the
+    proposed text, and the two readings give opposite verdicts on the deployment-relevant
+    case. A default on either would be this SDK making a specification decision in code.
+    `RequiredSourceSet.silence_is` is required for the same reason.
+  - `StatusCoverage`, coverage over the DECLARED required-source set. This is NOT a
+    completeness claim. It reports whether every member of a set the relying party declared
+    produced a usable determinate answer, and nothing more. Invariant L12 is open, and a
+    `complete: true` block must not be read as a statement that the declared set was every
+    source that mattered.
+
+  Two further readings the module fixes rather than parameterises, both recorded in the
+  basis so a reader can see them: an answer dated after the boundary instant is refused as
+  skew rather than read as fresh, and an answer from a source the trust policy does not name
+  is recorded and ignored rather than used.
+
+  Cross-language parity: `conformance/status-coverage/v0/vectors.json`, 24 hand-specified
+  decision cases and 16 refusal cases, is the shared fixture. The Python SDK vendors a
+  byte-identical copy and runs the same cases through its own port, and both repositories
+  pin the file's SHA-256 inside their own test. Tests live at
+  `tests/v2/status-coverage.test.ts`.
+
 ## 7.1.0 (2026-09-22)
 
 ### Added
