@@ -2333,3 +2333,72 @@ export {
   isEstablishedNegativeShape,
 } from './v2/lifecycle-state/index.js'
 export { mapAuthorityValidationToLifecycle } from './v2/lifecycle-state/index.js'
+
+// ── Activation conditions (v2): PROPOSED, OPT-IN ──
+// An activation condition is a SEPARATE artifact that references a `delegation_id`, and it
+// gates when an already issued grant becomes exercisable. NOT REQUIRED BY
+// draft-pidlisnyi-aps-03: the published text states no activation-condition rule, no attestor
+// role and no attestation-acceptance rule, and its section 3.2 closes `authority` at seven
+// facets ("A missing facet is invalid rather than an implicit unconstrained value"), so a
+// condition can never be a facet. `AuthorityVectorV1`, `AuthorityValidationState`,
+// `AuthorityValidationResult` and everything `verifyAuthorityDelegationChain` returns are
+// unchanged, and a caller that does not import this module sees exactly today's behaviour.
+//
+// `verifyActivation` returns `valid`, `not_yet_effective` or `not_established` in the
+// lifecycle-state vocabulary, and never `invalid`: an unmet condition does not make a grant
+// invalid. `composeActivation` reports that alongside a chain result and asks activation only
+// when the chain is valid, which is what keeps invariant L1 intact for a pre-committed
+// replacement grant.
+//
+// Three parameters are deliberately UNDEFAULTED, because the concept text has not decided them
+// and a default in an SDK is a ruling made by whoever wrote the SDK: `instant_basis` (which
+// instant an occurrence is measured from), `threshold` (how many acceptable attestations
+// establish a finding), and role standing, which is resolved through a caller-supplied
+// resolver and never read off the attestation asserting it.
+//
+// Concept source: the aeoess/agent-authority-lifecycle concept document, invariant candidates
+// CAND-04, CAND-13 (activation half) and BROAD-L7. All proposed, with no published
+// specification text behind them. Nothing downstream should treat these names as specified.
+export {
+  ACTIVATION_CONDITION_TYPE,
+  ACTIVATION_ATTESTATION_TYPE,
+  ACTIVATION_CONDITION_KINDS,
+  ACTIVATION_INSTANT_BASES,
+  ACTIVATION_ASSERTIONS,
+  ATTESTOR_ROLE_STANDINGS,
+  ACTIVATION_FINDINGS,
+  ACTIVATION_REASON_CODES,
+  ACTIVATION_GAPS_BY_REASON,
+  ACTIVATION_ATTESTATION_SIGNATURE_DOMAIN,
+  ACTIVATION_ATTESTATION_ID_DOMAIN,
+  ACTIVATION_CONDITION_SIGNATURE_DOMAIN,
+} from './v2/activation/index.js'
+export type {
+  ActivationConditionKind,
+  ActivationInstantBasis,
+  ActivationAssertion,
+  ActivationConditionCommonV0,
+  DateActivationConditionV0,
+  RecordedEventActivationConditionV0,
+  ActivationConditionV0,
+  ActivationAttestationV0,
+  AttestorRoleStanding,
+  AttestorRoleResolver,
+  ActivationFindingKind,
+  ActivationFinding,
+  ActivationRejection,
+  ActivationReasonCode,
+  ActivationResult,
+  ActivationVerificationInput,
+  ActivationCompositionOptions,
+} from './v2/activation/index.js'
+export {
+  ActivationError,
+  verifyActivation,
+  composeActivation,
+  validateActivationCondition,
+  activationAttestationBody,
+  activationAttestationSignatureInput,
+  computeActivationAttestationId,
+  activationConditionSignatureInput,
+} from './v2/activation/index.js'
