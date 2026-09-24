@@ -80,6 +80,76 @@
   Python SDK vendors a byte-identical copy and runs the same cases through its own port, and
   both repositories pin the file's SHA-256 inside their own test, so a one-sided edit fails on
   the side that was edited. Tests live at `tests/v2/activation.test.ts`.
+- **`src/v2/bounds/`, non-time bounds on a grant. PROPOSED and OPT-IN.**
+  Purpose, use-count and budget bounds, and the state "this bound has been reached".
+  Nothing here is required by draft-pidlisnyi-aps-03 and nothing existing changed. Two of
+  that document's sentences constrain the whole module. Section 3.2, verbatim: "authority
+  contains exactly seven required facets: scope, spend, depth, time, reputation, values, and
+  reversibility.  A missing facet is invalid rather than an implicit unconstrained value."
+  The facet set is closed, so a purpose bound or a use-count bound cannot live inside a
+  signed `AuthorityDelegationV1`, and this module declares a separate artifact that
+  references a delegation by its content address. Section 3.3, verbatim: "Verification
+  returns one of valid, invalid, indeterminate, or unsupported with a stable failure code."
+  That set is closed too and this change does not touch it: a bound evaluation is reported
+  alongside a chain result, in the vocabulary `src/v2/lifecycle-state/` owns. A caller that
+  does not import the new module sees no change at all.
+
+  draft-03 has zero occurrences of `exhaust` and zero of `use_count`. It uses "single-use"
+  only of an approval in section 4.3, never of a grant. The concept source is the
+  aeoess/agent-authority-lifecycle concept document: invariant L10 (expiry is not
+  revocation), whose "Expiry or exhaustion" concept entry names a use count, a budget and a
+  purpose as bounds whose being reached ends authority, and invariant candidates CAND-01 (an
+  external event is authority-changing only when established) and CAND-02 (later evidence
+  does not rewrite earlier evidence). All three are proposed, with no published
+  specification text behind them, and every exported symbol says so in its doc comment.
+
+  New public surface:
+
+  - `AuthorityBound`, a bound declared on one delegation: a kind, a value, and the
+    fulfilment-attestor ROLES who may say it was reached. Roles rather than principals,
+    because whoever may attest that a compressor was installed is whoever holds the role now,
+    not whoever held it when the grant was signed. The module does not authenticate the bound
+    declaration itself and says so: that is the caller's step, by whatever means its authority
+    model provides.
+  - `AuthorityBoundFulfilment` and `issueAuthorityBoundFulfilment`, a signed attestation that
+    a purpose bound was reached. Modelled on what section 3.5.1 requires of a revocation
+    record, which is the nearest published shape for "a party with standing recorded that an
+    authority artifact's state changed".
+  - `assessFulfilment`, which assesses ONE record. Standing is asked BEFORE authenticity, and
+    each produces its own reason code, because "authenticated by somebody who may not say
+    this" and "not authenticated at all" are different failures. A record from a party with
+    standing saying the purpose was NOT met is the one rejection that carries no missing
+    limbs: the verifier reached a conclusion, so there is no gap to name.
+  - `evaluateBound`, which answers `not_reached`, `exhausted` or `not_established` at an
+    instant, alongside the same conclusion in the lifecycle vocabulary and an `ending` field
+    that is `exhaustion` or `null` and never `expiry` or `revocation`. An unauthenticated
+    fulfilment claim gives `not_established`, never `exhausted` and never `not_reached`. An
+    exhaustion that was established is not downgraded by a later claim nobody could
+    authenticate, and the verdict does not depend on the order the records arrive in.
+  - `issueAuthorityExhaustion` and `verifyAuthorityExhaustion`, the OPTIONAL signed exhaustion
+    record, shaped like the section 3.5.1 revocation record so the two endings are comparable
+    evidence. It attests the enforcement boundary's own finding and not the state of the
+    world, on the model section 5.3.3 uses for an action result, verbatim: "An action-result
+    record attests to what the enforcement boundary observed after dispatch.  External
+    occurrence or settlement requires separately resolved evidence." Issuance REFUSES for any
+    state other than `exhausted`, with no override.
+  - `isPurposePermitted` and `purposeCategory`, re-exported unchanged from
+    `src/core/data-lifecycle.ts`, which still exports them from their old path. The Python SDK
+    had no port of either, and putting the same primitive at two unrelated paths in the two
+    languages would become a cross-language annoyance the first time a vector referenced it.
+    Purpose membership is not purpose exhaustion: it answers the same for the second purchase
+    as for the first, which is why it can never decide exhaustion.
+  - The `budget` kind delegates to `InMemoryAuthorityBudgetLedger` and never reimplements it.
+    It reads the `{ committed, reserved }` shape `counter()` already returns. draft-03 section
+    3.4 already states the rule, verbatim: "Signatures establish static limits; they do not
+    establish the current cumulative total."
+
+  Cross-language parity: `conformance/authority-bounds/v0/vectors.json`, 53 cases, is the
+  shared fixture. The Python SDK vendors a byte-identical copy and runs the same cases through
+  its own port, and both repositories pin the file's SHA-256 inside their own test, so a
+  one-sided edit fails on the side that was edited. Every verdict, reason code and refusal
+  code in it is hand specified, and the signature and identifier byte values are there so the two
+  ports can be shown to emit the same characters. Tests live at `tests/v2/bounds.test.ts`.
 
 - **`src/v2/lifecycle-state/`, the lifecycle state vocabulary. PROPOSED and OPT-IN.**
   A second verdict vocabulary, reported alongside chain verification and never merged into
