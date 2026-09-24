@@ -72,12 +72,25 @@ export function createToolRegistryEntry(input: {
   implementation: string | Buffer
   attestorId: string
   attestorPrivateKey: string
+  /** Override timestamp — for deterministic conformance fixtures.
+   *
+   *  ADDITIVE AND OPTIONAL. Omit it and the behaviour is exactly what it always was:
+   *  `verifiedAt` is stamped from the system clock. Supply it and the function becomes
+   *  reproducible, so calling it twice with the same inputs gives the same bytes and the
+   *  same signature.
+   *
+   *  Without this, a fixture that needs a stable registry entry has to mint through this
+   *  function, re-stamp `verifiedAt` and re-sign the body itself. `createToolManifest`
+   *  below has always taken the same override for the same reason; this brings the legacy
+   *  entry path level with it. No new field on `ToolRegistryEntry`, no new behaviour on
+   *  the default path. */
+  verifiedAt?: string
 }): ToolRegistryEntry {
   const implHash = createHash('sha256')
     .update(input.implementation)
     .digest('hex')
 
-  const now = new Date().toISOString()
+  const now = input.verifiedAt ?? new Date().toISOString()
   const body = {
     toolName: input.toolName,
     implementationHash: `sha256:${implHash}`,
