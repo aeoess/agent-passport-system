@@ -197,21 +197,21 @@
       "expected": { "verdict": "invalid", "reason_code": "EXPIRED" }
     },
     {
-      "id": "MP-04-not-yet-valid-default",
-      "tests": "CAND-04. A grant whose not_before has not been reached is validly issued and waiting, which the default mapping reports as not_yet_effective rather than invalid.",
+      "id": "MP-04-not-yet-valid-default-keeps-the-chain-reading",
+      "tests": "The concept document has not decided whether a waiting grant is invalid or not yet effective, so the default mapping takes no side and carries the chain's own answer through. This is the reading the activation-not-established family's AX-19 records for both reference SDKs.",
       "chain_result": { "state": "invalid", "failures": [{ "code": "NOT_YET_VALID", "message": "not yet valid" }] },
-      "expected": { "verdict": "not_yet_effective", "reason_code": "NOT_BEFORE_UNREACHED" }
-    },
-    {
-      "id": "MP-05-not-yet-valid-opted-out",
-      "tests": "The reading is contested, so the caller can keep the chain's own answer.",
-      "chain_result": { "state": "invalid", "failures": [{ "code": "NOT_YET_VALID", "message": "not yet valid" }] },
-      "options": { "not_yet_valid_as_not_yet_effective": false },
       "expected": { "verdict": "invalid", "reason_code": "NOT_YET_VALID" }
     },
     {
-      "id": "MP-06-not-yet-valid-alongside-another-failure",
-      "tests": "The date reading applies only when the date is the sole complaint. Something more than the date is wrong here, so the verdict is invalid on that other failure.",
+      "id": "MP-05-not-yet-valid-opted-into-cand-04",
+      "tests": "CAND-04's reading, available with one flag: a grant whose not_before has not been reached is validly issued and waiting, whose remedy is to wait.",
+      "chain_result": { "state": "invalid", "failures": [{ "code": "NOT_YET_VALID", "message": "not yet valid" }] },
+      "options": { "not_yet_valid_as_not_yet_effective": true },
+      "expected": { "verdict": "not_yet_effective", "reason_code": "NOT_BEFORE_UNREACHED" }
+    },
+    {
+      "id": "MP-06-opted-in-not-yet-valid-alongside-another-failure",
+      "tests": "Even opted in, the date reading applies only when the date is the sole complaint. Something more than the date is wrong here, so the verdict is invalid on that other failure.",
       "chain_result": {
         "state": "invalid",
         "failures": [
@@ -219,6 +219,7 @@
           { "code": "SIGNATURE_INVALID", "message": "bad signature" }
         ]
       },
+      "options": { "not_yet_valid_as_not_yet_effective": true },
       "expected": { "verdict": "invalid", "reason_code": "SIGNATURE_INVALID" }
     },
     {
@@ -247,7 +248,7 @@
     },
     {
       "id": "MP-11-unsupported",
-      "tests": "A record the verifier declines to judge is not a conclusion about the artifact. The chain result still says unsupported; this vocabulary has no member for it and reports the evidential not established.",
+      "tests": "A record the verifier declines to judge is not a conclusion about the artifact. The chain result still says unsupported, and this vocabulary has no member for it and reports the evidential not established.",
       "chain_result": { "state": "unsupported", "failures": [{ "code": "UNSUPPORTED_PROFILE", "message": "unknown profile" }] },
       "expected": { "verdict": "not_established", "reason_code": "UNSUPPORTED_PROFILE", "missing": ["source"] }
     },

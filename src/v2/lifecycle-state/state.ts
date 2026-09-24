@@ -49,8 +49,8 @@ export function isEstablishedNegativeShape(value: unknown): value is Established
   )
 }
 
-/** What `lifecycleState` accepts. Same members as `LifecycleStateResult`; the constructor
- *  is what turns it into one. */
+/** What `lifecycleState` accepts. Same members as `LifecycleStateResult`, and the
+ *  constructor is what turns it into one. */
 export interface LifecycleStateInput {
   readonly verdict: LifecycleVerdict
   readonly reason_code: string
@@ -87,7 +87,7 @@ function assertCause(cause: OutstandingCause, index: number): void {
  *     name must be told apart by their codes.
  *  3. `missing` is present with at least one member exactly when the verdict is
  *     `not_established`, and absent otherwise. A denial on an unestablished state has to
- *     record which of source, freshness or coverage was missing; and a verdict the verifier
+ *     record which of source, freshness or coverage was missing, and a verdict the verifier
  *     DID reach has no gap to report.
  *  4. `outstanding` is present with at least one member exactly when the verdict is
  *     `suspended` or `restricted`, and absent otherwise. Causes compose, so the verdict

@@ -40,7 +40,7 @@ const vectorsBytes = readFileSync(vectorsPath)
 
 /** Pinned so the Python SDK's vendored copy can be shown byte identical. If this moves,
  *  the Python repo's copy and its own pin move with it, in the same change. */
-const VECTORS_SHA256 = 'e2efab4001ee7593cdd38a3f6bfb9d35e9946e865f93ae62c71c8587d1cccf6f'
+const VECTORS_SHA256 = '32bc491378494e0336a9a1b3b56eae897c8a0f13591d136cec08831cf5b7ab91'
 
 interface Vectors {
   profile: string

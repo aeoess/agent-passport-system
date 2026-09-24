@@ -49,15 +49,16 @@
     the vocabulary exists to prevent.
   - `mapAuthorityValidationToLifecycle(result, options?)`, the opt-in read-only view of an
     existing `AuthorityValidationResult` in the new vocabulary. It never mutates its input
-    and is never called from the verification path. One reading in it is worth naming:
-    by default a result whose only failure is `NOT_YET_VALID` maps to `not_yet_effective`
-    rather than `invalid`, because a validly issued grant whose enabling date has not
-    arrived is a positive finding whose remedy is to wait. The reading is contested, so
-    `notYetValidAsNotYetEffective: false` keeps the chain's own answer.
+    and is never called from the verification path. One reading in it is worth naming: a
+    result whose only failure is `NOT_YET_VALID` stays `invalid` by default, because the
+    concept document has not decided whether a waiting grant is invalid or not yet
+    effective, and a base module several other surfaces build on should not embed a
+    contested reading as a default. `notYetValidAsNotYetEffective: true` takes CAND-04's
+    reading, under which such a grant is `not_yet_effective`.
 
   Cross-language parity: `conformance/lifecycle-state/v0/vectors.json`, 38 hand-specified
   cases, is the shared fixture. The Python SDK vendors a byte-identical copy and runs the
-  same cases through its own port; both repositories pin the file's SHA-256 inside their
+  same cases through its own port, and both repositories pin the file's SHA-256 inside their
   own test, so a one-sided edit fails on the side that was edited. Tests live at
   `tests/v2/lifecycle-state.test.ts`.
 
