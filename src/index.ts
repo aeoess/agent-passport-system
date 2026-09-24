@@ -2298,3 +2298,92 @@ export {
   isEstablishedNegativeShape,
 } from './v2/lifecycle-state/index.js'
 export { mapAuthorityValidationToLifecycle } from './v2/lifecycle-state/index.js'
+
+// ── v2/bounds: non-time bounds on a grant. PROPOSED and OPT-IN ──────────────────────────
+//
+// Purpose, use-count and budget bounds, and the state "this bound has been reached".
+//
+// NOT REQUIRED BY draft-pidlisnyi-aps-03. Two of its sentences constrain the whole module.
+// Section 3.2: "authority contains exactly seven required facets: scope, spend, depth, time,
+// reputation, values, and reversibility." The facet set is closed, so a purpose or use-count
+// bound cannot live inside a signed AuthorityDelegationV1 at all, and this module declares a
+// separate artifact referencing a delegation by content address. Section 3.3: "Verification
+// returns one of valid, invalid, indeterminate, or unsupported with a stable failure code."
+// That set is closed too, and nothing here touches it. A bound evaluation is reported
+// ALONGSIDE a chain result. A caller that does not import this module sees no change at all.
+//
+// draft-03 has zero occurrences of "exhaust" and of "use_count", and uses "single-use" only
+// of an approval in section 4.3, never of a grant.
+//
+// What it adds: a bound declaration, a signed fulfilment attestation, `evaluateBound` which
+// answers not_reached, exhausted or not_established at an instant, and an optional signed
+// exhaustion record shaped like the section 3.5.1 revocation record. The exhaustion record
+// attests the enforcement boundary's own finding and not the state of the world, on the same
+// model draft-03 section 5.3.3 uses for an action result. `isPurposePermitted` and
+// `purposeCategory` are re-exported here unchanged from `src/core/data-lifecycle.ts`, so both
+// reference SDKs expose purpose membership from the same place; membership is not exhaustion.
+//
+// Concept source: the aeoess/agent-authority-lifecycle concept document, invariant L10
+// (expiry is not revocation) and invariant candidates CAND-01 (an external event is
+// authority-changing only when established) and CAND-02 (later evidence does not rewrite
+// earlier evidence). All PROPOSED, with no published specification text behind them.
+export {
+  AUTHORITY_BOUND_TYPE,
+  AUTHORITY_BOUND_FULFILMENT_TYPE,
+  AUTHORITY_EXHAUSTION_TYPE,
+  BOUND_KINDS,
+  BOUND_STATES,
+  BOUND_REASON_CODES,
+  FULFILMENT_REASON_CODES,
+  ATTESTOR_ROLE_ANSWERS,
+} from './v2/bounds/index.js'
+export type {
+  BoundKind,
+  BoundState,
+  BoundEnding,
+  BoundReasonCode,
+  FulfilmentReasonCode,
+  AttestorRoleAnswer,
+  AttestorRoleResolver,
+  BoundVerificationKeyResolver,
+  AuthorityBound,
+  AuthorityBoundFulfilmentBody,
+  AuthorityBoundFulfilment,
+  AuthorityExhaustionBody,
+  AuthorityExhaustion,
+  AuthorityExhaustionFailureCode,
+  AuthorityExhaustionVerification,
+  FulfilmentAssessment,
+  BoundEvaluation,
+  AssessFulfilmentInput,
+  EvaluateBoundInput,
+  IssueFulfilmentInput,
+  IssueExhaustionInput,
+} from './v2/bounds/index.js'
+export {
+  AuthorityBoundError,
+  assertAuthorityBound,
+  isBoundKind,
+  isAttestorRoleAnswer,
+  assessFulfilment,
+  evaluateBound,
+  issueAuthorityBoundFulfilment,
+  issueAuthorityExhaustion,
+  verifyAuthorityExhaustion,
+} from './v2/bounds/index.js'
+export {
+  AUTHORITY_BOUND_FULFILMENT_SIGNATURE_DOMAIN,
+  AUTHORITY_EXHAUSTION_ID_DOMAIN,
+  AUTHORITY_EXHAUSTION_SIGNATURE_DOMAIN,
+  authorityBoundFulfilmentSignatureInput,
+  authorityBoundFulfilmentSignatureInputForWrite,
+  signAuthorityBoundFulfilment,
+  verifyAuthorityBoundFulfilmentSignature,
+  authorityExhaustionIdInput,
+  computeAuthorityExhaustionId,
+  computeAuthorityExhaustionIdForWrite,
+  authorityExhaustionSignatureInput,
+  authorityExhaustionSignatureInputForWrite,
+  signAuthorityExhaustion,
+  verifyAuthorityExhaustionSignature,
+} from './v2/bounds/index.js'
