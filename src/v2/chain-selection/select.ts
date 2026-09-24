@@ -317,12 +317,11 @@ export function selectChainForAction(input: ChainSelectionInput): SelectionOutco
  *
  * The preferred-chain half is draft-03 section 3.3: one chain, no union. The fallback
  * half is PROPOSED and has no counterpart in draft-03, where `fallback`, `fall back`,
- * `resurrect` and `reselect` occur zero times. It serves invariant candidate L11, "No
- * silent authority resurrection", in `AUTHORITY-LIFECYCLE.md` of the
- * aeoess/agent-authority-lifecycle concept document, whose own status there is
- * `proposed`: a switch to another stored grant should be a visible decision, not a retry.
+ * `resurrect` and `reselect` occur zero times. It serves a proposed rule this SDK does
+ * not claim is specified anywhere: a switch to another stored grant should be a visible
+ * decision, not a retry.
  *
- * `fallback: null` is the whole of L11 in one parameter. It reads no held chain other
+ * `fallback: null` is that proposed rule in one parameter. It reads no held chain other
  * than `preferred_chain_id`, so `evaluations` has exactly one entry and
  * `fallback_considered` is false. There is no code path on which this function reaches
  * another chain without the caller having passed an authorization object.
@@ -331,8 +330,8 @@ export function selectChainForAction(input: ChainSelectionInput): SelectionOutco
  * and the first that authorizes the action is selected. The result then carries
  * `switched_from`, the chain the action had selected, and `fallback_ref`, the caller's
  * opaque reference, so the switch is in the result rather than only in the caller's head.
- * That reference is recorded and NEVER interpreted: L11 does not define what makes a
- * fallback explicitly authorized, and this SDK does not invent a definition, so a
+ * That reference is recorded and NEVER interpreted: nothing specified defines what makes
+ * a fallback explicitly authorized, and this SDK does not invent a definition, so a
  * `fallback_ref` is not evidence that anything authorized anything.
  *
  * The preferred chain is always evaluated first and its own outcome is always
@@ -360,7 +359,7 @@ export function selectWithFallback(input: ChainSelectionWithFallbackInput): Sele
     try { ref = (fallback as { authorization_ref?: unknown }).authorization_ref } catch { ref = undefined }
     // An authorization object with no usable reference is not an authorization. Refusing
     // to switch is the fail-closed answer: a switch recorded with no reference would be
-    // exactly the invisible switch L11 is about.
+    // exactly the invisible switch the proposed rule above is about.
     if (typeof ref !== 'string' || ref.length === 0) return fail('invalid_action_requirement', [])
     fallbackRef = ref
   }

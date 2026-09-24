@@ -2244,20 +2244,22 @@ export type { BudgetReservationState, BudgetOperationResult } from './v2/authori
 export { isAuthorityDelegationV1, validateAuthorityDelegationShape } from './v2/authority-delegation/schema.js'
 
 // ── Chain selection (v2): draft-03 section 3.3, one chain per action, no union ──
-// draft-03 section 3.3 lines 594-596: "Each action selects one root-to-leaf authority
-// chain.  A verifier MUST NOT union scopes or budgets from multiple chains.  Cross-
-// principal composition requires a separate profile." Every other authority entry point
-// here takes exactly one chain, so the first sentence had no surface: an implementation
-// that pooled three chains and an implementation that selected one were
-// indistinguishable through this SDK. These functions take the whole held set and return
-// the identifier of the one chain decided against. Additive and opt-in: nothing below
-// changes what verifyAuthorityDelegationChain returns for a draft-03 record, and a
-// caller that never imports it sees exactly today's behaviour.
+// STABLE. Not experimental, not opt-in: draft-pidlisnyi-aps-03 section 3.3 ("Chain
+// Verification") requires this behaviour of a verifier, in these words: "Each action
+// selects one root-to-leaf authority chain.  A verifier MUST NOT union scopes or budgets
+// from multiple chains.  Cross-principal composition requires a separate profile."
+// Every other authority entry point here takes exactly one chain, so the first sentence
+// had no surface: an implementation that pooled three chains and an implementation that
+// selected one were indistinguishable through this SDK. These functions take the whole
+// held set and return the identifier of the one chain decided against. Additive:
+// nothing here changes what verifyAuthorityDelegationChain returns for a draft-03
+// record, and a caller that never imports it sees exactly the previous behaviour.
 //
+// One part of this surface is NOT specified and says so at every symbol that carries it:
 // selectWithFallback's fallback parameter, and the switched_from, fallback_ref and
-// fallback_considered members, are PROPOSED, not draft-03: they serve invariant
-// candidate L11, "No silent authority resurrection", in AUTHORITY-LIFECYCLE.md of the
-// aeoess/agent-authority-lifecycle concept document, whose own status there is proposed.
+// fallback_considered members. draft-03 says nothing about what an implementation does
+// after the chain it selected turns out to be unusable. Those members are PROPOSED, and
+// implemented does not mean specified.
 export { selectChainForAction, selectWithFallback } from './v2/chain-selection/select.js'
 export {
   CHAIN_SELECTION_EVALUATION_CODES,

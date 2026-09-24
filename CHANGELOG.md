@@ -1,8 +1,181 @@
 # Changelog
 
-## Unreleased
+## 7.2.0 (2026-09-24)
 
-### Added
+One conformance fix and seven opt-in experimental modules for the authority lifecycle.
+
+**Existing behaviour is byte identical.** `AuthorityValidationState` is still the same
+four values, `AuthorityVectorV1` is still seven facets, and
+`verifyAuthorityDelegationChain` returns byte for byte what 7.1.0 returned for every
+record. A caller that imports none of the new modules sees exactly 7.1.0 behaviour.
+**The conformance suite output is unchanged**: the Agent Authority Conformance suite's own
+`npm test` produces byte-identical output under published 7.1.0 and under this build, exit
+0 both times, and all 86 of its family runners and probes exit 0 under both.
+
+What did move is how much of that suite this SDK can decide by itself. Across the 29
+lifecycle families, 633 vectors and 635 decision units, an SDK call reproduced the
+expected result for **50 of 635 units under 7.1.0 and 161 of 635 under this build**: 111
+units across 12 families, with **0 fail and 0 regressions**. The remaining 474 units are
+`not_supported`, meaning no SDK API decides them and a family's own harness supplies the
+deciding step. `not_supported` is not a failure and not a claim the expected answer is
+wrong.
+
+### Fixed
+
+- **Chain selection (draft-03 section 3.3).** `src/v2/chain-selection/`, a surface that
+  takes the set of chains an agent holds and reports which ONE of them an action was
+  decided against. Section 3.3 states the rule: "Each action selects one root-to-leaf
+  authority chain.  A verifier MUST NOT union scopes or budgets from multiple chains.
+  Cross-principal composition requires a separate profile." Every other authority entry
+  point here takes exactly one chain, so the first sentence had no surface: an
+  implementation that evaluated an action against three chains and pooled the answers,
+  and one that selected a single chain, were indistinguishable through this SDK. They are
+  not any more.
+
+  New public surface, all reachable from the package root:
+  `selectChainForAction(input)`, `selectWithFallback(input)`, the types `HeldChain`,
+  `RequiredSpendV1`, `AuthorityBudgetReserver`, `ChainEvaluation`,
+  `ChainEvaluationOutcome`, `ChainSelectionEvaluationCode`, `ChainSelectionFailureCode`,
+  `ChainSelectionInput`, `ChainSelectionWithFallbackInput`, `FallbackAuthorizationV0` and
+  `SelectionOutcome`, and the constants `CHAIN_SELECTION_EVALUATION_CODES`,
+  `CHAIN_SELECTION_FAILURE_CODES` and `HELD_SET_CEILING`.
+
+  **Additive. Nothing existing changed.** `AuthorityValidationState` is still
+  the same four values, `AuthorityVectorV1` is untouched, `verifyAuthorityDelegationChain`
+  returns exactly what it returned before for every draft-03 record, and a caller that
+  never imports this module sees today's behaviour. The new functions are pure and injectable in
+  the same way the chain verifier is: `now` and the three resolvers are the caller's, the
+  budget reserver is injected, and nothing here reads a clock, a random source or the
+  network. Neither entry point throws.
+
+  **No union, held by construction rather than by a check.** One private function judges
+  one chain, and it is the only place a chain is judged, so there is no code path on which
+  two chains' scope grants or spend ceilings meet in one comparison. A result names one
+  `chain_id`, never a set. A held entry that is two or more chains concatenated into one
+  array, which is the shape a caller reaches for to have two chains evaluated together, is
+  refused by name as `chain_set_presented_as_one` before verification, rather than being
+  reported as the broken parent link chain verification would otherwise call it.
+
+  **Selection rule, this implementation's own.** draft-03 states that an action selects one
+  chain and does not state how. Candidates are evaluated in held order. The first that
+  verifies `valid` and covers every needed scope grant is selected, the action's spend is
+  then reserved against that chain and no other, and a spend refusal is that chain's
+  refusal and ends the call. Continuing past a spend refusal to a chain with a larger
+  ceiling would be a fallback in everything but name, and `selectChainForAction` does not
+  do it.
+
+  **Not established is kept apart from refused.** A candidate whose revocation answer is
+  unknown, whose facet profile is unsupported, or whose spend could not be checked because
+  no ledger was supplied, is `undecided`, never `refuses`, and one undecided candidate
+  makes the whole outcome `selection_undecided` rather than "no chain covers the action".
+  Section 3.3 forbids collapsing indeterminate or unsupported into valid, and collapsing
+  them into a denial reason would be the opposite error.
+
+- **PROPOSED, not draft-03: the fallback surface.** `selectWithFallback`'s `fallback`
+  parameter and the `switched_from`, `fallback_ref` and `fallback_considered` members are the
+  one part of this module that is not specified. draft-03 says nothing about what an implementation does after the chain it
+  selected turns out to be unusable. `fallback: null` reads no held chain other than the
+  preferred one, so a refusal cannot hide a switch. An authorization object permits the
+  switch and the result then names the chain switched away from. Nothing specified defines
+  what makes a fallback explicitly authorized, so `authorization_ref` is an opaque
+  reference this SDK records and never interprets, and its presence is not a claim that
+  anything authorized anything. Every symbol carrying this half says so in its doc comment.
+
+- **Parity vectors.** `fixtures/chain-selection/chain-selection-vectors-v0.json`, 19 cases
+  over three single-hop chains from three roots to one leaf, generated deterministically by
+  `fixtures/chain-selection/generate-fixtures.ts` from published seed labels. Every recorded
+  outcome is observed: the generator runs the implementation, compares what it returned
+  against a declaration written beside each case, and refuses to write the file if they
+  disagree. The Python SDK runs a byte-identical vendored copy of the same file, so a
+  behaviour difference between the two implementations fails one of them.
+
+### Changed
+
+- **`createToolRegistryEntry` accepts an optional `verifiedAt` override.** Additive and
+  optional. Omit it and the behaviour is exactly what it always was, `verifiedAt` stamped
+  from the system clock. Supply it and the function becomes reproducible, so calling it
+  twice with the same inputs gives the same bytes and the same signature. `createToolManifest`
+  has always taken the same override for the same reason; this brings the legacy entry path
+  level with it. No new field on `ToolRegistryEntry` and no change on the default path.
+
+### Naming
+
+- **`AttestorRoleResolver` is exported from the package root under two qualified names.**
+  `src/v2/activation/` and `src/v2/bounds/` each define a resolver type that was called
+  `AttestorRoleResolver`, and the two have incompatible signatures: the activation one
+  takes one `role: string` and answers `holds` / `does_not_hold` / `unknown`, the bounds
+  one takes a `roles: readonly string[]` set and answers `holds_role` /
+  `does_not_hold_role` / `unknown`. Both are exported from the package root as
+  `ActivationAttestorRoleResolver` and `BoundAttestorRoleResolver`. Inside
+  `./v2/activation/` and `./v2/bounds/` the bare name is unchanged. Neither qualified name
+  has shipped before, so no published consumer changes.
+
+### Experimental (proposed, not specified)
+
+Seven opt-in modules and one root re-export, none of which is required by
+draft-pidlisnyi-aps-03. **Implemented does not mean specified.** Each module says so in its own doc comment, every new record
+type carries a `proposed:` namespace rather than `aps:`, and every reason code is
+module-local. These names are a proposal for the schema owner to rule on or replace, not
+minted vocabulary. Nothing here is a conformance claim about draft-03, and nothing here
+claims that any legal doctrine applies to AI agents.
+
+- **`src/v2/lifecycle-state/`, the lifecycle state vocabulary. PROPOSED and OPT-IN.**
+  A second verdict vocabulary, reported alongside chain verification and never merged into
+  it. Nothing here is required by draft-pidlisnyi-aps-03, whose section 3.3 says verbatim:
+  "Verification returns one of valid, invalid, indeterminate, or unsupported with a stable
+  failure code." That enumeration is closed and this change does not touch it.
+  `AuthorityValidationState`, `AuthorityValidationResult` and everything
+  `verifyAuthorityDelegationChain` and `verifyAuthorityDelegation` return are byte for byte
+  what they were, and a caller that does not import the new module sees no change at all.
+
+  The concept source is the aeoess/agent-authority-lifecycle concept document: invariant L8
+  (suspension is not revocation) and invariant candidates BROAD-L7 (any current lifecycle
+  state claim is established only from an accepted source, within a declared freshness
+  bound, over the coverage the claim states), CAND-04 (activation is established, not yet
+  effective, or not established) and CAND-05 (suspension and restriction causes compose).
+  Each of those is proposed, with no published specification text behind it, and every
+  exported symbol says so in its doc comment.
+
+  New public surface:
+
+  - `LIFECYCLE_VERDICTS`, the six artifact verdicts: `valid`, `invalid`, `not_established`,
+    `not_yet_effective`, `suspended`, `restricted`. The enumeration is six. "Unexecutable"
+    is an execution outcome rather than a seventh verdict, and no module extends the set as
+    a side effect.
+  - `BOUNDARY_OUTCOMES`, the separate subject: what an enforcement point decides about one
+    action at one authorization boundary, `authorized`, `denied` or `not_established`. A
+    composition rule that is not satisfied does not make any artifact invalid, it makes the
+    action unauthorized at that boundary.
+  - `ESTABLISHMENT_GAPS`, the three limbs `source`, `freshness` and `coverage`. A
+    `not_established` verdict must name at least one of them, which the constructor
+    enforces, because a denial on an unestablished state that does not say what was missing
+    is unreadable.
+  - `ESTABLISHED_NEGATIVE_SHAPES` and `resolveEstablishedNegative`, the split between the
+    two uses of "not established". The evidential sense, where the verifier cannot reach a
+    conclusion, keeps the name. An established negative, where the verifier has reached a
+    negative conclusion, resolves to `not_yet_effective` for an enabling condition, or to a
+    denial at a boundary for an unsatisfied composition rule or a changed pinned referent,
+    and never to `not_established`.
+  - `LifecycleStateResult`, `OutstandingCause`, `CompositeAuthorityResult`, `lifecycleState`,
+    `notEstablished`, `LifecycleStateError` and the four vocabulary predicates.
+    `LifecycleStateResult` deliberately carries no `valid` boolean:
+    `AuthorityValidationResult` has one and it is correct there, but here `not_established`
+    is not a boolean's false branch and a truthiness shortcut invites exactly the collapse
+    the vocabulary exists to prevent.
+  - `mapAuthorityValidationToLifecycle(result, options?)`, the opt-in read-only view of an
+    existing `AuthorityValidationResult` in the new vocabulary. It never mutates its input
+    and is never called from the verification path. One reading in it is worth naming: a
+    result whose only failure is `NOT_YET_VALID` stays `invalid` by default, because the
+    concept document has not decided whether a waiting grant is invalid or not yet
+    effective, and a base module several other surfaces build on should not embed a
+    contested reading as a default. `notYetValidAsNotYetEffective: true` takes CAND-04's
+    reading, under which such a grant is `not_yet_effective`.
+
+  Cross-language parity: `conformance/lifecycle-state/v0/vectors.json`, 38 hand-specified
+  cases, is the shared fixture. The Python SDK vendors a byte-identical copy and runs the
+  same cases through its own port, and both repositories pin the file's SHA-256 inside their
+  own test, so a one-sided edit fails on the side that was edited. Tests live at
+  `tests/v2/lifecycle-state.test.ts`.
 
 - **`src/v2/activation/`, activation conditions and condition attestation. PROPOSED and
   OPT-IN.** A grant can be validly issued and still wait on a date or a recorded event. This
@@ -56,7 +229,8 @@
     unreached date is always a known negative. A `recorded_event` condition names
     `required_attestor_roles`, which are ROLES and never principals.
   - `AttestorRoleResolver`, a caller-supplied callback returning `holds`, `does_not_hold` or
-    `unknown`. Three values, not a boolean: "this registry does not know" is a distinct answer
+    `unknown`. Exported from the package root as `ActivationAttestorRoleResolver`; see
+    Naming above. Three values, not a boolean: "this registry does not know" is a distinct answer
     from "this party does not hold that role", and collapsing the first into the second turns
     ignorance into a denial. Role standing is resolved OUTSIDE the record, always. An
     attestation's `attestor_role` is the attestor's claim about itself, and the module checks
@@ -80,6 +254,7 @@
   Python SDK vendors a byte-identical copy and runs the same cases through its own port, and
   both repositories pin the file's SHA-256 inside their own test, so a one-sided edit fails on
   the side that was edited. Tests live at `tests/v2/activation.test.ts`.
+
 - **`src/v2/bounds/`, non-time bounds on a grant. PROPOSED and OPT-IN.**
   Purpose, use-count and budget bounds, and the state "this bound has been reached".
   Nothing here is required by draft-pidlisnyi-aps-03 and nothing existing changed. Two of
@@ -150,6 +325,7 @@
   one-sided edit fails on the side that was edited. Every verdict, reason code and refusal
   code in it is hand specified, and the signature and identifier byte values are there so the two
   ports can be shown to emit the same characters. Tests live at `tests/v2/bounds.test.ts`.
+
 - **`src/v2/capability-binding/`, capability pins and identifier binding. PROPOSED and
   OPT-IN.** Whether an action through a named tool is established under a grant that pins
   that tool, and whether an authority path that depends on an off-chain identifier still
@@ -213,23 +389,69 @@
   fixture. The Python SDK vendors a byte-identical copy and runs the same cases, and both
   repositories pin the file's SHA-256 inside their own test.
 
-- **The tool manifest and namespace-claim layer is reachable from the package root.**
-  EXPERIMENTAL. `createToolManifest`, `verifyToolManifest`, `reviseToolManifest`,
-  `reapproveToolManifest`, `createNamespaceClaim` and `verifyNamespaceClaim` have shipped
-  in `src/core/tool-integrity.ts` with full declarations and their own tests for several
-  releases, and only `createToolRegistryEntry` and `verifyToolIntegrity` were re-exported
-  from the root, so a consumer installing the package could not reach them at all. They are
-  now re-exported, along with `ToolManifest`, `ToolManifestResult`, `ToolMetadata`,
-  `ToolTrustRoot`, `NamespaceClaim` and `ToolResolveOpts`. No implementation changes and no
-  signature changes. draft-03 defines no manifest, no namespace claim and no tool-metadata
-  digest, so treat these names as subject to change.
+- **`src/v2/status-coverage/`, multiple trusted status sources with freshness bounds.
+  PROPOSED, EXPERIMENTAL and OPT-IN.**
+  Decides what one authorization boundary can establish about one `authority_ref` from a SET
+  of status answers, each measured against the freshness bound declared for its own source.
+  Conflict between accepted sources, or staleness past a declared bound, gives not
+  established. An offline verifier holding a snapshot inside a bound it declared in advance
+  may admit, and the record names the snapshot and the age it admitted at.
 
-  One known limit, stated rather than left to be discovered: `ToolManifest.metadataHash` is
-  taken over the legacy `canonicalize`, which strips null-valued members and carries no
-  domain separation, so a metadata block with an explicit null member and one omitting that
-  member hash to the same value. That is pre-existing signed-artifact behaviour and is left
-  alone, because changing it would invalidate manifests already signed.
-  `capabilityMetadataDigest` is a different digest and not a drop-in for it.
+  Nothing here is required by draft-pidlisnyi-aps-03. Section 3.3 rules one revocation
+  result per chain member and closes verification at, verbatim: "Verification returns one of
+  valid, invalid, indeterminate, or unsupported with a stable failure code." It says nothing
+  about two sources answering about the same member, nothing about a per-source freshness
+  bound, nothing about coverage over a declared source set, and nothing about an offline
+  admission on a snapshot. `AuthorityValidationResult`, `verifyAuthorityDelegationChain` and
+  the whole of `src/v2/revocation-enforcement/`, including `FreshnessPolicy`,
+  `decideFreshness` and `RevocationObservation`, are unchanged. This decision is reported
+  alongside a chain result, never merged into it, and a caller that does not import the new
+  module sees no change at all.
+
+  The concept source is the aeoess/agent-authority-lifecycle concept document: invariant L7
+  (unknown revocation state is not active), which is the published-text half, and invariant
+  candidate BROAD-L7, all three limbs, which broadens L7 to any current lifecycle state
+  claim. BROAD-L7 is proposed, and every exported symbol says so in its doc comment.
+
+  New public surface:
+
+  - `decideMultiSourceStatus(input)`, the decision. Pure: no clock, no network, no crypto.
+    It returns a `MultiSourceStatusDecision` carrying two subjects kept apart, the boundary
+    `outcome` and the artifact `lifecycle` verdict in the `src/v2/lifecycle-state/`
+    vocabulary, plus a module-local `reason_code` and a `basis` block.
+  - `StatusTrustPolicy`, `RequiredSourceSet`, `DeclaredStatusSource` and `SnapshotSource`:
+    what the relying party accepts, with a freshness bound declared PER SOURCE rather than
+    globally, and, in offline mode, a snapshot source with the maximum age it declared in
+    advance that it would admit on. The declared bound is required, so admitting on a
+    snapshot with no declared bound is unreachable rather than merely discouraged.
+  - `MultiSourceStatusBasis`, the audit half, and it is not optional. Every answer gets a
+    line carrying its age, the bound it was measured against, whether it was within that
+    bound, whether it was used, and a `StatusUseBasis` saying why. An admission on a
+    snapshot additionally records the snapshot and the age it admitted at, so the admission
+    can be recomputed from the record alone.
+  - `ConflictPolicy` and `StaleAnswerPolicy`, both REQUIRED PARAMETERS WITH NO DEFAULTS.
+    That is unusual for an SDK and it is deliberate. What a conflict returns, and whether an
+    answer past its own bound still counts, each have two defensible readings of the
+    proposed text, and the two readings give opposite verdicts on the deployment-relevant
+    case. A default on either would be this SDK making a specification decision in code.
+    `RequiredSourceSet.silence_is` is required for the same reason.
+  - `StatusCoverage`, coverage over the DECLARED required-source set. This is NOT a
+    completeness claim. It reports whether every member of a set the relying party declared
+    produced a usable determinate answer, and nothing more. Invariant L12 is open, and a
+    `complete: true` block must not be read as a statement that the declared set was every
+    source that mattered.
+
+  Two further readings the module fixes rather than parameterises, both recorded in the
+  basis so a reader can see them: an answer dated after the boundary instant is refused as
+  skew rather than read as fresh, and an answer from a source the trust policy does not name
+  is recorded and ignored rather than used.
+
+  Cross-language parity: `conformance/status-coverage/v0/vectors.json`, 24 hand-specified
+  decision cases and 16 refusal cases, is the shared fixture. The Python SDK vendors a
+  byte-identical copy and runs the same cases through its own port, and both repositories
+  pin the file's SHA-256 inside their own test. Tests live at
+  `tests/v2/status-coverage.test.ts`.
+
 - **`src/v2/authority-state/`, authority state markers, write fencing, and revocation
   withdrawal. PROPOSED and OPT-IN.**
   Three surfaces the authority-lifecycle work needs and draft-pidlisnyi-aps-03 does not
@@ -282,6 +504,7 @@
   `conformance/authority-state/v0/vectors.json` holds 49 hand-specified cases and is the
   shared fixture. The Python SDK vendors a byte-identical copy and runs the same cases, and
   both repositories pin the file's SHA-256 inside their own test.
+
 - **`src/v2/suspension/`, suspension and restriction as a SET OF CAUSES. PROPOSED and OPT-IN.**
   Nothing here is required by draft-pidlisnyi-aps-03. The published draft states no
   suspension rule, no restriction rule, no release rule and no lifecycle-standing rule: a
@@ -363,203 +586,23 @@
   own test, so a one-sided edit fails on the side that was edited. Tests live at
   `tests/v2/suspension.test.ts`.
 
-- **`src/v2/lifecycle-state/`, the lifecycle state vocabulary. PROPOSED and OPT-IN.**
-  A second verdict vocabulary, reported alongside chain verification and never merged into
-  it. Nothing here is required by draft-pidlisnyi-aps-03, whose section 3.3 says verbatim:
-  "Verification returns one of valid, invalid, indeterminate, or unsupported with a stable
-  failure code." That enumeration is closed and this change does not touch it.
-  `AuthorityValidationState`, `AuthorityValidationResult` and everything
-  `verifyAuthorityDelegationChain` and `verifyAuthorityDelegation` return are byte for byte
-  what they were, and a caller that does not import the new module sees no change at all.
+- **The tool manifest and namespace-claim layer is reachable from the package root.**
+  EXPERIMENTAL. `createToolManifest`, `verifyToolManifest`, `reviseToolManifest`,
+  `reapproveToolManifest`, `createNamespaceClaim` and `verifyNamespaceClaim` have shipped
+  in `src/core/tool-integrity.ts` with full declarations and their own tests for several
+  releases, and only `createToolRegistryEntry` and `verifyToolIntegrity` were re-exported
+  from the root, so a consumer installing the package could not reach them at all. They are
+  now re-exported, along with `ToolManifest`, `ToolManifestResult`, `ToolMetadata`,
+  `ToolTrustRoot`, `NamespaceClaim` and `ToolResolveOpts`. No implementation changes and no
+  signature changes. draft-03 defines no manifest, no namespace claim and no tool-metadata
+  digest, so treat these names as subject to change.
 
-  The concept source is the aeoess/agent-authority-lifecycle concept document: invariant L8
-  (suspension is not revocation) and invariant candidates BROAD-L7 (any current lifecycle
-  state claim is established only from an accepted source, within a declared freshness
-  bound, over the coverage the claim states), CAND-04 (activation is established, not yet
-  effective, or not established) and CAND-05 (suspension and restriction causes compose).
-  Each of those is proposed, with no published specification text behind it, and every
-  exported symbol says so in its doc comment.
-
-  New public surface:
-
-  - `LIFECYCLE_VERDICTS`, the six artifact verdicts: `valid`, `invalid`, `not_established`,
-    `not_yet_effective`, `suspended`, `restricted`. The enumeration is six. "Unexecutable"
-    is an execution outcome rather than a seventh verdict, and no module extends the set as
-    a side effect.
-  - `BOUNDARY_OUTCOMES`, the separate subject: what an enforcement point decides about one
-    action at one authorization boundary, `authorized`, `denied` or `not_established`. A
-    composition rule that is not satisfied does not make any artifact invalid, it makes the
-    action unauthorized at that boundary.
-  - `ESTABLISHMENT_GAPS`, the three limbs `source`, `freshness` and `coverage`. A
-    `not_established` verdict must name at least one of them, which the constructor
-    enforces, because a denial on an unestablished state that does not say what was missing
-    is unreadable.
-  - `ESTABLISHED_NEGATIVE_SHAPES` and `resolveEstablishedNegative`, the split between the
-    two uses of "not established". The evidential sense, where the verifier cannot reach a
-    conclusion, keeps the name. An established negative, where the verifier has reached a
-    negative conclusion, resolves to `not_yet_effective` for an enabling condition, or to a
-    denial at a boundary for an unsatisfied composition rule or a changed pinned referent,
-    and never to `not_established`.
-  - `LifecycleStateResult`, `OutstandingCause`, `CompositeAuthorityResult`, `lifecycleState`,
-    `notEstablished`, `LifecycleStateError` and the four vocabulary predicates.
-    `LifecycleStateResult` deliberately carries no `valid` boolean:
-    `AuthorityValidationResult` has one and it is correct there, but here `not_established`
-    is not a boolean's false branch and a truthiness shortcut invites exactly the collapse
-    the vocabulary exists to prevent.
-  - `mapAuthorityValidationToLifecycle(result, options?)`, the opt-in read-only view of an
-    existing `AuthorityValidationResult` in the new vocabulary. It never mutates its input
-    and is never called from the verification path. One reading in it is worth naming: a
-    result whose only failure is `NOT_YET_VALID` stays `invalid` by default, because the
-    concept document has not decided whether a waiting grant is invalid or not yet
-    effective, and a base module several other surfaces build on should not embed a
-    contested reading as a default. `notYetValidAsNotYetEffective: true` takes CAND-04's
-    reading, under which such a grant is `not_yet_effective`.
-
-  Cross-language parity: `conformance/lifecycle-state/v0/vectors.json`, 38 hand-specified
-  cases, is the shared fixture. The Python SDK vendors a byte-identical copy and runs the
-  same cases through its own port, and both repositories pin the file's SHA-256 inside their
-  own test, so a one-sided edit fails on the side that was edited. Tests live at
-  `tests/v2/lifecycle-state.test.ts`.
-- **Chain selection (draft-03 section 3.3).** `src/v2/chain-selection/`, a surface that
-  takes the set of chains an agent holds and reports which ONE of them an action was
-  decided against. Section 3.3 states the rule: "Each action selects one root-to-leaf
-  authority chain.  A verifier MUST NOT union scopes or budgets from multiple chains.
-  Cross-principal composition requires a separate profile." Every other authority entry
-  point here takes exactly one chain, so the first sentence had no surface: an
-  implementation that evaluated an action against three chains and pooled the answers,
-  and one that selected a single chain, were indistinguishable through this SDK. They are
-  not any more.
-
-  New public surface, all reachable from the package root:
-  `selectChainForAction(input)`, `selectWithFallback(input)`, the types `HeldChain`,
-  `RequiredSpendV1`, `AuthorityBudgetReserver`, `ChainEvaluation`,
-  `ChainEvaluationOutcome`, `ChainSelectionEvaluationCode`, `ChainSelectionFailureCode`,
-  `ChainSelectionInput`, `ChainSelectionWithFallbackInput`, `FallbackAuthorizationV0` and
-  `SelectionOutcome`, and the constants `CHAIN_SELECTION_EVALUATION_CODES`,
-  `CHAIN_SELECTION_FAILURE_CODES` and `HELD_SET_CEILING`.
-
-  **Additive and opt-in. Nothing existing changed.** `AuthorityValidationState` is still
-  the same four values, `AuthorityVectorV1` is untouched, `verifyAuthorityDelegationChain`
-  returns exactly what it returned before for every draft-03 record, and a caller that
-  never imports this module sees today's behaviour. The new functions are pure and injectable in
-  the same way the chain verifier is: `now` and the three resolvers are the caller's, the
-  budget reserver is injected, and nothing here reads a clock, a random source or the
-  network. Neither entry point throws.
-
-  **No union, held by construction rather than by a check.** One private function judges
-  one chain, and it is the only place a chain is judged, so there is no code path on which
-  two chains' scope grants or spend ceilings meet in one comparison. A result names one
-  `chain_id`, never a set. A held entry that is two or more chains concatenated into one
-  array, which is the shape a caller reaches for to have two chains evaluated together, is
-  refused by name as `chain_set_presented_as_one` before verification, rather than being
-  reported as the broken parent link chain verification would otherwise call it.
-
-  **Selection rule, this implementation's own.** draft-03 states that an action selects one
-  chain and does not state how. Candidates are evaluated in held order. The first that
-  verifies `valid` and covers every needed scope grant is selected, the action's spend is
-  then reserved against that chain and no other, and a spend refusal is that chain's
-  refusal and ends the call. Continuing past a spend refusal to a chain with a larger
-  ceiling would be a fallback in everything but name, and `selectChainForAction` does not
-  do it.
-
-  **Not established is kept apart from refused.** A candidate whose revocation answer is
-  unknown, whose facet profile is unsupported, or whose spend could not be checked because
-  no ledger was supplied, is `undecided`, never `refuses`, and one undecided candidate
-  makes the whole outcome `selection_undecided` rather than "no chain covers the action".
-  Section 3.3 forbids collapsing indeterminate or unsupported into valid, and collapsing
-  them into a denial reason would be the opposite error.
-
-- **PROPOSED, not draft-03: the fallback surface.** `selectWithFallback`'s `fallback`
-  parameter and the `switched_from`, `fallback_ref` and `fallback_considered` members serve
-  invariant candidate L11, "No silent authority resurrection", in `AUTHORITY-LIFECYCLE.md`
-  of the aeoess/agent-authority-lifecycle concept document, whose own status there is
-  `proposed`. draft-03 says nothing about what an implementation does after the chain it
-  selected turns out to be unusable. `fallback: null` reads no held chain other than the
-  preferred one, so a refusal cannot hide a switch. An authorization object permits the
-  switch and the result then names the chain switched away from. That document does not
-  define what makes a fallback explicitly authorized, so `authorization_ref` is an opaque
-  reference this SDK records and never interprets, and its presence is not a claim that
-  anything authorized anything. Every symbol carrying this half says so in its doc comment.
-
-- **Parity vectors.** `fixtures/chain-selection/chain-selection-vectors-v0.json`, 19 cases
-  over three single-hop chains from three roots to one leaf, generated deterministically by
-  `fixtures/chain-selection/generate-fixtures.ts` from published seed labels. Every recorded
-  outcome is observed: the generator runs the implementation, compares what it returned
-  against a declaration written beside each case, and refuses to write the file if they
-  disagree. The Python SDK runs a byte-identical vendored copy of the same file, so a
-  behaviour difference between the two implementations fails one of them.
-
-### Changed
-
-- **`createToolRegistryEntry` accepts an optional `verifiedAt` override.** Additive and
-  optional. Omit it and the behaviour is exactly what it always was, `verifiedAt` stamped
-  from the system clock. Supply it and the function becomes reproducible, so calling it
-  twice with the same inputs gives the same bytes and the same signature. `createToolManifest`
-  has always taken the same override for the same reason; this brings the legacy entry path
-  level with it. No new field on `ToolRegistryEntry` and no change on the default path.
-
-- **`src/v2/status-coverage/`, multiple trusted status sources with freshness bounds.
-  PROPOSED, EXPERIMENTAL and OPT-IN.**
-  Decides what one authorization boundary can establish about one `authority_ref` from a SET
-  of status answers, each measured against the freshness bound declared for its own source.
-  Conflict between accepted sources, or staleness past a declared bound, gives not
-  established. An offline verifier holding a snapshot inside a bound it declared in advance
-  may admit, and the record names the snapshot and the age it admitted at.
-
-  Nothing here is required by draft-pidlisnyi-aps-03. Section 3.3 rules one revocation
-  result per chain member and closes verification at, verbatim: "Verification returns one of
-  valid, invalid, indeterminate, or unsupported with a stable failure code." It says nothing
-  about two sources answering about the same member, nothing about a per-source freshness
-  bound, nothing about coverage over a declared source set, and nothing about an offline
-  admission on a snapshot. `AuthorityValidationResult`, `verifyAuthorityDelegationChain` and
-  the whole of `src/v2/revocation-enforcement/`, including `FreshnessPolicy`,
-  `decideFreshness` and `RevocationObservation`, are unchanged. This decision is reported
-  alongside a chain result, never merged into it, and a caller that does not import the new
-  module sees no change at all.
-
-  The concept source is the aeoess/agent-authority-lifecycle concept document: invariant L7
-  (unknown revocation state is not active), which is the published-text half, and invariant
-  candidate BROAD-L7, all three limbs, which broadens L7 to any current lifecycle state
-  claim. BROAD-L7 is proposed, and every exported symbol says so in its doc comment.
-
-  New public surface:
-
-  - `decideMultiSourceStatus(input)`, the decision. Pure: no clock, no network, no crypto.
-    It returns a `MultiSourceStatusDecision` carrying two subjects kept apart, the boundary
-    `outcome` and the artifact `lifecycle` verdict in the `src/v2/lifecycle-state/`
-    vocabulary, plus a module-local `reason_code` and a `basis` block.
-  - `StatusTrustPolicy`, `RequiredSourceSet`, `DeclaredStatusSource` and `SnapshotSource`:
-    what the relying party accepts, with a freshness bound declared PER SOURCE rather than
-    globally, and, in offline mode, a snapshot source with the maximum age it declared in
-    advance that it would admit on. The declared bound is required, so admitting on a
-    snapshot with no declared bound is unreachable rather than merely discouraged.
-  - `MultiSourceStatusBasis`, the audit half, and it is not optional. Every answer gets a
-    line carrying its age, the bound it was measured against, whether it was within that
-    bound, whether it was used, and a `StatusUseBasis` saying why. An admission on a
-    snapshot additionally records the snapshot and the age it admitted at, so the admission
-    can be recomputed from the record alone.
-  - `ConflictPolicy` and `StaleAnswerPolicy`, both REQUIRED PARAMETERS WITH NO DEFAULTS.
-    That is unusual for an SDK and it is deliberate. What a conflict returns, and whether an
-    answer past its own bound still counts, each have two defensible readings of the
-    proposed text, and the two readings give opposite verdicts on the deployment-relevant
-    case. A default on either would be this SDK making a specification decision in code.
-    `RequiredSourceSet.silence_is` is required for the same reason.
-  - `StatusCoverage`, coverage over the DECLARED required-source set. This is NOT a
-    completeness claim. It reports whether every member of a set the relying party declared
-    produced a usable determinate answer, and nothing more. Invariant L12 is open, and a
-    `complete: true` block must not be read as a statement that the declared set was every
-    source that mattered.
-
-  Two further readings the module fixes rather than parameterises, both recorded in the
-  basis so a reader can see them: an answer dated after the boundary instant is refused as
-  skew rather than read as fresh, and an answer from a source the trust policy does not name
-  is recorded and ignored rather than used.
-
-  Cross-language parity: `conformance/status-coverage/v0/vectors.json`, 24 hand-specified
-  decision cases and 16 refusal cases, is the shared fixture. The Python SDK vendors a
-  byte-identical copy and runs the same cases through its own port, and both repositories
-  pin the file's SHA-256 inside their own test. Tests live at
-  `tests/v2/status-coverage.test.ts`.
+  One known limit, stated rather than left to be discovered: `ToolManifest.metadataHash` is
+  taken over the legacy `canonicalize`, which strips null-valued members and carries no
+  domain separation, so a metadata block with an explicit null member and one omitting that
+  member hash to the same value. That is pre-existing signed-artifact behaviour and is left
+  alone, because changing it would invalidate manifests already signed.
+  `capabilityMetadataDigest` is a different digest and not a drop-in for it.
 
 ## 7.1.0 (2026-09-22)
 

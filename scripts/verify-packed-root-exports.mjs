@@ -2,7 +2,8 @@
 // Copyright (c) 2026 Tymofii Pidlisnyi
 // SPDX-License-Identifier: Apache-2.0
 //
-// Packaging acceptance check for the draft-03 authority-delegation root exports.
+// Packaging acceptance check for the draft-03 authority-delegation and chain-selection
+// root exports.
 //
 // Builds the package, packs it with `npm pack`, installs the tarball into a fresh
 // throwaway project outside the repo (so Node resolves it exactly as a real consumer
@@ -54,6 +55,8 @@ import {
   InMemoryAuthorityBudgetLedger,
   isAuthorityDelegationV1,
   validateAuthorityDelegationShape,
+  selectChainForAction,
+  selectWithFallback,
 } from 'agent-passport-system'
 
 let printed = 0
@@ -173,9 +176,80 @@ ok('InMemoryAuthorityBudgetLedger', reservation.ok === true && reservation.code 
 ok('isAuthorityDelegationV1', isAuthorityDelegationV1(root) === true)
 ok('validateAuthorityDelegationShape', validateAuthorityDelegationShape(root).length === 0)
 
-// 12 = the 11 symbols this change exports from the root, plus verifyAuthorityDelegationChain,
-// which was already exported and is exercised here to verify the issued chain.
-assert.equal(printed, 12, 'expected 11 newly exported symbols and verifyAuthorityDelegationChain to report OK')
+// 9. chain selection: draft-03 section 3.3 is a STABLE root export, so the packaging
+// acceptance check exercises it through the published exports map like every other
+// stable symbol above. A second, independent chain is minted so the no-union rule has
+// something to refuse.
+const root2Keys = generateKeyPair()
+const child2Keys = generateKeyPair()
+const root2 = issueAuthorityDelegation({
+  ...rootBody,
+  issuer: 'did:example:root-2',
+  subject: 'did:example:agent-c',
+  verification_method: 'did:example:root-2#key-1',
+  nonce: 'ffeeddccbbaa99887766554433221100',
+  authority: { ...rootBody.authority, scope: { profile: SCOPE_PROFILE_V1, grants: ['support:*'] } },
+}, root2Keys.privateKey)
+const child2 = issueSubAuthorityDelegation(root2, {
+  ...childBody,
+  parent_delegation_id: root2.delegation_id,
+  issuer: root2.subject,
+  subject: 'did:example:agent-d',
+  verification_method: root2.subject + '#key-1',
+  nonce: '0ffedcbac9a8b7968574635241302010',
+  authority: { ...childBody.authority, scope: { profile: SCOPE_PROFILE_V1, grants: ['support:refund'] } },
+}, child2Keys.privateKey, {
+  now: root2.authority.time.not_before,
+  resolveVerificationKey: (_issuer, method) => (method === root2.verification_method ? root2Keys.publicKey : null),
+  resolveRevocation: () => 'active',
+})
+
+const allKeys = new Map([
+  ...keysByMethod,
+  [root2.verification_method, root2Keys.publicKey],
+  [child2.verification_method, child2Keys.publicKey],
+])
+const selectionOptions = {
+  now: '2026-07-18T22:10:00.000Z',
+  resolveVerificationKey: (_issuer, method) => allKeys.get(method) ?? null,
+  trustRoot: candidate => candidate.issuer === 'did:example:root' || candidate.issuer === 'did:example:root-2',
+  resolveRevocation: () => 'active',
+}
+const held = [
+  { chain_id: 'chain-commerce', chain: [root, child] },
+  { chain_id: 'chain-support', chain: [root2, child2] },
+]
+
+// One chain is selected per action, and the result names which one.
+const picked = selectChainForAction({ held, requiredGrants: ['commerce:checkout'], options: selectionOptions })
+ok('selectChainForAction', picked.selected === true && picked.chain_id === 'chain-commerce')
+
+// The MUST NOT: a grant set that only the two chains together cover is refused, not
+// satisfied by unioning their scopes.
+const unioned = selectChainForAction({
+  held,
+  requiredGrants: ['commerce:checkout', 'support:refund'],
+  options: selectionOptions,
+})
+ok('selectChainForAction refuses a union', unioned.selected === false && unioned.chain_id === null)
+
+// The fallback half is PROPOSED, and its refusing default reads no other held chain.
+const noFallback = selectWithFallback({
+  held,
+  preferred_chain_id: 'chain-support',
+  requiredGrants: ['commerce:checkout'],
+  fallback: null,
+  options: selectionOptions,
+})
+ok(
+  'selectWithFallback refuses to switch by default',
+  noFallback.selected === false && noFallback.fallback_considered === false && noFallback.evaluations.length === 1,
+)
+
+// 15 = the 11 symbols the earlier root-export fix added, plus verifyAuthorityDelegationChain,
+// which was already exported and is exercised here to verify the issued chain, plus the
+// three chain-selection assertions that 7.2.0 makes part of the stable root surface.
+assert.equal(printed, 15, 'expected 12 earlier OK lines plus the 3 chain-selection ones')
 console.log('all confirmed root exports are the working runtime implementation')
 `
 

@@ -176,14 +176,13 @@ export type ChainSelectionFailureCode = (typeof CHAIN_SELECTION_FAILURE_CODES)[n
  *
  * PROPOSED, not draft-03. draft-03 says nothing about what an implementation does after
  * the chain it selected turns out to be unusable: `fallback`, `fall back`, `resurrect`
- * and `reselect` occur zero times in the published text. The invariant candidate this
- * shape serves is L11, "No silent authority resurrection", in
- * `AUTHORITY-LIFECYCLE.md` of the aeoess/agent-authority-lifecycle concept document,
- * whose own status there is `proposed`: when the authority path an implementation
- * selected becomes invalid, it should not quietly fall back to another stored grant
- * unless that fallback was itself explicitly authorized.
+ * and `reselect` occur zero times in the published text. The proposed rule this shape
+ * serves is that when the authority path an implementation selected becomes invalid, it
+ * should not quietly fall back to another stored grant unless that fallback was itself
+ * explicitly authorized. Nothing specified states that rule, and implemented does not
+ * mean specified.
  *
- * That document does not define what makes a fallback "explicitly authorized", and this
+ * Nothing specified defines what makes a fallback "explicitly authorized", and this
  * SDK does not invent a definition. `authorization_ref` is an OPAQUE reference the
  * caller supplies and this module records and never interprets: it is not resolved, not
  * verified, not required to name any record type, and its presence is not a claim that
@@ -198,7 +197,7 @@ interface SelectionOutcomeCommon {
   /** Every candidate this call evaluated, in the order it evaluated them. */
   evaluations: readonly ChainEvaluation[]
   /**
-   * PROPOSED (L11). Present only on a `selectWithFallback` result. True when the call
+   * PROPOSED, not draft-03. Present only on a `selectWithFallback` result. True when the call
    * was allowed to look past the chain the action selected. False means no other held
    * chain was read at all, which is the observable difference between a refusal and a
    * silent switch.
@@ -216,9 +215,9 @@ export type SelectionOutcome =
       chain_id: string
       /** The selected chain's own verification result, unchanged from `verifyAuthorityDelegationChain`. */
       result: AuthorityValidationResult
-      /** PROPOSED (L11). The chain the action had selected, when this call switched away from it. */
+      /** PROPOSED, not draft-03. The chain the action had selected, when this call switched away from it. */
       switched_from?: string
-      /** PROPOSED (L11). The opaque reference the caller gave for that switch, recorded, not interpreted. */
+      /** PROPOSED, not draft-03. The opaque reference the caller gave for that switch, recorded, not interpreted. */
       fallback_ref?: string
     })
   | (SelectionOutcomeCommon & {
@@ -244,7 +243,7 @@ export interface ChainSelectionWithFallbackInput extends ChainSelectionInput {
   /** The chain the action selected. Must name a held entry. */
   preferred_chain_id: string
   /**
-   * PROPOSED (L11). `null` refuses to switch: no chain other than the preferred one is
+   * PROPOSED, not draft-03. `null` refuses to switch: no chain other than the preferred one is
    * read. An object permits the switch and is recorded on the result.
    */
   fallback: FallbackAuthorizationV0 | null
