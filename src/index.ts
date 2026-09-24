@@ -2246,3 +2246,55 @@ export type {
 export type { AuthorityRevocationCascadeOriginV1 } from './v2/authority-revocation/canonical.js'
 export type { AuthorityRevocationIssueInput } from './v2/authority-revocation/issue.js'
 export type { AuthorityRevocationVerificationOptions } from './v2/authority-revocation/verify.js'
+
+// ── Lifecycle state vocabulary (v2): PROPOSED, OPT-IN ──
+// A SECOND verdict vocabulary, reported alongside chain verification and never merged into
+// it. NOT REQUIRED BY draft-pidlisnyi-aps-03, whose section 3.3 closes chain verification
+// at "valid, invalid, indeterminate, or unsupported with a stable failure code". That
+// enumeration, `AuthorityValidationState`, `AuthorityValidationResult` and everything
+// `verifyAuthorityDelegationChain` returns are unchanged, and a caller that does not import
+// this module sees exactly today's behaviour.
+//
+// What it adds: the six artifact verdicts (valid, invalid, not_established,
+// not_yet_effective, suspended, restricted), the separate boundary-outcome subject, the
+// three establishment limbs a not_established verdict must name, and the split between the
+// two uses of "not established" — the evidential sense, which keeps the name, and the
+// established negative, which resolves to not_yet_effective or to a denial at a boundary.
+// `mapAuthorityValidationToLifecycle` is the opt-in read-only view of an existing result in
+// the new vocabulary.
+//
+// Concept source: the aeoess/agent-authority-lifecycle concept document, invariant L8 and
+// invariant candidates BROAD-L7, CAND-04 and CAND-05. Every one of those is PROPOSED, with
+// no published specification text behind it. Nothing downstream should treat these names as
+// specified.
+export {
+  LIFECYCLE_VERDICTS,
+  BOUNDARY_OUTCOMES,
+  ESTABLISHMENT_GAPS,
+  ESTABLISHED_NEGATIVE_SHAPES,
+  LIFECYCLE_BASE_REASON_CODES,
+} from './v2/lifecycle-state/index.js'
+export type {
+  LifecycleVerdict,
+  BoundaryOutcome,
+  EstablishmentGap,
+  EstablishedNegativeShape,
+  EstablishedNegativeResolution,
+  OutstandingCause,
+  LifecycleStateResult,
+  LifecycleStateInput,
+  LifecycleBaseReasonCode,
+  CompositeAuthorityResult,
+  LifecycleMappingOptions,
+} from './v2/lifecycle-state/index.js'
+export {
+  LifecycleStateError,
+  lifecycleState,
+  notEstablished,
+  resolveEstablishedNegative,
+  isLifecycleVerdict,
+  isBoundaryOutcome,
+  isEstablishmentGap,
+  isEstablishedNegativeShape,
+} from './v2/lifecycle-state/index.js'
+export { mapAuthorityValidationToLifecycle } from './v2/lifecycle-state/index.js'

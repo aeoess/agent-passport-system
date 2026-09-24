@@ -1,0 +1,285 @@
+{
+  "profile": "aps-lifecycle-state-v0",
+  "status": "proposed",
+  "status_note": "PROPOSED and OPT-IN. Not required by draft-pidlisnyi-aps-03, whose section 3.3 closes chain verification at valid, invalid, indeterminate and unsupported. Concept source: the aeoess/agent-authority-lifecycle concept document and its invariant candidates BROAD-L7, CAND-04, CAND-05 and the section on the two uses of not established. Nothing downstream should bind to these names as specified text.",
+  "description": "Cross-language parity vectors for the six-value lifecycle verdict vocabulary, the two uses of not established, and the opt-in mapping from an existing AuthorityValidationResult. The TypeScript and Python SDKs must produce identical results for every case.",
+  "vocabulary": {
+    "verdicts": ["valid", "invalid", "not_established", "not_yet_effective", "suspended", "restricted"],
+    "boundary_outcomes": ["authorized", "denied", "not_established"],
+    "establishment_gaps": ["source", "freshness", "coverage"],
+    "established_negative_shapes": ["enabling_condition_not_yet_occurred", "composition_not_satisfied", "pinned_referent_mismatch"]
+  },
+  "constructor_cases": [
+    {
+      "id": "LS-01-valid-no-extras",
+      "tests": "A valid verdict carries a reason code and neither missing nor outstanding.",
+      "input": { "verdict": "valid", "reason_code": "CHAIN_VALID" },
+      "expected": { "ok": true, "result": { "verdict": "valid", "reason_code": "CHAIN_VALID" } }
+    },
+    {
+      "id": "LS-02-not-established-names-one-limb",
+      "tests": "Use A. The evidential sense carries at least one establishment limb.",
+      "input": { "verdict": "not_established", "reason_code": "STATUS_NO_USABLE_OBSERVATION", "missing": ["source"] },
+      "expected": { "ok": true, "result": { "verdict": "not_established", "reason_code": "STATUS_NO_USABLE_OBSERVATION", "missing": ["source"] } }
+    },
+    {
+      "id": "LS-03-not-established-names-two-limbs",
+      "tests": "More than one limb can be missing at once and all of them are reported.",
+      "input": { "verdict": "not_established", "reason_code": "STATUS_STALE_BEYOND_BOUND", "missing": ["source", "freshness"] },
+      "expected": { "ok": true, "result": { "verdict": "not_established", "reason_code": "STATUS_STALE_BEYOND_BOUND", "missing": ["source", "freshness"] } }
+    },
+    {
+      "id": "LS-04-not-established-without-limb-rejected",
+      "tests": "BROAD-L7. A not established verdict that does not say which limb was missing is unreadable, so it cannot be built.",
+      "input": { "verdict": "not_established", "reason_code": "STATUS_NO_USABLE_OBSERVATION" },
+      "expected": { "ok": false, "error_code": "MISSING_REQUIRED" }
+    },
+    {
+      "id": "LS-05-not-established-empty-limb-rejected",
+      "tests": "An empty limb list is the same defect as an absent one.",
+      "input": { "verdict": "not_established", "reason_code": "STATUS_NO_USABLE_OBSERVATION", "missing": [] },
+      "expected": { "ok": false, "error_code": "MISSING_REQUIRED" }
+    },
+    {
+      "id": "LS-06-missing-on-reached-verdict-rejected",
+      "tests": "A verdict the verifier did reach has no gap to report.",
+      "input": { "verdict": "invalid", "reason_code": "REVOKED", "missing": ["source"] },
+      "expected": { "ok": false, "error_code": "MISSING_NOT_ALLOWED" }
+    },
+    {
+      "id": "LS-07-unknown-limb-rejected",
+      "tests": "The three limbs are closed: source, freshness, coverage.",
+      "input": { "verdict": "not_established", "reason_code": "STATUS_NO_USABLE_OBSERVATION", "missing": ["standing"] },
+      "expected": { "ok": false, "error_code": "MISSING_UNKNOWN" }
+    },
+    {
+      "id": "LS-08-suspended-carries-cause-set",
+      "tests": "CAND-05. Causes compose, so a suspended verdict reports the set that remains rather than a flag.",
+      "input": {
+        "verdict": "suspended",
+        "reason_code": "SUSPENSION_CAUSE_LIVE",
+        "outstanding": [
+          { "id": "cause-regulator", "kind": "suspension", "reason_code": "EXTERNAL_SUSPENSION" },
+          { "id": "cause-internal", "kind": "suspension", "reason_code": "INTERNAL_SUSPENSION" }
+        ]
+      },
+      "expected": {
+        "ok": true,
+        "result": {
+          "verdict": "suspended",
+          "reason_code": "SUSPENSION_CAUSE_LIVE",
+          "outstanding": [
+            { "id": "cause-regulator", "kind": "suspension", "reason_code": "EXTERNAL_SUSPENSION" },
+            { "id": "cause-internal", "kind": "suspension", "reason_code": "INTERNAL_SUSPENSION" }
+          ]
+        }
+      }
+    },
+    {
+      "id": "LS-09-restricted-carries-cause-set",
+      "tests": "L8. Restricted is a different state from suspended and carries its own live constraint.",
+      "input": {
+        "verdict": "restricted",
+        "reason_code": "RESTRICTION_CAUSE_LIVE",
+        "outstanding": [{ "id": "cause-decree", "kind": "restriction", "reason_code": "EXTERNAL_RESTRICTION" }]
+      },
+      "expected": {
+        "ok": true,
+        "result": {
+          "verdict": "restricted",
+          "reason_code": "RESTRICTION_CAUSE_LIVE",
+          "outstanding": [{ "id": "cause-decree", "kind": "restriction", "reason_code": "EXTERNAL_RESTRICTION" }]
+        }
+      }
+    },
+    {
+      "id": "LS-10-suspended-without-cause-rejected",
+      "tests": "A suspended verdict that names no live cause says nothing releasable.",
+      "input": { "verdict": "suspended", "reason_code": "SUSPENSION_CAUSE_LIVE" },
+      "expected": { "ok": false, "error_code": "OUTSTANDING_REQUIRED" }
+    },
+    {
+      "id": "LS-11-outstanding-on-valid-rejected",
+      "tests": "Outstanding causes are only meaningful on suspended or restricted.",
+      "input": {
+        "verdict": "valid",
+        "reason_code": "CHAIN_VALID",
+        "outstanding": [{ "id": "c", "kind": "suspension", "reason_code": "X" }]
+      },
+      "expected": { "ok": false, "error_code": "OUTSTANDING_NOT_ALLOWED" }
+    },
+    {
+      "id": "LS-12-applied-default-on-reached-verdict",
+      "tests": "BROAD-L7's carve-out. Where the model declared a default for absence the verifier reaches a conclusion and records that the default was used.",
+      "input": { "verdict": "valid", "reason_code": "DEFAULT_HOLDER_RESOLVED", "applied_default": "named-fallback-holder" },
+      "expected": { "ok": true, "result": { "verdict": "valid", "reason_code": "DEFAULT_HOLDER_RESOLVED", "applied_default": "named-fallback-holder" } }
+    },
+    {
+      "id": "LS-13-applied-default-on-not-established-rejected",
+      "tests": "A default that applied is a conclusion, so it cannot sit on the verdict that says no conclusion was reached.",
+      "input": { "verdict": "not_established", "reason_code": "SOURCE_ABSENT", "missing": ["source"], "applied_default": "named-fallback-holder" },
+      "expected": { "ok": false, "error_code": "APPLIED_DEFAULT_NOT_ALLOWED" }
+    },
+    {
+      "id": "LS-14-seventh-verdict-rejected",
+      "tests": "The enumeration is six. Unexecutable is an execution outcome, not a seventh verdict, and no module extends the set as a side effect.",
+      "input": { "verdict": "unexecutable", "reason_code": "REFERENT_UNRESOLVABLE" },
+      "expected": { "ok": false, "error_code": "VERDICT_UNKNOWN" }
+    },
+    {
+      "id": "LS-15-exercisable-is-not-a-verdict",
+      "tests": "The fixture families spell the positive artifact verdict exercisable as a family-local label. The settled vocabulary spells it valid, and the local spelling is not accepted here.",
+      "input": { "verdict": "exercisable", "reason_code": "CHAIN_VALID" },
+      "expected": { "ok": false, "error_code": "VERDICT_UNKNOWN" }
+    },
+    {
+      "id": "LS-16-reason-code-required",
+      "tests": "Two findings that share a verdict name must be told apart by their codes, so every verdict carries one.",
+      "input": { "verdict": "valid", "reason_code": "" },
+      "expected": { "ok": false, "error_code": "REASON_CODE_INVALID" }
+    },
+    {
+      "id": "LS-17-reason-code-shape",
+      "tests": "Reason codes are SCREAMING_SNAKE_CASE so they are stable and greppable across implementations.",
+      "input": { "verdict": "valid", "reason_code": "chain valid" },
+      "expected": { "ok": false, "error_code": "REASON_CODE_INVALID" }
+    },
+    {
+      "id": "LS-18-not-yet-effective-carries-no-limb",
+      "tests": "CAND-04. Not yet effective is a positive finding, so it reports no missing limb. The remedy is to wait, not to find a better source.",
+      "input": { "verdict": "not_yet_effective", "reason_code": "ENABLING_CONDITION_NOT_YET_OCCURRED" },
+      "expected": { "ok": true, "result": { "verdict": "not_yet_effective", "reason_code": "ENABLING_CONDITION_NOT_YET_OCCURRED" } }
+    }
+  ],
+  "established_negative_cases": [
+    {
+      "id": "EN-01-enabling-condition",
+      "tests": "Use B, first shape. An enabling condition established not to have occurred yet is an artifact verdict, and it is not_yet_effective rather than not_established.",
+      "shape": "enabling_condition_not_yet_occurred",
+      "expected": { "subject": "artifact", "verdict": "not_yet_effective", "reason_code": "ENABLING_CONDITION_NOT_YET_OCCURRED" }
+    },
+    {
+      "id": "EN-02-composition",
+      "tests": "Use B, second shape. A composition rule established not to be satisfied denies the action at that boundary and makes no artifact invalid.",
+      "shape": "composition_not_satisfied",
+      "expected": { "subject": "boundary", "outcome": "denied", "reason_code": "COMPOSITION_NOT_SATISFIED" }
+    },
+    {
+      "id": "EN-03-pinned-referent",
+      "tests": "Use B, third shape. A pinned referent established to have changed denies the action. Reporting ignorance for a positively established mismatch is the collapse this split exists to prevent.",
+      "shape": "pinned_referent_mismatch",
+      "expected": { "subject": "boundary", "outcome": "denied", "reason_code": "PINNED_REFERENT_MISMATCH" }
+    },
+    {
+      "id": "EN-04-unknown-shape-rejected",
+      "tests": "The three shapes are the ones the corpus produces. An unrecognised shape is a programming error, not a fourth answer.",
+      "shape": "issuer_standing_absent",
+      "expected": { "error_code": "ESTABLISHED_NEGATIVE_UNKNOWN" }
+    }
+  ],
+  "mapping_cases": [
+    {
+      "id": "MP-01-valid",
+      "tests": "A draft-03 valid chain result reads as the valid artifact verdict.",
+      "chain_result": { "state": "valid", "failures": [] },
+      "expected": { "verdict": "valid", "reason_code": "CHAIN_VALID" }
+    },
+    {
+      "id": "MP-02-revoked",
+      "tests": "Revoked is invalid, with the chain's own stable failure code carried through as the reason.",
+      "chain_result": { "state": "invalid", "failures": [{ "code": "REVOKED", "message": "revoked" }] },
+      "expected": { "verdict": "invalid", "reason_code": "REVOKED" }
+    },
+    {
+      "id": "MP-03-expired",
+      "tests": "L10. Expiry is not revocation, and the two stay distinct through the mapping because the reason code does the work.",
+      "chain_result": { "state": "invalid", "failures": [{ "code": "EXPIRED", "message": "expired" }] },
+      "expected": { "verdict": "invalid", "reason_code": "EXPIRED" }
+    },
+    {
+      "id": "MP-04-not-yet-valid-default",
+      "tests": "CAND-04. A grant whose not_before has not been reached is validly issued and waiting, which the default mapping reports as not_yet_effective rather than invalid.",
+      "chain_result": { "state": "invalid", "failures": [{ "code": "NOT_YET_VALID", "message": "not yet valid" }] },
+      "expected": { "verdict": "not_yet_effective", "reason_code": "NOT_BEFORE_UNREACHED" }
+    },
+    {
+      "id": "MP-05-not-yet-valid-opted-out",
+      "tests": "The reading is contested, so the caller can keep the chain's own answer.",
+      "chain_result": { "state": "invalid", "failures": [{ "code": "NOT_YET_VALID", "message": "not yet valid" }] },
+      "options": { "not_yet_valid_as_not_yet_effective": false },
+      "expected": { "verdict": "invalid", "reason_code": "NOT_YET_VALID" }
+    },
+    {
+      "id": "MP-06-not-yet-valid-alongside-another-failure",
+      "tests": "The date reading applies only when the date is the sole complaint. Something more than the date is wrong here, so the verdict is invalid on that other failure.",
+      "chain_result": {
+        "state": "invalid",
+        "failures": [
+          { "code": "NOT_YET_VALID", "message": "not yet valid" },
+          { "code": "SIGNATURE_INVALID", "message": "bad signature" }
+        ]
+      },
+      "expected": { "verdict": "invalid", "reason_code": "SIGNATURE_INVALID" }
+    },
+    {
+      "id": "MP-07-revocation-unknown",
+      "tests": "L7. An unknown revocation answer is not active and not inactive. It is not established, missing the source limb.",
+      "chain_result": { "state": "indeterminate", "failures": [{ "code": "REVOCATION_UNKNOWN", "message": "unknown" }] },
+      "expected": { "verdict": "not_established", "reason_code": "REVOCATION_UNKNOWN", "missing": ["source"] }
+    },
+    {
+      "id": "MP-08-key-unreachable",
+      "tests": "A resolver that could not be reached leaves the source limb missing, not the artifact invalid.",
+      "chain_result": { "state": "indeterminate", "failures": [{ "code": "KEY_UNREACHABLE", "message": "unreachable" }] },
+      "expected": { "verdict": "not_established", "reason_code": "KEY_UNREACHABLE", "missing": ["source"] }
+    },
+    {
+      "id": "MP-09-resource-limit",
+      "tests": "An implementation ceiling means the answer does not cover the record it was asked about, which is the coverage limb.",
+      "chain_result": { "state": "indeterminate", "failures": [{ "code": "RESOURCE_LIMIT", "message": "too long" }] },
+      "expected": { "verdict": "not_established", "reason_code": "RESOURCE_LIMIT", "missing": ["coverage"] }
+    },
+    {
+      "id": "MP-10-indeterminate-no-failure",
+      "tests": "An indeterminate result that named no code still has to say which limb was missing, and source is the honest default.",
+      "chain_result": { "state": "indeterminate", "failures": [] },
+      "expected": { "verdict": "not_established", "reason_code": "CHAIN_INDETERMINATE", "missing": ["source"] }
+    },
+    {
+      "id": "MP-11-unsupported",
+      "tests": "A record the verifier declines to judge is not a conclusion about the artifact. The chain result still says unsupported; this vocabulary has no member for it and reports the evidential not established.",
+      "chain_result": { "state": "unsupported", "failures": [{ "code": "UNSUPPORTED_PROFILE", "message": "unknown profile" }] },
+      "expected": { "verdict": "not_established", "reason_code": "UNSUPPORTED_PROFILE", "missing": ["source"] }
+    },
+    {
+      "id": "MP-12-unsupported-no-failure",
+      "tests": "Same, with no code named.",
+      "chain_result": { "state": "unsupported", "failures": [] },
+      "expected": { "verdict": "not_established", "reason_code": "CHAIN_UNSUPPORTED", "missing": ["source"] }
+    },
+    {
+      "id": "MP-13-invalid-no-failure",
+      "tests": "An invalid result that named no code still carries a reason.",
+      "chain_result": { "state": "invalid", "failures": [] },
+      "expected": { "verdict": "invalid", "reason_code": "CHAIN_INVALID" }
+    },
+    {
+      "id": "MP-14-scope-widening",
+      "tests": "Any other chain failure carries its own code through unchanged. The mapping does not reinterpret attenuation failures.",
+      "chain_result": { "state": "invalid", "failures": [{ "code": "SCOPE_WIDENING", "message": "widened" }] },
+      "expected": { "verdict": "invalid", "reason_code": "SCOPE_WIDENING" }
+    },
+    {
+      "id": "MP-15-no-suspended-from-a-chain-result",
+      "tests": "Chain verification has no suspension concept, so the mapping never produces suspended or restricted. Recorded as a case so the absence is deliberate rather than accidental.",
+      "chain_result": { "state": "invalid", "failures": [{ "code": "REVOKED", "message": "revoked" }] },
+      "expected": { "verdict": "invalid", "reason_code": "REVOKED", "not_verdict": ["suspended", "restricted"] }
+    },
+    {
+      "id": "MP-16-no-freshness-limb-from-a-chain-result",
+      "tests": "The revocation resolver answers active, revoked or unknown with no declared bound attached, so the mapping never claims a freshness gap.",
+      "chain_result": { "state": "indeterminate", "failures": [{ "code": "REVOCATION_UNKNOWN", "message": "unknown" }] },
+      "expected": { "verdict": "not_established", "reason_code": "REVOCATION_UNKNOWN", "missing": ["source"], "missing_excludes": ["freshness"] }
+    }
+  ]
+}

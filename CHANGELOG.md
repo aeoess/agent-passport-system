@@ -1,5 +1,66 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **`src/v2/lifecycle-state/`, the lifecycle state vocabulary. PROPOSED and OPT-IN.**
+  A second verdict vocabulary, reported alongside chain verification and never merged into
+  it. Nothing here is required by draft-pidlisnyi-aps-03, whose section 3.3 says verbatim:
+  "Verification returns one of valid, invalid, indeterminate, or unsupported with a stable
+  failure code." That enumeration is closed and this change does not touch it.
+  `AuthorityValidationState`, `AuthorityValidationResult` and everything
+  `verifyAuthorityDelegationChain` and `verifyAuthorityDelegation` return are byte for byte
+  what they were, and a caller that does not import the new module sees no change at all.
+
+  The concept source is the aeoess/agent-authority-lifecycle concept document: invariant L8
+  (suspension is not revocation) and invariant candidates BROAD-L7 (any current lifecycle
+  state claim is established only from an accepted source, within a declared freshness
+  bound, over the coverage the claim states), CAND-04 (activation is established, not yet
+  effective, or not established) and CAND-05 (suspension and restriction causes compose).
+  Each of those is proposed, with no published specification text behind it, and every
+  exported symbol says so in its doc comment.
+
+  New public surface:
+
+  - `LIFECYCLE_VERDICTS`, the six artifact verdicts: `valid`, `invalid`, `not_established`,
+    `not_yet_effective`, `suspended`, `restricted`. The enumeration is six. "Unexecutable"
+    is an execution outcome rather than a seventh verdict, and no module extends the set as
+    a side effect.
+  - `BOUNDARY_OUTCOMES`, the separate subject: what an enforcement point decides about one
+    action at one authorization boundary, `authorized`, `denied` or `not_established`. A
+    composition rule that is not satisfied does not make any artifact invalid, it makes the
+    action unauthorized at that boundary.
+  - `ESTABLISHMENT_GAPS`, the three limbs `source`, `freshness` and `coverage`. A
+    `not_established` verdict must name at least one of them, which the constructor
+    enforces, because a denial on an unestablished state that does not say what was missing
+    is unreadable.
+  - `ESTABLISHED_NEGATIVE_SHAPES` and `resolveEstablishedNegative`, the split between the
+    two uses of "not established". The evidential sense, where the verifier cannot reach a
+    conclusion, keeps the name. An established negative, where the verifier has reached a
+    negative conclusion, resolves to `not_yet_effective` for an enabling condition, or to a
+    denial at a boundary for an unsatisfied composition rule or a changed pinned referent,
+    and never to `not_established`.
+  - `LifecycleStateResult`, `OutstandingCause`, `CompositeAuthorityResult`, `lifecycleState`,
+    `notEstablished`, `LifecycleStateError` and the four vocabulary predicates.
+    `LifecycleStateResult` deliberately carries no `valid` boolean:
+    `AuthorityValidationResult` has one and it is correct there, but here `not_established`
+    is not a boolean's false branch and a truthiness shortcut invites exactly the collapse
+    the vocabulary exists to prevent.
+  - `mapAuthorityValidationToLifecycle(result, options?)`, the opt-in read-only view of an
+    existing `AuthorityValidationResult` in the new vocabulary. It never mutates its input
+    and is never called from the verification path. One reading in it is worth naming:
+    by default a result whose only failure is `NOT_YET_VALID` maps to `not_yet_effective`
+    rather than `invalid`, because a validly issued grant whose enabling date has not
+    arrived is a positive finding whose remedy is to wait. The reading is contested, so
+    `notYetValidAsNotYetEffective: false` keeps the chain's own answer.
+
+  Cross-language parity: `conformance/lifecycle-state/v0/vectors.json`, 38 hand-specified
+  cases, is the shared fixture. The Python SDK vendors a byte-identical copy and runs the
+  same cases through its own port; both repositories pin the file's SHA-256 inside their
+  own test, so a one-sided edit fails on the side that was edited. Tests live at
+  `tests/v2/lifecycle-state.test.ts`.
+
 ## 7.1.0 (2026-09-22)
 
 ### Added
