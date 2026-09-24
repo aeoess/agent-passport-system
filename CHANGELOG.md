@@ -4,6 +4,83 @@
 
 ### Added
 
+- **`src/v2/activation/`, activation conditions and condition attestation. PROPOSED and
+  OPT-IN.** A grant can be validly issued and still wait on a date or a recorded event. This
+  module decides whether such a condition is established for one action at one instant, and
+  reports the answer alongside a chain result rather than inside it.
+
+  Nothing here is required by draft-pidlisnyi-aps-03. The published text states no
+  activation-condition rule, no attestor role and no attestation-acceptance rule: a
+  case-insensitive search of it for `activation`, `attestor` and `contingen` returns nothing.
+  Its section 3.2 also says verbatim: "authority contains exactly seven required facets:
+  scope, spend, depth, time, reputation, values, and reversibility. A missing facet is
+  invalid rather than an implicit unconstrained value." That closes the authority vector, so
+  an activation condition can never be a facet, and this module models it as a SEPARATE
+  artifact referencing a `delegation_id`. `AuthorityVectorV1`, `AuthorityValidationState`,
+  `AuthorityValidationResult` and everything `verifyAuthorityDelegationChain` returns are
+  byte for byte what they were, and a caller that does not import the new module sees no
+  change at all.
+
+  The concept source is the aeoess/agent-authority-lifecycle concept document, which carries
+  "Activation condition" as proposed with no case testing it, and its invariant candidates
+  CAND-04 (activation is established, not yet effective, or not established), CAND-13
+  (replacement authority may be pre-committed at issuance) and BROAD-L7. All proposed, with
+  no published specification text behind them, and every exported symbol says so in its doc
+  comment.
+
+  New public surface:
+
+  - `verifyActivation(input)`, which returns `valid`, `not_yet_effective` or
+    `not_established` in the `src/v2/lifecycle-state/` vocabulary, and NEVER `invalid`. An
+    unmet activation condition does not make a grant invalid, and whether the grant is valid
+    at all is chain verification's answer rather than this module's.
+  - The split the module exists for. `not_yet_effective` is an established negative: an
+    accepted record says the condition had not occurred, or puts its first occurrence after
+    the action, and the remedy is to wait. `not_established` is ignorance, names which of
+    `source` and `coverage` was missing, and its remedy is a better source. A rejected
+    attestation is not evidence in either direction, so a record from a source the model does
+    not accept leaves the condition unestablished rather than unmet.
+  - No retroactive activation, keyed on the CONDITION's own instant rather than on the
+    instant someone wrote the record. A record putting the first occurrence after the action
+    leaves that action `not_yet_effective`, and the same record establishes the condition for
+    any later action. Learning on Thursday that a condition was met on Monday is the normal
+    case for a model built around an after-the-fact determination, and it establishes the
+    condition.
+  - `composeActivation(chain, activation, options?)`, which returns the chain result
+    untouched and asks activation only when the chain is valid. A grant that does not verify
+    is not a grant that is waiting on a condition. That ordering is also what keeps invariant
+    L1 intact for CAND-13's pre-committed replacement grant: if the pre-committing instrument
+    is revoked, the replacement's chain is invalid and no activation evidence can make it
+    exercisable.
+  - `ActivationConditionV0` in two kinds. A `date` condition needs no evidence at all, so an
+    unreached date is always a known negative. A `recorded_event` condition names
+    `required_attestor_roles`, which are ROLES and never principals.
+  - `AttestorRoleResolver`, a caller-supplied callback returning `holds`, `does_not_hold` or
+    `unknown`. Three values, not a boolean: "this registry does not know" is a distinct answer
+    from "this party does not hold that role", and collapsing the first into the second turns
+    ignorance into a denial. Role standing is resolved OUTSIDE the record, always. An
+    attestation's `attestor_role` is the attestor's claim about itself, and the module checks
+    that claim against the resolver rather than believing it.
+  - `validateActivationCondition`, the canonical-bytes helpers
+    (`activationAttestationBody`, `activationAttestationSignatureInput`,
+    `computeActivationAttestationId`, `activationConditionSignatureInput`), three distinct
+    domain tags that each carry `PROPOSED` so nothing signed under them can be replayed as a
+    specified record, and `ActivationError` for shape rules broken at the call site.
+
+  THREE PARAMETERS ARE DELIBERATELY UNDEFAULTED, because the concept text has not decided
+  them and a default in an SDK is a ruling made by whoever wrote the SDK. `instant_basis`
+  (which instant an occurrence is measured from), `threshold` (how many acceptable
+  attestations establish a finding), and role standing (resolved through the caller's
+  resolver). Vector `AC-14` is the pair that proves the first is load bearing: one record, one
+  action instant, and opposite verdicts under the two readings.
+
+  Cross-language parity: `conformance/activation/v0/vectors.json`, 12 condition-shape cases,
+  34 verify cases and 7 composition cases, all hand specified in
+  `conformance/activation/v0/generate.mts` and none computed by the code under test. The
+  Python SDK vendors a byte-identical copy and runs the same cases through its own port, and
+  both repositories pin the file's SHA-256 inside their own test, so a one-sided edit fails on
+  the side that was edited. Tests live at `tests/v2/activation.test.ts`.
+
 - **`src/v2/lifecycle-state/`, the lifecycle state vocabulary. PROPOSED and OPT-IN.**
   A second verdict vocabulary, reported alongside chain verification and never merged into
   it. Nothing here is required by draft-pidlisnyi-aps-03, whose section 3.3 says verbatim:
