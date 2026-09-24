@@ -1,0 +1,1546 @@
+{
+  "profile": "aps-activation-v0",
+  "status": "proposed",
+  "status_note": "PROPOSED and OPT-IN. Not required by draft-pidlisnyi-aps-03, which states no activation-condition rule, no attestor role and no attestation-acceptance rule: a case-insensitive search of the published text for activation, attestor and contingen returns nothing. Its section 3.2 closes the authority vector at seven facets, so an activation condition can never be a facet and is a separate artifact referencing a delegation_id. Concept source: the aeoess/agent-authority-lifecycle concept document and its invariant candidates CAND-04, CAND-13 (activation half) and BROAD-L7, all proposed. Nothing downstream should bind to these names as specified text.",
+  "description": "Cross-language parity vectors for activation conditions naming an attestor role, the split between not_yet_effective and not_established, and the no-retroactive-activation rule keyed on the condition own occurrence instant. The TypeScript and Python SDKs must produce identical results for every case.",
+  "vocabulary": {
+    "condition_kinds": [
+      "date",
+      "recorded_event"
+    ],
+    "instant_bases": [
+      "condition_occurrence",
+      "attestation_written"
+    ],
+    "assertions": [
+      "condition_occurred",
+      "condition_not_occurred_through"
+    ],
+    "attestor_role_standings": [
+      "holds",
+      "does_not_hold",
+      "unknown"
+    ],
+    "findings": [
+      "occurred_by_action",
+      "occurred_after_action",
+      "not_occurred_through_action"
+    ],
+    "reason_codes": [
+      "ACTIVATION_ESTABLISHED",
+      "CONDITION_DATE_NOT_REACHED",
+      "CONDITION_ESTABLISHED_NOT_YET_OCCURRED",
+      "CONDITION_FIRST_OCCURRED_AFTER_ACTION",
+      "CONDITION_EVIDENCE_CONFLICT",
+      "ACTIVATION_THRESHOLD_NOT_MET",
+      "NO_ATTESTATION_PRESENTED",
+      "CONDITION_DELEGATION_MISMATCH",
+      "ATTESTATION_RECORD_TYPE_NOT_ACCEPTED",
+      "ATTESTATION_SIGNATURE_UNVERIFIED",
+      "ATTESTATION_ATTESTOR_BINDING_MISMATCH",
+      "ATTESTATION_ATTESTOR_ROLE_UNKNOWN",
+      "ATTESTATION_ROLE_CLAIM_CONFLICT",
+      "ATTESTATION_ATTESTOR_ROLE_MISMATCH",
+      "ATTESTATION_CONDITION_MISMATCH",
+      "ATTESTATION_UNKNOWN_ASSERTION",
+      "ATTESTATION_INSTANT_MALFORMED",
+      "ATTESTATION_DOES_NOT_REACH_ACTION"
+    ]
+  },
+  "record_types": {
+    "condition": "proposed:aps:activation-condition:v0",
+    "attestation": "proposed:aps:activation-attestation:v0"
+  },
+  "seed_convention": "private key = SHA-256(\"aps-conformance:activation-v0:\" + label)",
+  "seed_labels": {
+    "did:aps:example:acv-monitor-a#key-1": "monitor-a-key-1",
+    "did:aps:example:acv-monitor-c#key-1": "monitor-c-key-1",
+    "did:aps:example:acv-auditor-b#key-1": "auditor-b-key-1",
+    "did:aps:example:acv-stranger#key-1": "stranger-key-1"
+  },
+  "verification_keys": {
+    "did:aps:example:acv-monitor-a#key-1": "46ec815575e550a6db968b0a506a8f930a051110606c15281b15ec6c1014cf81",
+    "did:aps:example:acv-monitor-c#key-1": "cf41235f438953c0a01cf0a1be55e435d7f539ac2ad373f94d3d34b9be22dfee",
+    "did:aps:example:acv-auditor-b#key-1": "625092c5551cb44f974406d5a07b283f14dd1e7bc84b2001381db79a488aae9d",
+    "did:aps:example:acv-stranger#key-1": "9e87941a7bc52f46b1c7e7ad9619eaeef7b456a30fa6fa63d01e9c0cd1fe8893"
+  },
+  "attestor_role_registry": {
+    "did:aps:example:acv-monitor-a": [
+      "outage-monitor"
+    ],
+    "did:aps:example:acv-monitor-c": [
+      "outage-monitor"
+    ],
+    "did:aps:example:acv-auditor-b": [
+      "billing-auditor"
+    ]
+  },
+  "role_registry_note": "Roles held, resolved OUTSIDE any attestation. An attestor absent from this map is unknown for every role, which is ignorance and deliberately not does_not_hold.",
+  "clock": {
+    "T_STALE_THROUGH": "2026-09-20T08:30:00.000Z",
+    "T_EVENT": "2026-09-20T09:00:00.000Z",
+    "T_ATTESTED": "2026-09-20T09:05:00.000Z",
+    "T_ACTION": "2026-09-20T10:00:00.000Z",
+    "T_LATE_EVENT": "2026-09-20T10:30:00.000Z",
+    "T_LATE_ATTESTED": "2026-09-20T11:00:00.000Z",
+    "T_ACTIVATION_DATE": "2026-09-20T11:30:00.000Z",
+    "T_LATER_ACTION": "2026-09-20T12:00:00.000Z"
+  },
+  "delegation_id": "acv-grant-1",
+  "conditions": {
+    "COND_EVENT": {
+      "record_type": "proposed:aps:activation-condition:v0",
+      "condition_id": "acv-cond-outage-1",
+      "delegation_id": "acv-grant-1",
+      "condition_type": "recorded_event",
+      "event_type": "service_outage_declared",
+      "event_id": "acv-outage-2026-09-20",
+      "required_attestor_roles": [
+        "outage-monitor"
+      ],
+      "threshold": 1,
+      "instant_basis": "condition_occurrence"
+    },
+    "COND_EVENT_WRITTEN": {
+      "record_type": "proposed:aps:activation-condition:v0",
+      "condition_id": "acv-cond-outage-1",
+      "delegation_id": "acv-grant-1",
+      "condition_type": "recorded_event",
+      "event_type": "service_outage_declared",
+      "event_id": "acv-outage-2026-09-20",
+      "required_attestor_roles": [
+        "outage-monitor"
+      ],
+      "threshold": 1,
+      "instant_basis": "attestation_written"
+    },
+    "COND_EVENT_T2": {
+      "record_type": "proposed:aps:activation-condition:v0",
+      "condition_id": "acv-cond-outage-1",
+      "delegation_id": "acv-grant-1",
+      "condition_type": "recorded_event",
+      "event_type": "service_outage_declared",
+      "event_id": "acv-outage-2026-09-20",
+      "required_attestor_roles": [
+        "outage-monitor"
+      ],
+      "threshold": 2,
+      "instant_basis": "condition_occurrence"
+    },
+    "COND_EVENT_TWO_ROLES": {
+      "record_type": "proposed:aps:activation-condition:v0",
+      "condition_id": "acv-cond-outage-1",
+      "delegation_id": "acv-grant-1",
+      "condition_type": "recorded_event",
+      "event_type": "service_outage_declared",
+      "event_id": "acv-outage-2026-09-20",
+      "required_attestor_roles": [
+        "outage-monitor",
+        "billing-auditor"
+      ],
+      "threshold": 1,
+      "instant_basis": "condition_occurrence"
+    },
+    "COND_EVENT_OTHER_GRANT": {
+      "record_type": "proposed:aps:activation-condition:v0",
+      "condition_id": "acv-cond-outage-1",
+      "delegation_id": "acv-grant-other",
+      "condition_type": "recorded_event",
+      "event_type": "service_outage_declared",
+      "event_id": "acv-outage-2026-09-20",
+      "required_attestor_roles": [
+        "outage-monitor"
+      ],
+      "threshold": 1,
+      "instant_basis": "condition_occurrence"
+    },
+    "COND_DATE": {
+      "record_type": "proposed:aps:activation-condition:v0",
+      "condition_id": "acv-cond-date-1",
+      "delegation_id": "acv-grant-1",
+      "condition_type": "date",
+      "activation_date": "2026-09-20T11:30:00.000Z"
+    }
+  },
+  "attestations": {
+    "ATT_OCCURRED_ON_TIME": {
+      "record_type": "proposed:aps:activation-attestation:v0",
+      "assertion": "condition_occurred",
+      "condition_id": "acv-cond-outage-1",
+      "event_type": "service_outage_declared",
+      "event_id": "acv-outage-2026-09-20",
+      "attestor": "did:aps:example:acv-monitor-a",
+      "attestor_role": "outage-monitor",
+      "occurred_at": "2026-09-20T09:00:00.000Z",
+      "attested_at": "2026-09-20T09:05:00.000Z",
+      "verification_method": "did:aps:example:acv-monitor-a#key-1",
+      "attestation_id": "sha256:d1c2fe0e6788ad1c88804b843d648fc5996bd8be3b778e74c5d93138873bff10",
+      "signature": "ea9959b11235e0e3a63fa4c2cb3dff0bf776112efa3bcdefff04bbf4ddb15ba5aba736174c35fe6d1ba756bdac5272dbf04e1a527aa5f969b7d7c7c5bf85f10c"
+    },
+    "ATT_OCCURRED_ATTESTED_LATE": {
+      "record_type": "proposed:aps:activation-attestation:v0",
+      "assertion": "condition_occurred",
+      "condition_id": "acv-cond-outage-1",
+      "event_type": "service_outage_declared",
+      "event_id": "acv-outage-2026-09-20",
+      "attestor": "did:aps:example:acv-monitor-a",
+      "attestor_role": "outage-monitor",
+      "occurred_at": "2026-09-20T09:00:00.000Z",
+      "attested_at": "2026-09-20T11:00:00.000Z",
+      "verification_method": "did:aps:example:acv-monitor-a#key-1",
+      "attestation_id": "sha256:728da55d8c4ecf3b8a7e24ef9ee3d44e92502d6251597054eacb4317d29c4e1a",
+      "signature": "aeff0756d63a3b6b3f9dc73472e51a9de1a14089e498f05fccd216b0a64371b63794b4ebde6e925c56313be0efab609e43f3bfe7c89bc895ff5eb9cab6311b0e"
+    },
+    "ATT_OCCURRED_AFTER_ACTION": {
+      "record_type": "proposed:aps:activation-attestation:v0",
+      "assertion": "condition_occurred",
+      "condition_id": "acv-cond-outage-1",
+      "event_type": "service_outage_declared",
+      "event_id": "acv-outage-2026-09-20",
+      "attestor": "did:aps:example:acv-monitor-a",
+      "attestor_role": "outage-monitor",
+      "occurred_at": "2026-09-20T10:30:00.000Z",
+      "attested_at": "2026-09-20T11:00:00.000Z",
+      "verification_method": "did:aps:example:acv-monitor-a#key-1",
+      "attestation_id": "sha256:d0a786f263c28c2937bc82104cb85930f6700643632e2beb77892db1046d900d",
+      "signature": "c9f726825df0bfaf5e7c32b26a6353d1e20019d21c330e90233e7b0cb989f34cc4ca020d26dda1ac011aa2f9ffa64ab7bdc8e91c5e4398d52db48133661aa906"
+    },
+    "ATT_OCCURRED_NO_ROLE_CLAIM": {
+      "record_type": "proposed:aps:activation-attestation:v0",
+      "assertion": "condition_occurred",
+      "condition_id": "acv-cond-outage-1",
+      "event_type": "service_outage_declared",
+      "event_id": "acv-outage-2026-09-20",
+      "attestor": "did:aps:example:acv-monitor-a",
+      "occurred_at": "2026-09-20T09:00:00.000Z",
+      "attested_at": "2026-09-20T09:05:00.000Z",
+      "verification_method": "did:aps:example:acv-monitor-a#key-1",
+      "attestation_id": "sha256:a2ea60946920814b18c9b50d883c59042c8f24f7f52bf013331d55090753a8ee",
+      "signature": "0d53fd54f31dd9022b33d5d0d2013775584a6bdf8d40040a90ecbaf93223fcd6b4510fc90d81355fd4eaa8352f6ce8c31dccc25f90825897ac8168c75638140f"
+    },
+    "ATT_MONITOR_C_OCCURRED": {
+      "record_type": "proposed:aps:activation-attestation:v0",
+      "assertion": "condition_occurred",
+      "condition_id": "acv-cond-outage-1",
+      "event_type": "service_outage_declared",
+      "event_id": "acv-outage-2026-09-20",
+      "attestor": "did:aps:example:acv-monitor-c",
+      "attestor_role": "outage-monitor",
+      "occurred_at": "2026-09-20T09:00:00.000Z",
+      "attested_at": "2026-09-20T09:05:00.000Z",
+      "verification_method": "did:aps:example:acv-monitor-c#key-1",
+      "attestation_id": "sha256:5f0fdaf05df4d13062039ae00853e2d478e8d40688248a58930690cde55d0862",
+      "signature": "a0839ad69c02d17feb486dd7f53e09c79925cfcd485c91d66ae0d65fca8902553b2a866c717217a851bfd07d62fe09f42cf55a9f84b88a53c6e809799f4fa103"
+    },
+    "ATT_AUDITOR_HONEST_ROLE": {
+      "record_type": "proposed:aps:activation-attestation:v0",
+      "assertion": "condition_occurred",
+      "condition_id": "acv-cond-outage-1",
+      "event_type": "service_outage_declared",
+      "event_id": "acv-outage-2026-09-20",
+      "attestor": "did:aps:example:acv-auditor-b",
+      "attestor_role": "billing-auditor",
+      "occurred_at": "2026-09-20T09:00:00.000Z",
+      "attested_at": "2026-09-20T09:05:00.000Z",
+      "verification_method": "did:aps:example:acv-auditor-b#key-1",
+      "attestation_id": "sha256:eb2adb3756da14d0976c9ee9924446e799e7edc891732cdacafa8be136f90554",
+      "signature": "59d2c927deca4b08c0ef47e263302d70719f680cd39bb9e8a10f914ac14d610ff8409a8d2187ee90b61d7c1a7f396d9bf6a91b652d2270961849d0c897a64d01"
+    },
+    "ATT_AUDITOR_CLAIMS_MONITOR": {
+      "record_type": "proposed:aps:activation-attestation:v0",
+      "assertion": "condition_occurred",
+      "condition_id": "acv-cond-outage-1",
+      "event_type": "service_outage_declared",
+      "event_id": "acv-outage-2026-09-20",
+      "attestor": "did:aps:example:acv-auditor-b",
+      "attestor_role": "outage-monitor",
+      "occurred_at": "2026-09-20T09:00:00.000Z",
+      "attested_at": "2026-09-20T09:05:00.000Z",
+      "verification_method": "did:aps:example:acv-auditor-b#key-1",
+      "attestation_id": "sha256:8940122ce5ee809f05a97002563a029795ac41adc2a3daf1b5dea90cdedff317",
+      "signature": "80f9499141f3f80898515ad450e25eb670062d6f97c71e32563ddb4de5f1f68495065718eb70180c70500b4d3c11b14f37edbab6917175c15f009b01aa2ebc02"
+    },
+    "ATT_STRANGER_OCCURRED": {
+      "record_type": "proposed:aps:activation-attestation:v0",
+      "assertion": "condition_occurred",
+      "condition_id": "acv-cond-outage-1",
+      "event_type": "service_outage_declared",
+      "event_id": "acv-outage-2026-09-20",
+      "attestor": "did:aps:example:acv-stranger",
+      "occurred_at": "2026-09-20T09:00:00.000Z",
+      "attested_at": "2026-09-20T09:05:00.000Z",
+      "verification_method": "did:aps:example:acv-stranger#key-1",
+      "attestation_id": "sha256:dbf4457d28128b1dce2beee07919ad543c0a2c4ae3a715b041bae57547b470a3",
+      "signature": "e852363b9dffff051d72b1227b963ac4f6092b6bd5f6b7503e194d8fcaf48fcda952f065ff28446efb2a23cb57f0b056738cabd0b2e903f0360537943e153809"
+    },
+    "ATT_MONITOR_WRONG_EVENT": {
+      "record_type": "proposed:aps:activation-attestation:v0",
+      "assertion": "condition_occurred",
+      "condition_id": "acv-cond-outage-1",
+      "event_type": "service_outage_declared",
+      "event_id": "acv-outage-some-other",
+      "attestor": "did:aps:example:acv-monitor-a",
+      "attestor_role": "outage-monitor",
+      "occurred_at": "2026-09-20T09:00:00.000Z",
+      "attested_at": "2026-09-20T09:05:00.000Z",
+      "verification_method": "did:aps:example:acv-monitor-a#key-1",
+      "attestation_id": "sha256:082fa7377ef6946e71c3c03e5728344d0639b35d33f4d1a8a65e163c9b137936",
+      "signature": "19ea58773d64c8c7a07377a9ea852d141aafa59442e5c446f5d14c86d54cffe97cb36e83950712c4ae17b46dfd3e3a7b8658a01aebd70e8899b5104dc87c4905"
+    },
+    "ATT_MONITOR_FORGED": {
+      "record_type": "proposed:aps:activation-attestation:v0",
+      "assertion": "condition_occurred",
+      "condition_id": "acv-cond-outage-1",
+      "event_type": "service_outage_declared",
+      "event_id": "acv-outage-2026-09-20",
+      "attestor": "did:aps:example:acv-monitor-a",
+      "attestor_role": "outage-monitor",
+      "occurred_at": "2026-09-20T09:00:00.000Z",
+      "attested_at": "2026-09-20T09:05:00.000Z",
+      "verification_method": "did:aps:example:acv-monitor-a#key-1",
+      "attestation_id": "sha256:d1c2fe0e6788ad1c88804b843d648fc5996bd8be3b778e74c5d93138873bff10",
+      "signature": "0a9959b11235e0e3a63fa4c2cb3dff0bf776112efa3bcdefff04bbf4ddb15ba5aba736174c35fe6d1ba756bdac5272dbf04e1a527aa5f969b7d7c7c5bf85f10c"
+    },
+    "ATT_BINDING_MISMATCH": {
+      "record_type": "proposed:aps:activation-attestation:v0",
+      "assertion": "condition_occurred",
+      "condition_id": "acv-cond-outage-1",
+      "event_type": "service_outage_declared",
+      "event_id": "acv-outage-2026-09-20",
+      "attestor": "did:aps:example:acv-monitor-a",
+      "attestor_role": "outage-monitor",
+      "occurred_at": "2026-09-20T09:00:00.000Z",
+      "attested_at": "2026-09-20T09:05:00.000Z",
+      "verification_method": "did:aps:example:acv-auditor-b#key-1",
+      "attestation_id": "sha256:c0e6b6b6e9fe3fe964335e671009932b094d0dfff08a0241973a1f88a3fcd5ab",
+      "signature": "a2d6182b059b94301a5c3214d23d5b3ea500b591116638ffbc24f5cddab40edff643c413f4d8ea17a8223de77f884ee52986716a2283a6db3aee525215bfb104"
+    },
+    "ATT_UNRESOLVABLE_KEY": {
+      "record_type": "proposed:aps:activation-attestation:v0",
+      "assertion": "condition_occurred",
+      "condition_id": "acv-cond-outage-1",
+      "event_type": "service_outage_declared",
+      "event_id": "acv-outage-2026-09-20",
+      "attestor": "did:aps:example:acv-monitor-a",
+      "attestor_role": "outage-monitor",
+      "occurred_at": "2026-09-20T09:00:00.000Z",
+      "attested_at": "2026-09-20T09:05:00.000Z",
+      "verification_method": "did:aps:example:acv-monitor-a#key-9",
+      "attestation_id": "sha256:47d8ecb4050f2bee2563e0a4d03b24469030961ab52a526fe7aa2509b9f65f08",
+      "signature": "c35d553a3ac69a7852a6682cc7a1a11a9cc88e7dba05e116c5fe926bcd13853e31695200551cd28d3ac0ae9c3cc1da5d559b385e938977e59b0a25703fbe8c07"
+    },
+    "ATT_NOT_OCCURRED_THROUGH_ACTION": {
+      "record_type": "proposed:aps:activation-attestation:v0",
+      "assertion": "condition_not_occurred_through",
+      "condition_id": "acv-cond-outage-1",
+      "event_type": "service_outage_declared",
+      "event_id": "acv-outage-2026-09-20",
+      "attestor": "did:aps:example:acv-monitor-a",
+      "attestor_role": "outage-monitor",
+      "not_occurred_through": "2026-09-20T10:00:00.000Z",
+      "attested_at": "2026-09-20T09:05:00.000Z",
+      "verification_method": "did:aps:example:acv-monitor-a#key-1",
+      "attestation_id": "sha256:7fc1a092edc4bfe5781346a552607b41ed44ab81bf38a6bc6c7cfeb5dd24b96c",
+      "signature": "924e4f43f2fa06ab723b59b13f6185dae664debd60dd03137f634f712f4327e5e2cec4b3fb4cf5a2ec6b13ff58689962cf91bdebcc874e675f5a768d722e8704"
+    },
+    "ATT_NOT_OCCURRED_STALE": {
+      "record_type": "proposed:aps:activation-attestation:v0",
+      "assertion": "condition_not_occurred_through",
+      "condition_id": "acv-cond-outage-1",
+      "event_type": "service_outage_declared",
+      "event_id": "acv-outage-2026-09-20",
+      "attestor": "did:aps:example:acv-monitor-a",
+      "attestor_role": "outage-monitor",
+      "not_occurred_through": "2026-09-20T08:30:00.000Z",
+      "attested_at": "2026-09-20T09:05:00.000Z",
+      "verification_method": "did:aps:example:acv-monitor-a#key-1",
+      "attestation_id": "sha256:320dd90e994e4401c9ace85e70d7bdd92980930c4ce64443ae9538c78ee44699",
+      "signature": "eb24ef108a7554f14aa1255cdbdefe85da5e11594fd5bc75c9b9c716727d676aac7c5e679f862b1a9fb572f397c8c9804b0c877801a3bdca57f4e3dd80c2470e"
+    },
+    "ATT_AUDITOR_NOT_OCCURRED": {
+      "record_type": "proposed:aps:activation-attestation:v0",
+      "assertion": "condition_not_occurred_through",
+      "condition_id": "acv-cond-outage-1",
+      "event_type": "service_outage_declared",
+      "event_id": "acv-outage-2026-09-20",
+      "attestor": "did:aps:example:acv-auditor-b",
+      "attestor_role": "billing-auditor",
+      "not_occurred_through": "2026-09-20T10:00:00.000Z",
+      "attested_at": "2026-09-20T09:05:00.000Z",
+      "verification_method": "did:aps:example:acv-auditor-b#key-1",
+      "attestation_id": "sha256:a2cd5b7a5ecf0046d82aee0f5dae034cd6ae2ab0f2863feba77ad1a0cd54307a",
+      "signature": "126d4bfbc247ab463174845ee0b7fa43b46153002540be4c759062eac9dc05e981254a06b24631343c36aaa94e86f95f8a7f0e4b19d1030c95dd23a13127770d"
+    },
+    "ATT_UNKNOWN_ASSERTION": {
+      "record_type": "proposed:aps:activation-attestation:v0",
+      "assertion": "condition_probably_occurred",
+      "condition_id": "acv-cond-outage-1",
+      "event_type": "service_outage_declared",
+      "event_id": "acv-outage-2026-09-20",
+      "attestor": "did:aps:example:acv-monitor-a",
+      "attestor_role": "outage-monitor",
+      "occurred_at": "2026-09-20T09:00:00.000Z",
+      "attested_at": "2026-09-20T09:05:00.000Z",
+      "verification_method": "did:aps:example:acv-monitor-a#key-1",
+      "attestation_id": "sha256:c3014b56078651fb3b5a05895e1772f91da31325c4398ce6028de1f277c8507c",
+      "signature": "dd997f1114550afbc4d2d7fa278e28a9f953a975166d0c5743fe1d8429e24215a1c3f77e5cbda9af4eac731e03c27b2b2c978c54a5bbcd18c8d6f55b7b8ef104"
+    },
+    "ATT_OCCURRED_NO_INSTANT": {
+      "record_type": "proposed:aps:activation-attestation:v0",
+      "assertion": "condition_occurred",
+      "condition_id": "acv-cond-outage-1",
+      "event_type": "service_outage_declared",
+      "event_id": "acv-outage-2026-09-20",
+      "attestor": "did:aps:example:acv-monitor-a",
+      "attestor_role": "outage-monitor",
+      "attested_at": "2026-09-20T09:05:00.000Z",
+      "verification_method": "did:aps:example:acv-monitor-a#key-1",
+      "attestation_id": "sha256:faf33137ea526141efab2f8d3b7eaed59e49c0abe9216f41a3183a3fe1b5ad08",
+      "signature": "4cb4d26f455367d26e4389a9c6637cd8ea486820c9fb90e52bd5b3f2bac276e25f29614780cc2bfb1402f791c5f37deab8b255c0bf2f1fa0ea23e370457b7e0b"
+    },
+    "ATT_OCCURRED_MALFORMED_INSTANT": {
+      "record_type": "proposed:aps:activation-attestation:v0",
+      "assertion": "condition_occurred",
+      "condition_id": "acv-cond-outage-1",
+      "event_type": "service_outage_declared",
+      "event_id": "acv-outage-2026-09-20",
+      "attestor": "did:aps:example:acv-monitor-a",
+      "attestor_role": "outage-monitor",
+      "occurred_at": "2026-09-20 09:00:00",
+      "attested_at": "2026-09-20T09:05:00.000Z",
+      "verification_method": "did:aps:example:acv-monitor-a#key-1",
+      "attestation_id": "sha256:ea93d284532b21bb6c1f29d2a96233204344b5158e93a165242c4a22660d6675",
+      "signature": "3f29bca6fb6dd9af84dad9268934dd0003253a4305e731990c53015b05e6eb3380e7f68f23883a4aa85c796428e2b031abda673c494fb26c2f52ff6c7738e001"
+    },
+    "ATT_WRONG_RECORD_TYPE": {
+      "record_type": "fixture:some-other-attestation:v0",
+      "assertion": "condition_occurred",
+      "condition_id": "acv-cond-outage-1",
+      "event_type": "service_outage_declared",
+      "event_id": "acv-outage-2026-09-20",
+      "attestor": "did:aps:example:acv-monitor-a",
+      "attestor_role": "outage-monitor",
+      "occurred_at": "2026-09-20T09:00:00.000Z",
+      "attested_at": "2026-09-20T09:05:00.000Z",
+      "verification_method": "did:aps:example:acv-monitor-a#key-1",
+      "attestation_id": "sha256:0843413f91dcc2f2fc967de89aae3832f92996e2727b4e8975d0c277987a86a3",
+      "signature": "4b836c1e4db39b41255fafeb55d3293f091baeff07013c05573d41f8faec26d28297cf5845d93273e27b50e8b4669c1798c8a0fadcc6e67a95301322ad09b203"
+    }
+  },
+  "condition_validation_cases": [
+    {
+      "id": "AC-CV-01-date-condition-accepted",
+      "tests": "A well formed date condition validates.",
+      "condition": {
+        "record_type": "proposed:aps:activation-condition:v0",
+        "condition_id": "acv-cond-date-1",
+        "delegation_id": "acv-grant-1",
+        "condition_type": "date",
+        "activation_date": "2026-09-20T11:30:00.000Z"
+      },
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "AC-CV-02-event-condition-accepted",
+      "tests": "A well formed recorded-event condition validates.",
+      "condition": {
+        "record_type": "proposed:aps:activation-condition:v0",
+        "condition_id": "acv-cond-outage-1",
+        "delegation_id": "acv-grant-1",
+        "condition_type": "recorded_event",
+        "event_type": "service_outage_declared",
+        "event_id": "acv-outage-2026-09-20",
+        "required_attestor_roles": [
+          "outage-monitor"
+        ],
+        "threshold": 1,
+        "instant_basis": "condition_occurrence"
+      },
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "AC-CV-03-foreign-record-type-rejected",
+      "tests": "A record type this module does not own is not an activation condition.",
+      "condition": {
+        "record_type": "proposed:aps:something-else:v0",
+        "condition_id": "acv-cond-outage-1",
+        "delegation_id": "acv-grant-1",
+        "condition_type": "recorded_event",
+        "event_type": "service_outage_declared",
+        "event_id": "acv-outage-2026-09-20",
+        "required_attestor_roles": [
+          "outage-monitor"
+        ],
+        "threshold": 1,
+        "instant_basis": "condition_occurrence"
+      },
+      "expected": {
+        "ok": false,
+        "error_code": "CONDITION_RECORD_TYPE_UNKNOWN"
+      }
+    },
+    {
+      "id": "AC-CV-04-empty-condition-id-rejected",
+      "tests": "An identifier is required and is never derived by this module.",
+      "condition": {
+        "record_type": "proposed:aps:activation-condition:v0",
+        "condition_id": "",
+        "delegation_id": "acv-grant-1",
+        "condition_type": "recorded_event",
+        "event_type": "service_outage_declared",
+        "event_id": "acv-outage-2026-09-20",
+        "required_attestor_roles": [
+          "outage-monitor"
+        ],
+        "threshold": 1,
+        "instant_basis": "condition_occurrence"
+      },
+      "expected": {
+        "ok": false,
+        "error_code": "CONDITION_MALFORMED"
+      }
+    },
+    {
+      "id": "AC-CV-05-unknown-condition-type-rejected",
+      "tests": "Only the two kinds the concept text names are modelled.",
+      "condition": {
+        "record_type": "proposed:aps:activation-condition:v0",
+        "condition_id": "acv-cond-outage-1",
+        "delegation_id": "acv-grant-1",
+        "condition_type": "absence_within_window",
+        "event_type": "service_outage_declared",
+        "event_id": "acv-outage-2026-09-20",
+        "required_attestor_roles": [
+          "outage-monitor"
+        ],
+        "threshold": 1,
+        "instant_basis": "condition_occurrence"
+      },
+      "expected": {
+        "ok": false,
+        "error_code": "CONDITION_TYPE_UNKNOWN"
+      }
+    },
+    {
+      "id": "AC-CV-06-no-required-roles-rejected",
+      "tests": "A condition naming no accepted source has not stated what it accepts. Refusing the condition is not the same as accepting anything.",
+      "condition": {
+        "record_type": "proposed:aps:activation-condition:v0",
+        "condition_id": "acv-cond-outage-1",
+        "delegation_id": "acv-grant-1",
+        "condition_type": "recorded_event",
+        "event_type": "service_outage_declared",
+        "event_id": "acv-outage-2026-09-20",
+        "required_attestor_roles": [],
+        "threshold": 1,
+        "instant_basis": "condition_occurrence"
+      },
+      "expected": {
+        "ok": false,
+        "error_code": "CONDITION_ROLES_REQUIRED"
+      }
+    },
+    {
+      "id": "AC-CV-07-threshold-zero-rejected",
+      "tests": "How many determinations establish a finding is a model decision, and it is at least one.",
+      "condition": {
+        "record_type": "proposed:aps:activation-condition:v0",
+        "condition_id": "acv-cond-outage-1",
+        "delegation_id": "acv-grant-1",
+        "condition_type": "recorded_event",
+        "event_type": "service_outage_declared",
+        "event_id": "acv-outage-2026-09-20",
+        "required_attestor_roles": [
+          "outage-monitor"
+        ],
+        "threshold": 0,
+        "instant_basis": "condition_occurrence"
+      },
+      "expected": {
+        "ok": false,
+        "error_code": "CONDITION_THRESHOLD_INVALID"
+      }
+    },
+    {
+      "id": "AC-CV-08-threshold-absent-rejected",
+      "tests": "There is NO DEFAULT threshold. An absent one is refused rather than read as one.",
+      "condition": {
+        "record_type": "proposed:aps:activation-condition:v0",
+        "condition_id": "acv-cond-outage-1",
+        "delegation_id": "acv-grant-1",
+        "condition_type": "recorded_event",
+        "event_type": "service_outage_declared",
+        "event_id": "acv-outage-2026-09-20",
+        "required_attestor_roles": [
+          "outage-monitor"
+        ],
+        "instant_basis": "condition_occurrence"
+      },
+      "expected": {
+        "ok": false,
+        "error_code": "CONDITION_THRESHOLD_INVALID"
+      }
+    },
+    {
+      "id": "AC-CV-09-instant-basis-absent-rejected",
+      "tests": "There is NO DEFAULT instant basis. Which instant an occurrence is measured from changes the verdict, so the condition has to say.",
+      "condition": {
+        "record_type": "proposed:aps:activation-condition:v0",
+        "condition_id": "acv-cond-outage-1",
+        "delegation_id": "acv-grant-1",
+        "condition_type": "recorded_event",
+        "event_type": "service_outage_declared",
+        "event_id": "acv-outage-2026-09-20",
+        "required_attestor_roles": [
+          "outage-monitor"
+        ],
+        "threshold": 1
+      },
+      "expected": {
+        "ok": false,
+        "error_code": "CONDITION_INSTANT_BASIS_REQUIRED"
+      }
+    },
+    {
+      "id": "AC-CV-10-instant-basis-unknown-rejected",
+      "tests": "An instant basis outside the two named values is refused.",
+      "condition": {
+        "record_type": "proposed:aps:activation-condition:v0",
+        "condition_id": "acv-cond-outage-1",
+        "delegation_id": "acv-grant-1",
+        "condition_type": "recorded_event",
+        "event_type": "service_outage_declared",
+        "event_id": "acv-outage-2026-09-20",
+        "required_attestor_roles": [
+          "outage-monitor"
+        ],
+        "threshold": 1,
+        "instant_basis": "whenever"
+      },
+      "expected": {
+        "ok": false,
+        "error_code": "CONDITION_INSTANT_BASIS_REQUIRED"
+      }
+    },
+    {
+      "id": "AC-CV-11-malformed-activation-date-rejected",
+      "tests": "A date condition carries an RFC 3339 instant with an offset.",
+      "condition": {
+        "record_type": "proposed:aps:activation-condition:v0",
+        "condition_id": "acv-cond-date-1",
+        "delegation_id": "acv-grant-1",
+        "condition_type": "date",
+        "activation_date": "2026-09-20"
+      },
+      "expected": {
+        "ok": false,
+        "error_code": "INSTANT_MALFORMED"
+      }
+    },
+    {
+      "id": "AC-CV-12-empty-event-type-rejected",
+      "tests": "An event type is opaque to this module and still has to be present.",
+      "condition": {
+        "record_type": "proposed:aps:activation-condition:v0",
+        "condition_id": "acv-cond-outage-1",
+        "delegation_id": "acv-grant-1",
+        "condition_type": "recorded_event",
+        "event_type": "",
+        "event_id": "acv-outage-2026-09-20",
+        "required_attestor_roles": [
+          "outage-monitor"
+        ],
+        "threshold": 1,
+        "instant_basis": "condition_occurrence"
+      },
+      "expected": {
+        "ok": false,
+        "error_code": "CONDITION_MALFORMED"
+      }
+    }
+  ],
+  "verify_cases": [
+    {
+      "id": "AC-01-occurrence-before-action-valid",
+      "tests": "An acceptable record from a required source that the condition occurred at or before the action instant establishes activation.",
+      "condition": "COND_EVENT",
+      "action_at": "T_ACTION",
+      "presented": [
+        "ATT_OCCURRED_ON_TIME"
+      ],
+      "expected": {
+        "verdict": "valid",
+        "reason_code": "ACTIVATION_ESTABLISHED",
+        "findings": [
+          {
+            "attestation": "ATT_OCCURRED_ON_TIME",
+            "finding": "occurred_by_action"
+          }
+        ],
+        "rejections": []
+      }
+    },
+    {
+      "id": "AC-02-nothing-presented-not-established",
+      "tests": "Nothing presented is ignorance, so not_established with the source limb missing. It is NEVER not_yet_effective: no record said the condition had not occurred.",
+      "condition": "COND_EVENT",
+      "action_at": "T_ACTION",
+      "presented": [],
+      "expected": {
+        "verdict": "not_established",
+        "reason_code": "NO_ATTESTATION_PRESENTED",
+        "missing": [
+          "source"
+        ],
+        "findings": [],
+        "rejections": []
+      }
+    },
+    {
+      "id": "AC-03-honest-wrong-role-not-established",
+      "tests": "A source the model does not accept FOR THIS CONDITION is not evidence in either direction. It cannot establish the condition and it cannot establish that the condition was unmet.",
+      "condition": "COND_EVENT",
+      "action_at": "T_ACTION",
+      "presented": [
+        "ATT_AUDITOR_HONEST_ROLE"
+      ],
+      "expected": {
+        "verdict": "not_established",
+        "reason_code": "ATTESTATION_ATTESTOR_ROLE_MISMATCH",
+        "missing": [
+          "source"
+        ],
+        "findings": [],
+        "rejections": [
+          {
+            "attestation": "ATT_AUDITOR_HONEST_ROLE",
+            "reason_code": "ATTESTATION_ATTESTOR_ROLE_MISMATCH"
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-04-self-declared-role-not-established",
+      "tests": "THE NEGATIVE CONTROL. A role claim the resolver contradicts is its own rejection reason and is never believed. An implementation reading the role off the record returns valid here.",
+      "condition": "COND_EVENT",
+      "action_at": "T_ACTION",
+      "presented": [
+        "ATT_AUDITOR_CLAIMS_MONITOR"
+      ],
+      "expected": {
+        "verdict": "not_established",
+        "reason_code": "ATTESTATION_ROLE_CLAIM_CONFLICT",
+        "missing": [
+          "source"
+        ],
+        "findings": [],
+        "rejections": [
+          {
+            "attestation": "ATT_AUDITOR_CLAIMS_MONITOR",
+            "reason_code": "ATTESTATION_ROLE_CLAIM_CONFLICT"
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-05-role-standing-unknown-not-established",
+      "tests": "THREE VALUES, NOT A BOOLEAN. An attestor the registry has never heard of is unknown, which is ignorance and reported under its own code rather than collapsed into a mismatch.",
+      "condition": "COND_EVENT",
+      "action_at": "T_ACTION",
+      "presented": [
+        "ATT_STRANGER_OCCURRED"
+      ],
+      "expected": {
+        "verdict": "not_established",
+        "reason_code": "ATTESTATION_ATTESTOR_ROLE_UNKNOWN",
+        "missing": [
+          "source"
+        ],
+        "findings": [],
+        "rejections": [
+          {
+            "attestation": "ATT_STRANGER_OCCURRED",
+            "reason_code": "ATTESTATION_ATTESTOR_ROLE_UNKNOWN"
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-06-no-role-claim-is-not-a-rejection",
+      "tests": "An attestation that makes no role claim about itself is not rejected for that. The required-role check still runs and the resolver still answers.",
+      "condition": "COND_EVENT",
+      "action_at": "T_ACTION",
+      "presented": [
+        "ATT_OCCURRED_NO_ROLE_CLAIM"
+      ],
+      "expected": {
+        "verdict": "valid",
+        "reason_code": "ACTIVATION_ESTABLISHED",
+        "findings": [
+          {
+            "attestation": "ATT_OCCURRED_NO_ROLE_CLAIM",
+            "finding": "occurred_by_action"
+          }
+        ],
+        "rejections": []
+      }
+    },
+    {
+      "id": "AC-07-wrong-event-not-established",
+      "tests": "A record about another event does not bind to this condition.",
+      "condition": "COND_EVENT",
+      "action_at": "T_ACTION",
+      "presented": [
+        "ATT_MONITOR_WRONG_EVENT"
+      ],
+      "expected": {
+        "verdict": "not_established",
+        "reason_code": "ATTESTATION_CONDITION_MISMATCH",
+        "missing": [
+          "source"
+        ],
+        "findings": [],
+        "rejections": [
+          {
+            "attestation": "ATT_MONITOR_WRONG_EVENT",
+            "reason_code": "ATTESTATION_CONDITION_MISMATCH"
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-08-forged-signature-not-established",
+      "tests": "A signature that does not verify over the record bytes makes the record unusable.",
+      "condition": "COND_EVENT",
+      "action_at": "T_ACTION",
+      "presented": [
+        "ATT_MONITOR_FORGED"
+      ],
+      "expected": {
+        "verdict": "not_established",
+        "reason_code": "ATTESTATION_SIGNATURE_UNVERIFIED",
+        "missing": [
+          "source"
+        ],
+        "findings": [],
+        "rejections": [
+          {
+            "attestation": "ATT_MONITOR_FORGED",
+            "reason_code": "ATTESTATION_SIGNATURE_UNVERIFIED"
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-09-attestor-binding-mismatch-not-established",
+      "tests": "The signature verifies and the verification method belongs to somebody else, so it says nothing about who attested. Its own code, not a signature failure.",
+      "condition": "COND_EVENT",
+      "action_at": "T_ACTION",
+      "presented": [
+        "ATT_BINDING_MISMATCH"
+      ],
+      "expected": {
+        "verdict": "not_established",
+        "reason_code": "ATTESTATION_ATTESTOR_BINDING_MISMATCH",
+        "missing": [
+          "source"
+        ],
+        "findings": [],
+        "rejections": [
+          {
+            "attestation": "ATT_BINDING_MISMATCH",
+            "reason_code": "ATTESTATION_ATTESTOR_BINDING_MISMATCH"
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-10-unresolvable-key-not-established",
+      "tests": "No key resolved at the record own attested_at, so the record is not usable evidence.",
+      "condition": "COND_EVENT",
+      "action_at": "T_ACTION",
+      "presented": [
+        "ATT_UNRESOLVABLE_KEY"
+      ],
+      "expected": {
+        "verdict": "not_established",
+        "reason_code": "ATTESTATION_SIGNATURE_UNVERIFIED",
+        "missing": [
+          "source"
+        ],
+        "findings": [],
+        "rejections": [
+          {
+            "attestation": "ATT_UNRESOLVABLE_KEY",
+            "reason_code": "ATTESTATION_SIGNATURE_UNVERIFIED"
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-11-occurrence-after-action-not-yet-effective",
+      "tests": "NO RETROACTIVE ACTIVATION. A record putting the first occurrence after the action instant leaves that action not_yet_effective, which is an established negative and not ignorance.",
+      "condition": "COND_EVENT",
+      "action_at": "T_ACTION",
+      "presented": [
+        "ATT_OCCURRED_AFTER_ACTION"
+      ],
+      "expected": {
+        "verdict": "not_yet_effective",
+        "reason_code": "CONDITION_FIRST_OCCURRED_AFTER_ACTION",
+        "findings": [
+          {
+            "attestation": "ATT_OCCURRED_AFTER_ACTION",
+            "finding": "occurred_after_action"
+          }
+        ],
+        "rejections": []
+      }
+    },
+    {
+      "id": "AC-12-same-record-later-action-valid",
+      "tests": "The SAME record establishes the condition for any later action. That is what makes AC-11 a wait rather than a failure.",
+      "condition": "COND_EVENT",
+      "action_at": "T_LATER_ACTION",
+      "presented": [
+        "ATT_OCCURRED_AFTER_ACTION"
+      ],
+      "expected": {
+        "verdict": "valid",
+        "reason_code": "ACTIVATION_ESTABLISHED",
+        "findings": [
+          {
+            "attestation": "ATT_OCCURRED_AFTER_ACTION",
+            "finding": "occurred_by_action"
+          }
+        ],
+        "rejections": []
+      }
+    },
+    {
+      "id": "AC-13-written-after-action-about-earlier-occurrence-valid",
+      "tests": "Under instant_basis condition_occurrence, learning on Thursday that a condition was met on Monday establishes it. The activation is keyed on the condition instant, never on the instant someone wrote the record down.",
+      "condition": "COND_EVENT",
+      "action_at": "T_ACTION",
+      "presented": [
+        "ATT_OCCURRED_ATTESTED_LATE"
+      ],
+      "expected": {
+        "verdict": "valid",
+        "reason_code": "ACTIVATION_ESTABLISHED",
+        "findings": [
+          {
+            "attestation": "ATT_OCCURRED_ATTESTED_LATE",
+            "finding": "occurred_by_action"
+          }
+        ],
+        "rejections": []
+      }
+    },
+    {
+      "id": "AC-14-attestation-written-basis-flips-the-same-record",
+      "tests": "THE PAIR THAT PROVES THE NO-DEFAULT RULE. The identical record, at the identical action instant, under instant_basis attestation_written, is not_yet_effective. Two defensible readings, opposite verdicts, so the condition states which governs and this module defaults to neither.",
+      "condition": "COND_EVENT_WRITTEN",
+      "action_at": "T_ACTION",
+      "presented": [
+        "ATT_OCCURRED_ATTESTED_LATE"
+      ],
+      "expected": {
+        "verdict": "not_yet_effective",
+        "reason_code": "CONDITION_FIRST_OCCURRED_AFTER_ACTION",
+        "findings": [
+          {
+            "attestation": "ATT_OCCURRED_ATTESTED_LATE",
+            "finding": "occurred_after_action"
+          }
+        ],
+        "rejections": []
+      }
+    },
+    {
+      "id": "AC-15-accepted-negative-not-yet-effective",
+      "tests": "An accepted record that the condition had NOT occurred through an instant reaching the action is evidence, not an absence of evidence. The verifier reached a conclusion and the remedy is to wait.",
+      "condition": "COND_EVENT",
+      "action_at": "T_ACTION",
+      "presented": [
+        "ATT_NOT_OCCURRED_THROUGH_ACTION"
+      ],
+      "expected": {
+        "verdict": "not_yet_effective",
+        "reason_code": "CONDITION_ESTABLISHED_NOT_YET_OCCURRED",
+        "findings": [
+          {
+            "attestation": "ATT_NOT_OCCURRED_THROUGH_ACTION",
+            "finding": "not_occurred_through_action"
+          }
+        ],
+        "rejections": []
+      }
+    },
+    {
+      "id": "AC-16-negative-from-unaccepted-source-not-established",
+      "tests": "The same negative from a source the model does not accept for this condition establishes nothing. This is the pair to AC-15 and the whole content of the not_established split.",
+      "condition": "COND_EVENT",
+      "action_at": "T_ACTION",
+      "presented": [
+        "ATT_AUDITOR_NOT_OCCURRED"
+      ],
+      "expected": {
+        "verdict": "not_established",
+        "reason_code": "ATTESTATION_ATTESTOR_ROLE_MISMATCH",
+        "missing": [
+          "source"
+        ],
+        "findings": [],
+        "rejections": [
+          {
+            "attestation": "ATT_AUDITOR_NOT_OCCURRED",
+            "reason_code": "ATTESTATION_ATTESTOR_ROLE_MISMATCH"
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-17-negative-stopping-short-is-a-coverage-gap",
+      "tests": "A negative that stops before the action says nothing about the interval between where it stops and the action. COVERAGE, not source: the record is authentic and from an accepted source, and it just does not reach.",
+      "condition": "COND_EVENT",
+      "action_at": "T_ACTION",
+      "presented": [
+        "ATT_NOT_OCCURRED_STALE"
+      ],
+      "expected": {
+        "verdict": "not_established",
+        "reason_code": "ATTESTATION_DOES_NOT_REACH_ACTION",
+        "missing": [
+          "coverage"
+        ],
+        "findings": [],
+        "rejections": [
+          {
+            "attestation": "ATT_NOT_OCCURRED_STALE",
+            "reason_code": "ATTESTATION_DOES_NOT_REACH_ACTION"
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-18-conflicting-accepted-evidence-not-established",
+      "tests": "Two acceptable records disagreeing about the action instant leaves the verifier unable to tell which holds. Neither defeats the other: preferring the later record, the negative one or a majority would each be a precedence rule the concept text does not state.",
+      "condition": "COND_EVENT",
+      "action_at": "T_ACTION",
+      "presented": [
+        "ATT_OCCURRED_ON_TIME",
+        "ATT_NOT_OCCURRED_THROUGH_ACTION"
+      ],
+      "expected": {
+        "verdict": "not_established",
+        "reason_code": "CONDITION_EVIDENCE_CONFLICT",
+        "missing": [
+          "source"
+        ],
+        "findings": [
+          {
+            "attestation": "ATT_OCCURRED_ON_TIME",
+            "finding": "occurred_by_action"
+          },
+          {
+            "attestation": "ATT_NOT_OCCURRED_THROUGH_ACTION",
+            "finding": "not_occurred_through_action"
+          }
+        ],
+        "rejections": []
+      }
+    },
+    {
+      "id": "AC-19-conflict-is-order-independent",
+      "tests": "The same two records in the other order give the same answer.",
+      "condition": "COND_EVENT",
+      "action_at": "T_ACTION",
+      "presented": [
+        "ATT_NOT_OCCURRED_THROUGH_ACTION",
+        "ATT_OCCURRED_ON_TIME"
+      ],
+      "expected": {
+        "verdict": "not_established",
+        "reason_code": "CONDITION_EVIDENCE_CONFLICT",
+        "missing": [
+          "source"
+        ],
+        "findings": [
+          {
+            "attestation": "ATT_NOT_OCCURRED_THROUGH_ACTION",
+            "finding": "not_occurred_through_action"
+          },
+          {
+            "attestation": "ATT_OCCURRED_ON_TIME",
+            "finding": "occurred_by_action"
+          }
+        ],
+        "rejections": []
+      }
+    },
+    {
+      "id": "AC-20-acceptable-record-alongside-unacceptable-ones-valid",
+      "tests": "Rejected records are not evidence in either direction, so they neither block nor dilute an acceptable one. The rejections are still reported.",
+      "condition": "COND_EVENT",
+      "action_at": "T_ACTION",
+      "presented": [
+        "ATT_AUDITOR_HONEST_ROLE",
+        "ATT_AUDITOR_CLAIMS_MONITOR",
+        "ATT_OCCURRED_ON_TIME"
+      ],
+      "expected": {
+        "verdict": "valid",
+        "reason_code": "ACTIVATION_ESTABLISHED",
+        "findings": [
+          {
+            "attestation": "ATT_OCCURRED_ON_TIME",
+            "finding": "occurred_by_action"
+          }
+        ],
+        "rejections": [
+          {
+            "attestation": "ATT_AUDITOR_HONEST_ROLE",
+            "reason_code": "ATTESTATION_ATTESTOR_ROLE_MISMATCH"
+          },
+          {
+            "attestation": "ATT_AUDITOR_CLAIMS_MONITOR",
+            "reason_code": "ATTESTATION_ROLE_CLAIM_CONFLICT"
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-21-threshold-not-met-not-established",
+      "tests": "One acceptable record under a threshold of two. Accepted evidence exists and there is not enough of it, which is its own code and not the same as nothing presented.",
+      "condition": "COND_EVENT_T2",
+      "action_at": "T_ACTION",
+      "presented": [
+        "ATT_OCCURRED_ON_TIME"
+      ],
+      "expected": {
+        "verdict": "not_established",
+        "reason_code": "ACTIVATION_THRESHOLD_NOT_MET",
+        "missing": [
+          "source"
+        ],
+        "findings": [
+          {
+            "attestation": "ATT_OCCURRED_ON_TIME",
+            "finding": "occurred_by_action"
+          }
+        ],
+        "rejections": []
+      }
+    },
+    {
+      "id": "AC-22-threshold-met-valid",
+      "tests": "Two acceptable records from two holders of the required role meet a threshold of two.",
+      "condition": "COND_EVENT_T2",
+      "action_at": "T_ACTION",
+      "presented": [
+        "ATT_OCCURRED_ON_TIME",
+        "ATT_MONITOR_C_OCCURRED"
+      ],
+      "expected": {
+        "verdict": "valid",
+        "reason_code": "ACTIVATION_ESTABLISHED",
+        "findings": [
+          {
+            "attestation": "ATT_OCCURRED_ON_TIME",
+            "finding": "occurred_by_action"
+          },
+          {
+            "attestation": "ATT_MONITOR_C_OCCURRED",
+            "finding": "occurred_by_action"
+          }
+        ],
+        "rejections": []
+      }
+    },
+    {
+      "id": "AC-23-required-roles-are-a-union-not-a-conjunction",
+      "tests": "A condition naming two roles accepts a record from a holder of EITHER. A model needing every named role to attest needs a rule this module does not express.",
+      "condition": "COND_EVENT_TWO_ROLES",
+      "action_at": "T_ACTION",
+      "presented": [
+        "ATT_AUDITOR_HONEST_ROLE"
+      ],
+      "expected": {
+        "verdict": "valid",
+        "reason_code": "ACTIVATION_ESTABLISHED",
+        "findings": [
+          {
+            "attestation": "ATT_AUDITOR_HONEST_ROLE",
+            "finding": "occurred_by_action"
+          }
+        ],
+        "rejections": []
+      }
+    },
+    {
+      "id": "AC-24-unknown-assertion-not-established",
+      "tests": "An assertion outside the two this module defines establishes nothing.",
+      "condition": "COND_EVENT",
+      "action_at": "T_ACTION",
+      "presented": [
+        "ATT_UNKNOWN_ASSERTION"
+      ],
+      "expected": {
+        "verdict": "not_established",
+        "reason_code": "ATTESTATION_UNKNOWN_ASSERTION",
+        "missing": [
+          "source"
+        ],
+        "findings": [],
+        "rejections": [
+          {
+            "attestation": "ATT_UNKNOWN_ASSERTION",
+            "reason_code": "ATTESTATION_UNKNOWN_ASSERTION"
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-25-occurred-without-its-instant-not-established",
+      "tests": "A condition_occurred record with no occurred_at is missing the member its assertion needs.",
+      "condition": "COND_EVENT",
+      "action_at": "T_ACTION",
+      "presented": [
+        "ATT_OCCURRED_NO_INSTANT"
+      ],
+      "expected": {
+        "verdict": "not_established",
+        "reason_code": "ATTESTATION_UNKNOWN_ASSERTION",
+        "missing": [
+          "source"
+        ],
+        "findings": [],
+        "rejections": [
+          {
+            "attestation": "ATT_OCCURRED_NO_INSTANT",
+            "reason_code": "ATTESTATION_UNKNOWN_ASSERTION"
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-26-malformed-occurrence-instant-not-established",
+      "tests": "An instant this module will not compare is a rejection and never a silent comparison.",
+      "condition": "COND_EVENT",
+      "action_at": "T_ACTION",
+      "presented": [
+        "ATT_OCCURRED_MALFORMED_INSTANT"
+      ],
+      "expected": {
+        "verdict": "not_established",
+        "reason_code": "ATTESTATION_INSTANT_MALFORMED",
+        "missing": [
+          "source"
+        ],
+        "findings": [],
+        "rejections": [
+          {
+            "attestation": "ATT_OCCURRED_MALFORMED_INSTANT",
+            "reason_code": "ATTESTATION_INSTANT_MALFORMED"
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-27-foreign-record-type-not-accepted",
+      "tests": "With no attestationPreimage supplied the module accepts only the record type it owns, because the preimage it would verify against belongs to that record type.",
+      "condition": "COND_EVENT",
+      "action_at": "T_ACTION",
+      "presented": [
+        "ATT_WRONG_RECORD_TYPE"
+      ],
+      "expected": {
+        "verdict": "not_established",
+        "reason_code": "ATTESTATION_RECORD_TYPE_NOT_ACCEPTED",
+        "missing": [
+          "source"
+        ],
+        "findings": [],
+        "rejections": [
+          {
+            "attestation": "ATT_WRONG_RECORD_TYPE",
+            "reason_code": "ATTESTATION_RECORD_TYPE_NOT_ACCEPTED"
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-28-furthest-rejection-is-reported",
+      "tests": "When nothing was accepted the verdict names the reason of the record that got FURTHEST through the checks, so it names the closest thing to usable evidence presented. Reported here as a condition mismatch (rank 7) rather than an unaccepted record type (rank 1).",
+      "condition": "COND_EVENT",
+      "action_at": "T_ACTION",
+      "presented": [
+        "ATT_WRONG_RECORD_TYPE",
+        "ATT_MONITOR_WRONG_EVENT"
+      ],
+      "expected": {
+        "verdict": "not_established",
+        "reason_code": "ATTESTATION_CONDITION_MISMATCH",
+        "missing": [
+          "source"
+        ],
+        "findings": [],
+        "rejections": [
+          {
+            "attestation": "ATT_WRONG_RECORD_TYPE",
+            "reason_code": "ATTESTATION_RECORD_TYPE_NOT_ACCEPTED"
+          },
+          {
+            "attestation": "ATT_MONITOR_WRONG_EVENT",
+            "reason_code": "ATTESTATION_CONDITION_MISMATCH"
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-29-furthest-rejection-is-order-independent",
+      "tests": "The same two records in the other order report the same verdict code.",
+      "condition": "COND_EVENT",
+      "action_at": "T_ACTION",
+      "presented": [
+        "ATT_MONITOR_WRONG_EVENT",
+        "ATT_WRONG_RECORD_TYPE"
+      ],
+      "expected": {
+        "verdict": "not_established",
+        "reason_code": "ATTESTATION_CONDITION_MISMATCH",
+        "missing": [
+          "source"
+        ],
+        "findings": [],
+        "rejections": [
+          {
+            "attestation": "ATT_MONITOR_WRONG_EVENT",
+            "reason_code": "ATTESTATION_CONDITION_MISMATCH"
+          },
+          {
+            "attestation": "ATT_WRONG_RECORD_TYPE",
+            "reason_code": "ATTESTATION_RECORD_TYPE_NOT_ACCEPTED"
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-30-date-not-reached-not-yet-effective",
+      "tests": "A date condition needs NO EVIDENCE. The verifier reads the date, so an unreached date is always a known negative and never an unknown one.",
+      "condition": "COND_DATE",
+      "action_at": "T_ACTION",
+      "presented": [],
+      "expected": {
+        "verdict": "not_yet_effective",
+        "reason_code": "CONDITION_DATE_NOT_REACHED",
+        "findings": [],
+        "rejections": []
+      }
+    },
+    {
+      "id": "AC-31-date-reached-valid",
+      "tests": "The same condition at an instant past the date establishes activation.",
+      "condition": "COND_DATE",
+      "action_at": "T_LATER_ACTION",
+      "presented": [],
+      "expected": {
+        "verdict": "valid",
+        "reason_code": "ACTIVATION_ESTABLISHED",
+        "findings": [],
+        "rejections": []
+      }
+    },
+    {
+      "id": "AC-32-date-condition-ignores-attestations",
+      "tests": "Attestations presented against a date condition are not consulted, so an acceptable occurrence record cannot bring a date forward.",
+      "condition": "COND_DATE",
+      "action_at": "T_ACTION",
+      "presented": [
+        "ATT_OCCURRED_ON_TIME"
+      ],
+      "expected": {
+        "verdict": "not_yet_effective",
+        "reason_code": "CONDITION_DATE_NOT_REACHED",
+        "findings": [],
+        "rejections": []
+      }
+    },
+    {
+      "id": "AC-33-date-boundary-is-inclusive",
+      "tests": "An action exactly at the activation date is at the date, so the date has been reached.",
+      "condition": "COND_DATE",
+      "action_at": "T_ACTIVATION_DATE",
+      "presented": [],
+      "expected": {
+        "verdict": "valid",
+        "reason_code": "ACTIVATION_ESTABLISHED",
+        "findings": [],
+        "rejections": []
+      }
+    },
+    {
+      "id": "AC-34-condition-for-another-grant-is-a-coverage-gap",
+      "tests": "A condition gating a different delegation does not state that it covers this one, so it is a coverage gap and is never silently applied here.",
+      "condition": "COND_EVENT_OTHER_GRANT",
+      "action_at": "T_ACTION",
+      "presented": [
+        "ATT_OCCURRED_ON_TIME"
+      ],
+      "expected": {
+        "verdict": "not_established",
+        "reason_code": "CONDITION_DELEGATION_MISMATCH",
+        "missing": [
+          "coverage"
+        ],
+        "findings": [],
+        "rejections": []
+      }
+    }
+  ],
+  "compose_cases": [
+    {
+      "id": "AC-CO-01-valid-chain-reports-the-activation-answer",
+      "tests": "Chain valid and activation established: the composite carries the activation verdict and the chain result is returned untouched.",
+      "chain_result": {
+        "state": "valid",
+        "valid": true,
+        "failures": []
+      },
+      "activation_from_case": "AC-01-occurrence-before-action-valid",
+      "expected": {
+        "chain_state": "valid",
+        "lifecycle_verdict": "valid",
+        "lifecycle_reason_code": "ACTIVATION_ESTABLISHED"
+      }
+    },
+    {
+      "id": "AC-CO-02-valid-chain-waiting-condition-is-not-yet-effective",
+      "tests": "A validly issued grant waiting on a condition. This is the answer draft-03 chain verification has no slot for, and it is reported alongside a chain result that still says valid.",
+      "chain_result": {
+        "state": "valid",
+        "valid": true,
+        "failures": []
+      },
+      "activation_from_case": "AC-15-accepted-negative-not-yet-effective",
+      "expected": {
+        "chain_state": "valid",
+        "lifecycle_verdict": "not_yet_effective",
+        "lifecycle_reason_code": "CONDITION_ESTABLISHED_NOT_YET_OCCURRED"
+      }
+    },
+    {
+      "id": "AC-CO-03-revoked-chain-is-invalid-and-activation-is-not-asked",
+      "tests": "INVARIANT L1 STAYS INTACT. A revoked grant is invalid, activation is never consulted, and no activation evidence can make it exercisable. Reporting not_yet_effective here would say the remedy is to wait when it is not.",
+      "chain_result": {
+        "state": "invalid",
+        "valid": false,
+        "failures": [
+          {
+            "code": "REVOKED",
+            "message": "delegation revoked",
+            "index": 0
+          }
+        ]
+      },
+      "activation_from_case": "AC-01-occurrence-before-action-valid",
+      "expected": {
+        "chain_state": "invalid",
+        "lifecycle_verdict": "invalid",
+        "lifecycle_reason_code": "REVOKED"
+      }
+    },
+    {
+      "id": "AC-CO-04-indeterminate-chain-keeps-its-own-answer",
+      "tests": "An unknown revocation answer is indeterminate at the chain layer and maps to not_established with the source limb. Activation is not asked.",
+      "chain_result": {
+        "state": "indeterminate",
+        "valid": false,
+        "failures": [
+          {
+            "code": "REVOCATION_UNKNOWN",
+            "message": "revocation unavailable",
+            "index": 0
+          }
+        ]
+      },
+      "activation_from_case": "AC-01-occurrence-before-action-valid",
+      "expected": {
+        "chain_state": "indeterminate",
+        "lifecycle_verdict": "not_established",
+        "lifecycle_reason_code": "REVOCATION_UNKNOWN",
+        "lifecycle_missing": [
+          "source"
+        ]
+      }
+    },
+    {
+      "id": "AC-CO-05-no-activation-module-ran",
+      "tests": "A null activation result is how a caller says no activation module ran. The composite then carries only the chain reading.",
+      "chain_result": {
+        "state": "valid",
+        "valid": true,
+        "failures": []
+      },
+      "activation_from_case": null,
+      "expected": {
+        "chain_state": "valid",
+        "lifecycle_verdict": "valid",
+        "lifecycle_reason_code": "CHAIN_VALID"
+      }
+    },
+    {
+      "id": "AC-CO-06-time-facet-wait-keeps-the-chain-answer-by-default",
+      "tests": "THE CONTESTED READING, LEFT TO THE CALLER. A grant whose time facet not_before has not been reached is invalid with NOT_YET_VALID at the chain layer. One instant, two mechanisms carrying the wait, and this module settles nothing by default.",
+      "chain_result": {
+        "state": "invalid",
+        "valid": false,
+        "failures": [
+          {
+            "code": "NOT_YET_VALID",
+            "message": "not_before is after now",
+            "index": 0
+          }
+        ]
+      },
+      "activation_from_case": null,
+      "mapping": {
+        "not_yet_valid_as_not_yet_effective": false
+      },
+      "expected": {
+        "chain_state": "invalid",
+        "lifecycle_verdict": "invalid",
+        "lifecycle_reason_code": "NOT_YET_VALID"
+      }
+    },
+    {
+      "id": "AC-CO-07-time-facet-wait-under-the-other-reading",
+      "tests": "The same chain result under the opt-in reading. The chain result itself is byte for byte unchanged either way.",
+      "chain_result": {
+        "state": "invalid",
+        "valid": false,
+        "failures": [
+          {
+            "code": "NOT_YET_VALID",
+            "message": "not_before is after now",
+            "index": 0
+          }
+        ]
+      },
+      "activation_from_case": null,
+      "mapping": {
+        "not_yet_valid_as_not_yet_effective": true
+      },
+      "expected": {
+        "chain_state": "invalid",
+        "lifecycle_verdict": "not_yet_effective",
+        "lifecycle_reason_code": "NOT_BEFORE_UNREACHED"
+      }
+    }
+  ]
+}

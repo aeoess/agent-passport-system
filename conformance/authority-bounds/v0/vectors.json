@@ -1,0 +1,1487 @@
+{
+  "profile": "aps-authority-bounds-v0",
+  "status_label": "proposed",
+  "proposed_text": {
+    "repository": "aeoess/agent-authority-lifecycle",
+    "documents": [
+      "AUTHORITY-LIFECYCLE.md",
+      "INVARIANT-CANDIDATES.md"
+    ],
+    "named_text": [
+      "Lifecycle concepts are separate > Authority lifecycle state > Expiry or exhaustion",
+      "Lifecycle concepts are separate > Parties and standing > Lifecycle standing",
+      "Lifecycle concepts are separate > Verification and evidence > Evidence attestor",
+      "Invariants > L10. Expiry is not revocation",
+      "CAND-01. An external event is authority-changing only when established",
+      "CAND-02. Later evidence does not rewrite earlier evidence"
+    ],
+    "status_of_that_text": "proposed. No published specification text requires any of it."
+  },
+  "specification_position": {
+    "document": "draft-pidlisnyi-aps-03",
+    "sha256": "59b9547a20c6d514eceb97d169b92b2f9c70a231f5b914e8fc1b478c7f359fca",
+    "occurrences": {
+      "exhaust": 0,
+      "use_count": 0
+    },
+    "quotes": {
+      "section 3.2": "authority contains exactly seven required facets: scope, spend, depth, time, reputation, values, and reversibility.  A missing facet is invalid rather than an implicit unconstrained value.",
+      "section 3.3": "Verification returns one of valid, invalid, indeterminate, or unsupported with a stable failure code.",
+      "section 3.5.1": "A revocation MUST produce a signed revocation record carrying, at minimum: the revoked delegation's identity; the revocation time, inside the signed content; a reference to the revoking authority; and a machine-readable reason code, with optional free-text detail.",
+      "section 5.3.3": "An action-result record attests to what the enforcement boundary observed after dispatch.  External occurrence or settlement requires separately resolved evidence."
+    }
+  },
+  "vocabulary": {
+    "bound_kinds": [
+      "purpose",
+      "use_count",
+      "budget"
+    ],
+    "bound_states": [
+      "not_reached",
+      "exhausted",
+      "not_established"
+    ],
+    "bound_reason_codes": [
+      "BOUND_NOT_REACHED",
+      "PURPOSE_EXHAUSTED",
+      "USE_COUNT_EXHAUSTED",
+      "BUDGET_EXHAUSTED",
+      "BOUND_STATE_NOT_ESTABLISHED"
+    ],
+    "fulfilment_reason_codes": [
+      "FULFILMENT_ACCEPTED",
+      "FULFILMENT_SCHEMA_INVALID",
+      "FULFILMENT_NOT_BOUND_TO_BOUND",
+      "FULFILMENT_OUTCOME_NOT_FULFILLED",
+      "FULFILMENT_NOT_YET_ATTESTED",
+      "FULFILMENT_KEY_UNRESOLVED",
+      "FULFILMENT_SIGNATURE_INVALID",
+      "FULFILMENT_ATTESTOR_WITHOUT_STANDING",
+      "FULFILMENT_ATTESTOR_ROLE_UNKNOWN",
+      "FULFILMENT_NOT_APPLICABLE_TO_KIND"
+    ],
+    "attestor_role_answers": [
+      "holds_role",
+      "does_not_hold_role",
+      "unknown"
+    ]
+  },
+  "record_types": {
+    "bound": "proposed:aps:authority-bound:v0",
+    "fulfilment": "proposed:aps:authority-bound-fulfilment:v0",
+    "exhaustion": "proposed:aps:authority-exhaustion:v0"
+  },
+  "keys": {
+    "maintenance": {
+      "private_key": "251d814cd760d17820f53dcb58299dd9bd416a994ecba76fa52903ecee5e5dbd",
+      "public_key": "081987679c4981b26cfc3aa69260255960be17fb39d3596753f36acccc2ce48e"
+    },
+    "vendor": {
+      "private_key": "2a152b349ac7c0af2cf47acbaf1f3526bf01406e87b2dea6d0d8f08256cc9833",
+      "public_key": "d93374e0a546da8da59b078c6bc5e3da992f820ce438fede54c9984133434239"
+    },
+    "boundary": {
+      "private_key": "cad61b8aca75220f0124facc50b0072b5b085bba3e40e8a9510901da11777089",
+      "public_key": "40669b48993d29194c3c1df35981c493d4654c4a00c50fee6807ea3801236eae"
+    }
+  },
+  "resolvers": {
+    "roles": {
+      "did:example:maintenance-desk": "holds_role",
+      "did:example:parts-vendor": "does_not_hold_role",
+      "did:example:unknown-party": "unknown"
+    },
+    "keys": {
+      "did:example:maintenance-desk#k1": "081987679c4981b26cfc3aa69260255960be17fb39d3596753f36acccc2ce48e",
+      "did:example:parts-vendor#k1": "d93374e0a546da8da59b078c6bc5e3da992f820ce438fede54c9984133434239",
+      "did:example:boundary#k1": "40669b48993d29194c3c1df35981c493d4654c4a00c50fee6807ea3801236eae"
+    }
+  },
+  "assessment_cases": [
+    {
+      "id": "AB-A-01-authentic-attestor-with-standing-accepted",
+      "tests": "the positive control. Signature verifies against the key resolved for the attestor at attested_at, and the resolver says the attestor holds the role the bound names.",
+      "bound": {
+        "record_type": "proposed:aps:authority-bound:v0",
+        "bound_id": "bound-compressor-replacement",
+        "delegation_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "kind": "purpose",
+        "value": "maintenance:compressor:replace",
+        "fulfilment_attestor_roles": [
+          "maintenance-attestor"
+        ]
+      },
+      "record": {
+        "record_type": "proposed:aps:authority-bound-fulfilment:v0",
+        "bound_id": "bound-compressor-replacement",
+        "delegation_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "attestor": "did:example:maintenance-desk",
+        "verification_method": "did:example:maintenance-desk#k1",
+        "attested_at": "2026-09-22T16:30:00.000Z",
+        "outcome": "fulfilled",
+        "reason_code": "PURPOSE_MET",
+        "signature": "86d3218c35dcd91e67436f481a9aa04ff0be08cf1fe62be94aba1d5d16ab0940aaf5b0dc41cf4dcdcd93bc3c9f3e1dcdae6e1c97629131ce583cb56c26d11007"
+      },
+      "at_instant": "2026-09-23T10:00:00.000Z",
+      "expected": {
+        "accepted": true,
+        "reason_code": "FULFILMENT_ACCEPTED",
+        "role_answer": "holds_role"
+      }
+    },
+    {
+      "id": "AB-A-02-unauthenticated-gives-not-established-not-invalid",
+      "tests": "the headline negative control. A structurally intact record whose signature does not verify. Fulfilment is not established: it is not established that the purpose was met and it is not established that it was not.",
+      "bound": {
+        "record_type": "proposed:aps:authority-bound:v0",
+        "bound_id": "bound-compressor-replacement",
+        "delegation_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "kind": "purpose",
+        "value": "maintenance:compressor:replace",
+        "fulfilment_attestor_roles": [
+          "maintenance-attestor"
+        ]
+      },
+      "record": {
+        "record_type": "proposed:aps:authority-bound-fulfilment:v0",
+        "bound_id": "bound-compressor-replacement",
+        "delegation_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "attestor": "did:example:maintenance-desk",
+        "verification_method": "did:example:maintenance-desk#k1",
+        "attested_at": "2026-09-22T16:30:00.000Z",
+        "outcome": "fulfilled",
+        "reason_code": "PURPOSE_MET",
+        "signature": "ac101c91de9110aab132c6fb9bf9aff7af44c2e3a0600005b3bc7c4c165604cf24e7cb593afed759064e4f37252f4ef461a1eeda4c34f4805b73679c8afef304"
+      },
+      "at_instant": "2026-09-23T10:00:00.000Z",
+      "expected": {
+        "accepted": false,
+        "reason_code": "FULFILMENT_SIGNATURE_INVALID",
+        "role_answer": "holds_role",
+        "missing": [
+          "source"
+        ]
+      }
+    },
+    {
+      "id": "AB-A-03-authentic-but-without-standing-is-a-different-failure",
+      "tests": "the second negative control, through the standing route rather than the signature route. The signature verifies against the vendor own published key. The resolver says the vendor does not hold the role. Authenticated, and by somebody without standing: a different failure, and it keeps its own code.",
+      "bound": {
+        "record_type": "proposed:aps:authority-bound:v0",
+        "bound_id": "bound-compressor-replacement",
+        "delegation_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "kind": "purpose",
+        "value": "maintenance:compressor:replace",
+        "fulfilment_attestor_roles": [
+          "maintenance-attestor"
+        ]
+      },
+      "record": {
+        "record_type": "proposed:aps:authority-bound-fulfilment:v0",
+        "bound_id": "bound-compressor-replacement",
+        "delegation_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "attestor": "did:example:parts-vendor",
+        "verification_method": "did:example:parts-vendor#k1",
+        "attested_at": "2026-09-22T16:30:00.000Z",
+        "outcome": "fulfilled",
+        "reason_code": "PURPOSE_MET",
+        "signature": "8f6458a6046435bf2b2437453b065b53eb95b3054efa0d9d7da4d5ef89d2e7e64de8684183405b5b12b151bfe8e136163b04277c18a7381eebaf5a1e6b2ce007"
+      },
+      "at_instant": "2026-09-23T10:00:00.000Z",
+      "expected": {
+        "accepted": false,
+        "reason_code": "FULFILMENT_ATTESTOR_WITHOUT_STANDING",
+        "role_answer": "does_not_hold_role",
+        "missing": [
+          "source"
+        ]
+      }
+    },
+    {
+      "id": "AB-A-04-standing-is-asked-before-authenticity",
+      "tests": "order of the two checks, made observable. This record is BOTH from a party without standing AND signed with a key that is not the one resolved for its declared method. Standing is asked first, so the code is the standing one. An implementation that authenticated first would report FULFILMENT_SIGNATURE_INVALID here and lose which fact it actually established.",
+      "bound": {
+        "record_type": "proposed:aps:authority-bound:v0",
+        "bound_id": "bound-compressor-replacement",
+        "delegation_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "kind": "purpose",
+        "value": "maintenance:compressor:replace",
+        "fulfilment_attestor_roles": [
+          "maintenance-attestor"
+        ]
+      },
+      "record": {
+        "record_type": "proposed:aps:authority-bound-fulfilment:v0",
+        "bound_id": "bound-compressor-replacement",
+        "delegation_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "attestor": "did:example:parts-vendor",
+        "verification_method": "did:example:parts-vendor#k1",
+        "attested_at": "2026-09-22T16:30:00.000Z",
+        "outcome": "fulfilled",
+        "reason_code": "PURPOSE_MET",
+        "signature": "86d3218c35dcd91e67436f481a9aa04ff0be08cf1fe62be94aba1d5d16ab0940aaf5b0dc41cf4dcdcd93bc3c9f3e1dcdae6e1c97629131ce583cb56c26d11007"
+      },
+      "at_instant": "2026-09-23T10:00:00.000Z",
+      "expected": {
+        "accepted": false,
+        "reason_code": "FULFILMENT_ATTESTOR_WITHOUT_STANDING",
+        "role_answer": "does_not_hold_role",
+        "missing": [
+          "source"
+        ]
+      }
+    },
+    {
+      "id": "AB-A-05-unknown-role-answer-is-not-without-standing",
+      "tests": "a resolver that cannot answer has not told the verifier the attestor lacks the role. Its own code, and not the WITHOUT_STANDING one.",
+      "bound": {
+        "record_type": "proposed:aps:authority-bound:v0",
+        "bound_id": "bound-compressor-replacement",
+        "delegation_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "kind": "purpose",
+        "value": "maintenance:compressor:replace",
+        "fulfilment_attestor_roles": [
+          "maintenance-attestor"
+        ]
+      },
+      "record": {
+        "record_type": "proposed:aps:authority-bound-fulfilment:v0",
+        "bound_id": "bound-compressor-replacement",
+        "delegation_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "attestor": "did:example:unknown-party",
+        "verification_method": "did:example:unknown-party#k1",
+        "attested_at": "2026-09-22T16:30:00.000Z",
+        "outcome": "fulfilled",
+        "reason_code": "PURPOSE_MET",
+        "signature": "b0d37d35aa3a3a558ec03c8b37bb69b2b4d80cf343c29eb652c73a887b309a5d5da2911d2f8f7afe88d680d756f177988b7e929ec4b903a292f36af4279ab70f"
+      },
+      "at_instant": "2026-09-23T10:00:00.000Z",
+      "expected": {
+        "accepted": false,
+        "reason_code": "FULFILMENT_ATTESTOR_ROLE_UNKNOWN",
+        "role_answer": "unknown",
+        "missing": [
+          "source"
+        ]
+      }
+    },
+    {
+      "id": "AB-A-06-wrong-key-for-a-declared-method-does-not-verify",
+      "tests": "the attestor holds the role and the method is its own, and the bytes were signed by a different key. A signature failure, not a standing failure.",
+      "bound": {
+        "record_type": "proposed:aps:authority-bound:v0",
+        "bound_id": "bound-compressor-replacement",
+        "delegation_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "kind": "purpose",
+        "value": "maintenance:compressor:replace",
+        "fulfilment_attestor_roles": [
+          "maintenance-attestor"
+        ]
+      },
+      "record": {
+        "record_type": "proposed:aps:authority-bound-fulfilment:v0",
+        "bound_id": "bound-compressor-replacement",
+        "delegation_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "attestor": "did:example:maintenance-desk",
+        "verification_method": "did:example:maintenance-desk#k1",
+        "attested_at": "2026-09-22T16:30:00.000Z",
+        "outcome": "fulfilled",
+        "reason_code": "PURPOSE_MET",
+        "signature": "b375f2bc49f63886b44fa2724ae89de917906d76c4b56111a7132812c3646287c15ca60a241d6524c0c69c748469a6e9e70c1238937ec7606c80d5d5926f5f0b"
+      },
+      "at_instant": "2026-09-23T10:00:00.000Z",
+      "expected": {
+        "accepted": false,
+        "reason_code": "FULFILMENT_SIGNATURE_INVALID",
+        "role_answer": "holds_role",
+        "missing": [
+          "source"
+        ]
+      }
+    },
+    {
+      "id": "AB-A-07-no-key-resolved-is-a-source-gap-not-a-signature-failure",
+      "tests": "the resolver returns nothing for the method. No signature check was performed at all, so the module does not report one.",
+      "bound": {
+        "record_type": "proposed:aps:authority-bound:v0",
+        "bound_id": "bound-compressor-replacement",
+        "delegation_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "kind": "purpose",
+        "value": "maintenance:compressor:replace",
+        "fulfilment_attestor_roles": [
+          "maintenance-attestor"
+        ]
+      },
+      "record": {
+        "record_type": "proposed:aps:authority-bound-fulfilment:v0",
+        "bound_id": "bound-compressor-replacement",
+        "delegation_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "attestor": "did:example:maintenance-desk",
+        "verification_method": "did:example:maintenance-desk#retired",
+        "attested_at": "2026-09-22T16:30:00.000Z",
+        "outcome": "fulfilled",
+        "reason_code": "PURPOSE_MET",
+        "signature": "1288e0f1a840e46159d239fbff3682eee290d9a1b7e3ae482689b0e67ec83593e66228f630df618280da853777f91ceaaeec203a1b09bea7964fbd2c1a0c3f03"
+      },
+      "at_instant": "2026-09-23T10:00:00.000Z",
+      "expected": {
+        "accepted": false,
+        "reason_code": "FULFILMENT_KEY_UNRESOLVED",
+        "role_answer": "holds_role",
+        "missing": [
+          "source"
+        ]
+      }
+    },
+    {
+      "id": "AB-A-08-record-about-a-different-bound-is-a-coverage-gap",
+      "tests": "a claim does not cover more than it states. The record names another bound, so it says nothing about this one.",
+      "bound": {
+        "record_type": "proposed:aps:authority-bound:v0",
+        "bound_id": "bound-compressor-replacement",
+        "delegation_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "kind": "purpose",
+        "value": "maintenance:compressor:replace",
+        "fulfilment_attestor_roles": [
+          "maintenance-attestor"
+        ]
+      },
+      "record": {
+        "record_type": "proposed:aps:authority-bound-fulfilment:v0",
+        "bound_id": "bound-something-else",
+        "delegation_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "attestor": "did:example:maintenance-desk",
+        "verification_method": "did:example:maintenance-desk#k1",
+        "attested_at": "2026-09-22T16:30:00.000Z",
+        "outcome": "fulfilled",
+        "reason_code": "PURPOSE_MET",
+        "signature": "1919d4bf634d373a6be64279e68092c62b382f8f923f920132cad39b5ffe058b921ae10efe1915330996fdb78fbdd03a5ec84f6de10585a6d670d7169c72f107"
+      },
+      "at_instant": "2026-09-23T10:00:00.000Z",
+      "expected": {
+        "accepted": false,
+        "reason_code": "FULFILMENT_NOT_BOUND_TO_BOUND",
+        "missing": [
+          "coverage"
+        ]
+      }
+    },
+    {
+      "id": "AB-A-09-record-about-a-different-delegation-is-a-coverage-gap",
+      "tests": "same rule through the delegation reference rather than the bound reference.",
+      "bound": {
+        "record_type": "proposed:aps:authority-bound:v0",
+        "bound_id": "bound-compressor-replacement",
+        "delegation_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "kind": "purpose",
+        "value": "maintenance:compressor:replace",
+        "fulfilment_attestor_roles": [
+          "maintenance-attestor"
+        ]
+      },
+      "record": {
+        "record_type": "proposed:aps:authority-bound-fulfilment:v0",
+        "bound_id": "bound-compressor-replacement",
+        "delegation_id": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "attestor": "did:example:maintenance-desk",
+        "verification_method": "did:example:maintenance-desk#k1",
+        "attested_at": "2026-09-22T16:30:00.000Z",
+        "outcome": "fulfilled",
+        "reason_code": "PURPOSE_MET",
+        "signature": "2b7b7524d5e81ef2f6c1aa7f1be03baf93337d6a4cbb9027a32a77b4203b21f991e0a5e91641f844528de89897575cca7023cb9411877d2eb027cb80eb0b8e0f"
+      },
+      "at_instant": "2026-09-23T10:00:00.000Z",
+      "expected": {
+        "accepted": false,
+        "reason_code": "FULFILMENT_NOT_BOUND_TO_BOUND",
+        "missing": [
+          "coverage"
+        ]
+      }
+    },
+    {
+      "id": "AB-A-10-a-record-attested-later-than-the-instant-is-not-read",
+      "tests": "a verifier asked about Wednesday does not get to use Thursday evidence. The record is authentic and from a party with standing, and it is still not read at this instant.",
+      "bound": {
+        "record_type": "proposed:aps:authority-bound:v0",
+        "bound_id": "bound-compressor-replacement",
+        "delegation_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "kind": "purpose",
+        "value": "maintenance:compressor:replace",
+        "fulfilment_attestor_roles": [
+          "maintenance-attestor"
+        ]
+      },
+      "record": {
+        "record_type": "proposed:aps:authority-bound-fulfilment:v0",
+        "bound_id": "bound-compressor-replacement",
+        "delegation_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "attestor": "did:example:maintenance-desk",
+        "verification_method": "did:example:maintenance-desk#k1",
+        "attested_at": "2026-09-24T09:00:00.000Z",
+        "outcome": "fulfilled",
+        "reason_code": "PURPOSE_MET",
+        "signature": "3a37b3c8d02109412649340029ef6ea566c1d77f389d8ac9a9160f476c9d3e5ea426f78002d40f6fd11e5b622aa20095894bcdb13574a22a5abab18de3871c07"
+      },
+      "at_instant": "2026-09-23T10:00:00.000Z",
+      "expected": {
+        "accepted": false,
+        "reason_code": "FULFILMENT_NOT_YET_ATTESTED",
+        "missing": [
+          "coverage"
+        ]
+      }
+    },
+    {
+      "id": "AB-A-11-an-established-negative-carries-no-missing-limbs",
+      "tests": "a record from a party with standing saying the purpose was NOT met. The verifier reached a conclusion, so there is no gap to name. This is the one rejection with no missing array.",
+      "bound": {
+        "record_type": "proposed:aps:authority-bound:v0",
+        "bound_id": "bound-compressor-replacement",
+        "delegation_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "kind": "purpose",
+        "value": "maintenance:compressor:replace",
+        "fulfilment_attestor_roles": [
+          "maintenance-attestor"
+        ]
+      },
+      "record": {
+        "record_type": "proposed:aps:authority-bound-fulfilment:v0",
+        "bound_id": "bound-compressor-replacement",
+        "delegation_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "attestor": "did:example:maintenance-desk",
+        "verification_method": "did:example:maintenance-desk#k1",
+        "attested_at": "2026-09-22T16:30:00.000Z",
+        "outcome": "not_fulfilled",
+        "reason_code": "PURPOSE_NOT_MET",
+        "signature": "ac101c91de9110aab132c6fb9bf9aff7af44c2e3a0600005b3bc7c4c165604cf24e7cb593afed759064e4f37252f4ef461a1eeda4c34f4805b73679c8afef304"
+      },
+      "at_instant": "2026-09-23T10:00:00.000Z",
+      "expected": {
+        "accepted": false,
+        "reason_code": "FULFILMENT_OUTCOME_NOT_FULFILLED",
+        "role_answer": "holds_role"
+      }
+    },
+    {
+      "id": "AB-A-12-an-unreadable-record-is-rejected-and-never-thrown-on",
+      "tests": "a record somebody else wrote is data. An unreadable one gets a reason code, not an exception.",
+      "bound": {
+        "record_type": "proposed:aps:authority-bound:v0",
+        "bound_id": "bound-compressor-replacement",
+        "delegation_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "kind": "purpose",
+        "value": "maintenance:compressor:replace",
+        "fulfilment_attestor_roles": [
+          "maintenance-attestor"
+        ]
+      },
+      "record": {
+        "record_type": "proposed:aps:authority-bound-fulfilment:v0",
+        "bound_id": "bound-compressor-replacement"
+      },
+      "at_instant": "2026-09-23T10:00:00.000Z",
+      "expected": {
+        "accepted": false,
+        "reason_code": "FULFILMENT_SCHEMA_INVALID",
+        "missing": [
+          "source"
+        ]
+      }
+    },
+    {
+      "id": "AB-A-13-a-fulfilment-record-does-not-apply-to-a-use-count-bound",
+      "tests": "a use_count bound is reached by the admission. There is no attestation step to assess, and saying so is not the same as rejecting the record on its merits.",
+      "bound": {
+        "record_type": "proposed:aps:authority-bound:v0",
+        "bound_id": "bound-single-use",
+        "delegation_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "kind": "use_count",
+        "value": "1",
+        "fulfilment_attestor_roles": []
+      },
+      "record": {
+        "record_type": "proposed:aps:authority-bound-fulfilment:v0",
+        "bound_id": "bound-compressor-replacement",
+        "delegation_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "attestor": "did:example:maintenance-desk",
+        "verification_method": "did:example:maintenance-desk#k1",
+        "attested_at": "2026-09-22T16:30:00.000Z",
+        "outcome": "fulfilled",
+        "reason_code": "PURPOSE_MET",
+        "signature": "86d3218c35dcd91e67436f481a9aa04ff0be08cf1fe62be94aba1d5d16ab0940aaf5b0dc41cf4dcdcd93bc3c9f3e1dcdae6e1c97629131ce583cb56c26d11007"
+      },
+      "at_instant": "2026-09-23T10:00:00.000Z",
+      "expected": {
+        "accepted": false,
+        "reason_code": "FULFILMENT_NOT_APPLICABLE_TO_KIND",
+        "missing": [
+          "coverage"
+        ]
+      }
+    }
+  ],
+  "evaluation_cases": [
+    {
+      "id": "AB-E-01-purpose-bound-with-no-records-is-not-reached",
+      "tests": "the positive control, and the first compressor purchase. The bound is declared, nothing reaches it, and the lifecycle verdict alongside a valid chain is valid.",
+      "bound": {
+        "record_type": "proposed:aps:authority-bound:v0",
+        "bound_id": "bound-compressor-replacement",
+        "delegation_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "kind": "purpose",
+        "value": "maintenance:compressor:replace",
+        "fulfilment_attestor_roles": [
+          "maintenance-attestor"
+        ]
+      },
+      "fulfilments": [],
+      "at_instant": "2026-09-22T14:00:00.000Z",
+      "expected": {
+        "bound_state": "not_reached",
+        "reason_code": "BOUND_NOT_REACHED",
+        "ending": null,
+        "lifecycle": {
+          "verdict": "valid",
+          "reason_code": "BOUND_NOT_REACHED"
+        },
+        "fulfilment_reason_codes": []
+      }
+    },
+    {
+      "id": "AB-E-02-an-accepted-record-exhausts-the-purpose",
+      "tests": "the headline case. The second purchase on Wednesday, under a grant that still verifies valid, is neither revoked nor expired, and is exhausted. The ending is exhaustion and never revocation.",
+      "bound": {
+        "record_type": "proposed:aps:authority-bound:v0",
+        "bound_id": "bound-compressor-replacement",
+        "delegation_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "kind": "purpose",
+        "value": "maintenance:compressor:replace",
+        "fulfilment_attestor_roles": [
+          "maintenance-attestor"
+        ]
+      },
+      "fulfilments": [
+        {
+          "record_type": "proposed:aps:authority-bound-fulfilment:v0",
+          "bound_id": "bound-compressor-replacement",
+          "delegation_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "attestor": "did:example:maintenance-desk",
+          "verification_method": "did:example:maintenance-desk#k1",
+          "attested_at": "2026-09-22T16:30:00.000Z",
+          "outcome": "fulfilled",
+          "reason_code": "PURPOSE_MET",
+          "signature": "86d3218c35dcd91e67436f481a9aa04ff0be08cf1fe62be94aba1d5d16ab0940aaf5b0dc41cf4dcdcd93bc3c9f3e1dcdae6e1c97629131ce583cb56c26d11007"
+        }
+      ],
+      "at_instant": "2026-09-23T10:00:00.000Z",
+      "expected": {
+        "bound_state": "exhausted",
+        "reason_code": "PURPOSE_EXHAUSTED",
+        "ending": "exhaustion",
+        "lifecycle": {
+          "verdict": "invalid",
+          "reason_code": "PURPOSE_EXHAUSTED"
+        },
+        "fulfilment_reason_codes": [
+          "FULFILMENT_ACCEPTED"
+        ]
+      }
+    },
+    {
+      "id": "AB-E-03-an-unauthenticated-record-gives-not-established",
+      "tests": "the vector a naive implementation passes wrongly. A boundary that reads the outcome field without checking who signed it records exhausted here. Only the bound state separates the two.",
+      "bound": {
+        "record_type": "proposed:aps:authority-bound:v0",
+        "bound_id": "bound-compressor-replacement",
+        "delegation_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "kind": "purpose",
+        "value": "maintenance:compressor:replace",
+        "fulfilment_attestor_roles": [
+          "maintenance-attestor"
+        ]
+      },
+      "fulfilments": [
+        {
+          "record_type": "proposed:aps:authority-bound-fulfilment:v0",
+          "bound_id": "bound-compressor-replacement",
+          "delegation_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "attestor": "did:example:maintenance-desk",
+          "verification_method": "did:example:maintenance-desk#k1",
+          "attested_at": "2026-09-22T16:30:00.000Z",
+          "outcome": "fulfilled",
+          "reason_code": "PURPOSE_MET",
+          "signature": "ac101c91de9110aab132c6fb9bf9aff7af44c2e3a0600005b3bc7c4c165604cf24e7cb593afed759064e4f37252f4ef461a1eeda4c34f4805b73679c8afef304"
+        }
+      ],
+      "at_instant": "2026-09-23T10:00:00.000Z",
+      "expected": {
+        "bound_state": "not_established",
+        "reason_code": "BOUND_STATE_NOT_ESTABLISHED",
+        "ending": null,
+        "lifecycle": {
+          "verdict": "not_established",
+          "reason_code": "BOUND_STATE_NOT_ESTABLISHED",
+          "missing": [
+            "source"
+          ]
+        },
+        "fulfilment_reason_codes": [
+          "FULFILMENT_SIGNATURE_INVALID"
+        ]
+      }
+    },
+    {
+      "id": "AB-E-04-a-record-without-standing-gives-not-established",
+      "tests": "the same trap through the standing route.",
+      "bound": {
+        "record_type": "proposed:aps:authority-bound:v0",
+        "bound_id": "bound-compressor-replacement",
+        "delegation_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "kind": "purpose",
+        "value": "maintenance:compressor:replace",
+        "fulfilment_attestor_roles": [
+          "maintenance-attestor"
+        ]
+      },
+      "fulfilments": [
+        {
+          "record_type": "proposed:aps:authority-bound-fulfilment:v0",
+          "bound_id": "bound-compressor-replacement",
+          "delegation_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "attestor": "did:example:parts-vendor",
+          "verification_method": "did:example:parts-vendor#k1",
+          "attested_at": "2026-09-22T16:30:00.000Z",
+          "outcome": "fulfilled",
+          "reason_code": "PURPOSE_MET",
+          "signature": "8f6458a6046435bf2b2437453b065b53eb95b3054efa0d9d7da4d5ef89d2e7e64de8684183405b5b12b151bfe8e136163b04277c18a7381eebaf5a1e6b2ce007"
+        }
+      ],
+      "at_instant": "2026-09-23T10:00:00.000Z",
+      "expected": {
+        "bound_state": "not_established",
+        "reason_code": "BOUND_STATE_NOT_ESTABLISHED",
+        "ending": null,
+        "lifecycle": {
+          "verdict": "not_established",
+          "reason_code": "BOUND_STATE_NOT_ESTABLISHED",
+          "missing": [
+            "source"
+          ]
+        },
+        "fulfilment_reason_codes": [
+          "FULFILMENT_ATTESTOR_WITHOUT_STANDING"
+        ]
+      }
+    },
+    {
+      "id": "AB-E-05-an-established-exhaustion-is-not-downgraded-by-a-later-unestablishable-claim",
+      "tests": "a later finding is a new record about an earlier one, never a rewrite of it. An accepted record and an unauthenticated one together still give exhausted.",
+      "bound": {
+        "record_type": "proposed:aps:authority-bound:v0",
+        "bound_id": "bound-compressor-replacement",
+        "delegation_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "kind": "purpose",
+        "value": "maintenance:compressor:replace",
+        "fulfilment_attestor_roles": [
+          "maintenance-attestor"
+        ]
+      },
+      "fulfilments": [
+        {
+          "record_type": "proposed:aps:authority-bound-fulfilment:v0",
+          "bound_id": "bound-compressor-replacement",
+          "delegation_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "attestor": "did:example:maintenance-desk",
+          "verification_method": "did:example:maintenance-desk#k1",
+          "attested_at": "2026-09-22T16:30:00.000Z",
+          "outcome": "fulfilled",
+          "reason_code": "PURPOSE_MET",
+          "signature": "86d3218c35dcd91e67436f481a9aa04ff0be08cf1fe62be94aba1d5d16ab0940aaf5b0dc41cf4dcdcd93bc3c9f3e1dcdae6e1c97629131ce583cb56c26d11007"
+        },
+        {
+          "record_type": "proposed:aps:authority-bound-fulfilment:v0",
+          "bound_id": "bound-compressor-replacement",
+          "delegation_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "attestor": "did:example:maintenance-desk",
+          "verification_method": "did:example:maintenance-desk#k1",
+          "attested_at": "2026-09-22T16:30:00.000Z",
+          "outcome": "fulfilled",
+          "reason_code": "PURPOSE_MET",
+          "signature": "ac101c91de9110aab132c6fb9bf9aff7af44c2e3a0600005b3bc7c4c165604cf24e7cb593afed759064e4f37252f4ef461a1eeda4c34f4805b73679c8afef304"
+        }
+      ],
+      "at_instant": "2026-09-23T10:00:00.000Z",
+      "expected": {
+        "bound_state": "exhausted",
+        "reason_code": "PURPOSE_EXHAUSTED",
+        "ending": "exhaustion",
+        "lifecycle": {
+          "verdict": "invalid",
+          "reason_code": "PURPOSE_EXHAUSTED"
+        },
+        "fulfilment_reason_codes": [
+          "FULFILMENT_ACCEPTED",
+          "FULFILMENT_SIGNATURE_INVALID"
+        ]
+      }
+    },
+    {
+      "id": "AB-E-06-the-verdict-does-not-depend-on-the-order-the-records-arrive-in",
+      "tests": "AB-E-05 with the two records swapped. Same verdict. The rule is a fold over the set, not a running mutation, which is what makes it safe to keep the records in an unordered store.",
+      "bound": {
+        "record_type": "proposed:aps:authority-bound:v0",
+        "bound_id": "bound-compressor-replacement",
+        "delegation_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "kind": "purpose",
+        "value": "maintenance:compressor:replace",
+        "fulfilment_attestor_roles": [
+          "maintenance-attestor"
+        ]
+      },
+      "fulfilments": [
+        {
+          "record_type": "proposed:aps:authority-bound-fulfilment:v0",
+          "bound_id": "bound-compressor-replacement",
+          "delegation_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "attestor": "did:example:maintenance-desk",
+          "verification_method": "did:example:maintenance-desk#k1",
+          "attested_at": "2026-09-22T16:30:00.000Z",
+          "outcome": "fulfilled",
+          "reason_code": "PURPOSE_MET",
+          "signature": "ac101c91de9110aab132c6fb9bf9aff7af44c2e3a0600005b3bc7c4c165604cf24e7cb593afed759064e4f37252f4ef461a1eeda4c34f4805b73679c8afef304"
+        },
+        {
+          "record_type": "proposed:aps:authority-bound-fulfilment:v0",
+          "bound_id": "bound-compressor-replacement",
+          "delegation_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "attestor": "did:example:maintenance-desk",
+          "verification_method": "did:example:maintenance-desk#k1",
+          "attested_at": "2026-09-22T16:30:00.000Z",
+          "outcome": "fulfilled",
+          "reason_code": "PURPOSE_MET",
+          "signature": "86d3218c35dcd91e67436f481a9aa04ff0be08cf1fe62be94aba1d5d16ab0940aaf5b0dc41cf4dcdcd93bc3c9f3e1dcdae6e1c97629131ce583cb56c26d11007"
+        }
+      ],
+      "at_instant": "2026-09-23T10:00:00.000Z",
+      "expected": {
+        "bound_state": "exhausted",
+        "reason_code": "PURPOSE_EXHAUSTED",
+        "ending": "exhaustion",
+        "lifecycle": {
+          "verdict": "invalid",
+          "reason_code": "PURPOSE_EXHAUSTED"
+        },
+        "fulfilment_reason_codes": [
+          "FULFILMENT_SIGNATURE_INVALID",
+          "FULFILMENT_ACCEPTED"
+        ]
+      }
+    },
+    {
+      "id": "AB-E-07-an-established-negative-alone-leaves-the-bound-not-reached",
+      "tests": "a record from a party with standing saying the purpose was not met establishes something, and what it establishes is that the bound was not reached. Not exhausted, and not unestablished either.",
+      "bound": {
+        "record_type": "proposed:aps:authority-bound:v0",
+        "bound_id": "bound-compressor-replacement",
+        "delegation_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "kind": "purpose",
+        "value": "maintenance:compressor:replace",
+        "fulfilment_attestor_roles": [
+          "maintenance-attestor"
+        ]
+      },
+      "fulfilments": [
+        {
+          "record_type": "proposed:aps:authority-bound-fulfilment:v0",
+          "bound_id": "bound-compressor-replacement",
+          "delegation_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "attestor": "did:example:maintenance-desk",
+          "verification_method": "did:example:maintenance-desk#k1",
+          "attested_at": "2026-09-22T16:30:00.000Z",
+          "outcome": "not_fulfilled",
+          "reason_code": "PURPOSE_NOT_MET",
+          "signature": "ac101c91de9110aab132c6fb9bf9aff7af44c2e3a0600005b3bc7c4c165604cf24e7cb593afed759064e4f37252f4ef461a1eeda4c34f4805b73679c8afef304"
+        }
+      ],
+      "at_instant": "2026-09-23T10:00:00.000Z",
+      "expected": {
+        "bound_state": "not_reached",
+        "reason_code": "BOUND_NOT_REACHED",
+        "ending": null,
+        "lifecycle": {
+          "verdict": "valid",
+          "reason_code": "BOUND_NOT_REACHED"
+        },
+        "fulfilment_reason_codes": [
+          "FULFILMENT_OUTCOME_NOT_FULFILLED"
+        ]
+      }
+    },
+    {
+      "id": "AB-E-08-a-record-about-another-bound-leaves-this-one-not-established",
+      "tests": "a coverage gap is still a gap. The verifier holds a claim it cannot apply here, and it does not get to read the absence of an applicable claim as a finding.",
+      "bound": {
+        "record_type": "proposed:aps:authority-bound:v0",
+        "bound_id": "bound-compressor-replacement",
+        "delegation_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "kind": "purpose",
+        "value": "maintenance:compressor:replace",
+        "fulfilment_attestor_roles": [
+          "maintenance-attestor"
+        ]
+      },
+      "fulfilments": [
+        {
+          "record_type": "proposed:aps:authority-bound-fulfilment:v0",
+          "bound_id": "bound-something-else",
+          "delegation_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "attestor": "did:example:maintenance-desk",
+          "verification_method": "did:example:maintenance-desk#k1",
+          "attested_at": "2026-09-22T16:30:00.000Z",
+          "outcome": "fulfilled",
+          "reason_code": "PURPOSE_MET",
+          "signature": "1919d4bf634d373a6be64279e68092c62b382f8f923f920132cad39b5ffe058b921ae10efe1915330996fdb78fbdd03a5ec84f6de10585a6d670d7169c72f107"
+        }
+      ],
+      "at_instant": "2026-09-23T10:00:00.000Z",
+      "expected": {
+        "bound_state": "not_established",
+        "reason_code": "BOUND_STATE_NOT_ESTABLISHED",
+        "ending": null,
+        "lifecycle": {
+          "verdict": "not_established",
+          "reason_code": "BOUND_STATE_NOT_ESTABLISHED",
+          "missing": [
+            "coverage"
+          ]
+        },
+        "fulfilment_reason_codes": [
+          "FULFILMENT_NOT_BOUND_TO_BOUND"
+        ]
+      }
+    },
+    {
+      "id": "AB-E-09-two-different-gaps-are-both-named",
+      "tests": "the missing array is a set, and a denial has to record every limb that was missing, not the first one it met.",
+      "bound": {
+        "record_type": "proposed:aps:authority-bound:v0",
+        "bound_id": "bound-compressor-replacement",
+        "delegation_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "kind": "purpose",
+        "value": "maintenance:compressor:replace",
+        "fulfilment_attestor_roles": [
+          "maintenance-attestor"
+        ]
+      },
+      "fulfilments": [
+        {
+          "record_type": "proposed:aps:authority-bound-fulfilment:v0",
+          "bound_id": "bound-compressor-replacement",
+          "delegation_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "attestor": "did:example:maintenance-desk",
+          "verification_method": "did:example:maintenance-desk#k1",
+          "attested_at": "2026-09-22T16:30:00.000Z",
+          "outcome": "fulfilled",
+          "reason_code": "PURPOSE_MET",
+          "signature": "ac101c91de9110aab132c6fb9bf9aff7af44c2e3a0600005b3bc7c4c165604cf24e7cb593afed759064e4f37252f4ef461a1eeda4c34f4805b73679c8afef304"
+        },
+        {
+          "record_type": "proposed:aps:authority-bound-fulfilment:v0",
+          "bound_id": "bound-something-else",
+          "delegation_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "attestor": "did:example:maintenance-desk",
+          "verification_method": "did:example:maintenance-desk#k1",
+          "attested_at": "2026-09-22T16:30:00.000Z",
+          "outcome": "fulfilled",
+          "reason_code": "PURPOSE_MET",
+          "signature": "1919d4bf634d373a6be64279e68092c62b382f8f923f920132cad39b5ffe058b921ae10efe1915330996fdb78fbdd03a5ec84f6de10585a6d670d7169c72f107"
+        }
+      ],
+      "at_instant": "2026-09-23T10:00:00.000Z",
+      "expected": {
+        "bound_state": "not_established",
+        "reason_code": "BOUND_STATE_NOT_ESTABLISHED",
+        "ending": null,
+        "lifecycle": {
+          "verdict": "not_established",
+          "reason_code": "BOUND_STATE_NOT_ESTABLISHED",
+          "missing": [
+            "source",
+            "coverage"
+          ]
+        },
+        "fulfilment_reason_codes": [
+          "FULFILMENT_SIGNATURE_INVALID",
+          "FULFILMENT_NOT_BOUND_TO_BOUND"
+        ]
+      }
+    },
+    {
+      "id": "AB-E-10-use-count-one-not-yet-consumed",
+      "tests": "positive control for the use_count variant. The first and only admission it allows.",
+      "bound": {
+        "record_type": "proposed:aps:authority-bound:v0",
+        "bound_id": "bound-single-use",
+        "delegation_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "kind": "use_count",
+        "value": "1",
+        "fulfilment_attestor_roles": []
+      },
+      "fulfilments": [],
+      "at_instant": "2026-09-22T14:00:00.000Z",
+      "consumed": "0",
+      "expected": {
+        "bound_state": "not_reached",
+        "reason_code": "BOUND_NOT_REACHED",
+        "ending": null,
+        "lifecycle": {
+          "verdict": "valid",
+          "reason_code": "BOUND_NOT_REACHED"
+        },
+        "remaining": "1",
+        "fulfilment_reason_codes": []
+      }
+    },
+    {
+      "id": "AB-E-11-use-count-one-consumed-is-exhausted",
+      "tests": "unlike a purpose bound, the admission itself consumes this one. No completion record is involved, and remaining is 0 rather than absent.",
+      "bound": {
+        "record_type": "proposed:aps:authority-bound:v0",
+        "bound_id": "bound-single-use",
+        "delegation_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "kind": "use_count",
+        "value": "1",
+        "fulfilment_attestor_roles": []
+      },
+      "fulfilments": [],
+      "at_instant": "2026-09-23T10:00:00.000Z",
+      "consumed": "1",
+      "expected": {
+        "bound_state": "exhausted",
+        "reason_code": "USE_COUNT_EXHAUSTED",
+        "ending": "exhaustion",
+        "lifecycle": {
+          "verdict": "invalid",
+          "reason_code": "USE_COUNT_EXHAUSTED"
+        },
+        "remaining": "0",
+        "fulfilment_reason_codes": []
+      }
+    },
+    {
+      "id": "AB-E-12-use-count-over-consumed-does-not-go-negative",
+      "tests": "a ledger that counted more admissions than the bound allows is a state a boundary can be in after a partition. Remaining is 0, never a negative number.",
+      "bound": {
+        "record_type": "proposed:aps:authority-bound:v0",
+        "bound_id": "bound-three-uses",
+        "delegation_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "kind": "use_count",
+        "value": "3",
+        "fulfilment_attestor_roles": []
+      },
+      "fulfilments": [],
+      "at_instant": "2026-09-23T10:00:00.000Z",
+      "consumed": "5",
+      "expected": {
+        "bound_state": "exhausted",
+        "reason_code": "USE_COUNT_EXHAUSTED",
+        "ending": "exhaustion",
+        "lifecycle": {
+          "verdict": "invalid",
+          "reason_code": "USE_COUNT_EXHAUSTED"
+        },
+        "remaining": "0",
+        "fulfilment_reason_codes": []
+      }
+    },
+    {
+      "id": "AB-E-13-use-count-three-partly-consumed",
+      "tests": "a bound above one, so remaining is arithmetic and not a boolean in disguise.",
+      "bound": {
+        "record_type": "proposed:aps:authority-bound:v0",
+        "bound_id": "bound-three-uses",
+        "delegation_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "kind": "use_count",
+        "value": "3",
+        "fulfilment_attestor_roles": []
+      },
+      "fulfilments": [],
+      "at_instant": "2026-09-23T10:00:00.000Z",
+      "consumed": "2",
+      "expected": {
+        "bound_state": "not_reached",
+        "reason_code": "BOUND_NOT_REACHED",
+        "ending": null,
+        "lifecycle": {
+          "verdict": "valid",
+          "reason_code": "BOUND_NOT_REACHED"
+        },
+        "remaining": "1",
+        "fulfilment_reason_codes": []
+      }
+    },
+    {
+      "id": "AB-E-14-budget-under-the-ceiling",
+      "tests": "positive control for the budget variant, read from the counter shape InMemoryAuthorityBudgetLedger returns.",
+      "bound": {
+        "record_type": "proposed:aps:authority-bound:v0",
+        "bound_id": "bound-compressor-budget",
+        "delegation_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "kind": "budget",
+        "value": "480000",
+        "fulfilment_attestor_roles": []
+      },
+      "fulfilments": [],
+      "at_instant": "2026-09-22T14:00:00.000Z",
+      "budget_counter": {
+        "committed": "0",
+        "reserved": "0"
+      },
+      "expected": {
+        "bound_state": "not_reached",
+        "reason_code": "BOUND_NOT_REACHED",
+        "ending": null,
+        "lifecycle": {
+          "verdict": "valid",
+          "reason_code": "BOUND_NOT_REACHED"
+        },
+        "fulfilment_reason_codes": []
+      }
+    },
+    {
+      "id": "AB-E-15-budget-fully-committed-is-exhausted",
+      "tests": "the cumulative limit committed in full. One further minor unit has nowhere to go.",
+      "bound": {
+        "record_type": "proposed:aps:authority-bound:v0",
+        "bound_id": "bound-compressor-budget",
+        "delegation_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "kind": "budget",
+        "value": "480000",
+        "fulfilment_attestor_roles": []
+      },
+      "fulfilments": [],
+      "at_instant": "2026-09-23T10:00:00.000Z",
+      "budget_counter": {
+        "committed": "480000",
+        "reserved": "0"
+      },
+      "expected": {
+        "bound_state": "exhausted",
+        "reason_code": "BUDGET_EXHAUSTED",
+        "ending": "exhaustion",
+        "lifecycle": {
+          "verdict": "invalid",
+          "reason_code": "BUDGET_EXHAUSTED"
+        },
+        "fulfilment_reason_codes": []
+      }
+    },
+    {
+      "id": "AB-E-16-a-reservation-counts-against-the-ceiling",
+      "tests": "reserved plus committed, not committed alone. draft-03 section 3.4 reserve-then-settle means an in-flight reservation is already spoken for.",
+      "bound": {
+        "record_type": "proposed:aps:authority-bound:v0",
+        "bound_id": "bound-compressor-budget",
+        "delegation_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "kind": "budget",
+        "value": "480000",
+        "fulfilment_attestor_roles": []
+      },
+      "fulfilments": [],
+      "at_instant": "2026-09-23T10:00:00.000Z",
+      "budget_counter": {
+        "committed": "479999",
+        "reserved": "1"
+      },
+      "expected": {
+        "bound_state": "exhausted",
+        "reason_code": "BUDGET_EXHAUSTED",
+        "ending": "exhaustion",
+        "lifecycle": {
+          "verdict": "invalid",
+          "reason_code": "BUDGET_EXHAUSTED"
+        },
+        "fulfilment_reason_codes": []
+      }
+    }
+  ],
+  "purpose_membership_cases": [
+    {
+      "id": "AB-P-01-exact-match",
+      "requested": "maintenance:compressor:replace",
+      "allowed": [
+        "maintenance:compressor:replace"
+      ],
+      "expected": true
+    },
+    {
+      "id": "AB-P-02-wildcard-covers-child",
+      "requested": "maintenance:compressor:replace",
+      "allowed": [
+        "maintenance:*"
+      ],
+      "expected": true
+    },
+    {
+      "id": "AB-P-03-bare-parent-covers-child",
+      "requested": "maintenance:compressor",
+      "allowed": [
+        "maintenance"
+      ],
+      "expected": true
+    },
+    {
+      "id": "AB-P-04-sibling-is-not-covered",
+      "requested": "maintenance:pump:replace",
+      "allowed": [
+        "maintenance:compressor:replace"
+      ],
+      "expected": false
+    },
+    {
+      "id": "AB-P-05-child-does-not-cover-parent",
+      "requested": "maintenance",
+      "allowed": [
+        "maintenance:compressor:replace"
+      ],
+      "expected": false
+    },
+    {
+      "id": "AB-P-06-membership-answers-the-same-for-a-second-purchase",
+      "note": "the reason membership can never decide exhaustion: the requested purpose and the allowed set are identical on the second purchase and on the first, so this answer is true both times.",
+      "requested": "maintenance:compressor:replace",
+      "allowed": [
+        "maintenance:compressor:replace"
+      ],
+      "expected": true
+    },
+    {
+      "id": "AB-P-07-empty-allowed-set",
+      "requested": "maintenance",
+      "allowed": [],
+      "expected": false
+    }
+  ],
+  "purpose_category_cases": [
+    {
+      "id": "AB-C-01",
+      "purpose": "maintenance:compressor:replace",
+      "expected": "maintenance"
+    },
+    {
+      "id": "AB-C-02",
+      "purpose": "maintenance",
+      "expected": "maintenance"
+    }
+  ],
+  "exhaustion_record_cases": [
+    {
+      "id": "AB-X-01-purpose-exhaustion-record-carries-its-evidence",
+      "tests": "the evidence array names the attestor and the time of every accepted fulfilment record, so a reader can tell what the finding rests on.",
+      "source_evaluation": "AB-E-02",
+      "record": {
+        "record_type": "proposed:aps:authority-exhaustion:v0",
+        "bound_id": "bound-compressor-replacement",
+        "delegation_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "kind": "purpose",
+        "boundary": "did:example:boundary",
+        "verification_method": "did:example:boundary#k1",
+        "found_at": "2026-09-23T10:00:00.000Z",
+        "reason_code": "PURPOSE_EXHAUSTED",
+        "evidence": [
+          {
+            "attestor": "did:example:maintenance-desk",
+            "attested_at": "2026-09-22T16:30:00.000Z"
+          }
+        ],
+        "exhaustion_id": "sha256:7acea65057aed1e78bfe9f93c61e902df4a63a6c2809d4822ea3bd350dc9e5d3",
+        "signature": "97d65c427e27208132c21343a055d4cabb7fb0beea9a3357ef88e33c801a8575a3a56ca5b16571e2f7a3e4eaba21e217efc6965d220cae326c5aa3eecfbc0106"
+      },
+      "expected": {
+        "status": "valid",
+        "failures": [],
+        "evidence_length": 1
+      }
+    },
+    {
+      "id": "AB-X-02-use-count-exhaustion-record-carries-no-evidence",
+      "tests": "the basis for a use_count finding is the boundary own ledger, which an outside verifier cannot check. The array is empty because a placeholder there would hide the gap.",
+      "source_evaluation": "AB-E-11",
+      "record": {
+        "record_type": "proposed:aps:authority-exhaustion:v0",
+        "bound_id": "bound-single-use",
+        "delegation_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "kind": "use_count",
+        "boundary": "did:example:boundary",
+        "verification_method": "did:example:boundary#k1",
+        "found_at": "2026-09-23T10:00:00.000Z",
+        "reason_code": "USE_COUNT_EXHAUSTED",
+        "evidence": [],
+        "exhaustion_id": "sha256:88455a14697cca6ecf13522726540cf34fb3e39e803792dc71fe4dc0ca34ba61",
+        "signature": "115f196b7585a4c16997213744ac1a4182cca1b03d8af69cba85d89b04c8f59fba07647e53a44faafb76749e71d573b25cc3e41e32b6ba5b15a8f090933a880a"
+      },
+      "expected": {
+        "status": "valid",
+        "failures": [],
+        "evidence_length": 0
+      }
+    },
+    {
+      "id": "AB-X-03-a-tampered-reason-code-breaks-the-identifier",
+      "tests": "exhaustion_id is recomputed from the body before any signature check, so a record whose claimed identifier does not match its body is refused there.",
+      "record": {
+        "record_type": "proposed:aps:authority-exhaustion:v0",
+        "bound_id": "bound-compressor-replacement",
+        "delegation_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "kind": "purpose",
+        "boundary": "did:example:boundary",
+        "verification_method": "did:example:boundary#k1",
+        "found_at": "2026-09-23T10:00:00.000Z",
+        "reason_code": "BOUND_NOT_REACHED",
+        "evidence": [
+          {
+            "attestor": "did:example:maintenance-desk",
+            "attested_at": "2026-09-22T16:30:00.000Z"
+          }
+        ],
+        "exhaustion_id": "sha256:7acea65057aed1e78bfe9f93c61e902df4a63a6c2809d4822ea3bd350dc9e5d3",
+        "signature": "97d65c427e27208132c21343a055d4cabb7fb0beea9a3357ef88e33c801a8575a3a56ca5b16571e2f7a3e4eaba21e217efc6965d220cae326c5aa3eecfbc0106"
+      },
+      "expected": {
+        "status": "invalid",
+        "failures": [
+          "ID_MISMATCH"
+        ]
+      }
+    },
+    {
+      "id": "AB-X-04-no-key-for-the-boundary",
+      "tests": "no key resolved for the named boundary at found_at. Not a signature failure.",
+      "record": {
+        "record_type": "proposed:aps:authority-exhaustion:v0",
+        "bound_id": "bound-compressor-replacement",
+        "delegation_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "kind": "purpose",
+        "boundary": "did:example:boundary",
+        "verification_method": "did:example:boundary#k1",
+        "found_at": "2026-09-23T10:00:00.000Z",
+        "reason_code": "PURPOSE_EXHAUSTED",
+        "evidence": [
+          {
+            "attestor": "did:example:maintenance-desk",
+            "attested_at": "2026-09-22T16:30:00.000Z"
+          }
+        ],
+        "exhaustion_id": "sha256:7acea65057aed1e78bfe9f93c61e902df4a63a6c2809d4822ea3bd350dc9e5d3",
+        "signature": "97d65c427e27208132c21343a055d4cabb7fb0beea9a3357ef88e33c801a8575a3a56ca5b16571e2f7a3e4eaba21e217efc6965d220cae326c5aa3eecfbc0106"
+      },
+      "unresolvable_key": true,
+      "expected": {
+        "status": "invalid",
+        "failures": [
+          "KEY_UNRESOLVED"
+        ]
+      }
+    },
+    {
+      "id": "AB-X-05-a-signature-from-the-wrong-key",
+      "tests": "the record recomputes its identifier and the resolved key did not sign it. A valid identifier is not a signature.",
+      "record": {
+        "record_type": "proposed:aps:authority-exhaustion:v0",
+        "bound_id": "bound-compressor-replacement",
+        "delegation_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "kind": "purpose",
+        "boundary": "did:example:boundary",
+        "verification_method": "did:example:boundary#k1",
+        "found_at": "2026-09-23T10:00:00.000Z",
+        "reason_code": "PURPOSE_EXHAUSTED",
+        "evidence": [
+          {
+            "attestor": "did:example:maintenance-desk",
+            "attested_at": "2026-09-22T16:30:00.000Z"
+          }
+        ],
+        "exhaustion_id": "sha256:7acea65057aed1e78bfe9f93c61e902df4a63a6c2809d4822ea3bd350dc9e5d3",
+        "signature": "86d3218c35dcd91e67436f481a9aa04ff0be08cf1fe62be94aba1d5d16ab0940aaf5b0dc41cf4dcdcd93bc3c9f3e1dcdae6e1c97629131ce583cb56c26d11007"
+      },
+      "expected": {
+        "status": "invalid",
+        "failures": [
+          "SIGNATURE_INVALID"
+        ]
+      }
+    },
+    {
+      "id": "AB-X-06-a-foreign-record-type-is-refused",
+      "tests": "this verifier answers about one record type and says so rather than guessing.",
+      "record": {
+        "record_type": "aps:authority-revocation:v1",
+        "bound_id": "bound-compressor-replacement",
+        "delegation_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "kind": "purpose",
+        "boundary": "did:example:boundary",
+        "verification_method": "did:example:boundary#k1",
+        "found_at": "2026-09-23T10:00:00.000Z",
+        "reason_code": "PURPOSE_EXHAUSTED",
+        "evidence": [
+          {
+            "attestor": "did:example:maintenance-desk",
+            "attested_at": "2026-09-22T16:30:00.000Z"
+          }
+        ],
+        "exhaustion_id": "sha256:7acea65057aed1e78bfe9f93c61e902df4a63a6c2809d4822ea3bd350dc9e5d3",
+        "signature": "97d65c427e27208132c21343a055d4cabb7fb0beea9a3357ef88e33c801a8575a3a56ca5b16571e2f7a3e4eaba21e217efc6965d220cae326c5aa3eecfbc0106"
+      },
+      "expected": {
+        "status": "invalid",
+        "failures": [
+          "UNSUPPORTED_RECORD_TYPE"
+        ]
+      }
+    }
+  ],
+  "refusal_cases": [
+    {
+      "id": "AB-R-01-an-exhaustion-record-cannot-be-minted-for-a-state-that-is-not-exhausted",
+      "tests": "the refusal that keeps the record honest. A boundary must not sign a finding it did not make, and there is no flag to override it.",
+      "evaluation_of": "AB-E-03",
+      "expected_error_code": "EXHAUSTION_STATE_NOT_EXHAUSTED"
+    },
+    {
+      "id": "AB-R-02-a-bound-with-an-unknown-kind-throws",
+      "tests": "a malformed bound is a programming error, not a verdict: the module was asked about nothing.",
+      "bound": {
+        "record_type": "proposed:aps:authority-bound:v0",
+        "bound_id": "bound-compressor-replacement",
+        "delegation_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "kind": "reputation",
+        "value": "maintenance:compressor:replace",
+        "fulfilment_attestor_roles": [
+          "maintenance-attestor"
+        ]
+      },
+      "expected_error_code": "BOUND_KIND_UNSUPPORTED"
+    },
+    {
+      "id": "AB-R-03-a-use-count-value-that-is-not-a-canonical-integer-throws",
+      "tests": "no leading zeros, no signs, no whitespace. One spelling per value.",
+      "bound": {
+        "record_type": "proposed:aps:authority-bound:v0",
+        "bound_id": "bound-single-use",
+        "delegation_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "kind": "use_count",
+        "value": "01",
+        "fulfilment_attestor_roles": []
+      },
+      "expected_error_code": "BOUND_VALUE_NONCANONICAL"
+    },
+    {
+      "id": "AB-R-04-a-consumed-counter-that-is-not-a-canonical-integer-throws",
+      "tests": "the caller ledger number is held to the same spelling rule as the bound value.",
+      "bound": {
+        "record_type": "proposed:aps:authority-bound:v0",
+        "bound_id": "bound-single-use",
+        "delegation_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "kind": "use_count",
+        "value": "1",
+        "fulfilment_attestor_roles": []
+      },
+      "consumed": "-1",
+      "expected_error_code": "COUNTER_NONCANONICAL"
+    },
+    {
+      "id": "AB-R-05-a-purpose-bound-with-records-and-no-role-resolver-throws",
+      "tests": "a module that silently defaulted the resolver would answer not_established for every record and look like it had checked.",
+      "bound": {
+        "record_type": "proposed:aps:authority-bound:v0",
+        "bound_id": "bound-compressor-replacement",
+        "delegation_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "kind": "purpose",
+        "value": "maintenance:compressor:replace",
+        "fulfilment_attestor_roles": [
+          "maintenance-attestor"
+        ]
+      },
+      "with_records": true,
+      "omit_resolver": "role",
+      "expected_error_code": "ROLE_RESOLVER_MISSING"
+    },
+    {
+      "id": "AB-R-06-a-purpose-bound-with-records-and-no-key-resolver-throws",
+      "tests": "same rule for the key resolver.",
+      "bound": {
+        "record_type": "proposed:aps:authority-bound:v0",
+        "bound_id": "bound-compressor-replacement",
+        "delegation_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "kind": "purpose",
+        "value": "maintenance:compressor:replace",
+        "fulfilment_attestor_roles": [
+          "maintenance-attestor"
+        ]
+      },
+      "with_records": true,
+      "omit_resolver": "key",
+      "expected_error_code": "KEY_RESOLVER_MISSING"
+    }
+  ],
+  "signature_cases": [
+    {
+      "id": "AB-S-01-fulfilment-signature-bytes",
+      "tests": "the cross-language byte check. Same body, same private key, same 128 hex characters in both SDKs.",
+      "body": {
+        "record_type": "proposed:aps:authority-bound-fulfilment:v0",
+        "bound_id": "bound-compressor-replacement",
+        "delegation_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "attestor": "did:example:maintenance-desk",
+        "verification_method": "did:example:maintenance-desk#k1",
+        "attested_at": "2026-09-22T16:30:00.000Z",
+        "outcome": "fulfilled",
+        "reason_code": "PURPOSE_MET"
+      },
+      "private_key": "251d814cd760d17820f53dcb58299dd9bd416a994ecba76fa52903ecee5e5dbd",
+      "expected_signature": "86d3218c35dcd91e67436f481a9aa04ff0be08cf1fe62be94aba1d5d16ab0940aaf5b0dc41cf4dcdcd93bc3c9f3e1dcdae6e1c97629131ce583cb56c26d11007"
+    },
+    {
+      "id": "AB-S-02-fulfilment-signature-bytes-with-an-optional-detail-present",
+      "tests": "an optional member that IS present changes the preimage, so it changes the bytes.",
+      "body": {
+        "record_type": "proposed:aps:authority-bound-fulfilment:v0",
+        "bound_id": "bound-compressor-replacement",
+        "delegation_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "attestor": "did:example:maintenance-desk",
+        "verification_method": "did:example:maintenance-desk#k1",
+        "attested_at": "2026-09-22T16:30:00.000Z",
+        "outcome": "fulfilled",
+        "reason_code": "PURPOSE_MET",
+        "detail": "compressor serial 4471 installed"
+      },
+      "private_key": "251d814cd760d17820f53dcb58299dd9bd416a994ecba76fa52903ecee5e5dbd",
+      "expected_signature": "fd0dddbe1d53176e8d4b656fb5be5727544834a5a0413fe442307e4958f94739c2e729dac7c5e7ae7f55a732cfc6a77c20e09f52630221b1c2a1c743ec8cf80f"
+    },
+    {
+      "id": "AB-S-03-exhaustion-identifier-and-signature-bytes",
+      "tests": "the same check for the exhaustion record identifier and signature.",
+      "exhaustion_body": {
+        "record_type": "proposed:aps:authority-exhaustion:v0",
+        "bound_id": "bound-compressor-replacement",
+        "delegation_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "kind": "purpose",
+        "boundary": "did:example:boundary",
+        "verification_method": "did:example:boundary#k1",
+        "found_at": "2026-09-23T10:00:00.000Z",
+        "reason_code": "PURPOSE_EXHAUSTED",
+        "evidence": [
+          {
+            "attestor": "did:example:maintenance-desk",
+            "attested_at": "2026-09-22T16:30:00.000Z"
+          }
+        ]
+      },
+      "private_key": "cad61b8aca75220f0124facc50b0072b5b085bba3e40e8a9510901da11777089",
+      "expected_exhaustion_id": "sha256:7acea65057aed1e78bfe9f93c61e902df4a63a6c2809d4822ea3bd350dc9e5d3",
+      "expected_signature": "97d65c427e27208132c21343a055d4cabb7fb0beea9a3357ef88e33c801a8575a3a56ca5b16571e2f7a3e4eaba21e217efc6965d220cae326c5aa3eecfbc0106"
+    }
+  ]
+}

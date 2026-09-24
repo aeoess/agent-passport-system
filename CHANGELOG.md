@@ -1,5 +1,609 @@
 # Changelog
 
+## 7.2.0 (2026-09-24)
+
+One conformance fix and seven opt-in experimental modules for the authority lifecycle.
+
+**Existing behaviour is byte identical.** `AuthorityValidationState` is still the same
+four values, `AuthorityVectorV1` is still seven facets, and
+`verifyAuthorityDelegationChain` returns byte for byte what 7.1.0 returned for every
+record. A caller that imports none of the new modules sees exactly 7.1.0 behaviour.
+**The conformance suite output is unchanged**: the Agent Authority Conformance suite's own
+`npm test` produces byte-identical output under published 7.1.0 and under this build, exit
+0 both times, and all 86 of its family runners and probes exit 0 under both.
+
+What did move is how much of that suite this SDK can decide by itself. Across the 29
+lifecycle families, 633 vectors and 635 decision units, an SDK call reproduced the
+expected result for **50 of 635 units under 7.1.0 and 161 of 635 under this build**: 111
+units across 12 families, with **0 fail and 0 regressions**. The remaining 474 units are
+`not_supported`, meaning no SDK API decides them and a family's own harness supplies the
+deciding step. `not_supported` is not a failure and not a claim the expected answer is
+wrong.
+
+### Fixed
+
+- **Chain selection (draft-03 section 3.3).** `src/v2/chain-selection/`, a surface that
+  takes the set of chains an agent holds and reports which ONE of them an action was
+  decided against. Section 3.3 states the rule: "Each action selects one root-to-leaf
+  authority chain.  A verifier MUST NOT union scopes or budgets from multiple chains.
+  Cross-principal composition requires a separate profile." Every other authority entry
+  point here takes exactly one chain, so the first sentence had no surface: an
+  implementation that evaluated an action against three chains and pooled the answers,
+  and one that selected a single chain, were indistinguishable through this SDK. They are
+  not any more.
+
+  New public surface, all reachable from the package root:
+  `selectChainForAction(input)`, `selectWithFallback(input)`, the types `HeldChain`,
+  `RequiredSpendV1`, `AuthorityBudgetReserver`, `ChainEvaluation`,
+  `ChainEvaluationOutcome`, `ChainSelectionEvaluationCode`, `ChainSelectionFailureCode`,
+  `ChainSelectionInput`, `ChainSelectionWithFallbackInput`, `FallbackAuthorizationV0` and
+  `SelectionOutcome`, and the constants `CHAIN_SELECTION_EVALUATION_CODES`,
+  `CHAIN_SELECTION_FAILURE_CODES` and `HELD_SET_CEILING`.
+
+  **Additive. Nothing existing changed.** `AuthorityValidationState` is still
+  the same four values, `AuthorityVectorV1` is untouched, `verifyAuthorityDelegationChain`
+  returns exactly what it returned before for every draft-03 record, and a caller that
+  never imports this module sees today's behaviour. The new functions are pure and injectable in
+  the same way the chain verifier is: `now` and the three resolvers are the caller's, the
+  budget reserver is injected, and nothing here reads a clock, a random source or the
+  network. Neither entry point throws.
+
+  **No union, held by construction rather than by a check.** One private function judges
+  one chain, and it is the only place a chain is judged, so there is no code path on which
+  two chains' scope grants or spend ceilings meet in one comparison. A result names one
+  `chain_id`, never a set. A held entry that is two or more chains concatenated into one
+  array, which is the shape a caller reaches for to have two chains evaluated together, is
+  refused by name as `chain_set_presented_as_one` before verification, rather than being
+  reported as the broken parent link chain verification would otherwise call it.
+
+  **Selection rule, this implementation's own.** draft-03 states that an action selects one
+  chain and does not state how. Candidates are evaluated in held order. The first that
+  verifies `valid` and covers every needed scope grant is selected, the action's spend is
+  then reserved against that chain and no other, and a spend refusal is that chain's
+  refusal and ends the call. Continuing past a spend refusal to a chain with a larger
+  ceiling would be a fallback in everything but name, and `selectChainForAction` does not
+  do it.
+
+  **Not established is kept apart from refused.** A candidate whose revocation answer is
+  unknown, whose facet profile is unsupported, or whose spend could not be checked because
+  no ledger was supplied, is `undecided`, never `refuses`, and one undecided candidate
+  makes the whole outcome `selection_undecided` rather than "no chain covers the action".
+  Section 3.3 forbids collapsing indeterminate or unsupported into valid, and collapsing
+  them into a denial reason would be the opposite error.
+
+- **PROPOSED, not draft-03: the fallback surface.** `selectWithFallback`'s `fallback`
+  parameter and the `switched_from`, `fallback_ref` and `fallback_considered` members are the
+  one part of this module that is not specified. draft-03 says nothing about what an implementation does after the chain it
+  selected turns out to be unusable. `fallback: null` reads no held chain other than the
+  preferred one, so a refusal cannot hide a switch. An authorization object permits the
+  switch and the result then names the chain switched away from. Nothing specified defines
+  what makes a fallback explicitly authorized, so `authorization_ref` is an opaque
+  reference this SDK records and never interprets, and its presence is not a claim that
+  anything authorized anything. Every symbol carrying this half says so in its doc comment.
+
+- **Parity vectors.** `fixtures/chain-selection/chain-selection-vectors-v0.json`, 19 cases
+  over three single-hop chains from three roots to one leaf, generated deterministically by
+  `fixtures/chain-selection/generate-fixtures.ts` from published seed labels. Every recorded
+  outcome is observed: the generator runs the implementation, compares what it returned
+  against a declaration written beside each case, and refuses to write the file if they
+  disagree. The Python SDK runs a byte-identical vendored copy of the same file, so a
+  behaviour difference between the two implementations fails one of them.
+
+### Changed
+
+- **`createToolRegistryEntry` accepts an optional `verifiedAt` override.** Additive and
+  optional. Omit it and the behaviour is exactly what it always was, `verifiedAt` stamped
+  from the system clock. Supply it and the function becomes reproducible, so calling it
+  twice with the same inputs gives the same bytes and the same signature. `createToolManifest`
+  has always taken the same override for the same reason; this brings the legacy entry path
+  level with it. No new field on `ToolRegistryEntry` and no change on the default path.
+
+### Naming
+
+- **`AttestorRoleResolver` is exported from the package root under two qualified names.**
+  `src/v2/activation/` and `src/v2/bounds/` each define a resolver type that was called
+  `AttestorRoleResolver`, and the two have incompatible signatures: the activation one
+  takes one `role: string` and answers `holds` / `does_not_hold` / `unknown`, the bounds
+  one takes a `roles: readonly string[]` set and answers `holds_role` /
+  `does_not_hold_role` / `unknown`. Both are exported from the package root as
+  `ActivationAttestorRoleResolver` and `BoundAttestorRoleResolver`. Inside
+  `./v2/activation/` and `./v2/bounds/` the bare name is unchanged. Neither qualified name
+  has shipped before, so no published consumer changes.
+
+### Experimental (proposed, not specified)
+
+Seven opt-in modules and one root re-export, none of which is required by
+draft-pidlisnyi-aps-03. **Implemented does not mean specified.** Each module says so in its own doc comment, every new record
+type carries a `proposed:` namespace rather than `aps:`, and every reason code is
+module-local. These names are a proposal for the schema owner to rule on or replace, not
+minted vocabulary. Nothing here is a conformance claim about draft-03, and nothing here
+claims that any legal doctrine applies to AI agents.
+
+- **`src/v2/lifecycle-state/`, the lifecycle state vocabulary. PROPOSED and OPT-IN.**
+  A second verdict vocabulary, reported alongside chain verification and never merged into
+  it. Nothing here is required by draft-pidlisnyi-aps-03, whose section 3.3 says verbatim:
+  "Verification returns one of valid, invalid, indeterminate, or unsupported with a stable
+  failure code." That enumeration is closed and this change does not touch it.
+  `AuthorityValidationState`, `AuthorityValidationResult` and everything
+  `verifyAuthorityDelegationChain` and `verifyAuthorityDelegation` return are byte for byte
+  what they were, and a caller that does not import the new module sees no change at all.
+
+  The concept source is the aeoess/agent-authority-lifecycle concept document: invariant L8
+  (suspension is not revocation) and invariant candidates BROAD-L7 (any current lifecycle
+  state claim is established only from an accepted source, within a declared freshness
+  bound, over the coverage the claim states), CAND-04 (activation is established, not yet
+  effective, or not established) and CAND-05 (suspension and restriction causes compose).
+  Each of those is proposed, with no published specification text behind it, and every
+  exported symbol says so in its doc comment.
+
+  New public surface:
+
+  - `LIFECYCLE_VERDICTS`, the six artifact verdicts: `valid`, `invalid`, `not_established`,
+    `not_yet_effective`, `suspended`, `restricted`. The enumeration is six. "Unexecutable"
+    is an execution outcome rather than a seventh verdict, and no module extends the set as
+    a side effect.
+  - `BOUNDARY_OUTCOMES`, the separate subject: what an enforcement point decides about one
+    action at one authorization boundary, `authorized`, `denied` or `not_established`. A
+    composition rule that is not satisfied does not make any artifact invalid, it makes the
+    action unauthorized at that boundary.
+  - `ESTABLISHMENT_GAPS`, the three limbs `source`, `freshness` and `coverage`. A
+    `not_established` verdict must name at least one of them, which the constructor
+    enforces, because a denial on an unestablished state that does not say what was missing
+    is unreadable.
+  - `ESTABLISHED_NEGATIVE_SHAPES` and `resolveEstablishedNegative`, the split between the
+    two uses of "not established". The evidential sense, where the verifier cannot reach a
+    conclusion, keeps the name. An established negative, where the verifier has reached a
+    negative conclusion, resolves to `not_yet_effective` for an enabling condition, or to a
+    denial at a boundary for an unsatisfied composition rule or a changed pinned referent,
+    and never to `not_established`.
+  - `LifecycleStateResult`, `OutstandingCause`, `CompositeAuthorityResult`, `lifecycleState`,
+    `notEstablished`, `LifecycleStateError` and the four vocabulary predicates.
+    `LifecycleStateResult` deliberately carries no `valid` boolean:
+    `AuthorityValidationResult` has one and it is correct there, but here `not_established`
+    is not a boolean's false branch and a truthiness shortcut invites exactly the collapse
+    the vocabulary exists to prevent.
+  - `mapAuthorityValidationToLifecycle(result, options?)`, the opt-in read-only view of an
+    existing `AuthorityValidationResult` in the new vocabulary. It never mutates its input
+    and is never called from the verification path. One reading in it is worth naming: a
+    result whose only failure is `NOT_YET_VALID` stays `invalid` by default, because the
+    concept document has not decided whether a waiting grant is invalid or not yet
+    effective, and a base module several other surfaces build on should not embed a
+    contested reading as a default. `notYetValidAsNotYetEffective: true` takes CAND-04's
+    reading, under which such a grant is `not_yet_effective`.
+
+  Cross-language parity: `conformance/lifecycle-state/v0/vectors.json`, 38 hand-specified
+  cases, is the shared fixture. The Python SDK vendors a byte-identical copy and runs the
+  same cases through its own port, and both repositories pin the file's SHA-256 inside their
+  own test, so a one-sided edit fails on the side that was edited. Tests live at
+  `tests/v2/lifecycle-state.test.ts`.
+
+- **`src/v2/activation/`, activation conditions and condition attestation. PROPOSED and
+  OPT-IN.** A grant can be validly issued and still wait on a date or a recorded event. This
+  module decides whether such a condition is established for one action at one instant, and
+  reports the answer alongside a chain result rather than inside it.
+
+  Nothing here is required by draft-pidlisnyi-aps-03. The published text states no
+  activation-condition rule, no attestor role and no attestation-acceptance rule: a
+  case-insensitive search of it for `activation`, `attestor` and `contingen` returns nothing.
+  Its section 3.2 also says verbatim: "authority contains exactly seven required facets:
+  scope, spend, depth, time, reputation, values, and reversibility. A missing facet is
+  invalid rather than an implicit unconstrained value." That closes the authority vector, so
+  an activation condition can never be a facet, and this module models it as a SEPARATE
+  artifact referencing a `delegation_id`. `AuthorityVectorV1`, `AuthorityValidationState`,
+  `AuthorityValidationResult` and everything `verifyAuthorityDelegationChain` returns are
+  byte for byte what they were, and a caller that does not import the new module sees no
+  change at all.
+
+  The concept source is the aeoess/agent-authority-lifecycle concept document, which carries
+  "Activation condition" as proposed with no case testing it, and its invariant candidates
+  CAND-04 (activation is established, not yet effective, or not established), CAND-13
+  (replacement authority may be pre-committed at issuance) and BROAD-L7. All proposed, with
+  no published specification text behind them, and every exported symbol says so in its doc
+  comment.
+
+  New public surface:
+
+  - `verifyActivation(input)`, which returns `valid`, `not_yet_effective` or
+    `not_established` in the `src/v2/lifecycle-state/` vocabulary, and NEVER `invalid`. An
+    unmet activation condition does not make a grant invalid, and whether the grant is valid
+    at all is chain verification's answer rather than this module's.
+  - The split the module exists for. `not_yet_effective` is an established negative: an
+    accepted record says the condition had not occurred, or puts its first occurrence after
+    the action, and the remedy is to wait. `not_established` is ignorance, names which of
+    `source` and `coverage` was missing, and its remedy is a better source. A rejected
+    attestation is not evidence in either direction, so a record from a source the model does
+    not accept leaves the condition unestablished rather than unmet.
+  - No retroactive activation, keyed on the CONDITION's own instant rather than on the
+    instant someone wrote the record. A record putting the first occurrence after the action
+    leaves that action `not_yet_effective`, and the same record establishes the condition for
+    any later action. Learning on Thursday that a condition was met on Monday is the normal
+    case for a model built around an after-the-fact determination, and it establishes the
+    condition.
+  - `composeActivation(chain, activation, options?)`, which returns the chain result
+    untouched and asks activation only when the chain is valid. A grant that does not verify
+    is not a grant that is waiting on a condition. That ordering is also what keeps invariant
+    L1 intact for CAND-13's pre-committed replacement grant: if the pre-committing instrument
+    is revoked, the replacement's chain is invalid and no activation evidence can make it
+    exercisable.
+  - `ActivationConditionV0` in two kinds. A `date` condition needs no evidence at all, so an
+    unreached date is always a known negative. A `recorded_event` condition names
+    `required_attestor_roles`, which are ROLES and never principals.
+  - `AttestorRoleResolver`, a caller-supplied callback returning `holds`, `does_not_hold` or
+    `unknown`. Exported from the package root as `ActivationAttestorRoleResolver`; see
+    Naming above. Three values, not a boolean: "this registry does not know" is a distinct answer
+    from "this party does not hold that role", and collapsing the first into the second turns
+    ignorance into a denial. Role standing is resolved OUTSIDE the record, always. An
+    attestation's `attestor_role` is the attestor's claim about itself, and the module checks
+    that claim against the resolver rather than believing it.
+  - `validateActivationCondition`, the canonical-bytes helpers
+    (`activationAttestationBody`, `activationAttestationSignatureInput`,
+    `computeActivationAttestationId`, `activationConditionSignatureInput`), three distinct
+    domain tags that each carry `PROPOSED` so nothing signed under them can be replayed as a
+    specified record, and `ActivationError` for shape rules broken at the call site.
+
+  THREE PARAMETERS ARE DELIBERATELY UNDEFAULTED, because the concept text has not decided
+  them and a default in an SDK is a ruling made by whoever wrote the SDK. `instant_basis`
+  (which instant an occurrence is measured from), `threshold` (how many acceptable
+  attestations establish a finding), and role standing (resolved through the caller's
+  resolver). Vector `AC-14` is the pair that proves the first is load bearing: one record, one
+  action instant, and opposite verdicts under the two readings.
+
+  Cross-language parity: `conformance/activation/v0/vectors.json`, 12 condition-shape cases,
+  34 verify cases and 7 composition cases, all hand specified in
+  `conformance/activation/v0/generate.mts` and none computed by the code under test. The
+  Python SDK vendors a byte-identical copy and runs the same cases through its own port, and
+  both repositories pin the file's SHA-256 inside their own test, so a one-sided edit fails on
+  the side that was edited. Tests live at `tests/v2/activation.test.ts`.
+
+- **`src/v2/bounds/`, non-time bounds on a grant. PROPOSED and OPT-IN.**
+  Purpose, use-count and budget bounds, and the state "this bound has been reached".
+  Nothing here is required by draft-pidlisnyi-aps-03 and nothing existing changed. Two of
+  that document's sentences constrain the whole module. Section 3.2, verbatim: "authority
+  contains exactly seven required facets: scope, spend, depth, time, reputation, values, and
+  reversibility.  A missing facet is invalid rather than an implicit unconstrained value."
+  The facet set is closed, so a purpose bound or a use-count bound cannot live inside a
+  signed `AuthorityDelegationV1`, and this module declares a separate artifact that
+  references a delegation by its content address. Section 3.3, verbatim: "Verification
+  returns one of valid, invalid, indeterminate, or unsupported with a stable failure code."
+  That set is closed too and this change does not touch it: a bound evaluation is reported
+  alongside a chain result, in the vocabulary `src/v2/lifecycle-state/` owns. A caller that
+  does not import the new module sees no change at all.
+
+  draft-03 has zero occurrences of `exhaust` and zero of `use_count`. It uses "single-use"
+  only of an approval in section 4.3, never of a grant. The concept source is the
+  aeoess/agent-authority-lifecycle concept document: invariant L10 (expiry is not
+  revocation), whose "Expiry or exhaustion" concept entry names a use count, a budget and a
+  purpose as bounds whose being reached ends authority, and invariant candidates CAND-01 (an
+  external event is authority-changing only when established) and CAND-02 (later evidence
+  does not rewrite earlier evidence). All three are proposed, with no published
+  specification text behind them, and every exported symbol says so in its doc comment.
+
+  New public surface:
+
+  - `AuthorityBound`, a bound declared on one delegation: a kind, a value, and the
+    fulfilment-attestor ROLES who may say it was reached. Roles rather than principals,
+    because whoever may attest that a compressor was installed is whoever holds the role now,
+    not whoever held it when the grant was signed. The module does not authenticate the bound
+    declaration itself and says so: that is the caller's step, by whatever means its authority
+    model provides.
+  - `AuthorityBoundFulfilment` and `issueAuthorityBoundFulfilment`, a signed attestation that
+    a purpose bound was reached. Modelled on what section 3.5.1 requires of a revocation
+    record, which is the nearest published shape for "a party with standing recorded that an
+    authority artifact's state changed".
+  - `assessFulfilment`, which assesses ONE record. Standing is asked BEFORE authenticity, and
+    each produces its own reason code, because "authenticated by somebody who may not say
+    this" and "not authenticated at all" are different failures. A record from a party with
+    standing saying the purpose was NOT met is the one rejection that carries no missing
+    limbs: the verifier reached a conclusion, so there is no gap to name.
+  - `evaluateBound`, which answers `not_reached`, `exhausted` or `not_established` at an
+    instant, alongside the same conclusion in the lifecycle vocabulary and an `ending` field
+    that is `exhaustion` or `null` and never `expiry` or `revocation`. An unauthenticated
+    fulfilment claim gives `not_established`, never `exhausted` and never `not_reached`. An
+    exhaustion that was established is not downgraded by a later claim nobody could
+    authenticate, and the verdict does not depend on the order the records arrive in.
+  - `issueAuthorityExhaustion` and `verifyAuthorityExhaustion`, the OPTIONAL signed exhaustion
+    record, shaped like the section 3.5.1 revocation record so the two endings are comparable
+    evidence. It attests the enforcement boundary's own finding and not the state of the
+    world, on the model section 5.3.3 uses for an action result, verbatim: "An action-result
+    record attests to what the enforcement boundary observed after dispatch.  External
+    occurrence or settlement requires separately resolved evidence." Issuance REFUSES for any
+    state other than `exhausted`, with no override.
+  - `isPurposePermitted` and `purposeCategory`, re-exported unchanged from
+    `src/core/data-lifecycle.ts`, which still exports them from their old path. The Python SDK
+    had no port of either, and putting the same primitive at two unrelated paths in the two
+    languages would become a cross-language annoyance the first time a vector referenced it.
+    Purpose membership is not purpose exhaustion: it answers the same for the second purchase
+    as for the first, which is why it can never decide exhaustion.
+  - The `budget` kind delegates to `InMemoryAuthorityBudgetLedger` and never reimplements it.
+    It reads the `{ committed, reserved }` shape `counter()` already returns. draft-03 section
+    3.4 already states the rule, verbatim: "Signatures establish static limits; they do not
+    establish the current cumulative total."
+
+  Cross-language parity: `conformance/authority-bounds/v0/vectors.json`, 53 cases, is the
+  shared fixture. The Python SDK vendors a byte-identical copy and runs the same cases through
+  its own port, and both repositories pin the file's SHA-256 inside their own test, so a
+  one-sided edit fails on the side that was edited. Every verdict, reason code and refusal
+  code in it is hand specified, and the signature and identifier byte values are there so the two
+  ports can be shown to emit the same characters. Tests live at `tests/v2/bounds.test.ts`.
+
+- **`src/v2/capability-binding/`, capability pins and identifier binding. PROPOSED and
+  OPT-IN.** Whether an action through a named tool is established under a grant that pins
+  that tool, and whether an authority path that depends on an off-chain identifier still
+  depends on the same party. Nothing here is required by draft-pidlisnyi-aps-03, which
+  defines no pin syntax and states no rule pinning a tool to an implementation digest or a
+  schema. Its nearest text is the section 4.1 action reference, verbatim: "target is the
+  exact resource, tool, or endpoint against which the action will be dispatched; a profile
+  MUST define its target string construction." A target carries no digest, so it cannot
+  tell two revisions of one tool behind one endpoint apart. Proposed -04 excludes
+  capability binding by name.
+
+  `AuthorityValidationState` is unchanged, `verifyAuthorityDelegationChain` returns byte
+  for byte what it returned, and `AuthorityVectorV1` gains no eighth facet (section 3.2
+  closes it at seven and makes a missing facet invalid). Every result here is a
+  `BoundaryOutcome` from the lifecycle state vocabulary, reported alongside a chain result
+  and never merged into it. Nothing in this module makes any delegation invalid. A caller
+  that does not import it sees exactly today's behaviour.
+
+  The concept source is the aeoess/agent-authority-lifecycle concept document, invariant
+  candidate CAND-07 as rewritten, whose statement is a verdict rule: where nothing pins a
+  referent, the verdict records that referent continuity was not established rather than
+  admitting silently, and where something pins it and the pin does not match, the action is
+  denied with a mismatch reason rather than reported as not established. Also the
+  `AUTHORITY-LIFECYCLE.md` concepts "Action or capability binding", "Target binding" and
+  "Authority path and dependency". All proposed, with no published specification text
+  behind them, and every exported symbol says so in its doc comment.
+
+  New public surface:
+
+  - `evaluateCapabilityBinding`, the capability limb. An unpinned grant returns
+    `not_established` naming the coverage limb, never a silent admit. A pinned digest
+    established not to match returns `denied` with a mismatch reason, which is an
+    established negative rather than ignorance. Implementation and declared metadata are
+    two axes pinned separately, so an implementation pin does not cover a schema change.
+  - `evaluateIdentifierContinuity`, the identity limb. An identifier the grant does not
+    declare, a declared identifier with no pinned controller, a lapse, an unresolved
+    conflict between two accepted custodian records, an uncovered interval since issuance
+    and a retention record from a party without standing each get their own reason code. A
+    single accepted holder that is not a pinned controller is `denied`, and the result
+    names who holds the identifier now.
+  - `capabilityImplementationDigest` and `capabilityMetadataDigest`. The first is byte
+    identical to what `createToolRegistryEntry` computes. The second is over
+    `domain || 0x00 || JCS(metadata)` with a REQUIRED domain and no default, and it keeps
+    null members, which the SDK's legacy `canonicalize` strips.
+  - The `scope_grant_v0` pin encoding, `parseCapabilityPinFromScopeGrants` and
+    `capabilityPinScopeGrants`, which keeps a pin inside the scope grammar section 3.2
+    already defines. The side effect is stated in the module: a pin then narrows across a
+    chain by the ordinary covering rule, so a child carrying a different pin fails as scope
+    widening rather than as a binding failure.
+  - `observeToolAttestation`, which runs the existing `verifyToolIntegrity` and resolves
+    the attestor key BY TOOL, never from the `attestorId` the presented entry asserts about
+    itself.
+  - `identifierRecordSignedBytes`, `referentBindingResult`,
+    `projectBoundaryOutcomeToCandidateV0` and the two reason-code enumerations.
+
+  `ReferentBindingResult` carries no `valid` boolean, on the same reasoning as
+  `LifecycleStateResult`: `not_established` is not a boolean's false branch.
+
+  `conformance/capability-binding/v0/vectors.json` holds 18 capability cases, 15 identifier
+  cases and the digest, scope-grant and canonical-byte known answers. It is the shared
+  fixture. The Python SDK vendors a byte-identical copy and runs the same cases, and both
+  repositories pin the file's SHA-256 inside their own test.
+
+- **`src/v2/status-coverage/`, multiple trusted status sources with freshness bounds.
+  PROPOSED, EXPERIMENTAL and OPT-IN.**
+  Decides what one authorization boundary can establish about one `authority_ref` from a SET
+  of status answers, each measured against the freshness bound declared for its own source.
+  Conflict between accepted sources, or staleness past a declared bound, gives not
+  established. An offline verifier holding a snapshot inside a bound it declared in advance
+  may admit, and the record names the snapshot and the age it admitted at.
+
+  Nothing here is required by draft-pidlisnyi-aps-03. Section 3.3 rules one revocation
+  result per chain member and closes verification at, verbatim: "Verification returns one of
+  valid, invalid, indeterminate, or unsupported with a stable failure code." It says nothing
+  about two sources answering about the same member, nothing about a per-source freshness
+  bound, nothing about coverage over a declared source set, and nothing about an offline
+  admission on a snapshot. `AuthorityValidationResult`, `verifyAuthorityDelegationChain` and
+  the whole of `src/v2/revocation-enforcement/`, including `FreshnessPolicy`,
+  `decideFreshness` and `RevocationObservation`, are unchanged. This decision is reported
+  alongside a chain result, never merged into it, and a caller that does not import the new
+  module sees no change at all.
+
+  The concept source is the aeoess/agent-authority-lifecycle concept document: invariant L7
+  (unknown revocation state is not active), which is the published-text half, and invariant
+  candidate BROAD-L7, all three limbs, which broadens L7 to any current lifecycle state
+  claim. BROAD-L7 is proposed, and every exported symbol says so in its doc comment.
+
+  New public surface:
+
+  - `decideMultiSourceStatus(input)`, the decision. Pure: no clock, no network, no crypto.
+    It returns a `MultiSourceStatusDecision` carrying two subjects kept apart, the boundary
+    `outcome` and the artifact `lifecycle` verdict in the `src/v2/lifecycle-state/`
+    vocabulary, plus a module-local `reason_code` and a `basis` block.
+  - `StatusTrustPolicy`, `RequiredSourceSet`, `DeclaredStatusSource` and `SnapshotSource`:
+    what the relying party accepts, with a freshness bound declared PER SOURCE rather than
+    globally, and, in offline mode, a snapshot source with the maximum age it declared in
+    advance that it would admit on. The declared bound is required, so admitting on a
+    snapshot with no declared bound is unreachable rather than merely discouraged.
+  - `MultiSourceStatusBasis`, the audit half, and it is not optional. Every answer gets a
+    line carrying its age, the bound it was measured against, whether it was within that
+    bound, whether it was used, and a `StatusUseBasis` saying why. An admission on a
+    snapshot additionally records the snapshot and the age it admitted at, so the admission
+    can be recomputed from the record alone.
+  - `ConflictPolicy` and `StaleAnswerPolicy`, both REQUIRED PARAMETERS WITH NO DEFAULTS.
+    That is unusual for an SDK and it is deliberate. What a conflict returns, and whether an
+    answer past its own bound still counts, each have two defensible readings of the
+    proposed text, and the two readings give opposite verdicts on the deployment-relevant
+    case. A default on either would be this SDK making a specification decision in code.
+    `RequiredSourceSet.silence_is` is required for the same reason.
+  - `StatusCoverage`, coverage over the DECLARED required-source set. This is NOT a
+    completeness claim. It reports whether every member of a set the relying party declared
+    produced a usable determinate answer, and nothing more. Invariant L12 is open, and a
+    `complete: true` block must not be read as a statement that the declared set was every
+    source that mattered.
+
+  Two further readings the module fixes rather than parameterises, both recorded in the
+  basis so a reader can see them: an answer dated after the boundary instant is refused as
+  skew rather than read as fresh, and an answer from a source the trust policy does not name
+  is recorded and ignored rather than used.
+
+  Cross-language parity: `conformance/status-coverage/v0/vectors.json`, 24 hand-specified
+  decision cases and 16 refusal cases, is the shared fixture. The Python SDK vendors a
+  byte-identical copy and runs the same cases through its own port, and both repositories
+  pin the file's SHA-256 inside their own test. Tests live at
+  `tests/v2/status-coverage.test.ts`.
+
+- **`src/v2/authority-state/`, authority state markers, write fencing, and revocation
+  withdrawal. PROPOSED and OPT-IN.**
+  Three surfaces the authority-lifecycle work needs and draft-pidlisnyi-aps-03 does not
+  contain. The published text has no occurrence of `epoch`, `fencing`, `snapshot`, `replica`
+  or `restore`, and defines no record for withdrawing a revocation. What draft-03 does fix
+  stays fixed: section 3.5, "Revocation is irreversible", and section 3.3's four-value
+  result. `AuthorityValidationState`, `AuthorityValidationResult`, `AuthorityRevocationStore`,
+  `AuthorityChainVerificationOptions` and `createAuthorityRevocationResolver` are unchanged,
+  no store gains a removal method, and a caller that does not import the new module sees no
+  change at all.
+
+  The concept source is the aeoess/agent-authority-lifecycle concept document: the
+  `Authority epoch` concept, invariants L3, L7 and L11, the `Authority rollback` open
+  question, and invariant candidates CAND-08 (no silent restoration from rollback or stale
+  state) and CAND-02 (later evidence does not rewrite earlier evidence). The open question
+  is open, the candidates are proposed, and every exported symbol says so in its doc comment.
+
+  New public surface:
+
+  - `StateMarker` and `stateMarker`, an opaque comparable supplied by the caller: a
+    canonical unsigned decimal value as a string, and a scope of `global`, `per_delegation`,
+    `per_principal` or `per_store`. Nothing is signed and nothing is a wire field. The
+    proposed text says an authority epoch is "where a system uses generations" and stops, so
+    this SDK defines only the comparison.
+  - `compareStateMarker` and `advanceHighWaterMark`. Equal is `forward`, behind is
+    `regressed`, and a first read or a cross-scope comparison is `unplaceable`, which is
+    deliberately not a verdict. The mark only ever moves forward.
+  - `RetainedAuthorityState` and `resolveUnderRetainedState`. The retained record set and the
+    high-water mark are two inputs, not one "epoch", because a verifier that kept the
+    epoch-N revocation records and one that kept only the number give different answers about
+    the same restored view. A retained record set answers `revoked` or `unknown` and never
+    `active`.
+  - `createMonotonicRevocationResolver`, which composes a presented view, a mark and a
+    retained set into the one-argument resolver `verifyAuthorityDelegationChain` already
+    takes. `onUnplaceable` is required with no default, because choosing between reading a
+    first-contact view and refusing it is a question the concept source records as undecided.
+  - `FencedAuthorityStateLog`, the fencing gate on an authority-state write. A token that
+    went backwards is refused, an equal token is accepted and idempotent, and a refused write
+    changes neither the published payload nor the highest token.
+  - `RevocationWithdrawalV0`, `evaluateRevocationWithdrawal`, `correctedRevocationView` and
+    the injected `WithdrawalStandingResolver`. A withdrawal references a revocation and never
+    removes it: no path in the module deletes a revocation from a store, and the chain
+    verdict after an accepted withdrawal is byte for byte what it was. Standing is resolved
+    outside the record, and a standing question the resolver could not answer is reported as
+    not established rather than as a denial.
+  - `authorityStateReport` and `reportAuthorityState`, which carry a chain result, a
+    lifecycle verdict, the monotonicity finding and any correction records together without
+    any of them rewriting another.
+
+  `conformance/authority-state/v0/vectors.json` holds 49 hand-specified cases and is the
+  shared fixture. The Python SDK vendors a byte-identical copy and runs the same cases, and
+  both repositories pin the file's SHA-256 inside their own test.
+
+- **`src/v2/suspension/`, suspension and restriction as a SET OF CAUSES. PROPOSED and OPT-IN.**
+  Nothing here is required by draft-pidlisnyi-aps-03. The published draft states no
+  suspension rule, no restriction rule, no release rule and no lifecycle-standing rule: a
+  case-insensitive search of its plain text returns zero occurrences of `suspend` and
+  `suspension`, and the only status answer the protocol has is the revocation resolver's
+  closed set `'active' | 'revoked' | 'unknown'`. There is nowhere in that type to put one
+  cause, let alone three. Section 3.2 closes the authority vector at seven facets and calls
+  a missing facet invalid, so no cause can ride inside a signed `AuthorityDelegationV1`
+  either. `AuthorityValidationState`, `AuthorityValidationResult`, `RevocationResolution`
+  and everything `verifyAuthorityDelegationChain` and `verifyAuthorityDelegation` return are
+  byte for byte what they were, and a caller that does not import the new module sees no
+  change at all.
+
+  The concept source is the aeoess/agent-authority-lifecycle concept document: invariant L8
+  (suspension is not revocation, which says nothing about ARITY, so an implementation
+  holding exactly one suspension at a time conforms to every word of it and is still wrong)
+  and invariant candidate CAND-05 (suspension and restriction causes compose), with the
+  `OPEN-QUESTIONS.md` entry "Release from suspension" as the paragraph that names the gap:
+  lifting one suspension should not clear another or bypass a revocation that happened while
+  the agent was suspended, causes probably need to compose with each released separately,
+  and none of it is specified. CAND-05 states that composition is forced by the corpus and
+  externally unsourced. Every exported symbol says so in its doc comment.
+
+  New public surface:
+
+  - `SuspensionCause`, a lifecycle cause as a SEPARATE SIGNED ARTIFACT referencing a
+    `delegation_id`, carrying its `kind` (`suspension` or `restriction`, the two invariant
+    L8 separates), who imposed it, when, and a stable reason code.
+  - `SuspensionRelease`, a record naming every cause it claims to clear. One release may
+    clear several causes, which CAND-05 explicitly does not forbid. What is forbidden is
+    releasing cause A having the side effect of clearing cause B, so each named cause is
+    decided independently and a record with standing over two of three clears exactly those
+    two. A release record is not a list of assertions a verifier accepts wholesale.
+  - `evaluatePauseState(input)`, returning a `LifecycleStateResult` whose `outstanding`
+    member is the remaining cause set. NEVER A COUNT AND NEVER A BOOLEAN: that member being
+    a list is the whole of CAND-05 in one field.
+  - `explainPauseState(input)`, the same computation with the per-record and per-cause
+    audit trail, for a caller that has to record why each record did or did not move the
+    answer.
+  - `composeChainAndPause(chain, pause)`, the rule that A RELEASE NEVER CLEARS A REVOCATION
+    THAT HAPPENED MEANWHILE. When the chain result is anything other than `valid` it is
+    returned unchanged and the pause state is not reported; draft-03 section 3.5 says
+    verbatim "Revocation is irreversible" and a release record is a later record about the
+    causes, not about the chain.
+  - `SUSPENSION_CAUSE_TYPE`, `SUSPENSION_RELEASE_TYPE`, `PAUSE_KINDS`, `RELEASE_STANDINGS`,
+    `SUSPENSION_REASON_CODES`, `suspensionRecordPreimage`, `SuspensionCauseError` and the
+    disposition and resolver types.
+
+  Three design positions worth naming, each of them a reading rather than a rule:
+
+  - **Standing is resolved outside the record, always.** `resolveReleaseStanding` is a
+    caller-supplied callback and the module never reads standing from the artifact asserting
+    it. A cause may carry an advisory `release_authority`, and the evaluator does not consult
+    it; a negative-control test sets that member to the releasing party and asserts the
+    release is still ineffective when the resolver says `no_standing`. Standing is also not
+    authorship: CAND-05 says a source may hold standing over a cause it did not impose, and
+    an implementer who reads "standing over that cause" as "the source that imposed it" gets
+    the superior-authority case wrong.
+  - **An unverified claim does not become a lifecycle state.** A cause record whose signature
+    does not verify, or whose verification method is not bound to the imposer it names, holds
+    nothing. Reporting `suspended` on it would convert an unauthenticated assertion into a
+    pause the artifact never carried.
+  - **A standing answer of `unknown` gives `not_established`, not `suspended`.** Failing to
+    establish that a cause was released is not establishing that it still holds. The other
+    reading is available and the proposed text settles neither.
+
+  Three things this module deliberately does not decide, all recorded rather than papered
+  over: no precedence order among causes, because CAND-05 defines none and says so; what
+  wins in the reverse ordering, a revoked chain with causes still outstanding, where
+  `composeChainAndPause` reports the chain as a choice of what to report first rather than a
+  claim that the causes stopped mattering; and where standing comes from, which no published
+  or proposed text answers and which the parity fixture supplies as a fixture object.
+
+  Cross-language parity: `conformance/suspension-causes/v0/vectors.json`, 29 evaluation
+  cases, 6 composition cases and 6 malformed-input cases, is the shared fixture. Records are
+  minted deterministically from published seed labels, so the file carries no secret material
+  and regenerates byte for byte. The Python SDK vendors a byte-identical copy and runs the
+  same cases through its own port, and both repositories pin the file's SHA-256 inside their
+  own test, so a one-sided edit fails on the side that was edited. Tests live at
+  `tests/v2/suspension.test.ts`.
+
+- **The tool manifest and namespace-claim layer is reachable from the package root.**
+  EXPERIMENTAL. `createToolManifest`, `verifyToolManifest`, `reviseToolManifest`,
+  `reapproveToolManifest`, `createNamespaceClaim` and `verifyNamespaceClaim` have shipped
+  in `src/core/tool-integrity.ts` with full declarations and their own tests for several
+  releases, and only `createToolRegistryEntry` and `verifyToolIntegrity` were re-exported
+  from the root, so a consumer installing the package could not reach them at all. They are
+  now re-exported, along with `ToolManifest`, `ToolManifestResult`, `ToolMetadata`,
+  `ToolTrustRoot`, `NamespaceClaim` and `ToolResolveOpts`. No implementation changes and no
+  signature changes. draft-03 defines no manifest, no namespace claim and no tool-metadata
+  digest, so treat these names as subject to change.
+
+  One known limit, stated rather than left to be discovered: `ToolManifest.metadataHash` is
+  taken over the legacy `canonicalize`, which strips null-valued members and carries no
+  domain separation, so a metadata block with an explicit null member and one omitting that
+  member hash to the same value. That is pre-existing signed-artifact behaviour and is left
+  alone, because changing it would invalidate manifests already signed.
+  `capabilityMetadataDigest` is a different digest and not a drop-in for it.
+
 ## 7.1.0 (2026-09-22)
 
 ### Added

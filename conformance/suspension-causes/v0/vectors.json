@@ -1,0 +1,1372 @@
+{
+  "profile": "aps-suspension-causes-v0",
+  "status": "proposed",
+  "status_note": "PROPOSED and OPT-IN. Not required by draft-pidlisnyi-aps-03, which states no suspension rule, no restriction rule, no release rule and no lifecycle-standing rule: a case-insensitive search of its published plain text returns zero occurrences of suspend and suspension, and its only status answer is the revocation resolver's closed set active, revoked, unknown. Concept source: the aeoess/agent-authority-lifecycle concept document, invariant L8 (suspension is not revocation, which says nothing about arity) and invariant candidate CAND-05 (suspension and restriction causes compose), with OPEN-QUESTIONS.md > Release from suspension as the entry that names the gap. CAND-05 states that composition is forced by the corpus and externally unsourced. Nothing downstream should bind to these names as specified text.",
+  "description": "Cross-language parity vectors for suspension and restriction as a SET of causes, each with its own release and releasing party. The TypeScript and Python SDKs must produce identical results for every case. Expectations are hand specified and nothing in this file is computed by the code under test, so running it in either SDK is not circular.",
+  "seed_convention": {
+    "note": "No secret material is in this file. Every private key regenerates as SHA-256 over its seed label, and every public key and signature below follows from that.",
+    "formula": "private_key = SHA-256(\"aps-conformance:suspension-causes:v0:\" + label)",
+    "labels": [
+      "principal",
+      "regulator",
+      "firm-compliance",
+      "court",
+      "stranger"
+    ],
+    "delegation_id": "\"sha256:\" + SHA-256(\"aps-conformance:suspension-causes:v0:delegation\")",
+    "other_delegation_id": "\"sha256:\" + SHA-256(\"aps-conformance:suspension-causes:v0:other-delegation\")",
+    "preimage": "RFC 8785 canonical bytes of the record with signature and record_id removed, signed Ed25519."
+  },
+  "standing_resolver": {
+    "note": "The resolver both SDK tests implement, identically. It is a fixture object and not a mechanism this work proposes: nothing in the concept document says what establishes that a party holds standing over a cause, who publishes it, or what a verifier consults. Four cases rest on it entirely.",
+    "rule": "If the (release_id, cause_id) pair appears in standing_unknown, answer unknown. Otherwise answer has_standing when standing_registry[cause_id] contains the release's issuer, and no_standing otherwise.",
+    "standing_registry": {
+      "sc-cause-reg": [
+        "did:aps:example:sc-regulator",
+        "did:aps:example:sc-court"
+      ],
+      "sc-cause-firm": [
+        "did:aps:example:sc-firm-compliance"
+      ],
+      "sc-cause-decree": [
+        "did:aps:example:sc-court"
+      ],
+      "sc-cause-reg-self": [
+        "did:aps:example:sc-regulator",
+        "did:aps:example:sc-court"
+      ],
+      "sc-cause-other": [
+        "did:aps:example:sc-regulator"
+      ],
+      "sc-cause-forged": [
+        "did:aps:example:sc-regulator"
+      ],
+      "sc-cause-late": [
+        "did:aps:example:sc-regulator"
+      ],
+      "sc-cause-wrong-type": [
+        "did:aps:example:sc-regulator"
+      ],
+      "sc-cause-vm-mismatch": [
+        "did:aps:example:sc-regulator"
+      ]
+    },
+    "standing_unknown": [
+      {
+        "release_id": "sc-rel-firm-standing-unknown",
+        "cause_id": "sc-cause-firm"
+      }
+    ],
+    "superior_source_note": "standing_registry places the court over the regulator's cause. The court did not impose it and had no part in it. That entry is the whole of CAND-05's standing-is-not-authorship clause, and SC-07 is the case that turns on it."
+  },
+  "clock": {
+    "T_IMPOSED": "2026-09-20T09:00:00.000Z",
+    "T_RELEASE_EARLY": "2026-09-20T08:00:00.000Z",
+    "T_RELEASE": "2026-09-20T11:00:00.000Z",
+    "T_EVAL": "2026-09-20T13:00:00.000Z",
+    "T_LATE_RELEASE": "2026-09-20T14:00:00.000Z",
+    "T_LATER_EVAL": "2026-09-20T15:00:00.000Z"
+  },
+  "delegation_id": "sha256:8a823a7613d7f1e24fa8ec2519145c0d8d081197689826c2f86cb7c09f0a7a9a",
+  "other_delegation_id": "sha256:0eb34a05e48f9acb6da968bd2b1983cb4d0c9975738250e95e9de104b204399a",
+  "dids": {
+    "principal": "did:aps:example:sc-principal",
+    "regulator": "did:aps:example:sc-regulator",
+    "firm-compliance": "did:aps:example:sc-firm-compliance",
+    "court": "did:aps:example:sc-court",
+    "stranger": "did:aps:example:sc-stranger"
+  },
+  "verification_keys": {
+    "did:aps:example:sc-principal#key-1": "de0f8b8a3184aeea11b4c7ce03982c244471034fb8e88f0cd61369cc7cec37b2",
+    "did:aps:example:sc-regulator#key-1": "b84b80046565064bd5121b665affa68dc4ef98fd8e594abf5211cd8a9ed14660",
+    "did:aps:example:sc-firm-compliance#key-1": "e778309f8524c19bbd4d5b726682fbf73d630330db2390dea56b1e1481e6edc2",
+    "did:aps:example:sc-court#key-1": "07fde24b5c523e11207516ef9e0b49dad8f3afcfff79b61da14fa72c9954c4ee",
+    "did:aps:example:sc-stranger#key-1": "3d18e8967ef6bfcaa8fff1c9bebc4c9f8ef637f05063a2ccc7f97488fac6458b"
+  },
+  "causes": {
+    "REG": {
+      "record_type": "proposed:aps:suspension-cause:v0",
+      "cause_id": "sc-cause-reg",
+      "delegation_id": "sha256:8a823a7613d7f1e24fa8ec2519145c0d8d081197689826c2f86cb7c09f0a7a9a",
+      "kind": "suspension",
+      "imposed_by": "did:aps:example:sc-regulator",
+      "issued_at": "2026-09-20T09:00:00.000Z",
+      "reason_code": "REGULATORY_SUSPENSION",
+      "verification_method": "did:aps:example:sc-regulator#key-1",
+      "signature": "55e09479927eb0885eaee08bc1a51817321416b785304acc2763f3328f64c737475038bbaa1efa7357859fa9c485f7354f0a8d302a01cc49611e260453bd2f02"
+    },
+    "FIRM": {
+      "record_type": "proposed:aps:suspension-cause:v0",
+      "cause_id": "sc-cause-firm",
+      "delegation_id": "sha256:8a823a7613d7f1e24fa8ec2519145c0d8d081197689826c2f86cb7c09f0a7a9a",
+      "kind": "suspension",
+      "imposed_by": "did:aps:example:sc-firm-compliance",
+      "issued_at": "2026-09-20T09:00:00.000Z",
+      "reason_code": "INTERNAL_INVESTIGATION",
+      "verification_method": "did:aps:example:sc-firm-compliance#key-1",
+      "signature": "9dff14e8e2c193d9ea0c31b1292a2707d91d91772d0b88756cd825a6f5c886e0673f658008f69f5dad6f7fb32e16b5d4dbac0ce7b089a3555d9446a5b91bf907"
+    },
+    "DECREE": {
+      "record_type": "proposed:aps:suspension-cause:v0",
+      "cause_id": "sc-cause-decree",
+      "delegation_id": "sha256:8a823a7613d7f1e24fa8ec2519145c0d8d081197689826c2f86cb7c09f0a7a9a",
+      "kind": "restriction",
+      "imposed_by": "did:aps:example:sc-court",
+      "issued_at": "2026-09-20T09:00:00.000Z",
+      "reason_code": "EXTERNAL_APPROVAL_GATE",
+      "verification_method": "did:aps:example:sc-court#key-1",
+      "signature": "e7a386da4aef68a2f43be87dad9145fd2aa989d69ebc7d88734e96ac165a0f37856f54643a47fcb03bdb03c2361bec8427f1c0bbe9db2806002b9a509687f407"
+    },
+    "REG_SELF_NOMINATING": {
+      "record_type": "proposed:aps:suspension-cause:v0",
+      "cause_id": "sc-cause-reg-self",
+      "delegation_id": "sha256:8a823a7613d7f1e24fa8ec2519145c0d8d081197689826c2f86cb7c09f0a7a9a",
+      "kind": "suspension",
+      "imposed_by": "did:aps:example:sc-regulator",
+      "issued_at": "2026-09-20T09:00:00.000Z",
+      "reason_code": "REGULATORY_SUSPENSION",
+      "verification_method": "did:aps:example:sc-regulator#key-1",
+      "release_authority": "did:aps:example:sc-stranger",
+      "signature": "0de10d5377352fb0b25f4be262091445d1f8a7340bb095f414a5f2d178f860ec1fa92df8951ceddf74be9af3a7717b4334534f8129ab90aee2752a39e580fd02"
+    },
+    "OTHER_GRANT": {
+      "record_type": "proposed:aps:suspension-cause:v0",
+      "cause_id": "sc-cause-other",
+      "delegation_id": "sha256:0eb34a05e48f9acb6da968bd2b1983cb4d0c9975738250e95e9de104b204399a",
+      "kind": "suspension",
+      "imposed_by": "did:aps:example:sc-regulator",
+      "issued_at": "2026-09-20T09:00:00.000Z",
+      "reason_code": "REGULATORY_SUSPENSION",
+      "verification_method": "did:aps:example:sc-regulator#key-1",
+      "signature": "d2f7fb44a58a9467680e0a8c5291a3359f6471a68e4d56029ec38a5449548dc67e5d29474d10afd615c5a8d1a3184b9abda22cde7bb456907855f303f9490502"
+    },
+    "FORGED": {
+      "record_type": "proposed:aps:suspension-cause:v0",
+      "cause_id": "sc-cause-forged",
+      "delegation_id": "sha256:8a823a7613d7f1e24fa8ec2519145c0d8d081197689826c2f86cb7c09f0a7a9a",
+      "kind": "suspension",
+      "imposed_by": "did:aps:example:sc-regulator",
+      "issued_at": "2026-09-20T09:00:00.000Z",
+      "reason_code": "REGULATORY_SUSPENSION",
+      "verification_method": "did:aps:example:sc-regulator#key-1",
+      "signature": "b14aeaf7414669b36e33e5a31cc7e765869b6ebc1e0f4916a5df728101b28f9faaebc57d67538eb2a9429da6882701306b585e46efd3e28087f713c5ff7e8b0f"
+    },
+    "LATE_CAUSE": {
+      "record_type": "proposed:aps:suspension-cause:v0",
+      "cause_id": "sc-cause-late",
+      "delegation_id": "sha256:8a823a7613d7f1e24fa8ec2519145c0d8d081197689826c2f86cb7c09f0a7a9a",
+      "kind": "suspension",
+      "imposed_by": "did:aps:example:sc-regulator",
+      "issued_at": "2026-09-20T14:00:00.000Z",
+      "reason_code": "REGULATORY_SUSPENSION",
+      "verification_method": "did:aps:example:sc-regulator#key-1",
+      "signature": "f994a38e6340837f19f1443c1e4ef26226dba973d693619cd8aafcd63e30e98e50a7f92606e346106181c923cf86806c53591ab58205b25904e76dcdf54d4508"
+    },
+    "WRONG_TYPE": {
+      "record_type": "proposed:aps:suspension-cause:v99",
+      "cause_id": "sc-cause-wrong-type",
+      "delegation_id": "sha256:8a823a7613d7f1e24fa8ec2519145c0d8d081197689826c2f86cb7c09f0a7a9a",
+      "kind": "suspension",
+      "imposed_by": "did:aps:example:sc-regulator",
+      "issued_at": "2026-09-20T09:00:00.000Z",
+      "reason_code": "REGULATORY_SUSPENSION",
+      "verification_method": "did:aps:example:sc-regulator#key-1",
+      "signature": "0122670a890a80e9b3a1f21175ef946557ec6fd9784cd380b577614a58ea834a4de777f28cdeacbf3219f0e486987915347239b491e2b74549a46d36042cd207"
+    },
+    "VM_MISMATCH": {
+      "record_type": "proposed:aps:suspension-cause:v0",
+      "cause_id": "sc-cause-vm-mismatch",
+      "delegation_id": "sha256:8a823a7613d7f1e24fa8ec2519145c0d8d081197689826c2f86cb7c09f0a7a9a",
+      "kind": "suspension",
+      "imposed_by": "did:aps:example:sc-regulator",
+      "issued_at": "2026-09-20T09:00:00.000Z",
+      "reason_code": "REGULATORY_SUSPENSION",
+      "verification_method": "did:aps:example:sc-stranger#key-1",
+      "signature": "dc38153f32f4627878c249765a0275580e7c68271f571d0309305f48721b3acf692fb6e82c2b4e03bdbea20c95bb1a55e08c41c11df6ee6d066d21d70cdfc808"
+    }
+  },
+  "releases": {
+    "REL_REG_BY_REGULATOR": {
+      "record_type": "proposed:aps:cause-release:v0",
+      "release_id": "sc-rel-reg-by-regulator",
+      "delegation_id": "sha256:8a823a7613d7f1e24fa8ec2519145c0d8d081197689826c2f86cb7c09f0a7a9a",
+      "cause_ids": [
+        "sc-cause-reg"
+      ],
+      "issuer": "did:aps:example:sc-regulator",
+      "issued_at": "2026-09-20T11:00:00.000Z",
+      "verification_method": "did:aps:example:sc-regulator#key-1",
+      "signature": "e535db5db531f2c4fd039a1811daaa2567f515a5e9ccc6fd3621167161b534fca0abae56c96148b04083be94c94f6bc09a9f3fd9ce730604793e0b5a7d32ab0b"
+    },
+    "REL_FIRM_BY_FIRM": {
+      "record_type": "proposed:aps:cause-release:v0",
+      "release_id": "sc-rel-firm-by-firm",
+      "delegation_id": "sha256:8a823a7613d7f1e24fa8ec2519145c0d8d081197689826c2f86cb7c09f0a7a9a",
+      "cause_ids": [
+        "sc-cause-firm"
+      ],
+      "issuer": "did:aps:example:sc-firm-compliance",
+      "issued_at": "2026-09-20T11:00:00.000Z",
+      "verification_method": "did:aps:example:sc-firm-compliance#key-1",
+      "signature": "35498ec32075fe97756ff495c8b31da158a15208470f3b2bd1c857f94c2d17b839b93417e482c3c42d1adff221ee8f97ca31cb974200fc67e008e580a59bc20f"
+    },
+    "REL_DECREE_BY_COURT": {
+      "record_type": "proposed:aps:cause-release:v0",
+      "release_id": "sc-rel-decree-by-court",
+      "delegation_id": "sha256:8a823a7613d7f1e24fa8ec2519145c0d8d081197689826c2f86cb7c09f0a7a9a",
+      "cause_ids": [
+        "sc-cause-decree"
+      ],
+      "issuer": "did:aps:example:sc-court",
+      "issued_at": "2026-09-20T11:00:00.000Z",
+      "verification_method": "did:aps:example:sc-court#key-1",
+      "signature": "05e2745bf91ffae0a031c8e6e8bf5fe7be3e13d98c983d6454aafadf533da1164bd2fd41f7a953fda5f9d976b906b933ae839e63581ca6255588d8c9ebeae40e"
+    },
+    "REL_FIRM_BY_REGULATOR": {
+      "record_type": "proposed:aps:cause-release:v0",
+      "release_id": "sc-rel-firm-by-regulator",
+      "delegation_id": "sha256:8a823a7613d7f1e24fa8ec2519145c0d8d081197689826c2f86cb7c09f0a7a9a",
+      "cause_ids": [
+        "sc-cause-firm"
+      ],
+      "issuer": "did:aps:example:sc-regulator",
+      "issued_at": "2026-09-20T11:00:00.000Z",
+      "verification_method": "did:aps:example:sc-regulator#key-1",
+      "signature": "a967b242bd6b64ee333fdcc1bc7c28de6ab62b2502704ad33db0890abec46c8aee4ee7f228ac91742f2c880b473858f457a9f1d17d4155ecc925a858e4a5df05"
+    },
+    "REL_REG_BY_COURT": {
+      "record_type": "proposed:aps:cause-release:v0",
+      "release_id": "sc-rel-reg-by-court",
+      "delegation_id": "sha256:8a823a7613d7f1e24fa8ec2519145c0d8d081197689826c2f86cb7c09f0a7a9a",
+      "cause_ids": [
+        "sc-cause-reg"
+      ],
+      "issuer": "did:aps:example:sc-court",
+      "issued_at": "2026-09-20T11:00:00.000Z",
+      "verification_method": "did:aps:example:sc-court#key-1",
+      "signature": "3ba3e276a61646c4bbdb96b17d640540b92eda69ddbeab758026f6f1996576d45ebf4a96d6e260faf5361a53a6821fe02ae18ed083ef94505c405c9642205401"
+    },
+    "REL_REG_DECREE_BY_COURT": {
+      "record_type": "proposed:aps:cause-release:v0",
+      "release_id": "sc-rel-reg-decree-by-court",
+      "delegation_id": "sha256:8a823a7613d7f1e24fa8ec2519145c0d8d081197689826c2f86cb7c09f0a7a9a",
+      "cause_ids": [
+        "sc-cause-reg",
+        "sc-cause-decree"
+      ],
+      "issuer": "did:aps:example:sc-court",
+      "issued_at": "2026-09-20T11:00:00.000Z",
+      "verification_method": "did:aps:example:sc-court#key-1",
+      "signature": "27b2915e6903920b837cfde3f9435eed47a0cb80930d9a5801824225c83cfe9f5509f407ccd9001d8fe764685c79b35d5908b67820b4ad271ca7abee6e37b108"
+    },
+    "REL_ALL_THREE_BY_COURT": {
+      "record_type": "proposed:aps:cause-release:v0",
+      "release_id": "sc-rel-all-three-by-court",
+      "delegation_id": "sha256:8a823a7613d7f1e24fa8ec2519145c0d8d081197689826c2f86cb7c09f0a7a9a",
+      "cause_ids": [
+        "sc-cause-reg",
+        "sc-cause-firm",
+        "sc-cause-decree"
+      ],
+      "issuer": "did:aps:example:sc-court",
+      "issued_at": "2026-09-20T11:00:00.000Z",
+      "verification_method": "did:aps:example:sc-court#key-1",
+      "signature": "3a7abff5344797ad2aaf4f7aa006950763c5adcd8b2f09b6f5e6656008d9e0708d7eda03363f27d24ea2c73425d1dde3406ca485e0c4d8bf0b4f1f2da1966a02"
+    },
+    "REL_REG_FORGED": {
+      "record_type": "proposed:aps:cause-release:v0",
+      "release_id": "sc-rel-reg-forged",
+      "delegation_id": "sha256:8a823a7613d7f1e24fa8ec2519145c0d8d081197689826c2f86cb7c09f0a7a9a",
+      "cause_ids": [
+        "sc-cause-reg"
+      ],
+      "issuer": "did:aps:example:sc-regulator",
+      "issued_at": "2026-09-20T11:00:00.000Z",
+      "verification_method": "did:aps:example:sc-regulator#key-1",
+      "signature": "70d5fc9b527370e9c341e91190738379ef23adc0616bdc89fbe1c8d51b8dd4d6281168998c1b03b80e8b70919a3704fa0bf153a74d3f2d7b6d062b93eed4080d"
+    },
+    "REL_UNKNOWN_CAUSE": {
+      "record_type": "proposed:aps:cause-release:v0",
+      "release_id": "sc-rel-unknown-cause",
+      "delegation_id": "sha256:8a823a7613d7f1e24fa8ec2519145c0d8d081197689826c2f86cb7c09f0a7a9a",
+      "cause_ids": [
+        "sc-cause-not-on-this-grant"
+      ],
+      "issuer": "did:aps:example:sc-court",
+      "issued_at": "2026-09-20T11:00:00.000Z",
+      "verification_method": "did:aps:example:sc-court#key-1",
+      "signature": "07aea098ea6c54ce834220e0a95833ece5134992d834cbc4f7a41e32693c329f6d8b2517ee3873e4ff14a40e0eae3cd80bd713cedc90b20bf367341142f1b50a"
+    },
+    "REL_FIRM_EARLY": {
+      "record_type": "proposed:aps:cause-release:v0",
+      "release_id": "sc-rel-firm-early",
+      "delegation_id": "sha256:8a823a7613d7f1e24fa8ec2519145c0d8d081197689826c2f86cb7c09f0a7a9a",
+      "cause_ids": [
+        "sc-cause-firm"
+      ],
+      "issuer": "did:aps:example:sc-firm-compliance",
+      "issued_at": "2026-09-20T08:00:00.000Z",
+      "verification_method": "did:aps:example:sc-firm-compliance#key-1",
+      "signature": "b7b18afa3df318a1b388017133c964316ec8a1d9a2c9b36cf3598e68819a0c8c656817f7f35d3d26ff5317a7ada890e0bc955b2da56953a9aa0161e726541302"
+    },
+    "REL_DECREE_LATE": {
+      "record_type": "proposed:aps:cause-release:v0",
+      "release_id": "sc-rel-decree-late",
+      "delegation_id": "sha256:8a823a7613d7f1e24fa8ec2519145c0d8d081197689826c2f86cb7c09f0a7a9a",
+      "cause_ids": [
+        "sc-cause-decree"
+      ],
+      "issuer": "did:aps:example:sc-court",
+      "issued_at": "2026-09-20T14:00:00.000Z",
+      "verification_method": "did:aps:example:sc-court#key-1",
+      "signature": "c0ad1ffca4b83a0a7cfea93eb8f1fa56aaf3a95434f41622366ccda9f8420da949c52cd4beed8d6868186118b7d1dae802d90830f143fe5de9bb7ee9b48bd906"
+    },
+    "REL_REG_SELF_BY_STRANGER": {
+      "record_type": "proposed:aps:cause-release:v0",
+      "release_id": "sc-rel-reg-self-by-stranger",
+      "delegation_id": "sha256:8a823a7613d7f1e24fa8ec2519145c0d8d081197689826c2f86cb7c09f0a7a9a",
+      "cause_ids": [
+        "sc-cause-reg-self"
+      ],
+      "issuer": "did:aps:example:sc-stranger",
+      "issued_at": "2026-09-20T11:00:00.000Z",
+      "verification_method": "did:aps:example:sc-stranger#key-1",
+      "signature": "4c94f412c934dd2310680552dd13ecfa677c2e0d3040bccb3d8a88406d28ed3eb6f847310fd4ba23911b1e4ba7ecb85d9f4de4368dfe8e23593d577912478c06"
+    },
+    "REL_REG_OTHER_DELEGATION": {
+      "record_type": "proposed:aps:cause-release:v0",
+      "release_id": "sc-rel-reg-other-delegation",
+      "delegation_id": "sha256:0eb34a05e48f9acb6da968bd2b1983cb4d0c9975738250e95e9de104b204399a",
+      "cause_ids": [
+        "sc-cause-reg"
+      ],
+      "issuer": "did:aps:example:sc-regulator",
+      "issued_at": "2026-09-20T11:00:00.000Z",
+      "verification_method": "did:aps:example:sc-regulator#key-1",
+      "signature": "acb1cf96e4847f148ed9ae0f0f616212796fc3410e9e8ece047b7f576f6e9327f5f0d1202c66254fa698ab7b5ce55e84073b230e21a23b8632112fc24c11370b"
+    },
+    "REL_REG_WRONG_TYPE": {
+      "record_type": "proposed:aps:cause-release:v99",
+      "release_id": "sc-rel-reg-wrong-type",
+      "delegation_id": "sha256:8a823a7613d7f1e24fa8ec2519145c0d8d081197689826c2f86cb7c09f0a7a9a",
+      "cause_ids": [
+        "sc-cause-reg"
+      ],
+      "issuer": "did:aps:example:sc-regulator",
+      "issued_at": "2026-09-20T11:00:00.000Z",
+      "verification_method": "did:aps:example:sc-regulator#key-1",
+      "signature": "234426f60ca9469654a26a22623cafbe7f544279d05eb884228d861b5aa102b942d334954d186c9e3d5630b2be1ac8d4698040f1cbad23ee3d7f510c4b2be407"
+    },
+    "REL_REG_VM_MISMATCH": {
+      "record_type": "proposed:aps:cause-release:v0",
+      "release_id": "sc-rel-reg-vm-mismatch",
+      "delegation_id": "sha256:8a823a7613d7f1e24fa8ec2519145c0d8d081197689826c2f86cb7c09f0a7a9a",
+      "cause_ids": [
+        "sc-cause-reg"
+      ],
+      "issuer": "did:aps:example:sc-regulator",
+      "issued_at": "2026-09-20T11:00:00.000Z",
+      "verification_method": "did:aps:example:sc-stranger#key-1",
+      "signature": "881399f3716a2e28b98ad7e27022d97cdceaa69009fd529f441307bf939e3bcce05e02b22cf4f1f39cc5a85f6a7e49b2ab9f017e72332431409ee5a9b2b6ec0a"
+    },
+    "REL_FIRM_STANDING_UNKNOWN": {
+      "record_type": "proposed:aps:cause-release:v0",
+      "release_id": "sc-rel-firm-standing-unknown",
+      "delegation_id": "sha256:8a823a7613d7f1e24fa8ec2519145c0d8d081197689826c2f86cb7c09f0a7a9a",
+      "cause_ids": [
+        "sc-cause-firm"
+      ],
+      "issuer": "did:aps:example:sc-stranger",
+      "issued_at": "2026-09-20T11:00:00.000Z",
+      "verification_method": "did:aps:example:sc-stranger#key-1",
+      "signature": "c2d64daef26b63d4a1f5e8a0692bb9cde7b1fd3b1df48382bae9037904b8354dc11003e3367a2419665eb4b24e38279b18641a98921de2d4229485956df13d05"
+    }
+  },
+  "cases": [
+    {
+      "id": "SC-01-three-causes-no-release-suspended",
+      "tests": "CAND-05 composition: three concurrent causes from three sources stand on one artifact at once, and the verdict names which causes remain rather than carrying a single state.",
+      "causes": [
+        "REG",
+        "FIRM",
+        "DECREE"
+      ],
+      "releases": [],
+      "at": "T_EVAL",
+      "expected": {
+        "verdict": "suspended",
+        "reason_code": "CAUSES_OUTSTANDING",
+        "outstanding": [
+          {
+            "id": "sc-cause-decree",
+            "kind": "restriction",
+            "reason_code": "EXTERNAL_APPROVAL_GATE"
+          },
+          {
+            "id": "sc-cause-firm",
+            "kind": "suspension",
+            "reason_code": "INTERNAL_INVESTIGATION"
+          },
+          {
+            "id": "sc-cause-reg",
+            "kind": "suspension",
+            "reason_code": "REGULATORY_SUSPENSION"
+          }
+        ]
+      }
+    },
+    {
+      "id": "SC-02-no-cause-presented",
+      "tests": "No cause offered at all. The pause question has a positive answer and its reason code says the input was empty, which is not the same as records offered and rejected.",
+      "causes": [],
+      "releases": [],
+      "at": "T_EVAL",
+      "expected": {
+        "verdict": "valid",
+        "reason_code": "NO_CAUSE_PRESENTED"
+      }
+    },
+    {
+      "id": "SC-03-one-release-still-suspended",
+      "tests": "CAND-05: releasing the regulator's cause does not release the firm's unrelated cause. The artifact stays suspended and the remaining set names both survivors.",
+      "causes": [
+        "REG",
+        "FIRM",
+        "DECREE"
+      ],
+      "releases": [
+        "REL_REG_BY_REGULATOR"
+      ],
+      "at": "T_EVAL",
+      "expected": {
+        "verdict": "suspended",
+        "reason_code": "CAUSES_OUTSTANDING",
+        "outstanding": [
+          {
+            "id": "sc-cause-decree",
+            "kind": "restriction",
+            "reason_code": "EXTERNAL_APPROVAL_GATE"
+          },
+          {
+            "id": "sc-cause-firm",
+            "kind": "suspension",
+            "reason_code": "INTERNAL_INVESTIGATION"
+          }
+        ],
+        "cause_dispositions": {
+          "sc-cause-reg": "CAUSE_RELEASED",
+          "sc-cause-firm": "CAUSE_IN_EVIDENCE",
+          "sc-cause-decree": "CAUSE_IN_EVIDENCE"
+        },
+        "released_by": {
+          "sc-cause-reg": "sc-rel-reg-by-regulator"
+        }
+      }
+    },
+    {
+      "id": "SC-04-two-releases-restricted",
+      "tests": "Invariant L8: with both suspensions released and only the court's restriction left, the verdict is restricted rather than suspended, and the remaining cause is named.",
+      "causes": [
+        "REG",
+        "FIRM",
+        "DECREE"
+      ],
+      "releases": [
+        "REL_REG_BY_REGULATOR",
+        "REL_FIRM_BY_FIRM"
+      ],
+      "at": "T_EVAL",
+      "expected": {
+        "verdict": "restricted",
+        "reason_code": "CAUSES_OUTSTANDING",
+        "outstanding": [
+          {
+            "id": "sc-cause-decree",
+            "kind": "restriction",
+            "reason_code": "EXTERNAL_APPROVAL_GATE"
+          }
+        ]
+      }
+    },
+    {
+      "id": "SC-05-all-released",
+      "tests": "Every cause released by a party holding standing over it. No cause holds the artifact paused. This is not a statement that the artifact confers authority: see the compose cases.",
+      "causes": [
+        "REG",
+        "FIRM",
+        "DECREE"
+      ],
+      "releases": [
+        "REL_REG_BY_REGULATOR",
+        "REL_FIRM_BY_FIRM",
+        "REL_DECREE_BY_COURT"
+      ],
+      "at": "T_EVAL",
+      "expected": {
+        "verdict": "valid",
+        "reason_code": "ALL_CAUSES_RELEASED"
+      }
+    },
+    {
+      "id": "SC-06-release-without-standing-does-nothing",
+      "tests": "NEGATIVE CONTROL. A genuine, correctly signed release from the regulator naming the firm's cause releases nothing, because the authority model does not place the regulator over that cause. Every check against the record alone succeeds. Only the standing resolver catches it.",
+      "causes": [
+        "REG",
+        "FIRM",
+        "DECREE"
+      ],
+      "releases": [
+        "REL_FIRM_BY_REGULATOR"
+      ],
+      "at": "T_EVAL",
+      "expected": {
+        "verdict": "suspended",
+        "reason_code": "CAUSES_OUTSTANDING",
+        "outstanding": [
+          {
+            "id": "sc-cause-decree",
+            "kind": "restriction",
+            "reason_code": "EXTERNAL_APPROVAL_GATE"
+          },
+          {
+            "id": "sc-cause-firm",
+            "kind": "suspension",
+            "reason_code": "INTERNAL_INVESTIGATION"
+          },
+          {
+            "id": "sc-cause-reg",
+            "kind": "suspension",
+            "reason_code": "REGULATORY_SUSPENSION"
+          }
+        ],
+        "release_dispositions": {
+          "sc-rel-firm-by-regulator": "RELEASE_IN_EVIDENCE"
+        },
+        "release_cause_dispositions": {
+          "sc-rel-firm-by-regulator|sc-cause-firm": "RELEASER_WITHOUT_STANDING"
+        }
+      },
+      "negative_control": true
+    },
+    {
+      "id": "SC-07-superior-source-release-effective",
+      "tests": "CAND-05: standing is not authorship. A release of the regulator's cause signed by the court is effective where the authority model places the court over that cause, even though the court had no part in imposing it.",
+      "causes": [
+        "REG",
+        "FIRM",
+        "DECREE"
+      ],
+      "releases": [
+        "REL_REG_BY_COURT"
+      ],
+      "at": "T_EVAL",
+      "expected": {
+        "verdict": "suspended",
+        "reason_code": "CAUSES_OUTSTANDING",
+        "outstanding": [
+          {
+            "id": "sc-cause-decree",
+            "kind": "restriction",
+            "reason_code": "EXTERNAL_APPROVAL_GATE"
+          },
+          {
+            "id": "sc-cause-firm",
+            "kind": "suspension",
+            "reason_code": "INTERNAL_INVESTIGATION"
+          }
+        ],
+        "released_by": {
+          "sc-cause-reg": "sc-rel-reg-by-court"
+        }
+      }
+    },
+    {
+      "id": "SC-08-one-record-two-causes-with-standing",
+      "tests": "CAND-05 does not claim a single release record cannot clear several causes. One record from a party with standing over both clears both.",
+      "causes": [
+        "REG",
+        "FIRM",
+        "DECREE"
+      ],
+      "releases": [
+        "REL_REG_DECREE_BY_COURT"
+      ],
+      "at": "T_EVAL",
+      "expected": {
+        "verdict": "suspended",
+        "reason_code": "CAUSES_OUTSTANDING",
+        "outstanding": [
+          {
+            "id": "sc-cause-firm",
+            "kind": "suspension",
+            "reason_code": "INTERNAL_INVESTIGATION"
+          }
+        ]
+      }
+    },
+    {
+      "id": "SC-09-one-record-three-causes-partial-standing",
+      "tests": "What CAND-05 forbids is releasing cause A having the side effect of clearing cause B. One record naming all three causes from a party with standing over two clears exactly those two. Naming a cause in a release is not the same as being able to release it.",
+      "causes": [
+        "REG",
+        "FIRM",
+        "DECREE"
+      ],
+      "releases": [
+        "REL_ALL_THREE_BY_COURT"
+      ],
+      "at": "T_EVAL",
+      "expected": {
+        "verdict": "suspended",
+        "reason_code": "CAUSES_OUTSTANDING",
+        "outstanding": [
+          {
+            "id": "sc-cause-firm",
+            "kind": "suspension",
+            "reason_code": "INTERNAL_INVESTIGATION"
+          }
+        ],
+        "release_cause_dispositions": {
+          "sc-rel-all-three-by-court|sc-cause-reg": "CAUSE_RELEASED",
+          "sc-rel-all-three-by-court|sc-cause-firm": "RELEASER_WITHOUT_STANDING",
+          "sc-rel-all-three-by-court|sc-cause-decree": "CAUSE_RELEASED"
+        }
+      }
+    },
+    {
+      "id": "SC-10-forged-release-does-nothing",
+      "tests": "A release whose signature does not verify under the key its own verification_method points at is rejected at record level and is never applied to any cause, so it reports no per-cause entries.",
+      "causes": [
+        "REG",
+        "FIRM",
+        "DECREE"
+      ],
+      "releases": [
+        "REL_REG_FORGED"
+      ],
+      "at": "T_EVAL",
+      "expected": {
+        "verdict": "suspended",
+        "reason_code": "CAUSES_OUTSTANDING",
+        "outstanding": [
+          {
+            "id": "sc-cause-decree",
+            "kind": "restriction",
+            "reason_code": "EXTERNAL_APPROVAL_GATE"
+          },
+          {
+            "id": "sc-cause-firm",
+            "kind": "suspension",
+            "reason_code": "INTERNAL_INVESTIGATION"
+          },
+          {
+            "id": "sc-cause-reg",
+            "kind": "suspension",
+            "reason_code": "REGULATORY_SUSPENSION"
+          }
+        ],
+        "release_dispositions": {
+          "sc-rel-reg-forged": "RELEASE_SIGNATURE_UNVERIFIED"
+        },
+        "release_cause_count": {
+          "sc-rel-reg-forged": 0
+        }
+      }
+    },
+    {
+      "id": "SC-11-release-of-unknown-cause-does-nothing",
+      "tests": "A release naming a cause id this evaluation does not hold releases nothing, and does not touch an unrelated cause that it does hold.",
+      "causes": [
+        "REG",
+        "FIRM",
+        "DECREE"
+      ],
+      "releases": [
+        "REL_UNKNOWN_CAUSE"
+      ],
+      "at": "T_EVAL",
+      "expected": {
+        "verdict": "suspended",
+        "reason_code": "CAUSES_OUTSTANDING",
+        "outstanding": [
+          {
+            "id": "sc-cause-decree",
+            "kind": "restriction",
+            "reason_code": "EXTERNAL_APPROVAL_GATE"
+          },
+          {
+            "id": "sc-cause-firm",
+            "kind": "suspension",
+            "reason_code": "INTERNAL_INVESTIGATION"
+          },
+          {
+            "id": "sc-cause-reg",
+            "kind": "suspension",
+            "reason_code": "REGULATORY_SUSPENSION"
+          }
+        ],
+        "release_cause_dispositions": {
+          "sc-rel-unknown-cause|sc-cause-not-on-this-grant": "CAUSE_NOT_PRESENTED"
+        }
+      }
+    },
+    {
+      "id": "SC-12-release-before-imposition-does-nothing",
+      "tests": "A release dated before the cause it names was imposed releases nothing. A later cause is not cleared by an earlier record. The proposed text says nothing about this, so it is a reading.",
+      "causes": [
+        "REG",
+        "FIRM",
+        "DECREE"
+      ],
+      "releases": [
+        "REL_FIRM_EARLY"
+      ],
+      "at": "T_EVAL",
+      "expected": {
+        "verdict": "suspended",
+        "reason_code": "CAUSES_OUTSTANDING",
+        "outstanding": [
+          {
+            "id": "sc-cause-decree",
+            "kind": "restriction",
+            "reason_code": "EXTERNAL_APPROVAL_GATE"
+          },
+          {
+            "id": "sc-cause-firm",
+            "kind": "suspension",
+            "reason_code": "INTERNAL_INVESTIGATION"
+          },
+          {
+            "id": "sc-cause-reg",
+            "kind": "suspension",
+            "reason_code": "REGULATORY_SUSPENSION"
+          }
+        ],
+        "release_cause_dispositions": {
+          "sc-rel-firm-early|sc-cause-firm": "RELEASE_PRECEDES_IMPOSITION"
+        }
+      }
+    },
+    {
+      "id": "SC-13-release-after-evaluation-instant-not-effective",
+      "tests": "A release recorded after the instant being evaluated is not in evidence there, so the cause it names still stands. Paired with SC-14 over the same records.",
+      "causes": [
+        "REG",
+        "FIRM",
+        "DECREE"
+      ],
+      "releases": [
+        "REL_REG_BY_REGULATOR",
+        "REL_FIRM_BY_FIRM",
+        "REL_DECREE_LATE"
+      ],
+      "at": "T_EVAL",
+      "expected": {
+        "verdict": "restricted",
+        "reason_code": "CAUSES_OUTSTANDING",
+        "outstanding": [
+          {
+            "id": "sc-cause-decree",
+            "kind": "restriction",
+            "reason_code": "EXTERNAL_APPROVAL_GATE"
+          }
+        ],
+        "release_dispositions": {
+          "sc-rel-decree-late": "RELEASE_AFTER_EVALUATION_INSTANT"
+        }
+      }
+    },
+    {
+      "id": "SC-14-same-records-later-instant-effective",
+      "tests": "The same three records at a later instant: the late release is now in evidence and nothing remains. SC-13 and SC-14 are two independent evaluations over one set of records, not a sequence.",
+      "causes": [
+        "REG",
+        "FIRM",
+        "DECREE"
+      ],
+      "releases": [
+        "REL_REG_BY_REGULATOR",
+        "REL_FIRM_BY_FIRM",
+        "REL_DECREE_LATE"
+      ],
+      "at": "T_LATER_EVAL",
+      "expected": {
+        "verdict": "valid",
+        "reason_code": "ALL_CAUSES_RELEASED"
+      }
+    },
+    {
+      "id": "SC-15-release-authority-is-never-consulted",
+      "tests": "NEGATIVE CONTROL for cross-cutting constraint 7: standing is resolved outside the record, always. This cause names the stranger in its own release_authority member and the stranger signs a release of it. The resolver does not place the stranger over the cause, so the cause stands. A verifier that read standing off the artifact asserting it would clear this one.",
+      "causes": [
+        "REG_SELF_NOMINATING"
+      ],
+      "releases": [
+        "REL_REG_SELF_BY_STRANGER"
+      ],
+      "at": "T_EVAL",
+      "expected": {
+        "verdict": "suspended",
+        "reason_code": "CAUSES_OUTSTANDING",
+        "outstanding": [
+          {
+            "id": "sc-cause-reg-self",
+            "kind": "suspension",
+            "reason_code": "REGULATORY_SUSPENSION"
+          }
+        ],
+        "release_cause_dispositions": {
+          "sc-rel-reg-self-by-stranger|sc-cause-reg-self": "RELEASER_WITHOUT_STANDING"
+        }
+      },
+      "negative_control": true
+    },
+    {
+      "id": "SC-16-cause-on-another-delegation-does-not-hold",
+      "tests": "A cause naming a different delegation_id is not this artifact's cause and holds nothing here.",
+      "causes": [
+        "OTHER_GRANT",
+        "REG"
+      ],
+      "releases": [],
+      "at": "T_EVAL",
+      "expected": {
+        "verdict": "suspended",
+        "reason_code": "CAUSES_OUTSTANDING",
+        "outstanding": [
+          {
+            "id": "sc-cause-reg",
+            "kind": "suspension",
+            "reason_code": "REGULATORY_SUSPENSION"
+          }
+        ],
+        "cause_dispositions": {
+          "sc-cause-other": "CAUSE_NOT_ON_DELEGATION",
+          "sc-cause-reg": "CAUSE_IN_EVIDENCE"
+        }
+      }
+    },
+    {
+      "id": "SC-17-unverified-cause-does-not-hold",
+      "tests": "An unverified claim must not become a lifecycle state. A cause record whose signature does not verify holds nothing, so reporting suspended on it would convert an unauthenticated assertion into a pause the artifact never carried.",
+      "causes": [
+        "FORGED",
+        "REG"
+      ],
+      "releases": [],
+      "at": "T_EVAL",
+      "expected": {
+        "verdict": "suspended",
+        "reason_code": "CAUSES_OUTSTANDING",
+        "outstanding": [
+          {
+            "id": "sc-cause-reg",
+            "kind": "suspension",
+            "reason_code": "REGULATORY_SUSPENSION"
+          }
+        ],
+        "cause_dispositions": {
+          "sc-cause-forged": "CAUSE_SIGNATURE_UNVERIFIED"
+        }
+      }
+    },
+    {
+      "id": "SC-18-only-cause-unverified-no-cause-in-evidence",
+      "tests": "Causes were offered and none is in evidence. The reason code separates that from an empty input, so a caller can see records were rejected rather than never supplied.",
+      "causes": [
+        "FORGED"
+      ],
+      "releases": [],
+      "at": "T_EVAL",
+      "expected": {
+        "verdict": "valid",
+        "reason_code": "NO_CAUSE_IN_EVIDENCE",
+        "cause_dispositions": {
+          "sc-cause-forged": "CAUSE_SIGNATURE_UNVERIFIED"
+        }
+      }
+    },
+    {
+      "id": "SC-19-cause-not-yet-in-evidence",
+      "tests": "A cause imposed after the instant being evaluated is not in evidence there, symmetric with the release rule. Paired with SC-20 over the same record.",
+      "causes": [
+        "LATE_CAUSE"
+      ],
+      "releases": [],
+      "at": "T_EVAL",
+      "expected": {
+        "verdict": "valid",
+        "reason_code": "NO_CAUSE_IN_EVIDENCE",
+        "cause_dispositions": {
+          "sc-cause-late": "CAUSE_NOT_YET_IN_EVIDENCE"
+        }
+      }
+    },
+    {
+      "id": "SC-20-same-cause-later-instant-holds",
+      "tests": "The same cause record at a later instant is in evidence and holds the artifact suspended.",
+      "causes": [
+        "LATE_CAUSE"
+      ],
+      "releases": [],
+      "at": "T_LATER_EVAL",
+      "expected": {
+        "verdict": "suspended",
+        "reason_code": "CAUSES_OUTSTANDING",
+        "outstanding": [
+          {
+            "id": "sc-cause-late",
+            "kind": "suspension",
+            "reason_code": "REGULATORY_SUSPENSION"
+          }
+        ]
+      }
+    },
+    {
+      "id": "SC-21-cause-record-type-unrecognised",
+      "tests": "A cause carrying an unrecognised record_type is not in evidence. The proposed: namespace is not an APS record type and a verifier does not guess at a version it does not know.",
+      "causes": [
+        "WRONG_TYPE",
+        "REG"
+      ],
+      "releases": [],
+      "at": "T_EVAL",
+      "expected": {
+        "verdict": "suspended",
+        "reason_code": "CAUSES_OUTSTANDING",
+        "outstanding": [
+          {
+            "id": "sc-cause-reg",
+            "kind": "suspension",
+            "reason_code": "REGULATORY_SUSPENSION"
+          }
+        ],
+        "cause_dispositions": {
+          "sc-cause-wrong-type": "CAUSE_RECORD_TYPE_UNRECOGNISED"
+        }
+      }
+    },
+    {
+      "id": "SC-22-cause-imposer-binding-mismatch",
+      "tests": "The signature verifies, under a key belonging to somebody other than the imposed_by the body names. A valid signature that is not bound to the named imposer says nothing about who imposed the cause.",
+      "causes": [
+        "VM_MISMATCH",
+        "REG"
+      ],
+      "releases": [],
+      "at": "T_EVAL",
+      "expected": {
+        "verdict": "suspended",
+        "reason_code": "CAUSES_OUTSTANDING",
+        "outstanding": [
+          {
+            "id": "sc-cause-reg",
+            "kind": "suspension",
+            "reason_code": "REGULATORY_SUSPENSION"
+          }
+        ],
+        "cause_dispositions": {
+          "sc-cause-vm-mismatch": "CAUSE_IMPOSER_BINDING_MISMATCH"
+        }
+      }
+    },
+    {
+      "id": "SC-23-release-on-another-delegation-does-nothing",
+      "tests": "A release naming a different delegation_id is rejected at record level.",
+      "causes": [
+        "REG",
+        "FIRM",
+        "DECREE"
+      ],
+      "releases": [
+        "REL_REG_OTHER_DELEGATION"
+      ],
+      "at": "T_EVAL",
+      "expected": {
+        "verdict": "suspended",
+        "reason_code": "CAUSES_OUTSTANDING",
+        "outstanding": [
+          {
+            "id": "sc-cause-decree",
+            "kind": "restriction",
+            "reason_code": "EXTERNAL_APPROVAL_GATE"
+          },
+          {
+            "id": "sc-cause-firm",
+            "kind": "suspension",
+            "reason_code": "INTERNAL_INVESTIGATION"
+          },
+          {
+            "id": "sc-cause-reg",
+            "kind": "suspension",
+            "reason_code": "REGULATORY_SUSPENSION"
+          }
+        ],
+        "release_dispositions": {
+          "sc-rel-reg-other-delegation": "RELEASE_NOT_ON_DELEGATION"
+        }
+      }
+    },
+    {
+      "id": "SC-24-release-record-type-unrecognised",
+      "tests": "A release carrying an unrecognised record_type is rejected at record level.",
+      "causes": [
+        "REG",
+        "FIRM",
+        "DECREE"
+      ],
+      "releases": [
+        "REL_REG_WRONG_TYPE"
+      ],
+      "at": "T_EVAL",
+      "expected": {
+        "verdict": "suspended",
+        "reason_code": "CAUSES_OUTSTANDING",
+        "outstanding": [
+          {
+            "id": "sc-cause-decree",
+            "kind": "restriction",
+            "reason_code": "EXTERNAL_APPROVAL_GATE"
+          },
+          {
+            "id": "sc-cause-firm",
+            "kind": "suspension",
+            "reason_code": "INTERNAL_INVESTIGATION"
+          },
+          {
+            "id": "sc-cause-reg",
+            "kind": "suspension",
+            "reason_code": "REGULATORY_SUSPENSION"
+          }
+        ],
+        "release_dispositions": {
+          "sc-rel-reg-wrong-type": "RELEASE_RECORD_TYPE_UNRECOGNISED"
+        }
+      }
+    },
+    {
+      "id": "SC-25-release-issuer-binding-mismatch",
+      "tests": "The release signature verifies under a key that does not belong to the issuer the body names, so the record releases nothing.",
+      "causes": [
+        "REG",
+        "FIRM",
+        "DECREE"
+      ],
+      "releases": [
+        "REL_REG_VM_MISMATCH"
+      ],
+      "at": "T_EVAL",
+      "expected": {
+        "verdict": "suspended",
+        "reason_code": "CAUSES_OUTSTANDING",
+        "outstanding": [
+          {
+            "id": "sc-cause-decree",
+            "kind": "restriction",
+            "reason_code": "EXTERNAL_APPROVAL_GATE"
+          },
+          {
+            "id": "sc-cause-firm",
+            "kind": "suspension",
+            "reason_code": "INTERNAL_INVESTIGATION"
+          },
+          {
+            "id": "sc-cause-reg",
+            "kind": "suspension",
+            "reason_code": "REGULATORY_SUSPENSION"
+          }
+        ],
+        "release_dispositions": {
+          "sc-rel-reg-vm-mismatch": "RELEASE_ISSUER_BINDING_MISMATCH"
+        }
+      }
+    },
+    {
+      "id": "SC-26-standing-unknown-is-not-established",
+      "tests": "The standing resolver answers unknown for the only cause. Failing to establish that a cause was released is not establishing that it still holds, so the verdict is not_established with the source limb missing, not suspended.",
+      "causes": [
+        "FIRM"
+      ],
+      "releases": [
+        "REL_FIRM_STANDING_UNKNOWN"
+      ],
+      "at": "T_EVAL",
+      "expected": {
+        "verdict": "not_established",
+        "reason_code": "RELEASE_STANDING_NOT_ESTABLISHED",
+        "missing": [
+          "source"
+        ],
+        "release_cause_dispositions": {
+          "sc-rel-firm-standing-unknown|sc-cause-firm": "RELEASE_STANDING_NOT_ESTABLISHED"
+        }
+      }
+    },
+    {
+      "id": "SC-27-unknown-standing-on-an-already-released-cause-does-not-matter",
+      "tests": "A cause released by any record with established standing is released. An unknown answer from a different record about the same cause does not unsettle an answer the verifier reached.",
+      "causes": [
+        "FIRM"
+      ],
+      "releases": [
+        "REL_FIRM_STANDING_UNKNOWN",
+        "REL_FIRM_BY_FIRM"
+      ],
+      "at": "T_EVAL",
+      "expected": {
+        "verdict": "valid",
+        "reason_code": "ALL_CAUSES_RELEASED"
+      }
+    },
+    {
+      "id": "SC-28-unresolved-cause-dominates-an-outstanding-one",
+      "tests": "One cause outstanding and one unresolved. The verdict is not_established: a verifier that cannot say whether one cause was released has not established the artifact's pause state, and reporting suspended would name a set it cannot vouch for.",
+      "causes": [
+        "REG",
+        "FIRM"
+      ],
+      "releases": [
+        "REL_FIRM_STANDING_UNKNOWN"
+      ],
+      "at": "T_EVAL",
+      "expected": {
+        "verdict": "not_established",
+        "reason_code": "RELEASE_STANDING_NOT_ESTABLISHED",
+        "missing": [
+          "source"
+        ]
+      }
+    },
+    {
+      "id": "SC-29-restriction-alone-is-restricted",
+      "tests": "Invariant L8: a restriction on its own gives restricted, not suspended. A restricted state is different again and does not have to pause descendants.",
+      "causes": [
+        "DECREE"
+      ],
+      "releases": [],
+      "at": "T_EVAL",
+      "expected": {
+        "verdict": "restricted",
+        "reason_code": "CAUSES_OUTSTANDING",
+        "outstanding": [
+          {
+            "id": "sc-cause-decree",
+            "kind": "restriction",
+            "reason_code": "EXTERNAL_APPROVAL_GATE"
+          }
+        ]
+      }
+    }
+  ],
+  "compose_cases": [
+    {
+      "id": "CO-01-release-never-clears-a-revocation",
+      "tests": "OPEN-QUESTIONS.md, Release from suspension: lifting a suspension must not bypass a revocation that happened while the agent was suspended. Every cause released, the chain revoked, and the answer is the chain's. draft-03 section 3.5 says verbatim that revocation is irreversible.",
+      "chain": {
+        "verdict": "invalid",
+        "reason_code": "REVOKED"
+      },
+      "pause": {
+        "verdict": "valid",
+        "reason_code": "ALL_CAUSES_RELEASED"
+      },
+      "expected": {
+        "verdict": "invalid",
+        "reason_code": "REVOKED"
+      }
+    },
+    {
+      "id": "CO-02-unresolvable-revocation-after-full-release",
+      "tests": "Every cause released and the revocation answer unresolvable. Not established, not exercisable. Missing evidence is not a finding that no revocation happened.",
+      "chain": {
+        "verdict": "not_established",
+        "reason_code": "REVOCATION_UNKNOWN",
+        "missing": [
+          "source"
+        ]
+      },
+      "pause": {
+        "verdict": "valid",
+        "reason_code": "ALL_CAUSES_RELEASED"
+      },
+      "expected": {
+        "verdict": "not_established",
+        "reason_code": "REVOCATION_UNKNOWN",
+        "missing": [
+          "source"
+        ]
+      }
+    },
+    {
+      "id": "CO-03-valid-chain-reports-the-pause-state",
+      "tests": "A chain that verifies and causes outstanding: the pause state is the answer and it names the causes.",
+      "chain": {
+        "verdict": "valid",
+        "reason_code": "CHAIN_VALID"
+      },
+      "pause": {
+        "verdict": "suspended",
+        "reason_code": "CAUSES_OUTSTANDING",
+        "outstanding": [
+          {
+            "id": "sc-cause-firm",
+            "kind": "suspension",
+            "reason_code": "INTERNAL_INVESTIGATION"
+          },
+          {
+            "id": "sc-cause-reg",
+            "kind": "suspension",
+            "reason_code": "REGULATORY_SUSPENSION"
+          }
+        ]
+      },
+      "expected": {
+        "verdict": "suspended",
+        "reason_code": "CAUSES_OUTSTANDING",
+        "outstanding": [
+          {
+            "id": "sc-cause-firm",
+            "kind": "suspension",
+            "reason_code": "INTERNAL_INVESTIGATION"
+          },
+          {
+            "id": "sc-cause-reg",
+            "kind": "suspension",
+            "reason_code": "REGULATORY_SUSPENSION"
+          }
+        ]
+      }
+    },
+    {
+      "id": "CO-04-valid-chain-no-cause",
+      "tests": "A chain that verifies with no cause outstanding. Only here do the two answers together entitle a caller to treat the artifact as exercisable.",
+      "chain": {
+        "verdict": "valid",
+        "reason_code": "CHAIN_VALID"
+      },
+      "pause": {
+        "verdict": "valid",
+        "reason_code": "ALL_CAUSES_RELEASED"
+      },
+      "expected": {
+        "verdict": "valid",
+        "reason_code": "ALL_CAUSES_RELEASED"
+      }
+    },
+    {
+      "id": "CO-05-expiry-is-not-rewritten-by-a-pause-state",
+      "tests": "Invariant L10: expiry is not revocation and neither is a pause state. An expired chain with causes outstanding reports the expiry.",
+      "chain": {
+        "verdict": "invalid",
+        "reason_code": "EXPIRED"
+      },
+      "pause": {
+        "verdict": "suspended",
+        "reason_code": "CAUSES_OUTSTANDING",
+        "outstanding": [
+          {
+            "id": "sc-cause-reg",
+            "kind": "suspension",
+            "reason_code": "REGULATORY_SUSPENSION"
+          }
+        ]
+      },
+      "expected": {
+        "verdict": "invalid",
+        "reason_code": "EXPIRED"
+      }
+    },
+    {
+      "id": "CO-06-not-yet-effective-chain",
+      "tests": "A chain result that is not yet effective is reported as such. The pause module never overwrites it.",
+      "chain": {
+        "verdict": "not_yet_effective",
+        "reason_code": "NOT_BEFORE_UNREACHED"
+      },
+      "pause": {
+        "verdict": "valid",
+        "reason_code": "NO_CAUSE_PRESENTED"
+      },
+      "expected": {
+        "verdict": "not_yet_effective",
+        "reason_code": "NOT_BEFORE_UNREACHED"
+      }
+    }
+  ],
+  "error_cases": [
+    {
+      "id": "ER-01-duplicate-cause-id",
+      "mutation": "duplicate_cause_id",
+      "causes": [
+        "REG",
+        "REG"
+      ],
+      "releases": [],
+      "at": "T_EVAL",
+      "expected_error_code": "DUPLICATE_CAUSE_ID",
+      "tests": "Two causes sharing one cause_id is a caller error, not a verdict about anybody's authority."
+    },
+    {
+      "id": "ER-02-duplicate-release-id",
+      "mutation": "duplicate_release_id",
+      "causes": [
+        "REG"
+      ],
+      "releases": [
+        "REL_REG_BY_REGULATOR",
+        "REL_REG_BY_REGULATOR"
+      ],
+      "at": "T_EVAL",
+      "expected_error_code": "DUPLICATE_RELEASE_ID",
+      "tests": "Same rule for release records."
+    },
+    {
+      "id": "ER-03-cause-kind-unknown",
+      "mutation": "cause_kind_unknown",
+      "causes": [
+        "REG"
+      ],
+      "releases": [],
+      "at": "T_EVAL",
+      "expected_error_code": "CAUSE_KIND_UNKNOWN",
+      "tests": "A kind outside the two L8 separates is a malformed input. There is no third pause kind and this module will not invent one."
+    },
+    {
+      "id": "ER-04-cause-missing-field",
+      "mutation": "cause_drop_reason_code",
+      "causes": [
+        "REG"
+      ],
+      "releases": [],
+      "at": "T_EVAL",
+      "expected_error_code": "CAUSE_MALFORMED",
+      "tests": "A cause with no reason_code cannot be reported in an outstanding set that has to say what each remaining cause is."
+    },
+    {
+      "id": "ER-05-standing-answer-off-vocabulary",
+      "mutation": "standing_resolver_returns_maybe",
+      "causes": [
+        "FIRM"
+      ],
+      "releases": [
+        "REL_FIRM_BY_FIRM"
+      ],
+      "at": "T_EVAL",
+      "expected_error_code": "STANDING_ANSWER_UNKNOWN",
+      "tests": "A resolver answering outside has_standing, no_standing and unknown is a programming error. It does not silently become no_standing, which would turn a broken resolver into a finding."
+    },
+    {
+      "id": "ER-06-release-cause-ids-not-an-array",
+      "mutation": "release_cause_ids_string",
+      "causes": [
+        "REG"
+      ],
+      "releases": [
+        "REL_REG_BY_REGULATOR"
+      ],
+      "at": "T_EVAL",
+      "expected_error_code": "RELEASE_MALFORMED",
+      "tests": "cause_ids is a list because a release may name several causes. A bare string is malformed rather than a one-element list."
+    }
+  ]
+}
