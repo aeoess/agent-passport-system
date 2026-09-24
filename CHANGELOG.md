@@ -150,6 +150,86 @@
   one-sided edit fails on the side that was edited. Every verdict, reason code and refusal
   code in it is hand specified, and the signature and identifier byte values are there so the two
   ports can be shown to emit the same characters. Tests live at `tests/v2/bounds.test.ts`.
+- **`src/v2/capability-binding/`, capability pins and identifier binding. PROPOSED and
+  OPT-IN.** Whether an action through a named tool is established under a grant that pins
+  that tool, and whether an authority path that depends on an off-chain identifier still
+  depends on the same party. Nothing here is required by draft-pidlisnyi-aps-03, which
+  defines no pin syntax and states no rule pinning a tool to an implementation digest or a
+  schema. Its nearest text is the section 4.1 action reference, verbatim: "target is the
+  exact resource, tool, or endpoint against which the action will be dispatched; a profile
+  MUST define its target string construction." A target carries no digest, so it cannot
+  tell two revisions of one tool behind one endpoint apart. Proposed -04 excludes
+  capability binding by name.
+
+  `AuthorityValidationState` is unchanged, `verifyAuthorityDelegationChain` returns byte
+  for byte what it returned, and `AuthorityVectorV1` gains no eighth facet (section 3.2
+  closes it at seven and makes a missing facet invalid). Every result here is a
+  `BoundaryOutcome` from the lifecycle state vocabulary, reported alongside a chain result
+  and never merged into it. Nothing in this module makes any delegation invalid. A caller
+  that does not import it sees exactly today's behaviour.
+
+  The concept source is the aeoess/agent-authority-lifecycle concept document, invariant
+  candidate CAND-07 as rewritten, whose statement is a verdict rule: where nothing pins a
+  referent, the verdict records that referent continuity was not established rather than
+  admitting silently, and where something pins it and the pin does not match, the action is
+  denied with a mismatch reason rather than reported as not established. Also the
+  `AUTHORITY-LIFECYCLE.md` concepts "Action or capability binding", "Target binding" and
+  "Authority path and dependency". All proposed, with no published specification text
+  behind them, and every exported symbol says so in its doc comment.
+
+  New public surface:
+
+  - `evaluateCapabilityBinding`, the capability limb. An unpinned grant returns
+    `not_established` naming the coverage limb, never a silent admit. A pinned digest
+    established not to match returns `denied` with a mismatch reason, which is an
+    established negative rather than ignorance. Implementation and declared metadata are
+    two axes pinned separately, so an implementation pin does not cover a schema change.
+  - `evaluateIdentifierContinuity`, the identity limb. An identifier the grant does not
+    declare, a declared identifier with no pinned controller, a lapse, an unresolved
+    conflict between two accepted custodian records, an uncovered interval since issuance
+    and a retention record from a party without standing each get their own reason code. A
+    single accepted holder that is not a pinned controller is `denied`, and the result
+    names who holds the identifier now.
+  - `capabilityImplementationDigest` and `capabilityMetadataDigest`. The first is byte
+    identical to what `createToolRegistryEntry` computes. The second is over
+    `domain || 0x00 || JCS(metadata)` with a REQUIRED domain and no default, and it keeps
+    null members, which the SDK's legacy `canonicalize` strips.
+  - The `scope_grant_v0` pin encoding, `parseCapabilityPinFromScopeGrants` and
+    `capabilityPinScopeGrants`, which keeps a pin inside the scope grammar section 3.2
+    already defines. The side effect is stated in the module: a pin then narrows across a
+    chain by the ordinary covering rule, so a child carrying a different pin fails as scope
+    widening rather than as a binding failure.
+  - `observeToolAttestation`, which runs the existing `verifyToolIntegrity` and resolves
+    the attestor key BY TOOL, never from the `attestorId` the presented entry asserts about
+    itself.
+  - `identifierRecordSignedBytes`, `referentBindingResult`,
+    `projectBoundaryOutcomeToCandidateV0` and the two reason-code enumerations.
+
+  `ReferentBindingResult` carries no `valid` boolean, on the same reasoning as
+  `LifecycleStateResult`: `not_established` is not a boolean's false branch.
+
+  `conformance/capability-binding/v0/vectors.json` holds 18 capability cases, 15 identifier
+  cases and the digest, scope-grant and canonical-byte known answers. It is the shared
+  fixture. The Python SDK vendors a byte-identical copy and runs the same cases, and both
+  repositories pin the file's SHA-256 inside their own test.
+
+- **The tool manifest and namespace-claim layer is reachable from the package root.**
+  EXPERIMENTAL. `createToolManifest`, `verifyToolManifest`, `reviseToolManifest`,
+  `reapproveToolManifest`, `createNamespaceClaim` and `verifyNamespaceClaim` have shipped
+  in `src/core/tool-integrity.ts` with full declarations and their own tests for several
+  releases, and only `createToolRegistryEntry` and `verifyToolIntegrity` were re-exported
+  from the root, so a consumer installing the package could not reach them at all. They are
+  now re-exported, along with `ToolManifest`, `ToolManifestResult`, `ToolMetadata`,
+  `ToolTrustRoot`, `NamespaceClaim` and `ToolResolveOpts`. No implementation changes and no
+  signature changes. draft-03 defines no manifest, no namespace claim and no tool-metadata
+  digest, so treat these names as subject to change.
+
+  One known limit, stated rather than left to be discovered: `ToolManifest.metadataHash` is
+  taken over the legacy `canonicalize`, which strips null-valued members and carries no
+  domain separation, so a metadata block with an explicit null member and one omitting that
+  member hash to the same value. That is pre-existing signed-artifact behaviour and is left
+  alone, because changing it would invalidate manifests already signed.
+  `capabilityMetadataDigest` is a different digest and not a drop-in for it.
 
 - **`src/v2/lifecycle-state/`, the lifecycle state vocabulary. PROPOSED and OPT-IN.**
   A second verdict vocabulary, reported alongside chain verification and never merged into
@@ -276,6 +356,15 @@
   against a declaration written beside each case, and refuses to write the file if they
   disagree. The Python SDK runs a byte-identical vendored copy of the same file, so a
   behaviour difference between the two implementations fails one of them.
+
+### Changed
+
+- **`createToolRegistryEntry` accepts an optional `verifiedAt` override.** Additive and
+  optional. Omit it and the behaviour is exactly what it always was, `verifiedAt` stamped
+  from the system clock. Supply it and the function becomes reproducible, so calling it
+  twice with the same inputs gives the same bytes and the same signature. `createToolManifest`
+  has always taken the same override for the same reason; this brings the legacy entry path
+  level with it. No new field on `ToolRegistryEntry` and no change on the default path.
 
 ## 7.1.0 (2026-09-22)
 

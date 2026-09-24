@@ -1456,6 +1456,55 @@ export type {
   ToolRegistryEntry, ToolRequirements, ToolIntegrityResult,
 } from './core/tool-integrity.js'
 
+// ── Tool manifest and namespace claim: EXPERIMENTAL, now reachable ──
+// These are NOT new implementations. `createToolManifest`, `verifyToolManifest`,
+// `reviseToolManifest`, `reapproveToolManifest`, `createNamespaceClaim` and
+// `verifyNamespaceClaim` have shipped in `src/core/tool-integrity.ts` with full
+// declarations and their own test suite (`tests/tool-registry-integrity.test.ts`) for
+// several releases. Only the two legacy registry-entry functions above were re-exported
+// from the package root, so a consumer installing the package could not reach the manifest
+// layer at all. This block re-exports it. No behaviour of any function changes and no
+// signature changes.
+//
+// EXPERIMENTAL, NOT SPECIFIED. draft-pidlisnyi-aps-03 defines no tool manifest, no
+// namespace claim and no tool-metadata digest, and proposed -04 excludes capability binding
+// by name. Treat every name in this block as subject to change. The nearest draft-03 text
+// is the section 4.1 action reference, verbatim: "target is the exact resource, tool, or
+// endpoint against which the action will be dispatched; a profile MUST define its target
+// string construction." That target carries no digest.
+//
+// Concept source for why a consumer needs to reach this layer at all: the
+// aeoess/agent-authority-lifecycle concept document, invariant candidate CAND-07 as
+// rewritten, whose capability limb turns on a grant pinning something a verifier can check.
+// `ToolManifest.metadataHash` is the member that makes a description, schema or permissions
+// change detectable when the implementation bytes are byte-identical, which is exactly the
+// axis a registry entry alone cannot see. PROPOSED.
+//
+// ONE KNOWN LIMIT, STATED HERE RATHER THAN DISCOVERED LATER. `metadataHash` is taken over
+// the SDK's legacy `canonicalize`, which STRIPS null-valued members, so a metadata block
+// with an explicit `null` member and one omitting that member hash to the same value. It
+// also carries no domain separation. That is pre-existing signed-artifact behaviour and is
+// deliberately left alone here, because changing it would invalidate manifests already
+// signed. The v2 capability-binding module's `capabilityMetadataDigest` is a DIFFERENT
+// digest over RFC 8785 JCS with a required domain, which keeps nulls. The two are not
+// interchangeable and neither is a drop-in for the other.
+export {
+  createToolManifest,
+  verifyToolManifest,
+  reviseToolManifest,
+  reapproveToolManifest,
+  createNamespaceClaim,
+  verifyNamespaceClaim,
+} from './core/tool-integrity.js'
+export type {
+  ToolManifest,
+  ToolManifestResult,
+  ToolMetadata,
+  ToolTrustRoot,
+  NamespaceClaim,
+  ToolResolveOpts,
+} from './core/tool-integrity.js'
+
 // ── Recovery Policy (Standard Failure Patterns) ──
 export {
   evaluateRecovery, createRecoveryEvent, createDefaultRecoveryPolicy,
@@ -2497,3 +2546,67 @@ export {
   signAuthorityExhaustion,
   verifyAuthorityExhaustionSignature,
 } from './v2/bounds/index.js'
+// ── Capability pins and identifier binding (v2): PROPOSED, OPT-IN ──
+// Whether an action through a named tool is established under a grant that pins that tool,
+// and whether an authority path that depends on an off-chain identifier still depends on the
+// same party.
+//
+// NOT REQUIRED BY draft-pidlisnyi-aps-03. That document defines no pin syntax and states no
+// rule pinning a tool to an implementation digest or a schema. Its nearest text is the
+// section 4.1 action reference, verbatim: "target is the exact resource, tool, or endpoint
+// against which the action will be dispatched; a profile MUST define its target string
+// construction." A target carries no digest, so it cannot tell two revisions of one tool
+// behind one endpoint apart. Proposed -04 excludes capability binding by name.
+//
+// `AuthorityValidationState` is unchanged, `verifyAuthorityDelegationChain` returns byte for
+// byte what it returned, and `AuthorityVectorV1` gains no eighth facet (draft-03 section 3.2
+// closes it at seven). Every result here is reported ALONGSIDE a chain result, in the
+// `BoundaryOutcome` subject from the lifecycle state vocabulary, and never merged into it. A
+// caller that does not import this module sees exactly today's behaviour.
+//
+// Concept source: the aeoess/agent-authority-lifecycle concept document, invariant candidate
+// CAND-07 as rewritten, and the AUTHORITY-LIFECYCLE.md concepts "Action or capability
+// binding", "Target binding" and "Authority path and dependency". All PROPOSED, with no
+// published specification text behind them. Nothing downstream should treat these names as
+// specified.
+export {
+  CAPABILITY_BINDING_REASON_CODES,
+  IDENTIFIER_CONTINUITY_REASON_CODES,
+  CAPABILITY_METADATA_DOMAIN_CBD_V0,
+  IDENTIFIER_BINDING_UNSIGNED_FIELDS,
+  IDENTIFIER_RETENTION_UNSIGNED_FIELDS,
+} from './v2/capability-binding/index.js'
+export type {
+  PinEncoding,
+  CapabilityPin,
+  ReferentContinuity,
+  ReferentBindingResult,
+  IdentifierContinuityResult,
+  ToolAttestationObservation,
+  CapabilityBindingReasonCode,
+  IdentifierContinuityReasonCode,
+  CapabilityBindingInput,
+  IdentifierContinuityInput,
+  IdentifierBindingRecord,
+  IdentifierRetentionRecord,
+} from './v2/capability-binding/index.js'
+export {
+  CapabilityBindingError,
+  referentBindingResult,
+  projectBoundaryOutcomeToCandidateV0,
+  capabilityImplementationDigest,
+  capabilityMetadataDigest,
+  toolScopeGrant,
+  implementationPinPrefix,
+  metadataPinPrefix,
+  parseCapabilityPinFromScopeGrants,
+  capabilityPinScopeGrants,
+  capabilityPinIsEmpty,
+  observeToolAttestation,
+  evaluateCapabilityBinding,
+  identifierRecordSignedBytes,
+  identifierDependencyScopeGrant,
+  identifierControllerPinScopeGrant,
+  parseIdentifierControllerPins,
+  evaluateIdentifierContinuity,
+} from './v2/capability-binding/index.js'
