@@ -2668,3 +2668,79 @@ export type {
   StatusCoverageReasonCode,
 } from './v2/status-coverage/index.js'
 export { StatusCoverageError, decideMultiSourceStatus } from './v2/status-coverage/index.js'
+// ── Authority state: markers, fencing, withdrawal (v2): PROPOSED, OPT-IN ──
+// Three surfaces the lifecycle work needs and draft-pidlisnyi-aps-03 does not contain:
+// a monotonic marker on authority state, a fencing gate on an authority-state write, and an
+// attributable withdrawal of a recorded revocation that never removes it.
+//
+// NOT REQUIRED BY draft-03, which has no occurrence of `epoch`, `fencing`, `snapshot`,
+// `replica` or `restore` and defines no withdrawal record. What draft-03 does fix stays
+// fixed: section 3.5, "Revocation is irreversible", and section 3.3's four-value result.
+// `AuthorityValidationState`, `AuthorityValidationResult`, `AuthorityRevocationStore`,
+// `AuthorityChainVerificationOptions` and `createAuthorityRevocationResolver` are all
+// unchanged, no store gains a removal method, and a caller that does not import this module
+// sees exactly today's behaviour.
+//
+// The two findings the shapes encode. First, a verifier that retained the epoch-N revocation
+// records and one that retained only the number give different answers about the same
+// restored view, `revoked` against `unknown`, so `RetainedAuthorityState` takes the record
+// set and the high-water mark as two inputs rather than one "epoch". Second, an accepted
+// withdrawal changes what a verifier can REPORT and changes no verdict, so it lands in
+// `CorrectedRevocationView` beside the chain result instead of inside it.
+//
+// Concept source: the aeoess/agent-authority-lifecycle concept document (the `Authority
+// epoch` concept, invariants L3, L7 and L11, and the `Authority rollback` open question)
+// and invariant candidates CAND-08 and CAND-02. Every one of those is PROPOSED, the open
+// question is OPEN, and nothing downstream should treat these names as specified.
+export {
+  STATE_MARKER_SCOPES,
+  MONOTONICITY_OUTCOMES,
+  UNPLACEABLE_DISPOSITIONS,
+  FENCED_WRITE_REFUSAL_CODES,
+  WITHDRAWAL_STANDINGS,
+  WITHDRAWAL_OUTCOME_CODES,
+  REVOCATION_WITHDRAWAL_RECORD_TYPE,
+  REVOCATION_WITHDRAWAL_VERSION,
+} from './v2/authority-state/index.js'
+export type {
+  StateMarker,
+  StateMarkerScope,
+  StateMarkerInput,
+  MonotonicityOutcome,
+  UnplaceableDisposition,
+  RetainedAuthorityState,
+  FencedWrite,
+  FencedWriteOutcome,
+  FencedWriteRefusalCode,
+  RevocationWithdrawalV0,
+  RevocationWithdrawalInput,
+  WithdrawalStanding,
+  WithdrawalStandingResolver,
+  WithdrawalOutcomeCode,
+  WithdrawalEvaluation,
+  CorrectedRevocationView,
+  MonotonicRevocationResolver,
+  MonotonicRevocationResolverOptions,
+  AuthorityStateReport,
+  AuthorityStateReportInput,
+} from './v2/authority-state/index.js'
+export {
+  AuthorityStateError,
+  stateMarker,
+  compareStateMarker,
+  advanceHighWaterMark,
+  sameScope,
+  isStateMarkerScope,
+  isMonotonicityOutcome,
+  isUnplaceableDisposition,
+  resolveUnderRetainedState,
+  createMonotonicRevocationResolver,
+  FencedAuthorityStateLog,
+  revocationWithdrawal,
+  withdrawalSignerIsRevoker,
+  isWithdrawalStanding,
+  evaluateRevocationWithdrawal,
+  correctedRevocationView,
+  authorityStateReport,
+  reportAuthorityState,
+} from './v2/authority-state/index.js'

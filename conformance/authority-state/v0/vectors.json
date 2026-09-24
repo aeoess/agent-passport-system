@@ -1,0 +1,438 @@
+{
+  "profile": "aps-authority-state-v0",
+  "status": "proposed",
+  "status_note": "PROPOSED and OPT-IN. Not required by draft-pidlisnyi-aps-03, which contains no occurrence of epoch, fencing, snapshot, replica or restore, defines no record for withdrawing a revocation, and whose section 3.5 states 'Revocation is irreversible'. Concept source: the aeoess/agent-authority-lifecycle concept document (the Authority epoch concept, invariants L3, L7 and L11, and the Authority rollback open question) and its invariant candidates CAND-08 and CAND-02. The open question is open and the candidates are proposed. Nothing downstream should bind to these names as specified text.",
+  "description": "Cross-language parity vectors for authority state markers, the monotonicity comparison, the fencing gate on an authority-state write, and the evaluation of a record withdrawing a recorded revocation. The TypeScript and Python SDKs must produce identical results for every case.",
+  "coverage_note": "These cases cover every part of the surface that needs no signature. The limb where a RETAINED revocation record verifies against a delegation and produces a revoked answer needs real Ed25519 records, so it is covered by each SDK's own test against records that SDK mints, not here. The routing cases below cover which source the resolver consults, with the presented answer supplied as a constant.",
+  "vocabulary": {
+    "state_marker_scopes": ["global", "per_delegation", "per_principal", "per_store"],
+    "monotonicity_outcomes": ["forward", "regressed", "unplaceable"],
+    "unplaceable_dispositions": ["read_presented", "refuse"],
+    "fenced_write_refusal_codes": ["stale_fencing_token", "fencing_scope_mismatch", "fencing_token_unreadable"],
+    "withdrawal_standings": ["has_standing", "no_standing", "unknown"],
+    "withdrawal_outcome_codes": ["WITHDRAWAL_ACCEPTED", "WITHDRAWAL_SCHEMA_INVALID", "WITHDRAWAL_NAMES_NO_HELD_REVOCATION", "WITHDRAWAL_TARGET_MISMATCH", "WITHDRAWAL_SIGNER_WITHOUT_STANDING", "WITHDRAWAL_STANDING_NOT_ESTABLISHED"],
+    "revocation_withdrawal_record_type": "proposed:aps:revocation-withdrawal:v0",
+    "revocation_withdrawal_version": "0"
+  },
+  "marker_cases": [
+    {
+      "id": "AS-M-01-global-marker",
+      "tests": "A global marker carries a canonical unsigned decimal value and no scope_ref.",
+      "input": { "value": "7", "scope": "global" },
+      "expected": { "ok": true, "marker": { "value": "7", "scope": "global" } }
+    },
+    {
+      "id": "AS-M-02-zero-is-canonical",
+      "tests": "Zero is a canonical value. A generation counter can start at zero.",
+      "input": { "value": "0", "scope": "global" },
+      "expected": { "ok": true, "marker": { "value": "0", "scope": "global" } }
+    },
+    {
+      "id": "AS-M-03-scoped-marker-names-its-ref",
+      "tests": "A per_delegation marker says which delegation it is counted within.",
+      "input": { "value": "41", "scope": "per_delegation", "scope_ref": "sha256:0000000000000000000000000000000000000000000000000000000000000001" },
+      "expected": { "ok": true, "marker": { "value": "41", "scope": "per_delegation", "scope_ref": "sha256:0000000000000000000000000000000000000000000000000000000000000001" } }
+    },
+    {
+      "id": "AS-M-04-value-past-2-53-stays-exact",
+      "tests": "The value is a string so a marker past 2^53 - 1 is not rounded. Compared as an integer, never lexically.",
+      "input": { "value": "9007199254740993", "scope": "global" },
+      "expected": { "ok": true, "marker": { "value": "9007199254740993", "scope": "global" } }
+    },
+    {
+      "id": "AS-M-05-leading-zero-rejected",
+      "tests": "Canonical means exactly one spelling per value.",
+      "input": { "value": "07", "scope": "global" },
+      "expected": { "ok": false, "error_code": "MARKER_VALUE_NONCANONICAL" }
+    },
+    {
+      "id": "AS-M-06-negative-rejected",
+      "tests": "A generation counter has no negative values.",
+      "input": { "value": "-1", "scope": "global" },
+      "expected": { "ok": false, "error_code": "MARKER_VALUE_NONCANONICAL" }
+    },
+    {
+      "id": "AS-M-07-empty-value-rejected",
+      "tests": "An empty value is not a number.",
+      "input": { "value": "", "scope": "global" },
+      "expected": { "ok": false, "error_code": "MARKER_VALUE_NONCANONICAL" }
+    },
+    {
+      "id": "AS-M-08-unknown-scope-rejected",
+      "tests": "The four scopes are closed and there is no default.",
+      "input": { "value": "7", "scope": "per_session" },
+      "expected": { "ok": false, "error_code": "MARKER_SCOPE_UNKNOWN" }
+    },
+    {
+      "id": "AS-M-09-scoped-marker-without-ref-rejected",
+      "tests": "A per_store marker that does not say which store cannot be compared against anything.",
+      "input": { "value": "7", "scope": "per_store" },
+      "expected": { "ok": false, "error_code": "MARKER_SCOPE_REF_REQUIRED" }
+    },
+    {
+      "id": "AS-M-10-global-marker-with-ref-rejected",
+      "tests": "A global marker names no scope_ref, so carrying one is a shape error rather than an ignored field.",
+      "input": { "value": "7", "scope": "global", "scope_ref": "store-a" },
+      "expected": { "ok": false, "error_code": "MARKER_SCOPE_REF_NOT_ALLOWED" }
+    }
+  ],
+  "comparison_cases": [
+    {
+      "id": "AS-C-01-advance-is-forward",
+      "tests": "A presented marker above the established mark is forward.",
+      "established": { "value": "7", "scope": "global" },
+      "presented": { "value": "8", "scope": "global" },
+      "expected": { "outcome": "forward", "high_water_mark_after": { "value": "8", "scope": "global" } }
+    },
+    {
+      "id": "AS-C-02-equal-is-forward",
+      "tests": "Equal has not gone backwards. A view that has not moved is not stale.",
+      "established": { "value": "7", "scope": "global" },
+      "presented": { "value": "7", "scope": "global" },
+      "expected": { "outcome": "forward", "high_water_mark_after": { "value": "7", "scope": "global" } }
+    },
+    {
+      "id": "AS-C-03-behind-is-regressed",
+      "tests": "CAND-08. Epoch-6 state presented to a verifier that has established epoch 7 is a regression.",
+      "established": { "value": "7", "scope": "global" },
+      "presented": { "value": "6", "scope": "global" },
+      "expected": { "outcome": "regressed", "high_water_mark_after": { "value": "7", "scope": "global" } }
+    },
+    {
+      "id": "AS-C-04-no-established-mark-is-unplaceable",
+      "tests": "A verifier with no prior observation has nothing to compare against. Not a verdict.",
+      "established": null,
+      "presented": { "value": "6", "scope": "global" },
+      "expected": { "outcome": "unplaceable", "high_water_mark_after": { "value": "6", "scope": "global" } }
+    },
+    {
+      "id": "AS-C-05-no-presented-mark-is-unplaceable",
+      "tests": "A view that carries no marker cannot be placed either, and does not lower the established mark.",
+      "established": { "value": "7", "scope": "global" },
+      "presented": null,
+      "expected": { "outcome": "unplaceable", "high_water_mark_after": { "value": "7", "scope": "global" } }
+    },
+    {
+      "id": "AS-C-06-neither-mark-is-unplaceable",
+      "tests": "Nothing established and nothing presented establishes nothing.",
+      "established": null,
+      "presented": null,
+      "expected": { "outcome": "unplaceable", "high_water_mark_after": null }
+    },
+    {
+      "id": "AS-C-07-different-scope-is-unplaceable",
+      "tests": "Two markers counted in different things order nothing, so the comparison refuses to invent an order.",
+      "established": { "value": "7", "scope": "global" },
+      "presented": { "value": "6", "scope": "per_store", "scope_ref": "store-a" },
+      "expected": { "outcome": "unplaceable", "high_water_mark_after": { "value": "7", "scope": "global" } }
+    },
+    {
+      "id": "AS-C-08-different-scope-ref-is-unplaceable",
+      "tests": "Same scope, different ref, is still two different counters.",
+      "established": { "value": "7", "scope": "per_store", "scope_ref": "store-a" },
+      "presented": { "value": "9", "scope": "per_store", "scope_ref": "store-b" },
+      "expected": { "outcome": "unplaceable", "high_water_mark_after": { "value": "7", "scope": "per_store", "scope_ref": "store-a" } }
+    },
+    {
+      "id": "AS-C-09-comparison-is-integer-not-lexical",
+      "tests": "10 is after 9. A lexical comparison would call this a regression.",
+      "established": { "value": "9", "scope": "global" },
+      "presented": { "value": "10", "scope": "global" },
+      "expected": { "outcome": "forward", "high_water_mark_after": { "value": "10", "scope": "global" } }
+    },
+    {
+      "id": "AS-C-10-wide-values-compare-exactly",
+      "tests": "Two values one apart past 2^53 - 1 are distinguished. Floating point would call them equal.",
+      "established": { "value": "9007199254740993", "scope": "global" },
+      "presented": { "value": "9007199254740992", "scope": "global" },
+      "expected": { "outcome": "regressed", "high_water_mark_after": { "value": "9007199254740993", "scope": "global" } }
+    }
+  ],
+  "routing_cases": [
+    {
+      "id": "AS-R-01-forward-reads-the-presented-view",
+      "tests": "A view that is not behind is read normally, and the presented answer is what the chain verifier gets.",
+      "established": { "value": "6", "scope": "global" },
+      "presented_marker": { "value": "6", "scope": "global" },
+      "presented_answer": "active",
+      "retained_records_present": false,
+      "on_unplaceable": "read_presented",
+      "expected": { "monotonicity": "forward", "resolution": "active", "high_water_mark_after": { "value": "6", "scope": "global" } }
+    },
+    {
+      "id": "AS-R-02-forward-carries-a-revoked-answer-through",
+      "tests": "The gate does not manufacture an answer on a forward read. Whatever the view says is what is returned.",
+      "established": { "value": "7", "scope": "global" },
+      "presented_marker": { "value": "7", "scope": "global" },
+      "presented_answer": "revoked",
+      "retained_records_present": false,
+      "on_unplaceable": "read_presented",
+      "expected": { "monotonicity": "forward", "resolution": "revoked", "high_water_mark_after": { "value": "7", "scope": "global" } }
+    },
+    {
+      "id": "AS-R-03-regressed-with-no-retained-records-is-unknown",
+      "tests": "L7. A verifier that kept only the number cannot establish a revocation from records. Unknown is not established, not false, and never active.",
+      "established": { "value": "7", "scope": "global" },
+      "presented_marker": { "value": "6", "scope": "global" },
+      "presented_answer": "active",
+      "retained_records_present": false,
+      "on_unplaceable": "read_presented",
+      "expected": { "monotonicity": "regressed", "resolution": "unknown", "high_water_mark_after": { "value": "7", "scope": "global" } }
+    },
+    {
+      "id": "AS-R-04-regressed-never-returns-the-presented-active",
+      "tests": "The presented view says active and the answer is still not active. This is the case a latest-read implementation gets wrong.",
+      "established": { "value": "8", "scope": "global" },
+      "presented_marker": { "value": "6", "scope": "global" },
+      "presented_answer": "active",
+      "retained_records_present": false,
+      "on_unplaceable": "refuse",
+      "expected": { "monotonicity": "regressed", "resolution": "unknown", "high_water_mark_after": { "value": "8", "scope": "global" } }
+    },
+    {
+      "id": "AS-R-05-unplaceable-read-presented",
+      "tests": "First contact, disposition read_presented. The view is read as current. This outcome is the caller's choice, not the SDK's.",
+      "established": null,
+      "presented_marker": { "value": "6", "scope": "global" },
+      "presented_answer": "active",
+      "retained_records_present": false,
+      "on_unplaceable": "read_presented",
+      "expected": { "monotonicity": "unplaceable", "resolution": "active", "high_water_mark_after": { "value": "6", "scope": "global" } }
+    },
+    {
+      "id": "AS-R-06-unplaceable-refuse",
+      "tests": "First contact, disposition refuse. The same bytes give indeterminate instead. Both are defensible and the outcomes differ, which is why there is no default.",
+      "established": null,
+      "presented_marker": { "value": "6", "scope": "global" },
+      "presented_answer": "active",
+      "retained_records_present": false,
+      "on_unplaceable": "refuse",
+      "expected": { "monotonicity": "unplaceable", "resolution": "unknown", "high_water_mark_after": { "value": "6", "scope": "global" } }
+    },
+    {
+      "id": "AS-R-07-unplaceable-cross-scope-refuse",
+      "tests": "A marker from another counter is unplaceable for the same reason a first read is, and takes the same disposition.",
+      "established": { "value": "7", "scope": "global" },
+      "presented_marker": { "value": "9", "scope": "per_store", "scope_ref": "store-a" },
+      "presented_answer": "active",
+      "retained_records_present": false,
+      "on_unplaceable": "refuse",
+      "expected": { "monotonicity": "unplaceable", "resolution": "unknown", "high_water_mark_after": { "value": "7", "scope": "global" } }
+    },
+    {
+      "id": "AS-R-08-presented-view-with-no-marker-is-unplaceable",
+      "tests": "A state source that carries no generation at all cannot be placed, and the disposition decides.",
+      "established": { "value": "7", "scope": "global" },
+      "presented_marker": null,
+      "presented_answer": "active",
+      "retained_records_present": false,
+      "on_unplaceable": "refuse",
+      "expected": { "monotonicity": "unplaceable", "resolution": "unknown", "high_water_mark_after": { "value": "7", "scope": "global" } }
+    }
+  ],
+  "fencing_cases": [
+    {
+      "id": "AS-F-01-first-write-accepted",
+      "tests": "A log with nothing published accepts the first readable token.",
+      "writes": [
+        { "token": { "value": "42", "scope": "global" }, "payload": "epoch-7", "expected": { "accepted": true } }
+      ],
+      "expected": { "published_payload": "epoch-7", "highest_token": { "value": "42", "scope": "global" } }
+    },
+    {
+      "id": "AS-F-02-stale-token-refused",
+      "tests": "The rule the source states: reject a write on which the token has gone backwards. The refused write changes neither the payload nor the highest token.",
+      "writes": [
+        { "token": { "value": "42", "scope": "global" }, "payload": "epoch-7", "expected": { "accepted": true } },
+        { "token": { "value": "41", "scope": "global" }, "payload": "epoch-6", "expected": { "accepted": false, "code": "stale_fencing_token" } }
+      ],
+      "expected": { "published_payload": "epoch-7", "highest_token": { "value": "42", "scope": "global" } }
+    },
+    {
+      "id": "AS-F-03-higher-token-accepted",
+      "tests": "A token the log has not seen before is accepted as long as it has not gone backwards.",
+      "writes": [
+        { "token": { "value": "42", "scope": "global" }, "payload": "epoch-7", "expected": { "accepted": true } },
+        { "token": { "value": "43", "scope": "global" }, "payload": "epoch-8", "expected": { "accepted": true } }
+      ],
+      "expected": { "published_payload": "epoch-8", "highest_token": { "value": "43", "scope": "global" } }
+    },
+    {
+      "id": "AS-F-04-equal-token-retry-accepted",
+      "tests": "An equal token has not gone backwards. The same holder retrying is idempotent.",
+      "writes": [
+        { "token": { "value": "43", "scope": "global" }, "payload": "epoch-8", "expected": { "accepted": true } },
+        { "token": { "value": "43", "scope": "global" }, "payload": "epoch-8", "expected": { "accepted": true } }
+      ],
+      "expected": { "published_payload": "epoch-8", "highest_token": { "value": "43", "scope": "global" } }
+    },
+    {
+      "id": "AS-F-05-stale-write-does-not-move-the-mark-for-later-writes",
+      "tests": "After a refusal the log is where it was, so a later write is judged against 42 and not against 41.",
+      "writes": [
+        { "token": { "value": "42", "scope": "global" }, "payload": "epoch-7", "expected": { "accepted": true } },
+        { "token": { "value": "41", "scope": "global" }, "payload": "epoch-6", "expected": { "accepted": false, "code": "stale_fencing_token" } },
+        { "token": { "value": "41", "scope": "global" }, "payload": "epoch-6", "expected": { "accepted": false, "code": "stale_fencing_token" } }
+      ],
+      "expected": { "published_payload": "epoch-7", "highest_token": { "value": "42", "scope": "global" } }
+    },
+    {
+      "id": "AS-F-06-cross-scope-token-refused",
+      "tests": "A token counted in another thing cannot be ordered against the log, and a write path that cannot order a token is not fenced. Not in any source; the module's choice.",
+      "writes": [
+        { "token": { "value": "42", "scope": "global" }, "payload": "epoch-7", "expected": { "accepted": true } },
+        { "token": { "value": "99", "scope": "per_store", "scope_ref": "store-a" }, "payload": "epoch-9", "expected": { "accepted": false, "code": "fencing_scope_mismatch" } }
+      ],
+      "expected": { "published_payload": "epoch-7", "highest_token": { "value": "42", "scope": "global" } }
+    },
+    {
+      "id": "AS-F-07-unreadable-token-refused-on-an-empty-log",
+      "tests": "An absent token is a different finding from a stale one, and an empty log still refuses it.",
+      "writes": [
+        { "token": null, "payload": "epoch-7", "expected": { "accepted": false, "code": "fencing_token_unreadable" } }
+      ],
+      "expected": { "published_payload": null, "highest_token": null }
+    },
+    {
+      "id": "AS-F-08-unreadable-token-refused-on-a-written-log",
+      "tests": "Same finding after a write has landed, and it does not read as a backwards move that never happened.",
+      "writes": [
+        { "token": { "value": "42", "scope": "global" }, "payload": "epoch-7", "expected": { "accepted": true } },
+        { "token": null, "payload": "epoch-6", "expected": { "accepted": false, "code": "fencing_token_unreadable" } }
+      ],
+      "expected": { "published_payload": "epoch-7", "highest_token": { "value": "42", "scope": "global" } }
+    },
+    {
+      "id": "AS-F-09-wide-token-values-order-exactly",
+      "tests": "Two tokens one apart past 2^53 - 1 are distinguished on the write path too.",
+      "writes": [
+        { "token": { "value": "9007199254740993", "scope": "global" }, "payload": "epoch-big", "expected": { "accepted": true } },
+        { "token": { "value": "9007199254740992", "scope": "global" }, "payload": "epoch-older", "expected": { "accepted": false, "code": "stale_fencing_token" } }
+      ],
+      "expected": { "published_payload": "epoch-big", "highest_token": { "value": "9007199254740993", "scope": "global" } }
+    }
+  ],
+  "withdrawal_field_note": "evaluate_revocation_withdrawal reads exactly three fields of a held revocation: revocation_id, delegation_id and revoker. The held records below carry those three and nothing else, which is why the cases need no signatures. Authentication of a withdrawal is the caller's in both SDKs; see the RevocationWithdrawalV0 doc comment.",
+  "withdrawal_cases": [
+    {
+      "id": "AS-W-01-revoker-withdrawal-accepted",
+      "tests": "CAND-02. The party the revocation names as revoker withdraws it. Accepted AS A RECORD. The revocation is not removed by this or any other path.",
+      "held": [
+        { "revocation_id": "sha256:00000000000000000000000000000000000000000000000000000000000000aa", "delegation_id": "sha256:00000000000000000000000000000000000000000000000000000000000000d1", "revoker": "did:aps:example:principal" }
+      ],
+      "withdrawal": { "record_type": "proposed:aps:revocation-withdrawal:v0", "version": "0", "revocation_id": "sha256:00000000000000000000000000000000000000000000000000000000000000aa", "delegation_id": "sha256:00000000000000000000000000000000000000000000000000000000000000d1", "withdrawn_by": "did:aps:example:principal", "withdrawn_at": "2026-09-20T12:30:00.000Z", "reason_code": "recorded-in-error" },
+      "standing_resolver": "signer_is_revoker",
+      "expected": { "accepted": true, "reason_code": "WITHDRAWAL_ACCEPTED", "standing": "has_standing" }
+    },
+    {
+      "id": "AS-W-02-non-revoker-withdrawal-refused",
+      "tests": "A genuine record from a party the resolver says may not withdraw this revocation is refused with a named reason rather than ignored.",
+      "held": [
+        { "revocation_id": "sha256:00000000000000000000000000000000000000000000000000000000000000aa", "delegation_id": "sha256:00000000000000000000000000000000000000000000000000000000000000d1", "revoker": "did:aps:example:principal" }
+      ],
+      "withdrawal": { "record_type": "proposed:aps:revocation-withdrawal:v0", "version": "0", "revocation_id": "sha256:00000000000000000000000000000000000000000000000000000000000000aa", "delegation_id": "sha256:00000000000000000000000000000000000000000000000000000000000000d1", "withdrawn_by": "did:aps:example:agent-a", "withdrawn_at": "2026-09-20T12:30:00.000Z", "reason_code": "recorded-in-error" },
+      "standing_resolver": "signer_is_revoker",
+      "expected": { "accepted": false, "reason_code": "WITHDRAWAL_SIGNER_WITHOUT_STANDING", "standing": "no_standing" }
+    },
+    {
+      "id": "AS-W-03-unresolvable-standing-is-not-established",
+      "tests": "A standing question the verifier could not answer is not established, and that is a different finding from a party established to lack standing. Both refuse.",
+      "held": [
+        { "revocation_id": "sha256:00000000000000000000000000000000000000000000000000000000000000aa", "delegation_id": "sha256:00000000000000000000000000000000000000000000000000000000000000d1", "revoker": "did:aps:example:principal" }
+      ],
+      "withdrawal": { "record_type": "proposed:aps:revocation-withdrawal:v0", "version": "0", "revocation_id": "sha256:00000000000000000000000000000000000000000000000000000000000000aa", "delegation_id": "sha256:00000000000000000000000000000000000000000000000000000000000000d1", "withdrawn_by": "did:aps:example:principal", "withdrawn_at": "2026-09-20T12:30:00.000Z", "reason_code": "recorded-in-error" },
+      "standing_resolver": "always_unknown",
+      "expected": { "accepted": false, "reason_code": "WITHDRAWAL_STANDING_NOT_ESTABLISHED", "standing": "unknown" }
+    },
+    {
+      "id": "AS-W-04-names-no-held-revocation",
+      "tests": "A withdrawal of something the verifier does not hold is refused before standing is asked.",
+      "held": [
+        { "revocation_id": "sha256:00000000000000000000000000000000000000000000000000000000000000aa", "delegation_id": "sha256:00000000000000000000000000000000000000000000000000000000000000d1", "revoker": "did:aps:example:principal" }
+      ],
+      "withdrawal": { "record_type": "proposed:aps:revocation-withdrawal:v0", "version": "0", "revocation_id": "sha256:00000000000000000000000000000000000000000000000000000000000000bb", "delegation_id": "sha256:00000000000000000000000000000000000000000000000000000000000000d1", "withdrawn_by": "did:aps:example:principal", "withdrawn_at": "2026-09-20T12:30:00.000Z", "reason_code": "recorded-in-error" },
+      "standing_resolver": "always_has_standing",
+      "expected": { "accepted": false, "reason_code": "WITHDRAWAL_NAMES_NO_HELD_REVOCATION", "standing": null }
+    },
+    {
+      "id": "AS-W-05-target-mismatch",
+      "tests": "The named revocation is held but revokes a different delegation, so the record does not describe what it claims to.",
+      "held": [
+        { "revocation_id": "sha256:00000000000000000000000000000000000000000000000000000000000000aa", "delegation_id": "sha256:00000000000000000000000000000000000000000000000000000000000000d1", "revoker": "did:aps:example:principal" }
+      ],
+      "withdrawal": { "record_type": "proposed:aps:revocation-withdrawal:v0", "version": "0", "revocation_id": "sha256:00000000000000000000000000000000000000000000000000000000000000aa", "delegation_id": "sha256:00000000000000000000000000000000000000000000000000000000000000d2", "withdrawn_by": "did:aps:example:principal", "withdrawn_at": "2026-09-20T12:30:00.000Z", "reason_code": "recorded-in-error" },
+      "standing_resolver": "always_has_standing",
+      "expected": { "accepted": false, "reason_code": "WITHDRAWAL_TARGET_MISMATCH", "standing": null }
+    },
+    {
+      "id": "AS-W-06-wrong-record-type-refused",
+      "tests": "The proposed namespace is checked. A record of some other type is not a withdrawal.",
+      "held": [
+        { "revocation_id": "sha256:00000000000000000000000000000000000000000000000000000000000000aa", "delegation_id": "sha256:00000000000000000000000000000000000000000000000000000000000000d1", "revoker": "did:aps:example:principal" }
+      ],
+      "withdrawal": { "record_type": "aps:authority-revocation:v1", "version": "0", "revocation_id": "sha256:00000000000000000000000000000000000000000000000000000000000000aa", "delegation_id": "sha256:00000000000000000000000000000000000000000000000000000000000000d1", "withdrawn_by": "did:aps:example:principal", "withdrawn_at": "2026-09-20T12:30:00.000Z", "reason_code": "recorded-in-error" },
+      "standing_resolver": "always_has_standing",
+      "expected": { "accepted": false, "reason_code": "WITHDRAWAL_SCHEMA_INVALID", "standing": null }
+    },
+    {
+      "id": "AS-W-07-missing-reason-code-refused",
+      "tests": "A withdrawal with no stated ground is not a well-formed withdrawal.",
+      "held": [
+        { "revocation_id": "sha256:00000000000000000000000000000000000000000000000000000000000000aa", "delegation_id": "sha256:00000000000000000000000000000000000000000000000000000000000000d1", "revoker": "did:aps:example:principal" }
+      ],
+      "withdrawal": { "record_type": "proposed:aps:revocation-withdrawal:v0", "version": "0", "revocation_id": "sha256:00000000000000000000000000000000000000000000000000000000000000aa", "delegation_id": "sha256:00000000000000000000000000000000000000000000000000000000000000d1", "withdrawn_by": "did:aps:example:principal", "withdrawn_at": "2026-09-20T12:30:00.000Z", "reason_code": "" },
+      "standing_resolver": "always_has_standing",
+      "expected": { "accepted": false, "reason_code": "WITHDRAWAL_SCHEMA_INVALID", "standing": null }
+    },
+    {
+      "id": "AS-W-08-empty-held-set",
+      "tests": "Nothing held means nothing to withdraw.",
+      "held": [],
+      "withdrawal": { "record_type": "proposed:aps:revocation-withdrawal:v0", "version": "0", "revocation_id": "sha256:00000000000000000000000000000000000000000000000000000000000000aa", "delegation_id": "sha256:00000000000000000000000000000000000000000000000000000000000000d1", "withdrawn_by": "did:aps:example:principal", "withdrawn_at": "2026-09-20T12:30:00.000Z", "reason_code": "recorded-in-error" },
+      "standing_resolver": "always_has_standing",
+      "expected": { "accepted": false, "reason_code": "WITHDRAWAL_NAMES_NO_HELD_REVOCATION", "standing": null }
+    }
+  ],
+  "corrected_view_cases": [
+    {
+      "id": "AS-V-01-accepted-withdrawal-does-not-remove-the-revocation",
+      "tests": "The revocation is present and unchanged in the view after an accepted withdrawal, and the withdrawal is reported beside it. This is the field that did not exist.",
+      "revocation": { "revocation_id": "sha256:00000000000000000000000000000000000000000000000000000000000000aa", "delegation_id": "sha256:00000000000000000000000000000000000000000000000000000000000000d1", "revoker": "did:aps:example:principal" },
+      "withdrawals": [
+        { "record_type": "proposed:aps:revocation-withdrawal:v0", "version": "0", "revocation_id": "sha256:00000000000000000000000000000000000000000000000000000000000000aa", "delegation_id": "sha256:00000000000000000000000000000000000000000000000000000000000000d1", "withdrawn_by": "did:aps:example:principal", "withdrawn_at": "2026-09-20T12:30:00.000Z", "reason_code": "recorded-in-error" }
+      ],
+      "standing_resolver": "signer_is_revoker",
+      "expected": { "revocation_present": true, "accepted_count": 1, "refused_count": 0, "accepted_reason_codes": ["WITHDRAWAL_ACCEPTED"], "refused_reason_codes": [] }
+    },
+    {
+      "id": "AS-V-02-refused-withdrawal-is-reported-not-dropped",
+      "tests": "A withdrawal that changes nothing in silence is indistinguishable from one that was never submitted, so a refusal is listed with its code.",
+      "revocation": { "revocation_id": "sha256:00000000000000000000000000000000000000000000000000000000000000aa", "delegation_id": "sha256:00000000000000000000000000000000000000000000000000000000000000d1", "revoker": "did:aps:example:principal" },
+      "withdrawals": [
+        { "record_type": "proposed:aps:revocation-withdrawal:v0", "version": "0", "revocation_id": "sha256:00000000000000000000000000000000000000000000000000000000000000aa", "delegation_id": "sha256:00000000000000000000000000000000000000000000000000000000000000d1", "withdrawn_by": "did:aps:example:agent-a", "withdrawn_at": "2026-09-20T12:30:00.000Z", "reason_code": "recorded-in-error" }
+      ],
+      "standing_resolver": "signer_is_revoker",
+      "expected": { "revocation_present": true, "accepted_count": 0, "refused_count": 1, "accepted_reason_codes": [], "refused_reason_codes": ["WITHDRAWAL_SIGNER_WITHOUT_STANDING"] }
+    },
+    {
+      "id": "AS-V-03-both-lists-populated-in-order",
+      "tests": "Accepted and refused withdrawals are kept apart and both are reported, in the order supplied.",
+      "revocation": { "revocation_id": "sha256:00000000000000000000000000000000000000000000000000000000000000aa", "delegation_id": "sha256:00000000000000000000000000000000000000000000000000000000000000d1", "revoker": "did:aps:example:principal" },
+      "withdrawals": [
+        { "record_type": "proposed:aps:revocation-withdrawal:v0", "version": "0", "revocation_id": "sha256:00000000000000000000000000000000000000000000000000000000000000aa", "delegation_id": "sha256:00000000000000000000000000000000000000000000000000000000000000d1", "withdrawn_by": "did:aps:example:agent-a", "withdrawn_at": "2026-09-20T12:30:00.000Z", "reason_code": "recorded-in-error" },
+        { "record_type": "proposed:aps:revocation-withdrawal:v0", "version": "0", "revocation_id": "sha256:00000000000000000000000000000000000000000000000000000000000000aa", "delegation_id": "sha256:00000000000000000000000000000000000000000000000000000000000000d1", "withdrawn_by": "did:aps:example:principal", "withdrawn_at": "2026-09-20T12:35:00.000Z", "reason_code": "recorded-in-error" },
+        { "record_type": "proposed:aps:revocation-withdrawal:v0", "version": "0", "revocation_id": "sha256:00000000000000000000000000000000000000000000000000000000000000bb", "delegation_id": "sha256:00000000000000000000000000000000000000000000000000000000000000d1", "withdrawn_by": "did:aps:example:principal", "withdrawn_at": "2026-09-20T12:40:00.000Z", "reason_code": "recorded-in-error" }
+      ],
+      "standing_resolver": "signer_is_revoker",
+      "expected": { "revocation_present": true, "accepted_count": 1, "refused_count": 2, "accepted_reason_codes": ["WITHDRAWAL_ACCEPTED"], "refused_reason_codes": ["WITHDRAWAL_SIGNER_WITHOUT_STANDING", "WITHDRAWAL_NAMES_NO_HELD_REVOCATION"] }
+    },
+    {
+      "id": "AS-V-04-no-withdrawals-leaves-the-revocation-alone",
+      "tests": "The view over a revocation nobody tried to withdraw carries the revocation and two empty lists.",
+      "revocation": { "revocation_id": "sha256:00000000000000000000000000000000000000000000000000000000000000aa", "delegation_id": "sha256:00000000000000000000000000000000000000000000000000000000000000d1", "revoker": "did:aps:example:principal" },
+      "withdrawals": [],
+      "standing_resolver": "signer_is_revoker",
+      "expected": { "revocation_present": true, "accepted_count": 0, "refused_count": 0, "accepted_reason_codes": [], "refused_reason_codes": [] }
+    }
+  ]
+}
