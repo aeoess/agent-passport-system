@@ -1456,6 +1456,55 @@ export type {
   ToolRegistryEntry, ToolRequirements, ToolIntegrityResult,
 } from './core/tool-integrity.js'
 
+// ── Tool manifest and namespace claim: EXPERIMENTAL, now reachable ──
+// These are NOT new implementations. `createToolManifest`, `verifyToolManifest`,
+// `reviseToolManifest`, `reapproveToolManifest`, `createNamespaceClaim` and
+// `verifyNamespaceClaim` have shipped in `src/core/tool-integrity.ts` with full
+// declarations and their own test suite (`tests/tool-registry-integrity.test.ts`) for
+// several releases. Only the two legacy registry-entry functions above were re-exported
+// from the package root, so a consumer installing the package could not reach the manifest
+// layer at all. This block re-exports it. No behaviour of any function changes and no
+// signature changes.
+//
+// EXPERIMENTAL, NOT SPECIFIED. draft-pidlisnyi-aps-03 defines no tool manifest, no
+// namespace claim and no tool-metadata digest, and proposed -04 excludes capability binding
+// by name. Treat every name in this block as subject to change. The nearest draft-03 text
+// is the section 4.1 action reference, verbatim: "target is the exact resource, tool, or
+// endpoint against which the action will be dispatched; a profile MUST define its target
+// string construction." That target carries no digest.
+//
+// Concept source for why a consumer needs to reach this layer at all: the
+// aeoess/agent-authority-lifecycle concept document, invariant candidate CAND-07 as
+// rewritten, whose capability limb turns on a grant pinning something a verifier can check.
+// `ToolManifest.metadataHash` is the member that makes a description, schema or permissions
+// change detectable when the implementation bytes are byte-identical, which is exactly the
+// axis a registry entry alone cannot see. PROPOSED.
+//
+// ONE KNOWN LIMIT, STATED HERE RATHER THAN DISCOVERED LATER. `metadataHash` is taken over
+// the SDK's legacy `canonicalize`, which STRIPS null-valued members, so a metadata block
+// with an explicit `null` member and one omitting that member hash to the same value. It
+// also carries no domain separation. That is pre-existing signed-artifact behaviour and is
+// deliberately left alone here, because changing it would invalidate manifests already
+// signed. The v2 capability-binding module's `capabilityMetadataDigest` is a DIFFERENT
+// digest over RFC 8785 JCS with a required domain, which keeps nulls. The two are not
+// interchangeable and neither is a drop-in for the other.
+export {
+  createToolManifest,
+  verifyToolManifest,
+  reviseToolManifest,
+  reapproveToolManifest,
+  createNamespaceClaim,
+  verifyNamespaceClaim,
+} from './core/tool-integrity.js'
+export type {
+  ToolManifest,
+  ToolManifestResult,
+  ToolMetadata,
+  ToolTrustRoot,
+  NamespaceClaim,
+  ToolResolveOpts,
+} from './core/tool-integrity.js'
+
 // ── Recovery Policy (Standard Failure Patterns) ──
 export {
   evaluateRecovery, createRecoveryEvent, createDefaultRecoveryPolicy,
@@ -2194,6 +2243,41 @@ export type { BudgetReservationState, BudgetOperationResult } from './v2/authori
 // verifyAuthorityDelegationChain and InMemoryAuthorityBudgetLedger.reserve.
 export { isAuthorityDelegationV1, validateAuthorityDelegationShape } from './v2/authority-delegation/schema.js'
 
+// ── Chain selection (v2): draft-03 section 3.3, one chain per action, no union ──
+// draft-03 section 3.3 lines 594-596: "Each action selects one root-to-leaf authority
+// chain.  A verifier MUST NOT union scopes or budgets from multiple chains.  Cross-
+// principal composition requires a separate profile." Every other authority entry point
+// here takes exactly one chain, so the first sentence had no surface: an implementation
+// that pooled three chains and an implementation that selected one were
+// indistinguishable through this SDK. These functions take the whole held set and return
+// the identifier of the one chain decided against. Additive and opt-in: nothing below
+// changes what verifyAuthorityDelegationChain returns for a draft-03 record, and a
+// caller that never imports it sees exactly today's behaviour.
+//
+// selectWithFallback's fallback parameter, and the switched_from, fallback_ref and
+// fallback_considered members, are PROPOSED, not draft-03: they serve invariant
+// candidate L11, "No silent authority resurrection", in AUTHORITY-LIFECYCLE.md of the
+// aeoess/agent-authority-lifecycle concept document, whose own status there is proposed.
+export { selectChainForAction, selectWithFallback } from './v2/chain-selection/select.js'
+export {
+  CHAIN_SELECTION_EVALUATION_CODES,
+  CHAIN_SELECTION_FAILURE_CODES,
+  HELD_SET_CEILING,
+} from './v2/chain-selection/types.js'
+export type {
+  AuthorityBudgetReserver,
+  ChainEvaluation,
+  ChainEvaluationOutcome,
+  ChainSelectionEvaluationCode,
+  ChainSelectionFailureCode,
+  ChainSelectionInput,
+  ChainSelectionWithFallbackInput,
+  FallbackAuthorizationV0,
+  HeldChain,
+  RequiredSpendV1,
+  SelectionOutcome,
+} from './v2/chain-selection/types.js'
+
 // ── Authority revocation (v2): draft-03 section 3.5.1 direct revocation evidence ──
 // One signed record revoking one AuthorityDelegationV1, its store boundary, and the
 // resolver that feeds verifyAuthorityDelegationChain from it. Direct revocation only:
@@ -2246,3 +2330,465 @@ export type {
 export type { AuthorityRevocationCascadeOriginV1 } from './v2/authority-revocation/canonical.js'
 export type { AuthorityRevocationIssueInput } from './v2/authority-revocation/issue.js'
 export type { AuthorityRevocationVerificationOptions } from './v2/authority-revocation/verify.js'
+
+// ── Lifecycle state vocabulary (v2): PROPOSED, OPT-IN ──
+// A SECOND verdict vocabulary, reported alongside chain verification and never merged into
+// it. NOT REQUIRED BY draft-pidlisnyi-aps-03, whose section 3.3 closes chain verification
+// at "valid, invalid, indeterminate, or unsupported with a stable failure code". That
+// enumeration, `AuthorityValidationState`, `AuthorityValidationResult` and everything
+// `verifyAuthorityDelegationChain` returns are unchanged, and a caller that does not import
+// this module sees exactly today's behaviour.
+//
+// What it adds: the six artifact verdicts (valid, invalid, not_established,
+// not_yet_effective, suspended, restricted), the separate boundary-outcome subject, the
+// three establishment limbs a not_established verdict must name, and the split between the
+// two uses of "not established" — the evidential sense, which keeps the name, and the
+// established negative, which resolves to not_yet_effective or to a denial at a boundary.
+// `mapAuthorityValidationToLifecycle` is the opt-in read-only view of an existing result in
+// the new vocabulary.
+//
+// Concept source: the aeoess/agent-authority-lifecycle concept document, invariant L8 and
+// invariant candidates BROAD-L7, CAND-04 and CAND-05. Every one of those is PROPOSED, with
+// no published specification text behind it. Nothing downstream should treat these names as
+// specified.
+export {
+  LIFECYCLE_VERDICTS,
+  BOUNDARY_OUTCOMES,
+  ESTABLISHMENT_GAPS,
+  ESTABLISHED_NEGATIVE_SHAPES,
+  LIFECYCLE_BASE_REASON_CODES,
+} from './v2/lifecycle-state/index.js'
+export type {
+  LifecycleVerdict,
+  BoundaryOutcome,
+  EstablishmentGap,
+  EstablishedNegativeShape,
+  EstablishedNegativeResolution,
+  OutstandingCause,
+  LifecycleStateResult,
+  LifecycleStateInput,
+  LifecycleBaseReasonCode,
+  CompositeAuthorityResult,
+  LifecycleMappingOptions,
+} from './v2/lifecycle-state/index.js'
+export {
+  LifecycleStateError,
+  lifecycleState,
+  notEstablished,
+  resolveEstablishedNegative,
+  isLifecycleVerdict,
+  isBoundaryOutcome,
+  isEstablishmentGap,
+  isEstablishedNegativeShape,
+} from './v2/lifecycle-state/index.js'
+export { mapAuthorityValidationToLifecycle } from './v2/lifecycle-state/index.js'
+
+// ── Activation conditions (v2): PROPOSED, OPT-IN ──
+// An activation condition is a SEPARATE artifact that references a `delegation_id`, and it
+// gates when an already issued grant becomes exercisable. NOT REQUIRED BY
+// draft-pidlisnyi-aps-03: the published text states no activation-condition rule, no attestor
+// role and no attestation-acceptance rule, and its section 3.2 closes `authority` at seven
+// facets ("A missing facet is invalid rather than an implicit unconstrained value"), so a
+// condition can never be a facet. `AuthorityVectorV1`, `AuthorityValidationState`,
+// `AuthorityValidationResult` and everything `verifyAuthorityDelegationChain` returns are
+// unchanged, and a caller that does not import this module sees exactly today's behaviour.
+//
+// `verifyActivation` returns `valid`, `not_yet_effective` or `not_established` in the
+// lifecycle-state vocabulary, and never `invalid`: an unmet condition does not make a grant
+// invalid. `composeActivation` reports that alongside a chain result and asks activation only
+// when the chain is valid, which is what keeps invariant L1 intact for a pre-committed
+// replacement grant.
+//
+// Three parameters are deliberately UNDEFAULTED, because the concept text has not decided them
+// and a default in an SDK is a ruling made by whoever wrote the SDK: `instant_basis` (which
+// instant an occurrence is measured from), `threshold` (how many acceptable attestations
+// establish a finding), and role standing, which is resolved through a caller-supplied
+// resolver and never read off the attestation asserting it.
+//
+// Concept source: the aeoess/agent-authority-lifecycle concept document, invariant candidates
+// CAND-04, CAND-13 (activation half) and BROAD-L7. All proposed, with no published
+// specification text behind them. Nothing downstream should treat these names as specified.
+export {
+  ACTIVATION_CONDITION_TYPE,
+  ACTIVATION_ATTESTATION_TYPE,
+  ACTIVATION_CONDITION_KINDS,
+  ACTIVATION_INSTANT_BASES,
+  ACTIVATION_ASSERTIONS,
+  ATTESTOR_ROLE_STANDINGS,
+  ACTIVATION_FINDINGS,
+  ACTIVATION_REASON_CODES,
+  ACTIVATION_GAPS_BY_REASON,
+  ACTIVATION_ATTESTATION_SIGNATURE_DOMAIN,
+  ACTIVATION_ATTESTATION_ID_DOMAIN,
+  ACTIVATION_CONDITION_SIGNATURE_DOMAIN,
+} from './v2/activation/index.js'
+export type {
+  ActivationConditionKind,
+  ActivationInstantBasis,
+  ActivationAssertion,
+  ActivationConditionCommonV0,
+  DateActivationConditionV0,
+  RecordedEventActivationConditionV0,
+  ActivationConditionV0,
+  ActivationAttestationV0,
+  AttestorRoleStanding,
+  // Integration rename. Two lifecycle clusters each exported a root type named
+  // `AttestorRoleResolver` with an incompatible signature: the activation resolver takes
+  // ONE role and answers holds / does_not_hold / unknown, and the bound-fulfilment
+  // resolver takes a role SET and answers holds_role / does_not_hold_role / unknown.
+  // Both are kept, each renamed at the package root after the surface it belongs to.
+  // Neither module file changed: ./v2/activation/ and ./v2/bounds/ still export the bare
+  // name inside their own namespace.
+  AttestorRoleResolver as ActivationAttestorRoleResolver,
+  ActivationFindingKind,
+  ActivationFinding,
+  ActivationRejection,
+  ActivationReasonCode,
+  ActivationResult,
+  ActivationVerificationInput,
+  ActivationCompositionOptions,
+} from './v2/activation/index.js'
+export {
+  ActivationError,
+  verifyActivation,
+  composeActivation,
+  validateActivationCondition,
+  activationAttestationBody,
+  activationAttestationSignatureInput,
+  computeActivationAttestationId,
+  activationConditionSignatureInput,
+} from './v2/activation/index.js'
+// ── v2/bounds: non-time bounds on a grant. PROPOSED and OPT-IN ──────────────────────────
+//
+// Purpose, use-count and budget bounds, and the state "this bound has been reached".
+//
+// NOT REQUIRED BY draft-pidlisnyi-aps-03. Two of its sentences constrain the whole module.
+// Section 3.2: "authority contains exactly seven required facets: scope, spend, depth, time,
+// reputation, values, and reversibility." The facet set is closed, so a purpose or use-count
+// bound cannot live inside a signed AuthorityDelegationV1 at all, and this module declares a
+// separate artifact referencing a delegation by content address. Section 3.3: "Verification
+// returns one of valid, invalid, indeterminate, or unsupported with a stable failure code."
+// That set is closed too, and nothing here touches it. A bound evaluation is reported
+// ALONGSIDE a chain result. A caller that does not import this module sees no change at all.
+//
+// draft-03 has zero occurrences of "exhaust" and of "use_count", and uses "single-use" only
+// of an approval in section 4.3, never of a grant.
+//
+// What it adds: a bound declaration, a signed fulfilment attestation, `evaluateBound` which
+// answers not_reached, exhausted or not_established at an instant, and an optional signed
+// exhaustion record shaped like the section 3.5.1 revocation record. The exhaustion record
+// attests the enforcement boundary's own finding and not the state of the world, on the same
+// model draft-03 section 5.3.3 uses for an action result. `isPurposePermitted` and
+// `purposeCategory` are re-exported here unchanged from `src/core/data-lifecycle.ts`, so both
+// reference SDKs expose purpose membership from the same place; membership is not exhaustion.
+//
+// Concept source: the aeoess/agent-authority-lifecycle concept document, invariant L10
+// (expiry is not revocation) and invariant candidates CAND-01 (an external event is
+// authority-changing only when established) and CAND-02 (later evidence does not rewrite
+// earlier evidence). All PROPOSED, with no published specification text behind them.
+export {
+  AUTHORITY_BOUND_TYPE,
+  AUTHORITY_BOUND_FULFILMENT_TYPE,
+  AUTHORITY_EXHAUSTION_TYPE,
+  BOUND_KINDS,
+  BOUND_STATES,
+  BOUND_REASON_CODES,
+  FULFILMENT_REASON_CODES,
+  ATTESTOR_ROLE_ANSWERS,
+} from './v2/bounds/index.js'
+export type {
+  BoundKind,
+  BoundState,
+  BoundEnding,
+  BoundReasonCode,
+  FulfilmentReasonCode,
+  AttestorRoleAnswer,
+  AttestorRoleResolver as BoundAttestorRoleResolver,
+  BoundVerificationKeyResolver,
+  AuthorityBound,
+  AuthorityBoundFulfilmentBody,
+  AuthorityBoundFulfilment,
+  AuthorityExhaustionBody,
+  AuthorityExhaustion,
+  AuthorityExhaustionFailureCode,
+  AuthorityExhaustionVerification,
+  FulfilmentAssessment,
+  BoundEvaluation,
+  AssessFulfilmentInput,
+  EvaluateBoundInput,
+  IssueFulfilmentInput,
+  IssueExhaustionInput,
+} from './v2/bounds/index.js'
+export {
+  AuthorityBoundError,
+  assertAuthorityBound,
+  isBoundKind,
+  isAttestorRoleAnswer,
+  assessFulfilment,
+  evaluateBound,
+  issueAuthorityBoundFulfilment,
+  issueAuthorityExhaustion,
+  verifyAuthorityExhaustion,
+} from './v2/bounds/index.js'
+export {
+  AUTHORITY_BOUND_FULFILMENT_SIGNATURE_DOMAIN,
+  AUTHORITY_EXHAUSTION_ID_DOMAIN,
+  AUTHORITY_EXHAUSTION_SIGNATURE_DOMAIN,
+  authorityBoundFulfilmentSignatureInput,
+  authorityBoundFulfilmentSignatureInputForWrite,
+  signAuthorityBoundFulfilment,
+  verifyAuthorityBoundFulfilmentSignature,
+  authorityExhaustionIdInput,
+  computeAuthorityExhaustionId,
+  computeAuthorityExhaustionIdForWrite,
+  authorityExhaustionSignatureInput,
+  authorityExhaustionSignatureInputForWrite,
+  signAuthorityExhaustion,
+  verifyAuthorityExhaustionSignature,
+} from './v2/bounds/index.js'
+// ── Capability pins and identifier binding (v2): PROPOSED, OPT-IN ──
+// Whether an action through a named tool is established under a grant that pins that tool,
+// and whether an authority path that depends on an off-chain identifier still depends on the
+// same party.
+//
+// NOT REQUIRED BY draft-pidlisnyi-aps-03. That document defines no pin syntax and states no
+// rule pinning a tool to an implementation digest or a schema. Its nearest text is the
+// section 4.1 action reference, verbatim: "target is the exact resource, tool, or endpoint
+// against which the action will be dispatched; a profile MUST define its target string
+// construction." A target carries no digest, so it cannot tell two revisions of one tool
+// behind one endpoint apart. Proposed -04 excludes capability binding by name.
+//
+// `AuthorityValidationState` is unchanged, `verifyAuthorityDelegationChain` returns byte for
+// byte what it returned, and `AuthorityVectorV1` gains no eighth facet (draft-03 section 3.2
+// closes it at seven). Every result here is reported ALONGSIDE a chain result, in the
+// `BoundaryOutcome` subject from the lifecycle state vocabulary, and never merged into it. A
+// caller that does not import this module sees exactly today's behaviour.
+//
+// Concept source: the aeoess/agent-authority-lifecycle concept document, invariant candidate
+// CAND-07 as rewritten, and the AUTHORITY-LIFECYCLE.md concepts "Action or capability
+// binding", "Target binding" and "Authority path and dependency". All PROPOSED, with no
+// published specification text behind them. Nothing downstream should treat these names as
+// specified.
+export {
+  CAPABILITY_BINDING_REASON_CODES,
+  IDENTIFIER_CONTINUITY_REASON_CODES,
+  CAPABILITY_METADATA_DOMAIN_CBD_V0,
+  IDENTIFIER_BINDING_UNSIGNED_FIELDS,
+  IDENTIFIER_RETENTION_UNSIGNED_FIELDS,
+} from './v2/capability-binding/index.js'
+export type {
+  PinEncoding,
+  CapabilityPin,
+  ReferentContinuity,
+  ReferentBindingResult,
+  IdentifierContinuityResult,
+  ToolAttestationObservation,
+  CapabilityBindingReasonCode,
+  IdentifierContinuityReasonCode,
+  CapabilityBindingInput,
+  IdentifierContinuityInput,
+  IdentifierBindingRecord,
+  IdentifierRetentionRecord,
+} from './v2/capability-binding/index.js'
+export {
+  CapabilityBindingError,
+  referentBindingResult,
+  projectBoundaryOutcomeToCandidateV0,
+  capabilityImplementationDigest,
+  capabilityMetadataDigest,
+  toolScopeGrant,
+  implementationPinPrefix,
+  metadataPinPrefix,
+  parseCapabilityPinFromScopeGrants,
+  capabilityPinScopeGrants,
+  capabilityPinIsEmpty,
+  observeToolAttestation,
+  evaluateCapabilityBinding,
+  identifierRecordSignedBytes,
+  identifierDependencyScopeGrant,
+  identifierControllerPinScopeGrant,
+  parseIdentifierControllerPins,
+  evaluateIdentifierContinuity,
+} from './v2/capability-binding/index.js'
+// ── Multi-source status observation (v2): PROPOSED, EXPERIMENTAL, OPT-IN ──
+// Decides what ONE authorization boundary can establish about one authority_ref from a SET
+// of status answers, each measured against the freshness bound declared for its own source.
+// Conflict between accepted sources, or staleness past a declared bound, gives
+// not_established. An offline verifier with a snapshot inside a bound it declared in advance
+// may admit, and the record names the snapshot and the age it admitted at.
+//
+// NOT REQUIRED BY draft-pidlisnyi-aps-03. Section 3.3 rules one revocation result per chain
+// member and closes verification at "valid, invalid, indeterminate, or unsupported with a
+// stable failure code". It says nothing about two sources answering about the same member,
+// nothing about a per-source freshness bound, nothing about coverage over a declared source
+// set, and nothing about an offline admission on a snapshot. `AuthorityValidationResult`,
+// `verifyAuthorityDelegationChain` and the whole of `src/v2/revocation-enforcement/` are
+// unchanged. This decision is reported ALONGSIDE a chain result, never merged into it, and a
+// caller that does not import this module sees exactly today's behaviour.
+//
+// `conflictPolicy` and `stalePolicy` are required parameters with no defaults. That is
+// deliberate: the proposed text has two defensible readings on each, they give opposite
+// verdicts on the deployment-relevant case, and a default would be this SDK making a
+// specification decision in code.
+//
+// The coverage block is NOT a completeness claim. It reports whether a DECLARED
+// required-source set was covered. Invariant L12 is open and nothing here answers it.
+//
+// Concept source: the aeoess/agent-authority-lifecycle concept document, invariant L7 and
+// invariant candidate BROAD-L7, all three limbs. Both are PROPOSED, with no published
+// specification text behind the broadening. Nothing downstream should treat these names as
+// specified.
+export {
+  STATUS_ANSWERS,
+  DETERMINATE_STATUS_ANSWERS,
+  STATUS_USE_BASES,
+  STATUS_COVERAGE_REASON_CODES,
+} from './v2/status-coverage/index.js'
+export type {
+  StatusAnswer,
+  DeterminateStatusAnswer,
+  DeclaredStatusSource,
+  StatusAnswerInput,
+  SilencePolicy,
+  RequiredSourceSet,
+  SnapshotSource,
+  VerifierMode,
+  StatusTrustPolicy,
+  ConflictPolicy,
+  StaleAnswerPolicy,
+  StatusUseBasis,
+  StatusSourceLine,
+  StatusConflict,
+  CoverageDenominator,
+  StatusCoverage,
+  AdmittedSnapshot,
+  MultiSourceStatusBasis,
+  MultiSourceStatusDecision,
+  MultiSourceStatusInput,
+  StatusCoverageReasonCode,
+} from './v2/status-coverage/index.js'
+export { StatusCoverageError, decideMultiSourceStatus } from './v2/status-coverage/index.js'
+// ── Authority state: markers, fencing, withdrawal (v2): PROPOSED, OPT-IN ──
+// Three surfaces the lifecycle work needs and draft-pidlisnyi-aps-03 does not contain:
+// a monotonic marker on authority state, a fencing gate on an authority-state write, and an
+// attributable withdrawal of a recorded revocation that never removes it.
+//
+// NOT REQUIRED BY draft-03, which has no occurrence of `epoch`, `fencing`, `snapshot`,
+// `replica` or `restore` and defines no withdrawal record. What draft-03 does fix stays
+// fixed: section 3.5, "Revocation is irreversible", and section 3.3's four-value result.
+// `AuthorityValidationState`, `AuthorityValidationResult`, `AuthorityRevocationStore`,
+// `AuthorityChainVerificationOptions` and `createAuthorityRevocationResolver` are all
+// unchanged, no store gains a removal method, and a caller that does not import this module
+// sees exactly today's behaviour.
+//
+// The two findings the shapes encode. First, a verifier that retained the epoch-N revocation
+// records and one that retained only the number give different answers about the same
+// restored view, `revoked` against `unknown`, so `RetainedAuthorityState` takes the record
+// set and the high-water mark as two inputs rather than one "epoch". Second, an accepted
+// withdrawal changes what a verifier can REPORT and changes no verdict, so it lands in
+// `CorrectedRevocationView` beside the chain result instead of inside it.
+//
+// Concept source: the aeoess/agent-authority-lifecycle concept document (the `Authority
+// epoch` concept, invariants L3, L7 and L11, and the `Authority rollback` open question)
+// and invariant candidates CAND-08 and CAND-02. Every one of those is PROPOSED, the open
+// question is OPEN, and nothing downstream should treat these names as specified.
+export {
+  STATE_MARKER_SCOPES,
+  MONOTONICITY_OUTCOMES,
+  UNPLACEABLE_DISPOSITIONS,
+  FENCED_WRITE_REFUSAL_CODES,
+  WITHDRAWAL_STANDINGS,
+  WITHDRAWAL_OUTCOME_CODES,
+  REVOCATION_WITHDRAWAL_RECORD_TYPE,
+  REVOCATION_WITHDRAWAL_VERSION,
+} from './v2/authority-state/index.js'
+export type {
+  StateMarker,
+  StateMarkerScope,
+  StateMarkerInput,
+  MonotonicityOutcome,
+  UnplaceableDisposition,
+  RetainedAuthorityState,
+  FencedWrite,
+  FencedWriteOutcome,
+  FencedWriteRefusalCode,
+  RevocationWithdrawalV0,
+  RevocationWithdrawalInput,
+  WithdrawalStanding,
+  WithdrawalStandingResolver,
+  WithdrawalOutcomeCode,
+  WithdrawalEvaluation,
+  CorrectedRevocationView,
+  MonotonicRevocationResolver,
+  MonotonicRevocationResolverOptions,
+  AuthorityStateReport,
+  AuthorityStateReportInput,
+} from './v2/authority-state/index.js'
+export {
+  AuthorityStateError,
+  stateMarker,
+  compareStateMarker,
+  advanceHighWaterMark,
+  sameScope,
+  isStateMarkerScope,
+  isMonotonicityOutcome,
+  isUnplaceableDisposition,
+  resolveUnderRetainedState,
+  createMonotonicRevocationResolver,
+  FencedAuthorityStateLog,
+  revocationWithdrawal,
+  withdrawalSignerIsRevoker,
+  isWithdrawalStanding,
+  evaluateRevocationWithdrawal,
+  correctedRevocationView,
+  authorityStateReport,
+  reportAuthorityState,
+} from './v2/authority-state/index.js'
+// ---------------------------------------------------------------------------
+// Suspension and restriction cause sets (v2): PROPOSED, OPT-IN.
+//
+// NOT REQUIRED BY draft-pidlisnyi-aps-03. The published draft states no suspension rule,
+// no restriction rule, no release rule and no lifecycle-standing rule: a case-insensitive
+// search of its plain text returns zero occurrences of `suspend` and `suspension`, and the
+// only status answer the protocol has is the revocation resolver's closed set 'active',
+// 'revoked', 'unknown'. `AuthorityValidationState`, `AuthorityValidationResult`,
+// `RevocationResolution` and everything `verifyAuthorityDelegationChain` returns are
+// unchanged, and a caller that does not import this module sees exactly today's behaviour.
+//
+// What it adds: a lifecycle cause as a separate signed artifact referencing a delegation,
+// a release record naming the causes it claims to clear, and an evaluator that decides each
+// named cause independently against a caller-supplied standing resolver. The result's
+// `outstanding` member is the remaining cause SET, never a count and never a boolean:
+// releasing one cause does not release another, and a verdict has to say which ones remain.
+// `composeChainAndPause` is the rule that a release never clears a revocation that happened
+// meanwhile.
+//
+// Concept source: the aeoess/agent-authority-lifecycle concept document, invariant L8
+// (suspension is not revocation, which says nothing about arity) and invariant candidate
+// CAND-05 (suspension and restriction causes compose), plus its OPEN-QUESTIONS.md entry
+// "Release from suspension", which says causes probably need to compose with each released
+// separately and that none of it is specified. CAND-05 states that composition is forced by
+// the corpus and externally unsourced. Nothing downstream should treat these names as
+// specified.
+export { SUSPENSION_CAUSE_TYPE, SUSPENSION_RELEASE_TYPE, PAUSE_KINDS, RELEASE_STANDINGS, SUSPENSION_REASON_CODES } from './v2/suspension/index.js'
+export type {
+  PauseKind,
+  ReleaseStanding,
+  SuspensionCause,
+  SuspensionRelease,
+  SuspensionReasonCode,
+  ReleaseCauseDisposition,
+  ReleaseDisposition,
+  CauseDisposition,
+  ReleaseStandingResolver,
+  SuspensionVerificationKeyResolver,
+  PauseStateInput,
+  PauseStateExplanation,
+} from './v2/suspension/index.js'
+export {
+  SuspensionCauseError,
+  suspensionRecordPreimage,
+  evaluatePauseState,
+  explainPauseState,
+  composeChainAndPause,
+} from './v2/suspension/index.js'

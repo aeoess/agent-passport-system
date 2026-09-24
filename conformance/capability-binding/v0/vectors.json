@@ -1,0 +1,1773 @@
+{
+  "profile": "aps-capability-binding-v0",
+  "status": "candidate_against_proposed",
+  "description": "Capability pins by implementation digest or declared metadata digest, and identifier binding. Shared cross-language fixture for the PROPOSED, OPT-IN capability-binding module in both reference SDKs. Every verdict expectation is hand specified. The digest and canonical-byte expectations are known answers: the two implementation digests and the two metadata digests for revisions v1 and v2 are the values the published aps-capability-binding-drift-v0 candidate family carries in its own chain.json, produced by that family independently of this module.",
+  "specification_position": {
+    "required_by_draft03": false,
+    "draft03_result_enumeration": "Verification returns one of valid, invalid, indeterminate, or unsupported with a stable failure code.",
+    "draft03_closest_text_section": "4.1. Action Reference Computation",
+    "draft03_closest_text": "target is the exact resource, tool, or endpoint against which the action will be dispatched; a profile MUST define its target string construction.",
+    "why_that_is_not_the_rule": "A target names a resource, tool or endpoint. It carries no implementation digest and no metadata digest, so it cannot distinguish two revisions of one tool that keep the same endpoint.",
+    "draft03_scope_grammar_section": "3.2. Component Orders",
+    "draft03_scope_grammar": "Scope grants use ASCII colon-separated segments. \"*\" covers all grants; a wildcard is otherwise permitted only as the terminal segment \":*\".",
+    "note": "The scope grammar is the basis for the scope_grant_v0 pin encoding. draft-03 defines no pin encoding, this one or any other."
+  },
+  "concept_source": {
+    "repository": "https://github.com/aeoess/agent-authority-lifecycle",
+    "invariant_candidate": "CAND-07, a stable name does not establish stable semantics, as rewritten",
+    "concepts": [
+      "Action or capability binding",
+      "Target binding",
+      "Authority path and dependency",
+      "Issuer standing"
+    ],
+    "status": "proposed"
+  },
+  "known_divergence_from_candidate_fixture_families": {
+    "families": [
+      "aps-capability-binding-drift-v0",
+      "aps-lifecycle-identifier-reuse-and-rename-v0"
+    ],
+    "what": "Those families label an ESTABLISHED pinned-referent mismatch not_established, in a three-value vocabulary with no denial member. This module returns a boundary outcome of denied with a mismatch reason, which is what CAND-07 v2 states.",
+    "cand07_v2_text": "Where something pins it and the pin does not match, the action is denied with a mismatch reason rather than reported as not established.",
+    "affected_case_ids_here": [
+      "CB-02",
+      "CB-03",
+      "CB-18",
+      "IC-03",
+      "IC-05",
+      "IC-09"
+    ],
+    "reproduce_the_family_labelling_with": "projectBoundaryOutcomeToCandidateV0"
+  },
+  "tool_name": "ledger.export",
+  "metadata_digest_domain": "APS-CBD-TOOL-METADATA-V0",
+  "implementation_digest_cases": [
+    {
+      "label": "ledger.export revision 1 endpoint descriptor",
+      "implementation": "{\"build\":\"ledger-export@1.4.2\",\"endpoint\":\"https://ledger.example/v1/export\",\"method\":\"POST\"}",
+      "expected": "sha256:cb91c4f70e08ba3fdef5379f01933536551613583367a8da9dde9d760b5b710b"
+    },
+    {
+      "label": "ledger.export revision 2, build string changed, same endpoint",
+      "implementation": "{\"build\":\"ledger-export@2.0.0\",\"endpoint\":\"https://ledger.example/v1/export\",\"method\":\"POST\"}",
+      "expected": "sha256:f54fa3ee2f8297fe2cd4ba9473ded1f88997327e021ed4a761d10f2c93ef0b4a"
+    },
+    {
+      "label": "empty content",
+      "implementation": "",
+      "expected": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "label": "one byte",
+      "implementation": "a",
+      "expected": "sha256:ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb"
+    }
+  ],
+  "metadata_digest_cases": [
+    {
+      "label": "declared metadata revision 1",
+      "metadata": {
+        "description": "Export a ledger range as CSV.",
+        "permissions": [
+          "ledger:read"
+        ],
+        "schema": {
+          "properties": {
+            "range": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "range"
+          ],
+          "type": "object"
+        }
+      },
+      "expected": "sha256:8b1a8aa99925f5a4c92932073d228fa6fb39d85b12e5892ee5385c53c75fbcf0"
+    },
+    {
+      "label": "declared metadata revision 2, purge parameter and ledger:delete permission added",
+      "metadata": {
+        "description": "Export a ledger range as CSV, optionally purging it after export.",
+        "permissions": [
+          "ledger:delete",
+          "ledger:read"
+        ],
+        "schema": {
+          "properties": {
+            "purge": {
+              "type": "boolean"
+            },
+            "range": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "range"
+          ],
+          "type": "object"
+        }
+      },
+      "expected": "sha256:4c3debbce668aacdd572352b9b37983b0b9cd3ec697060e26e694e04b1b949aa"
+    },
+    {
+      "label": "declared metadata narrowed from revision 1, one fewer permission",
+      "metadata": {
+        "description": "Export a ledger range as CSV.",
+        "permissions": [],
+        "schema": {
+          "properties": {
+            "range": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "range"
+          ],
+          "type": "object"
+        }
+      },
+      "expected": "sha256:5be204d68bbfe3ee20e1eabf09206a6645eb4763b657cc86da4c3094efdd5985"
+    },
+    {
+      "label": "empty object",
+      "metadata": {},
+      "expected": "sha256:7cd469fff6661d1ea98930abf5d7a8edee0316daea45ddea460b801fa70d7d54"
+    },
+    {
+      "label": "a null-valued member. RFC 8785 JCS keeps it, so this MUST differ from the empty object above. The SDK legacy canonicalize strips nulls and would collapse the two.",
+      "metadata": {
+        "retired_at": null
+      },
+      "expected": "sha256:596c40cf106eb1ab1454ce476ddfb78d118f2b377630d26fbf873ba81cf56d04"
+    },
+    {
+      "label": "same members, different source order. JCS sorts, so this MUST equal the revision 1 digest.",
+      "metadata": {
+        "schema": {
+          "properties": {
+            "range": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "range"
+          ],
+          "type": "object"
+        },
+        "permissions": [
+          "ledger:read"
+        ],
+        "description": "Export a ledger range as CSV."
+      },
+      "expected": "sha256:8b1a8aa99925f5a4c92932073d228fa6fb39d85b12e5892ee5385c53c75fbcf0"
+    }
+  ],
+  "metadata_digest_domain_required": {
+    "note": "An empty domain is a call error, not a verdict. Both SDKs raise their module error with code METADATA_DIGEST_DOMAIN_REQUIRED.",
+    "error_code": "METADATA_DIGEST_DOMAIN_REQUIRED"
+  },
+  "scope_grant_parse_cases": [
+    {
+      "label": "both axes pinned",
+      "grants": [
+        "ledger:read",
+        "tool:ledger.export",
+        "tool:ledger.export:impl:sha256:cb91c4f70e08ba3fdef5379f01933536551613583367a8da9dde9d760b5b710b",
+        "tool:ledger.export:meta:sha256:8b1a8aa99925f5a4c92932073d228fa6fb39d85b12e5892ee5385c53c75fbcf0"
+      ],
+      "tool_name": "ledger.export",
+      "expected": {
+        "tool_name": "ledger.export",
+        "implementation_digests": [
+          "sha256:cb91c4f70e08ba3fdef5379f01933536551613583367a8da9dde9d760b5b710b"
+        ],
+        "metadata_digests": [
+          "sha256:8b1a8aa99925f5a4c92932073d228fa6fb39d85b12e5892ee5385c53c75fbcf0"
+        ],
+        "encoding": "scope_grant_v0"
+      }
+    },
+    {
+      "label": "implementation pinned only",
+      "grants": [
+        "ledger:read",
+        "tool:ledger.export",
+        "tool:ledger.export:impl:sha256:cb91c4f70e08ba3fdef5379f01933536551613583367a8da9dde9d760b5b710b"
+      ],
+      "tool_name": "ledger.export",
+      "expected": {
+        "tool_name": "ledger.export",
+        "implementation_digests": [
+          "sha256:cb91c4f70e08ba3fdef5379f01933536551613583367a8da9dde9d760b5b710b"
+        ],
+        "metadata_digests": [],
+        "encoding": "scope_grant_v0"
+      }
+    },
+    {
+      "label": "named, nothing pinned",
+      "grants": [
+        "ledger:read",
+        "tool:ledger.export"
+      ],
+      "tool_name": "ledger.export",
+      "expected": {
+        "tool_name": "ledger.export",
+        "implementation_digests": [],
+        "metadata_digests": [],
+        "encoding": "scope_grant_v0"
+      }
+    },
+    {
+      "label": "tool not named at all. null, which is NOT the same answer as named-and-unpinned.",
+      "grants": [
+        "ledger:read"
+      ],
+      "tool_name": "ledger.export",
+      "expected": null
+    },
+    {
+      "label": "a pin present without the tool grant is still null: the grant does not name the tool",
+      "grants": [
+        "tool:ledger.export:impl:sha256:cb91c4f70e08ba3fdef5379f01933536551613583367a8da9dde9d760b5b710b"
+      ],
+      "tool_name": "ledger.export",
+      "expected": null
+    },
+    {
+      "label": "two acceptable implementation revisions, and a duplicate that de-duplicates",
+      "grants": [
+        "tool:ledger.export",
+        "tool:ledger.export:impl:sha256:cb91c4f70e08ba3fdef5379f01933536551613583367a8da9dde9d760b5b710b",
+        "tool:ledger.export:impl:sha256:f54fa3ee2f8297fe2cd4ba9473ded1f88997327e021ed4a761d10f2c93ef0b4a",
+        "tool:ledger.export:impl:sha256:cb91c4f70e08ba3fdef5379f01933536551613583367a8da9dde9d760b5b710b"
+      ],
+      "tool_name": "ledger.export",
+      "expected": {
+        "tool_name": "ledger.export",
+        "implementation_digests": [
+          "sha256:cb91c4f70e08ba3fdef5379f01933536551613583367a8da9dde9d760b5b710b",
+          "sha256:f54fa3ee2f8297fe2cd4ba9473ded1f88997327e021ed4a761d10f2c93ef0b4a"
+        ],
+        "metadata_digests": [],
+        "encoding": "scope_grant_v0"
+      }
+    },
+    {
+      "label": "an empty pin value is not a pin",
+      "grants": [
+        "tool:ledger.export",
+        "tool:ledger.export:impl:"
+      ],
+      "tool_name": "ledger.export",
+      "expected": {
+        "tool_name": "ledger.export",
+        "implementation_digests": [],
+        "metadata_digests": [],
+        "encoding": "scope_grant_v0"
+      }
+    },
+    {
+      "label": "another tool pinned in the same grant does not leak into this one",
+      "grants": [
+        "tool:ledger.export",
+        "tool:ledger.import",
+        "tool:ledger.import:impl:sha256:f54fa3ee2f8297fe2cd4ba9473ded1f88997327e021ed4a761d10f2c93ef0b4a"
+      ],
+      "tool_name": "ledger.export",
+      "expected": {
+        "tool_name": "ledger.export",
+        "implementation_digests": [],
+        "metadata_digests": [],
+        "encoding": "scope_grant_v0"
+      }
+    }
+  ],
+  "scope_grant_write_cases": [
+    {
+      "label": "both axes, output UTF-8 byte sorted so the array stays canonical",
+      "pin": {
+        "tool_name": "ledger.export",
+        "implementation_digests": [
+          "sha256:cb91c4f70e08ba3fdef5379f01933536551613583367a8da9dde9d760b5b710b"
+        ],
+        "metadata_digests": [
+          "sha256:8b1a8aa99925f5a4c92932073d228fa6fb39d85b12e5892ee5385c53c75fbcf0"
+        ],
+        "encoding": "scope_grant_v0"
+      },
+      "expected": [
+        "tool:ledger.export",
+        "tool:ledger.export:impl:sha256:cb91c4f70e08ba3fdef5379f01933536551613583367a8da9dde9d760b5b710b",
+        "tool:ledger.export:meta:sha256:8b1a8aa99925f5a4c92932073d228fa6fb39d85b12e5892ee5385c53c75fbcf0"
+      ]
+    },
+    {
+      "label": "nothing pinned writes the tool grant and nothing else",
+      "pin": {
+        "tool_name": "ledger.export",
+        "implementation_digests": [],
+        "metadata_digests": [],
+        "encoding": "scope_grant_v0"
+      },
+      "expected": [
+        "tool:ledger.export"
+      ]
+    },
+    {
+      "label": "bound_record_v0 is refused: writing it into a scope would be a silently different artifact",
+      "pin": {
+        "tool_name": "ledger.export",
+        "implementation_digests": [
+          "sha256:cb91c4f70e08ba3fdef5379f01933536551613583367a8da9dde9d760b5b710b"
+        ],
+        "metadata_digests": [],
+        "encoding": "bound_record_v0"
+      },
+      "expected_error_code": "PIN_ENCODING_UNSUPPORTED"
+    }
+  ],
+  "record_signed_bytes_cases": [
+    {
+      "label": "binding record with an open-ended interval. bound_until is null and JCS KEEPS it.",
+      "record": {
+        "record_type": "aps-conformance:identifier-binding:v0",
+        "identifier_kind": "mail-domain",
+        "identifier": "acme-legal.example",
+        "controller": "did:aps:example:cb-org",
+        "bound_from": "2026-01-01T00:00:00.000Z",
+        "bound_until": null,
+        "custodian": "did:aps:example:cb-registrar",
+        "nonce": "00000000000000000000000000000001",
+        "binding_id": "sha256:ignored",
+        "signature": "ignored"
+      },
+      "unsigned_fields": [
+        "binding_id",
+        "signature"
+      ],
+      "expected": "{\"bound_from\":\"2026-01-01T00:00:00.000Z\",\"bound_until\":null,\"controller\":\"did:aps:example:cb-org\",\"custodian\":\"did:aps:example:cb-registrar\",\"identifier\":\"acme-legal.example\",\"identifier_kind\":\"mail-domain\",\"nonce\":\"00000000000000000000000000000001\",\"record_type\":\"aps-conformance:identifier-binding:v0\"}"
+    },
+    {
+      "label": "binding record with a closed interval",
+      "record": {
+        "record_type": "aps-conformance:identifier-binding:v0",
+        "identifier_kind": "mail-domain",
+        "identifier": "acme-legal.example",
+        "controller": "did:aps:example:cb-org",
+        "bound_from": "2026-01-01T00:00:00.000Z",
+        "bound_until": "2026-09-21T00:00:00.000Z",
+        "custodian": "did:aps:example:cb-registrar",
+        "nonce": "00000000000000000000000000000002",
+        "binding_id": "sha256:ignored",
+        "signature": "ignored"
+      },
+      "unsigned_fields": [
+        "binding_id",
+        "signature"
+      ],
+      "expected": "{\"bound_from\":\"2026-01-01T00:00:00.000Z\",\"bound_until\":\"2026-09-21T00:00:00.000Z\",\"controller\":\"did:aps:example:cb-org\",\"custodian\":\"did:aps:example:cb-registrar\",\"identifier\":\"acme-legal.example\",\"identifier_kind\":\"mail-domain\",\"nonce\":\"00000000000000000000000000000002\",\"record_type\":\"aps-conformance:identifier-binding:v0\"}"
+    },
+    {
+      "label": "retention record",
+      "record": {
+        "record_type": "aps-conformance:identifier-retention:v0",
+        "identifier_kind": "package-namespace",
+        "identifier": "acme",
+        "retained_from": "2026-09-21T00:00:00.000Z",
+        "retained_until": "2026-09-22T00:00:00.000Z",
+        "custodian": "did:aps:example:cb-package-host",
+        "nonce": "0000000000000000000000000000000a",
+        "retention_id": "sha256:ignored",
+        "signature": "ignored"
+      },
+      "unsigned_fields": [
+        "retention_id",
+        "signature"
+      ],
+      "expected": "{\"custodian\":\"did:aps:example:cb-package-host\",\"identifier\":\"acme\",\"identifier_kind\":\"package-namespace\",\"nonce\":\"0000000000000000000000000000000a\",\"record_type\":\"aps-conformance:identifier-retention:v0\",\"retained_from\":\"2026-09-21T00:00:00.000Z\",\"retained_until\":\"2026-09-22T00:00:00.000Z\"}"
+    }
+  ],
+  "capability_binding_cases": [
+    {
+      "id": "CB-01",
+      "note": "Control. Both axes pinned, both match, the attestation is current.",
+      "input": {
+        "requestedToolName": "ledger.export",
+        "grantedScopes": [
+          "ledger:read",
+          "tool:ledger.export"
+        ],
+        "requiredScopes": [
+          "ledger:read"
+        ],
+        "pin": {
+          "tool_name": "ledger.export",
+          "implementation_digests": [
+            "sha256:cb91c4f70e08ba3fdef5379f01933536551613583367a8da9dde9d760b5b710b"
+          ],
+          "metadata_digests": [
+            "sha256:8b1a8aa99925f5a4c92932073d228fa6fb39d85b12e5892ee5385c53c75fbcf0"
+          ],
+          "encoding": "scope_grant_v0"
+        },
+        "attestation": {
+          "attested_tool_name": "ledger.export",
+          "attested_implementation_digest": "sha256:cb91c4f70e08ba3fdef5379f01933536551613583367a8da9dde9d760b5b710b",
+          "attestor_key_resolved": true,
+          "attestor_signature_valid": true
+        },
+        "observedImplementationDigest": "sha256:cb91c4f70e08ba3fdef5379f01933536551613583367a8da9dde9d760b5b710b",
+        "observedMetadataDigest": "sha256:8b1a8aa99925f5a4c92932073d228fa6fb39d85b12e5892ee5385c53c75fbcf0"
+      },
+      "expected": {
+        "outcome": "authorized",
+        "continuity": "established",
+        "reason_code": "CAPABILITY_CONTINUITY_ESTABLISHED"
+      }
+    },
+    {
+      "id": "CB-02",
+      "note": "The tool keeps its name and its endpoint, the build changes, the attestor re-attests the new build. ESTABLISHED MISMATCH: denied, not ignorance.",
+      "input": {
+        "requestedToolName": "ledger.export",
+        "grantedScopes": [
+          "ledger:read",
+          "tool:ledger.export"
+        ],
+        "requiredScopes": [
+          "ledger:read"
+        ],
+        "pin": {
+          "tool_name": "ledger.export",
+          "implementation_digests": [
+            "sha256:cb91c4f70e08ba3fdef5379f01933536551613583367a8da9dde9d760b5b710b"
+          ],
+          "metadata_digests": [
+            "sha256:8b1a8aa99925f5a4c92932073d228fa6fb39d85b12e5892ee5385c53c75fbcf0"
+          ],
+          "encoding": "scope_grant_v0"
+        },
+        "attestation": {
+          "attested_tool_name": "ledger.export",
+          "attested_implementation_digest": "sha256:f54fa3ee2f8297fe2cd4ba9473ded1f88997327e021ed4a761d10f2c93ef0b4a",
+          "attestor_key_resolved": true,
+          "attestor_signature_valid": true
+        },
+        "observedImplementationDigest": "sha256:f54fa3ee2f8297fe2cd4ba9473ded1f88997327e021ed4a761d10f2c93ef0b4a",
+        "observedMetadataDigest": "sha256:4c3debbce668aacdd572352b9b37983b0b9cd3ec697060e26e694e04b1b949aa"
+      },
+      "expected": {
+        "outcome": "denied",
+        "continuity": "mismatch",
+        "reason_code": "PINNED_IMPLEMENTATION_DIGEST_MISMATCH"
+      }
+    },
+    {
+      "id": "CB-03",
+      "note": "The endpoint descriptor is byte identical, so the implementation digest is unchanged, while the declared schema gains a purge parameter and the permissions gain ledger:delete. This is the case an implementation digest cannot see.",
+      "input": {
+        "requestedToolName": "ledger.export",
+        "grantedScopes": [
+          "ledger:read",
+          "tool:ledger.export"
+        ],
+        "requiredScopes": [
+          "ledger:read"
+        ],
+        "pin": {
+          "tool_name": "ledger.export",
+          "implementation_digests": [
+            "sha256:cb91c4f70e08ba3fdef5379f01933536551613583367a8da9dde9d760b5b710b"
+          ],
+          "metadata_digests": [
+            "sha256:8b1a8aa99925f5a4c92932073d228fa6fb39d85b12e5892ee5385c53c75fbcf0"
+          ],
+          "encoding": "scope_grant_v0"
+        },
+        "attestation": {
+          "attested_tool_name": "ledger.export",
+          "attested_implementation_digest": "sha256:cb91c4f70e08ba3fdef5379f01933536551613583367a8da9dde9d760b5b710b",
+          "attestor_key_resolved": true,
+          "attestor_signature_valid": true
+        },
+        "observedImplementationDigest": "sha256:cb91c4f70e08ba3fdef5379f01933536551613583367a8da9dde9d760b5b710b",
+        "observedMetadataDigest": "sha256:4c3debbce668aacdd572352b9b37983b0b9cd3ec697060e26e694e04b1b949aa"
+      },
+      "expected": {
+        "outcome": "denied",
+        "continuity": "mismatch",
+        "reason_code": "PINNED_METADATA_DIGEST_MISMATCH"
+      }
+    },
+    {
+      "id": "CB-04",
+      "note": "CAND-07 v2 unpinned limb. The grant names the tool and pins nothing, and the tool changed.",
+      "input": {
+        "requestedToolName": "ledger.export",
+        "grantedScopes": [
+          "ledger:read",
+          "tool:ledger.export"
+        ],
+        "requiredScopes": [
+          "ledger:read"
+        ],
+        "pin": {
+          "tool_name": "ledger.export",
+          "implementation_digests": [],
+          "metadata_digests": [],
+          "encoding": "scope_grant_v0"
+        },
+        "attestation": {
+          "attested_tool_name": "ledger.export",
+          "attested_implementation_digest": "sha256:f54fa3ee2f8297fe2cd4ba9473ded1f88997327e021ed4a761d10f2c93ef0b4a",
+          "attestor_key_resolved": true,
+          "attestor_signature_valid": true
+        },
+        "observedImplementationDigest": "sha256:f54fa3ee2f8297fe2cd4ba9473ded1f88997327e021ed4a761d10f2c93ef0b4a",
+        "observedMetadataDigest": "sha256:4c3debbce668aacdd572352b9b37983b0b9cd3ec697060e26e694e04b1b949aa"
+      },
+      "expected": {
+        "outcome": "not_established",
+        "continuity": "not_established",
+        "reason_code": "NO_CAPABILITY_PIN_IN_GRANT",
+        "missing": [
+          "coverage"
+        ]
+      }
+    },
+    {
+      "id": "CB-05",
+      "note": "Same verdict with nothing changed. An unpinned grant gives the verifier no basis either way, and the absence of a change is not something the grant establishes.",
+      "input": {
+        "requestedToolName": "ledger.export",
+        "grantedScopes": [
+          "ledger:read",
+          "tool:ledger.export"
+        ],
+        "requiredScopes": [
+          "ledger:read"
+        ],
+        "pin": {
+          "tool_name": "ledger.export",
+          "implementation_digests": [],
+          "metadata_digests": [],
+          "encoding": "scope_grant_v0"
+        },
+        "attestation": {
+          "attested_tool_name": "ledger.export",
+          "attested_implementation_digest": "sha256:cb91c4f70e08ba3fdef5379f01933536551613583367a8da9dde9d760b5b710b",
+          "attestor_key_resolved": true,
+          "attestor_signature_valid": true
+        },
+        "observedImplementationDigest": "sha256:cb91c4f70e08ba3fdef5379f01933536551613583367a8da9dde9d760b5b710b",
+        "observedMetadataDigest": "sha256:8b1a8aa99925f5a4c92932073d228fa6fb39d85b12e5892ee5385c53c75fbcf0"
+      },
+      "expected": {
+        "outcome": "not_established",
+        "continuity": "not_established",
+        "reason_code": "NO_CAPABILITY_PIN_IN_GRANT",
+        "missing": [
+          "coverage"
+        ]
+      }
+    },
+    {
+      "id": "CB-06",
+      "note": "The signed entry still names the pinned digest and the implementation reachable now is the other build. The entry is a claim and the claim is stale, so the limb is freshness.",
+      "input": {
+        "requestedToolName": "ledger.export",
+        "grantedScopes": [
+          "ledger:read",
+          "tool:ledger.export"
+        ],
+        "requiredScopes": [
+          "ledger:read"
+        ],
+        "pin": {
+          "tool_name": "ledger.export",
+          "implementation_digests": [
+            "sha256:cb91c4f70e08ba3fdef5379f01933536551613583367a8da9dde9d760b5b710b"
+          ],
+          "metadata_digests": [
+            "sha256:8b1a8aa99925f5a4c92932073d228fa6fb39d85b12e5892ee5385c53c75fbcf0"
+          ],
+          "encoding": "scope_grant_v0"
+        },
+        "attestation": {
+          "attested_tool_name": "ledger.export",
+          "attested_implementation_digest": "sha256:cb91c4f70e08ba3fdef5379f01933536551613583367a8da9dde9d760b5b710b",
+          "attestor_key_resolved": true,
+          "attestor_signature_valid": true
+        },
+        "observedImplementationDigest": "sha256:f54fa3ee2f8297fe2cd4ba9473ded1f88997327e021ed4a761d10f2c93ef0b4a",
+        "observedMetadataDigest": "sha256:8b1a8aa99925f5a4c92932073d228fa6fb39d85b12e5892ee5385c53c75fbcf0"
+      },
+      "expected": {
+        "outcome": "not_established",
+        "continuity": "not_established",
+        "reason_code": "REGISTRY_ENTRY_IMPLEMENTATION_MISMATCH",
+        "missing": [
+          "freshness"
+        ]
+      }
+    },
+    {
+      "id": "CB-07",
+      "note": "The entry names the pinned digest but does not verify against the key the caller resolved FOR THE TOOL. No accepted attestation exists, so the limb is source.",
+      "input": {
+        "requestedToolName": "ledger.export",
+        "grantedScopes": [
+          "ledger:read",
+          "tool:ledger.export"
+        ],
+        "requiredScopes": [
+          "ledger:read"
+        ],
+        "pin": {
+          "tool_name": "ledger.export",
+          "implementation_digests": [
+            "sha256:cb91c4f70e08ba3fdef5379f01933536551613583367a8da9dde9d760b5b710b"
+          ],
+          "metadata_digests": [
+            "sha256:8b1a8aa99925f5a4c92932073d228fa6fb39d85b12e5892ee5385c53c75fbcf0"
+          ],
+          "encoding": "scope_grant_v0"
+        },
+        "attestation": {
+          "attested_tool_name": "ledger.export",
+          "attested_implementation_digest": "sha256:cb91c4f70e08ba3fdef5379f01933536551613583367a8da9dde9d760b5b710b",
+          "attestor_key_resolved": true,
+          "attestor_signature_valid": false
+        },
+        "observedImplementationDigest": "sha256:cb91c4f70e08ba3fdef5379f01933536551613583367a8da9dde9d760b5b710b",
+        "observedMetadataDigest": "sha256:8b1a8aa99925f5a4c92932073d228fa6fb39d85b12e5892ee5385c53c75fbcf0"
+      },
+      "expected": {
+        "outcome": "not_established",
+        "continuity": "not_established",
+        "reason_code": "TOOL_ATTESTATION_SIGNATURE_INVALID",
+        "missing": [
+          "source"
+        ]
+      }
+    },
+    {
+      "id": "CB-08",
+      "note": "Partial pin. The grant pins the implementation and says nothing about the declared schema or permissions, and the schema drifted. An implementation pin does not cover a schema.",
+      "input": {
+        "requestedToolName": "ledger.export",
+        "grantedScopes": [
+          "ledger:read",
+          "tool:ledger.export"
+        ],
+        "requiredScopes": [
+          "ledger:read"
+        ],
+        "pin": {
+          "tool_name": "ledger.export",
+          "implementation_digests": [
+            "sha256:cb91c4f70e08ba3fdef5379f01933536551613583367a8da9dde9d760b5b710b"
+          ],
+          "metadata_digests": [],
+          "encoding": "scope_grant_v0"
+        },
+        "attestation": {
+          "attested_tool_name": "ledger.export",
+          "attested_implementation_digest": "sha256:cb91c4f70e08ba3fdef5379f01933536551613583367a8da9dde9d760b5b710b",
+          "attestor_key_resolved": true,
+          "attestor_signature_valid": true
+        },
+        "observedImplementationDigest": "sha256:cb91c4f70e08ba3fdef5379f01933536551613583367a8da9dde9d760b5b710b",
+        "observedMetadataDigest": "sha256:4c3debbce668aacdd572352b9b37983b0b9cd3ec697060e26e694e04b1b949aa"
+      },
+      "expected": {
+        "outcome": "not_established",
+        "continuity": "not_established",
+        "reason_code": "METADATA_NOT_PINNED_IN_GRANT",
+        "missing": [
+          "coverage"
+        ]
+      }
+    },
+    {
+      "id": "CB-09",
+      "note": "The grant does not name the tool. An established negative: the grant is in front of the verifier and does not say this.",
+      "input": {
+        "requestedToolName": "ledger.export",
+        "grantedScopes": [
+          "ledger:read"
+        ],
+        "requiredScopes": [
+          "ledger:read"
+        ],
+        "pin": null,
+        "attestation": {
+          "attested_tool_name": "ledger.export",
+          "attested_implementation_digest": "sha256:cb91c4f70e08ba3fdef5379f01933536551613583367a8da9dde9d760b5b710b",
+          "attestor_key_resolved": true,
+          "attestor_signature_valid": true
+        },
+        "observedImplementationDigest": "sha256:cb91c4f70e08ba3fdef5379f01933536551613583367a8da9dde9d760b5b710b",
+        "observedMetadataDigest": "sha256:8b1a8aa99925f5a4c92932073d228fa6fb39d85b12e5892ee5385c53c75fbcf0"
+      },
+      "expected": {
+        "outcome": "denied",
+        "continuity": "not_established",
+        "reason_code": "TOOL_NOT_IN_GRANT_SCOPE"
+      }
+    },
+    {
+      "id": "CB-10",
+      "note": "The grant names the tool and does not carry a scope the action declares it needs.",
+      "input": {
+        "requestedToolName": "ledger.export",
+        "grantedScopes": [
+          "tool:ledger.export"
+        ],
+        "requiredScopes": [
+          "ledger:read"
+        ],
+        "pin": {
+          "tool_name": "ledger.export",
+          "implementation_digests": [
+            "sha256:cb91c4f70e08ba3fdef5379f01933536551613583367a8da9dde9d760b5b710b"
+          ],
+          "metadata_digests": [
+            "sha256:8b1a8aa99925f5a4c92932073d228fa6fb39d85b12e5892ee5385c53c75fbcf0"
+          ],
+          "encoding": "scope_grant_v0"
+        },
+        "attestation": {
+          "attested_tool_name": "ledger.export",
+          "attested_implementation_digest": "sha256:cb91c4f70e08ba3fdef5379f01933536551613583367a8da9dde9d760b5b710b",
+          "attestor_key_resolved": true,
+          "attestor_signature_valid": true
+        },
+        "observedImplementationDigest": "sha256:cb91c4f70e08ba3fdef5379f01933536551613583367a8da9dde9d760b5b710b",
+        "observedMetadataDigest": "sha256:8b1a8aa99925f5a4c92932073d228fa6fb39d85b12e5892ee5385c53c75fbcf0"
+      },
+      "expected": {
+        "outcome": "denied",
+        "continuity": "not_established",
+        "reason_code": "SCOPE_NOT_GRANTED"
+      }
+    },
+    {
+      "id": "CB-11",
+      "note": "No trusted attestor key resolves for the tool. Standing to attest is resolved outside the record asserting it, so this is not the same as a bad signature.",
+      "input": {
+        "requestedToolName": "ledger.export",
+        "grantedScopes": [
+          "ledger:read",
+          "tool:ledger.export"
+        ],
+        "requiredScopes": [],
+        "pin": {
+          "tool_name": "ledger.export",
+          "implementation_digests": [
+            "sha256:cb91c4f70e08ba3fdef5379f01933536551613583367a8da9dde9d760b5b710b"
+          ],
+          "metadata_digests": [
+            "sha256:8b1a8aa99925f5a4c92932073d228fa6fb39d85b12e5892ee5385c53c75fbcf0"
+          ],
+          "encoding": "scope_grant_v0"
+        },
+        "attestation": {
+          "attested_tool_name": "ledger.export",
+          "attested_implementation_digest": "sha256:cb91c4f70e08ba3fdef5379f01933536551613583367a8da9dde9d760b5b710b",
+          "attestor_key_resolved": false,
+          "attestor_signature_valid": false
+        },
+        "observedImplementationDigest": "sha256:cb91c4f70e08ba3fdef5379f01933536551613583367a8da9dde9d760b5b710b",
+        "observedMetadataDigest": "sha256:8b1a8aa99925f5a4c92932073d228fa6fb39d85b12e5892ee5385c53c75fbcf0"
+      },
+      "expected": {
+        "outcome": "not_established",
+        "continuity": "not_established",
+        "reason_code": "TOOL_ATTESTOR_KEY_UNRESOLVED",
+        "missing": [
+          "source"
+        ]
+      }
+    },
+    {
+      "id": "CB-12",
+      "note": "No attestation presented at all.",
+      "input": {
+        "requestedToolName": "ledger.export",
+        "grantedScopes": [
+          "ledger:read",
+          "tool:ledger.export"
+        ],
+        "requiredScopes": [],
+        "pin": {
+          "tool_name": "ledger.export",
+          "implementation_digests": [
+            "sha256:cb91c4f70e08ba3fdef5379f01933536551613583367a8da9dde9d760b5b710b"
+          ],
+          "metadata_digests": [
+            "sha256:8b1a8aa99925f5a4c92932073d228fa6fb39d85b12e5892ee5385c53c75fbcf0"
+          ],
+          "encoding": "scope_grant_v0"
+        },
+        "attestation": null,
+        "observedImplementationDigest": "sha256:cb91c4f70e08ba3fdef5379f01933536551613583367a8da9dde9d760b5b710b",
+        "observedMetadataDigest": "sha256:8b1a8aa99925f5a4c92932073d228fa6fb39d85b12e5892ee5385c53c75fbcf0"
+      },
+      "expected": {
+        "outcome": "not_established",
+        "continuity": "not_established",
+        "reason_code": "TOOL_ATTESTATION_ABSENT",
+        "missing": [
+          "coverage"
+        ]
+      }
+    },
+    {
+      "id": "CB-13",
+      "note": "The entry is about a different tool, so the claim does not cover what the verdict needed.",
+      "input": {
+        "requestedToolName": "ledger.export",
+        "grantedScopes": [
+          "ledger:read",
+          "tool:ledger.export"
+        ],
+        "requiredScopes": [],
+        "pin": {
+          "tool_name": "ledger.export",
+          "implementation_digests": [
+            "sha256:cb91c4f70e08ba3fdef5379f01933536551613583367a8da9dde9d760b5b710b"
+          ],
+          "metadata_digests": [
+            "sha256:8b1a8aa99925f5a4c92932073d228fa6fb39d85b12e5892ee5385c53c75fbcf0"
+          ],
+          "encoding": "scope_grant_v0"
+        },
+        "attestation": {
+          "attested_tool_name": "ledger.import",
+          "attested_implementation_digest": "sha256:cb91c4f70e08ba3fdef5379f01933536551613583367a8da9dde9d760b5b710b",
+          "attestor_key_resolved": true,
+          "attestor_signature_valid": true
+        },
+        "observedImplementationDigest": "sha256:cb91c4f70e08ba3fdef5379f01933536551613583367a8da9dde9d760b5b710b",
+        "observedMetadataDigest": "sha256:8b1a8aa99925f5a4c92932073d228fa6fb39d85b12e5892ee5385c53c75fbcf0"
+      },
+      "expected": {
+        "outcome": "not_established",
+        "continuity": "not_established",
+        "reason_code": "REGISTRY_ENTRY_TOOL_NAME_MISMATCH",
+        "missing": [
+          "coverage"
+        ]
+      }
+    },
+    {
+      "id": "CB-14",
+      "note": "The caller observed no running implementation. The SDK cannot reach one and must not assume the unobserved axis matched.",
+      "input": {
+        "requestedToolName": "ledger.export",
+        "grantedScopes": [
+          "ledger:read",
+          "tool:ledger.export"
+        ],
+        "requiredScopes": [],
+        "pin": {
+          "tool_name": "ledger.export",
+          "implementation_digests": [
+            "sha256:cb91c4f70e08ba3fdef5379f01933536551613583367a8da9dde9d760b5b710b"
+          ],
+          "metadata_digests": [
+            "sha256:8b1a8aa99925f5a4c92932073d228fa6fb39d85b12e5892ee5385c53c75fbcf0"
+          ],
+          "encoding": "scope_grant_v0"
+        },
+        "attestation": {
+          "attested_tool_name": "ledger.export",
+          "attested_implementation_digest": "sha256:cb91c4f70e08ba3fdef5379f01933536551613583367a8da9dde9d760b5b710b",
+          "attestor_key_resolved": true,
+          "attestor_signature_valid": true
+        },
+        "observedImplementationDigest": null,
+        "observedMetadataDigest": "sha256:8b1a8aa99925f5a4c92932073d228fa6fb39d85b12e5892ee5385c53c75fbcf0"
+      },
+      "expected": {
+        "outcome": "not_established",
+        "continuity": "not_established",
+        "reason_code": "OBSERVATION_ABSENT",
+        "missing": [
+          "coverage"
+        ],
+        "detail": "implementation"
+      }
+    },
+    {
+      "id": "CB-15",
+      "note": "The caller observed no declared metadata while the grant pins it.",
+      "input": {
+        "requestedToolName": "ledger.export",
+        "grantedScopes": [
+          "ledger:read",
+          "tool:ledger.export"
+        ],
+        "requiredScopes": [],
+        "pin": {
+          "tool_name": "ledger.export",
+          "implementation_digests": [
+            "sha256:cb91c4f70e08ba3fdef5379f01933536551613583367a8da9dde9d760b5b710b"
+          ],
+          "metadata_digests": [
+            "sha256:8b1a8aa99925f5a4c92932073d228fa6fb39d85b12e5892ee5385c53c75fbcf0"
+          ],
+          "encoding": "scope_grant_v0"
+        },
+        "attestation": {
+          "attested_tool_name": "ledger.export",
+          "attested_implementation_digest": "sha256:cb91c4f70e08ba3fdef5379f01933536551613583367a8da9dde9d760b5b710b",
+          "attestor_key_resolved": true,
+          "attestor_signature_valid": true
+        },
+        "observedImplementationDigest": "sha256:cb91c4f70e08ba3fdef5379f01933536551613583367a8da9dde9d760b5b710b",
+        "observedMetadataDigest": null
+      },
+      "expected": {
+        "outcome": "not_established",
+        "continuity": "not_established",
+        "reason_code": "OBSERVATION_ABSENT",
+        "missing": [
+          "coverage"
+        ],
+        "detail": "metadata"
+      }
+    },
+    {
+      "id": "CB-16",
+      "note": "The mirror of CB-08: metadata pinned, implementation not. A metadata pin does not cover an implementation, and this reason code is NOT in the capability-binding-drift family, whose step order reports the unpinned code here. No vector in that family distinguishes the two.",
+      "input": {
+        "requestedToolName": "ledger.export",
+        "grantedScopes": [
+          "ledger:read",
+          "tool:ledger.export"
+        ],
+        "requiredScopes": [],
+        "pin": {
+          "tool_name": "ledger.export",
+          "implementation_digests": [],
+          "metadata_digests": [
+            "sha256:8b1a8aa99925f5a4c92932073d228fa6fb39d85b12e5892ee5385c53c75fbcf0"
+          ],
+          "encoding": "scope_grant_v0"
+        },
+        "attestation": {
+          "attested_tool_name": "ledger.export",
+          "attested_implementation_digest": "sha256:cb91c4f70e08ba3fdef5379f01933536551613583367a8da9dde9d760b5b710b",
+          "attestor_key_resolved": true,
+          "attestor_signature_valid": true
+        },
+        "observedImplementationDigest": "sha256:cb91c4f70e08ba3fdef5379f01933536551613583367a8da9dde9d760b5b710b",
+        "observedMetadataDigest": "sha256:8b1a8aa99925f5a4c92932073d228fa6fb39d85b12e5892ee5385c53c75fbcf0"
+      },
+      "expected": {
+        "outcome": "not_established",
+        "continuity": "not_established",
+        "reason_code": "IMPLEMENTATION_NOT_PINNED_IN_GRANT",
+        "missing": [
+          "coverage"
+        ]
+      }
+    },
+    {
+      "id": "CB-17",
+      "note": "Two acceptable implementation revisions pinned. A pin is a set, so the second one matching is a match.",
+      "input": {
+        "requestedToolName": "ledger.export",
+        "grantedScopes": [
+          "ledger:read",
+          "tool:ledger.export"
+        ],
+        "requiredScopes": [],
+        "pin": {
+          "tool_name": "ledger.export",
+          "implementation_digests": [
+            "sha256:cb91c4f70e08ba3fdef5379f01933536551613583367a8da9dde9d760b5b710b",
+            "sha256:f54fa3ee2f8297fe2cd4ba9473ded1f88997327e021ed4a761d10f2c93ef0b4a"
+          ],
+          "metadata_digests": [
+            "sha256:4c3debbce668aacdd572352b9b37983b0b9cd3ec697060e26e694e04b1b949aa"
+          ],
+          "encoding": "scope_grant_v0"
+        },
+        "attestation": {
+          "attested_tool_name": "ledger.export",
+          "attested_implementation_digest": "sha256:f54fa3ee2f8297fe2cd4ba9473ded1f88997327e021ed4a761d10f2c93ef0b4a",
+          "attestor_key_resolved": true,
+          "attestor_signature_valid": true
+        },
+        "observedImplementationDigest": "sha256:f54fa3ee2f8297fe2cd4ba9473ded1f88997327e021ed4a761d10f2c93ef0b4a",
+        "observedMetadataDigest": "sha256:4c3debbce668aacdd572352b9b37983b0b9cd3ec697060e26e694e04b1b949aa"
+      },
+      "expected": {
+        "outcome": "authorized",
+        "continuity": "established",
+        "reason_code": "CAPABILITY_CONTINUITY_ESTABLISHED"
+      }
+    },
+    {
+      "id": "CB-18",
+      "note": "THE INVARIANT CANDIDATE ITS OWN STRONGEST COUNTEREXAMPLE, MADE RUNNABLE. The declared metadata NARROWS: same schema, one fewer permission. A pinned grant denies it anyway, which is a false denial with no risk behind it. CAND-07 v2 scopes the narrowing direction out of the claim and does not say what an implementation should do, so this case records the behaviour rather than endorsing it.",
+      "input": {
+        "requestedToolName": "ledger.export",
+        "grantedScopes": [
+          "ledger:read",
+          "tool:ledger.export"
+        ],
+        "requiredScopes": [],
+        "pin": {
+          "tool_name": "ledger.export",
+          "implementation_digests": [
+            "sha256:cb91c4f70e08ba3fdef5379f01933536551613583367a8da9dde9d760b5b710b"
+          ],
+          "metadata_digests": [
+            "sha256:8b1a8aa99925f5a4c92932073d228fa6fb39d85b12e5892ee5385c53c75fbcf0"
+          ],
+          "encoding": "scope_grant_v0"
+        },
+        "attestation": {
+          "attested_tool_name": "ledger.export",
+          "attested_implementation_digest": "sha256:cb91c4f70e08ba3fdef5379f01933536551613583367a8da9dde9d760b5b710b",
+          "attestor_key_resolved": true,
+          "attestor_signature_valid": true
+        },
+        "observedImplementationDigest": "sha256:cb91c4f70e08ba3fdef5379f01933536551613583367a8da9dde9d760b5b710b",
+        "observedMetadataDigest": "sha256:5be204d68bbfe3ee20e1eabf09206a6645eb4763b657cc86da4c3094efdd5985"
+      },
+      "expected": {
+        "outcome": "denied",
+        "continuity": "mismatch",
+        "reason_code": "PINNED_METADATA_DIGEST_MISMATCH"
+      }
+    }
+  ],
+  "identifier_continuity": {
+    "note": "Records are given UNSIGNED. A runner signs each one with the private key of the custodian named in sign_as, using its own sign and its own identifierRecordSignedBytes, then evaluates. No signature is stored in this file, so a canonical-byte divergence between the two SDKs shows up as a failed signature check rather than as a matching blob.",
+    "custodian_private_keys": {
+      "did:aps:example:cb-registrar": "3a14bbfc8418f4b1e500039f8682f79a3be8e1109c8236a4eb7165a91f968208",
+      "did:aps:example:cb-package-host": "659db8c9f3f2fcdeb838bac94d14ebaa44916b9b9889f450f32031143f7242bd",
+      "did:aps:example:cb-carrier": "945e3cb8dff076ec4305621038b701b60176803233863aa448bff34a29dcaf37",
+      "did:aps:example:cb-outsider": "20c23edf1ff97c78db92b0a0876dce47fd896c4f32b361e01186bbb6979a7a8c"
+    },
+    "custodian_public_keys": {
+      "did:aps:example:cb-registrar": "294cac70406ff40a3235094e176d88058ae527e3d693c380cd46c49dd99d6902",
+      "did:aps:example:cb-package-host": "0a4d23aba5d74654b70c91008df624f85ad42d5b2a9d14f157b3de5b579cc5cf",
+      "did:aps:example:cb-carrier": "371393fd63679045950037005ff9c7fec3fd4e2c6812f6ea284edda97f9482ca",
+      "did:aps:example:cb-outsider": "3a860b6ad03802e1a1989c8ad51b329e7d7cc4d97ab74f0d40dbbdadaaae1368"
+    },
+    "custodian_standing": {
+      "mail-domain": "did:aps:example:cb-registrar",
+      "package-namespace": "did:aps:example:cb-package-host",
+      "phone-e164": "did:aps:example:cb-carrier"
+    },
+    "invalid_signature_literal": "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "cases": [
+      {
+        "id": "IC-01",
+        "note": "Control. Declared, pinned, and continuously bound to the pinned controller since issuance.",
+        "input": {
+          "identifierKind": "mail-domain",
+          "identifier": "acme-legal.example",
+          "grantedScopes": [
+            "account:recover",
+            "extid:mail-domain:acme-legal.example",
+            "extid:mail-domain:acme-legal.example:controller:did:aps:example:cb-org"
+          ],
+          "grantIssuedAt": "2026-09-19T09:00:00.000Z",
+          "at": "2026-09-23T12:00:00.000Z",
+          "bindings": [
+            {
+              "record": {
+                "record_type": "aps-conformance:identifier-binding:v0",
+                "identifier_kind": "mail-domain",
+                "identifier": "acme-legal.example",
+                "controller": "did:aps:example:cb-org",
+                "bound_from": "2026-01-01T00:00:00.000Z",
+                "bound_until": null,
+                "custodian": "did:aps:example:cb-registrar",
+                "nonce": "00000000000000000000000000000001"
+              },
+              "sign_as": "did:aps:example:cb-registrar"
+            }
+          ],
+          "retentions": []
+        },
+        "expected": {
+          "outcome": "authorized",
+          "continuity": "established",
+          "reason_code": "IDENTIFIER_CONTINUITY_ESTABLISHED",
+          "controller_at_instant": "did:aps:example:cb-org"
+        }
+      },
+      {
+        "id": "IC-02",
+        "note": "The action relies on an identifier the grant never declares. A verifier that never modelled it has no record to invalidate when control moves.",
+        "input": {
+          "identifierKind": "mail-domain",
+          "identifier": "acme-legal.example",
+          "grantedScopes": [
+            "account:recover"
+          ],
+          "grantIssuedAt": "2026-09-19T09:00:00.000Z",
+          "at": "2026-09-23T12:00:00.000Z",
+          "bindings": [
+            {
+              "record": {
+                "record_type": "aps-conformance:identifier-binding:v0",
+                "identifier_kind": "mail-domain",
+                "identifier": "acme-legal.example",
+                "controller": "did:aps:example:cb-org",
+                "bound_from": "2026-01-01T00:00:00.000Z",
+                "bound_until": null,
+                "custodian": "did:aps:example:cb-registrar",
+                "nonce": "00000000000000000000000000000001"
+              },
+              "sign_as": "did:aps:example:cb-registrar"
+            }
+          ],
+          "retentions": []
+        },
+        "expected": {
+          "outcome": "not_established",
+          "continuity": "not_established",
+          "reason_code": "IDENTIFIER_DEPENDENCY_NOT_DECLARED",
+          "missing": [
+            "coverage"
+          ],
+          "controller_at_instant": null
+        }
+      },
+      {
+        "id": "IC-03",
+        "note": "Lapsed, then registered by an unrelated party. The string is the same. The party behind it is not, and the verifier established that from accepted records. ESTABLISHED MISMATCH: denied.",
+        "input": {
+          "identifierKind": "mail-domain",
+          "identifier": "acme-legal.example",
+          "grantedScopes": [
+            "account:recover",
+            "extid:mail-domain:acme-legal.example",
+            "extid:mail-domain:acme-legal.example:controller:did:aps:example:cb-org"
+          ],
+          "grantIssuedAt": "2026-09-19T09:00:00.000Z",
+          "at": "2026-09-23T12:00:00.000Z",
+          "bindings": [
+            {
+              "record": {
+                "record_type": "aps-conformance:identifier-binding:v0",
+                "identifier_kind": "mail-domain",
+                "identifier": "acme-legal.example",
+                "controller": "did:aps:example:cb-org",
+                "bound_from": "2026-01-01T00:00:00.000Z",
+                "bound_until": "2026-09-21T00:00:00.000Z",
+                "custodian": "did:aps:example:cb-registrar",
+                "nonce": "00000000000000000000000000000002"
+              },
+              "sign_as": "did:aps:example:cb-registrar"
+            },
+            {
+              "record": {
+                "record_type": "aps-conformance:identifier-binding:v0",
+                "identifier_kind": "mail-domain",
+                "identifier": "acme-legal.example",
+                "controller": "did:aps:example:cb-newparty",
+                "bound_from": "2026-09-22T00:00:00.000Z",
+                "bound_until": null,
+                "custodian": "did:aps:example:cb-registrar",
+                "nonce": "00000000000000000000000000000003"
+              },
+              "sign_as": "did:aps:example:cb-registrar"
+            }
+          ],
+          "retentions": []
+        },
+        "expected": {
+          "outcome": "denied",
+          "continuity": "mismatch",
+          "reason_code": "IDENTIFIER_CONTROLLER_CHANGED",
+          "controller_at_instant": "did:aps:example:cb-newparty"
+        }
+      },
+      {
+        "id": "IC-04",
+        "note": "No accepted binding covers the instant. Lapsed, with nobody recorded as holding it.",
+        "input": {
+          "identifierKind": "mail-domain",
+          "identifier": "acme-legal.example",
+          "grantedScopes": [
+            "account:recover",
+            "extid:mail-domain:acme-legal.example",
+            "extid:mail-domain:acme-legal.example:controller:did:aps:example:cb-org"
+          ],
+          "grantIssuedAt": "2026-09-19T09:00:00.000Z",
+          "at": "2026-09-23T12:00:00.000Z",
+          "bindings": [
+            {
+              "record": {
+                "record_type": "aps-conformance:identifier-binding:v0",
+                "identifier_kind": "mail-domain",
+                "identifier": "acme-legal.example",
+                "controller": "did:aps:example:cb-org",
+                "bound_from": "2026-01-01T00:00:00.000Z",
+                "bound_until": "2026-09-21T00:00:00.000Z",
+                "custodian": "did:aps:example:cb-registrar",
+                "nonce": "00000000000000000000000000000002"
+              },
+              "sign_as": "did:aps:example:cb-registrar"
+            }
+          ],
+          "retentions": []
+        },
+        "expected": {
+          "outcome": "not_established",
+          "continuity": "not_established",
+          "reason_code": "IDENTIFIER_BINDING_LAPSED",
+          "missing": [
+            "coverage"
+          ],
+          "controller_at_instant": null
+        }
+      },
+      {
+        "id": "IC-05",
+        "note": "A vacated package namespace claimed by a new controller.",
+        "input": {
+          "identifierKind": "package-namespace",
+          "identifier": "acme",
+          "grantedScopes": [
+            "pkg:publish",
+            "extid:package-namespace:acme",
+            "extid:package-namespace:acme:controller:did:aps:example:cb-publisher"
+          ],
+          "grantIssuedAt": "2026-09-19T09:00:00.000Z",
+          "at": "2026-09-23T12:00:00.000Z",
+          "bindings": [
+            {
+              "record": {
+                "record_type": "aps-conformance:identifier-binding:v0",
+                "identifier_kind": "package-namespace",
+                "identifier": "acme",
+                "controller": "did:aps:example:cb-publisher",
+                "bound_from": "2026-01-01T00:00:00.000Z",
+                "bound_until": "2026-09-21T00:00:00.000Z",
+                "custodian": "did:aps:example:cb-package-host",
+                "nonce": "00000000000000000000000000000004"
+              },
+              "sign_as": "did:aps:example:cb-package-host"
+            },
+            {
+              "record": {
+                "record_type": "aps-conformance:identifier-binding:v0",
+                "identifier_kind": "package-namespace",
+                "identifier": "acme",
+                "controller": "did:aps:example:cb-claimer",
+                "bound_from": "2026-09-22T00:00:00.000Z",
+                "bound_until": null,
+                "custodian": "did:aps:example:cb-package-host",
+                "nonce": "00000000000000000000000000000006"
+              },
+              "sign_as": "did:aps:example:cb-package-host"
+            }
+          ],
+          "retentions": []
+        },
+        "expected": {
+          "outcome": "denied",
+          "continuity": "mismatch",
+          "reason_code": "IDENTIFIER_CONTROLLER_CHANGED",
+          "controller_at_instant": "did:aps:example:cb-claimer"
+        }
+      },
+      {
+        "id": "IC-06",
+        "note": "A gap the custodian retained, with the pinned controller back. The retention record from the party with standing closes the interval.",
+        "input": {
+          "identifierKind": "package-namespace",
+          "identifier": "acme",
+          "grantedScopes": [
+            "pkg:publish",
+            "extid:package-namespace:acme",
+            "extid:package-namespace:acme:controller:did:aps:example:cb-publisher"
+          ],
+          "grantIssuedAt": "2026-09-19T09:00:00.000Z",
+          "at": "2026-09-23T12:00:00.000Z",
+          "bindings": [
+            {
+              "record": {
+                "record_type": "aps-conformance:identifier-binding:v0",
+                "identifier_kind": "package-namespace",
+                "identifier": "acme",
+                "controller": "did:aps:example:cb-publisher",
+                "bound_from": "2026-01-01T00:00:00.000Z",
+                "bound_until": "2026-09-21T00:00:00.000Z",
+                "custodian": "did:aps:example:cb-package-host",
+                "nonce": "00000000000000000000000000000004"
+              },
+              "sign_as": "did:aps:example:cb-package-host"
+            },
+            {
+              "record": {
+                "record_type": "aps-conformance:identifier-binding:v0",
+                "identifier_kind": "package-namespace",
+                "identifier": "acme",
+                "controller": "did:aps:example:cb-publisher",
+                "bound_from": "2026-09-22T00:00:00.000Z",
+                "bound_until": null,
+                "custodian": "did:aps:example:cb-package-host",
+                "nonce": "00000000000000000000000000000005"
+              },
+              "sign_as": "did:aps:example:cb-package-host"
+            }
+          ],
+          "retentions": [
+            {
+              "record": {
+                "record_type": "aps-conformance:identifier-retention:v0",
+                "identifier_kind": "package-namespace",
+                "identifier": "acme",
+                "retained_from": "2026-09-21T00:00:00.000Z",
+                "retained_until": "2026-09-22T00:00:00.000Z",
+                "custodian": "did:aps:example:cb-package-host",
+                "nonce": "0000000000000000000000000000000a"
+              },
+              "sign_as": "did:aps:example:cb-package-host"
+            }
+          ]
+        },
+        "expected": {
+          "outcome": "authorized",
+          "continuity": "established",
+          "reason_code": "IDENTIFIER_CONTINUITY_ESTABLISHED",
+          "controller_at_instant": "did:aps:example:cb-publisher"
+        }
+      },
+      {
+        "id": "IC-07",
+        "note": "The same gap with no retention record. The holder now being the pinned holder says nothing about the interval in between, and an interval held by nobody is an interval anyone could have taken it.",
+        "input": {
+          "identifierKind": "package-namespace",
+          "identifier": "acme",
+          "grantedScopes": [
+            "pkg:publish",
+            "extid:package-namespace:acme",
+            "extid:package-namespace:acme:controller:did:aps:example:cb-publisher"
+          ],
+          "grantIssuedAt": "2026-09-19T09:00:00.000Z",
+          "at": "2026-09-23T12:00:00.000Z",
+          "bindings": [
+            {
+              "record": {
+                "record_type": "aps-conformance:identifier-binding:v0",
+                "identifier_kind": "package-namespace",
+                "identifier": "acme",
+                "controller": "did:aps:example:cb-publisher",
+                "bound_from": "2026-01-01T00:00:00.000Z",
+                "bound_until": "2026-09-21T00:00:00.000Z",
+                "custodian": "did:aps:example:cb-package-host",
+                "nonce": "00000000000000000000000000000004"
+              },
+              "sign_as": "did:aps:example:cb-package-host"
+            },
+            {
+              "record": {
+                "record_type": "aps-conformance:identifier-binding:v0",
+                "identifier_kind": "package-namespace",
+                "identifier": "acme",
+                "controller": "did:aps:example:cb-publisher",
+                "bound_from": "2026-09-22T00:00:00.000Z",
+                "bound_until": null,
+                "custodian": "did:aps:example:cb-package-host",
+                "nonce": "00000000000000000000000000000005"
+              },
+              "sign_as": "did:aps:example:cb-package-host"
+            }
+          ],
+          "retentions": []
+        },
+        "expected": {
+          "outcome": "not_established",
+          "continuity": "not_established",
+          "reason_code": "IDENTIFIER_CONTINUITY_GAP_UNCOVERED",
+          "missing": [
+            "coverage"
+          ],
+          "controller_at_instant": "did:aps:example:cb-publisher"
+        }
+      },
+      {
+        "id": "IC-08",
+        "note": "A retention record that covers the gap but comes from a party this caller does not resolve as custodian for the kind. A valid signature establishes who signed, not that they had standing. Named apart from there being no record at all.",
+        "input": {
+          "identifierKind": "package-namespace",
+          "identifier": "acme",
+          "grantedScopes": [
+            "pkg:publish",
+            "extid:package-namespace:acme",
+            "extid:package-namespace:acme:controller:did:aps:example:cb-publisher"
+          ],
+          "grantIssuedAt": "2026-09-19T09:00:00.000Z",
+          "at": "2026-09-23T12:00:00.000Z",
+          "bindings": [
+            {
+              "record": {
+                "record_type": "aps-conformance:identifier-binding:v0",
+                "identifier_kind": "package-namespace",
+                "identifier": "acme",
+                "controller": "did:aps:example:cb-publisher",
+                "bound_from": "2026-01-01T00:00:00.000Z",
+                "bound_until": "2026-09-21T00:00:00.000Z",
+                "custodian": "did:aps:example:cb-package-host",
+                "nonce": "00000000000000000000000000000004"
+              },
+              "sign_as": "did:aps:example:cb-package-host"
+            },
+            {
+              "record": {
+                "record_type": "aps-conformance:identifier-binding:v0",
+                "identifier_kind": "package-namespace",
+                "identifier": "acme",
+                "controller": "did:aps:example:cb-publisher",
+                "bound_from": "2026-09-22T00:00:00.000Z",
+                "bound_until": null,
+                "custodian": "did:aps:example:cb-package-host",
+                "nonce": "00000000000000000000000000000005"
+              },
+              "sign_as": "did:aps:example:cb-package-host"
+            }
+          ],
+          "retentions": [
+            {
+              "record": {
+                "record_type": "aps-conformance:identifier-retention:v0",
+                "identifier_kind": "package-namespace",
+                "identifier": "acme",
+                "retained_from": "2026-09-21T00:00:00.000Z",
+                "retained_until": "2026-09-22T00:00:00.000Z",
+                "custodian": "did:aps:example:cb-outsider",
+                "nonce": "0000000000000000000000000000000b"
+              },
+              "sign_as": "did:aps:example:cb-outsider"
+            }
+          ]
+        },
+        "expected": {
+          "outcome": "not_established",
+          "continuity": "not_established",
+          "reason_code": "RETENTION_CUSTODIAN_WITHOUT_STANDING",
+          "missing": [
+            "source"
+          ],
+          "controller_at_instant": "did:aps:example:cb-publisher"
+        }
+      },
+      {
+        "id": "IC-09",
+        "note": "Routine reassignment of a phone number to a new subscriber. Nothing went wrong anywhere and the authority path is still broken.",
+        "input": {
+          "identifierKind": "phone-e164",
+          "identifier": "+15550100",
+          "grantedScopes": [
+            "account:recover",
+            "extid:phone-e164:+15550100",
+            "extid:phone-e164:+15550100:controller:did:aps:example:cb-subscriber-a"
+          ],
+          "grantIssuedAt": "2026-09-19T09:00:00.000Z",
+          "at": "2026-09-23T12:00:00.000Z",
+          "bindings": [
+            {
+              "record": {
+                "record_type": "aps-conformance:identifier-binding:v0",
+                "identifier_kind": "phone-e164",
+                "identifier": "+15550100",
+                "controller": "did:aps:example:cb-subscriber-a",
+                "bound_from": "2026-01-01T00:00:00.000Z",
+                "bound_until": "2026-09-22T00:00:00.000Z",
+                "custodian": "did:aps:example:cb-carrier",
+                "nonce": "00000000000000000000000000000009"
+              },
+              "sign_as": "did:aps:example:cb-carrier"
+            },
+            {
+              "record": {
+                "record_type": "aps-conformance:identifier-binding:v0",
+                "identifier_kind": "phone-e164",
+                "identifier": "+15550100",
+                "controller": "did:aps:example:cb-subscriber-b",
+                "bound_from": "2026-09-22T00:00:00.000Z",
+                "bound_until": null,
+                "custodian": "did:aps:example:cb-carrier",
+                "nonce": "00000000000000000000000000000008"
+              },
+              "sign_as": "did:aps:example:cb-carrier"
+            }
+          ],
+          "retentions": []
+        },
+        "expected": {
+          "outcome": "denied",
+          "continuity": "mismatch",
+          "reason_code": "IDENTIFIER_CONTROLLER_CHANGED",
+          "controller_at_instant": "did:aps:example:cb-subscriber-b"
+        }
+      },
+      {
+        "id": "IC-10",
+        "note": "Two accepted custodian records name different holders at the instant. An unresolved conflict between accepted sources, and the holder is reported as null rather than guessed.",
+        "input": {
+          "identifierKind": "phone-e164",
+          "identifier": "+15550100",
+          "grantedScopes": [
+            "account:recover",
+            "extid:phone-e164:+15550100",
+            "extid:phone-e164:+15550100:controller:did:aps:example:cb-subscriber-a"
+          ],
+          "grantIssuedAt": "2026-09-19T09:00:00.000Z",
+          "at": "2026-09-23T12:00:00.000Z",
+          "bindings": [
+            {
+              "record": {
+                "record_type": "aps-conformance:identifier-binding:v0",
+                "identifier_kind": "phone-e164",
+                "identifier": "+15550100",
+                "controller": "did:aps:example:cb-subscriber-a",
+                "bound_from": "2026-01-01T00:00:00.000Z",
+                "bound_until": null,
+                "custodian": "did:aps:example:cb-carrier",
+                "nonce": "00000000000000000000000000000007"
+              },
+              "sign_as": "did:aps:example:cb-carrier"
+            },
+            {
+              "record": {
+                "record_type": "aps-conformance:identifier-binding:v0",
+                "identifier_kind": "phone-e164",
+                "identifier": "+15550100",
+                "controller": "did:aps:example:cb-subscriber-b",
+                "bound_from": "2026-09-22T00:00:00.000Z",
+                "bound_until": null,
+                "custodian": "did:aps:example:cb-carrier",
+                "nonce": "00000000000000000000000000000008"
+              },
+              "sign_as": "did:aps:example:cb-carrier"
+            }
+          ],
+          "retentions": []
+        },
+        "expected": {
+          "outcome": "not_established",
+          "continuity": "not_established",
+          "reason_code": "IDENTIFIER_BINDING_CONFLICT",
+          "missing": [
+            "source"
+          ],
+          "controller_at_instant": null
+        }
+      },
+      {
+        "id": "IC-11",
+        "note": "The dependency is declared and no controller is pinned. CAND-07 v2 unpinned limb on the identity axis.",
+        "input": {
+          "identifierKind": "phone-e164",
+          "identifier": "+15550100",
+          "grantedScopes": [
+            "account:recover",
+            "extid:phone-e164:+15550100"
+          ],
+          "grantIssuedAt": "2026-09-19T09:00:00.000Z",
+          "at": "2026-09-23T12:00:00.000Z",
+          "bindings": [
+            {
+              "record": {
+                "record_type": "aps-conformance:identifier-binding:v0",
+                "identifier_kind": "phone-e164",
+                "identifier": "+15550100",
+                "controller": "did:aps:example:cb-subscriber-a",
+                "bound_from": "2026-01-01T00:00:00.000Z",
+                "bound_until": null,
+                "custodian": "did:aps:example:cb-carrier",
+                "nonce": "00000000000000000000000000000007"
+              },
+              "sign_as": "did:aps:example:cb-carrier"
+            }
+          ],
+          "retentions": []
+        },
+        "expected": {
+          "outcome": "not_established",
+          "continuity": "not_established",
+          "reason_code": "IDENTIFIER_CONTROLLER_NOT_PINNED",
+          "missing": [
+            "coverage"
+          ],
+          "controller_at_instant": null
+        }
+      },
+      {
+        "id": "IC-12",
+        "note": "Still held by the pinned subscriber, continuously. Control for the reassignment cases.",
+        "input": {
+          "identifierKind": "phone-e164",
+          "identifier": "+15550100",
+          "grantedScopes": [
+            "account:recover",
+            "extid:phone-e164:+15550100",
+            "extid:phone-e164:+15550100:controller:did:aps:example:cb-subscriber-a"
+          ],
+          "grantIssuedAt": "2026-09-19T09:00:00.000Z",
+          "at": "2026-09-23T12:00:00.000Z",
+          "bindings": [
+            {
+              "record": {
+                "record_type": "aps-conformance:identifier-binding:v0",
+                "identifier_kind": "phone-e164",
+                "identifier": "+15550100",
+                "controller": "did:aps:example:cb-subscriber-a",
+                "bound_from": "2026-01-01T00:00:00.000Z",
+                "bound_until": null,
+                "custodian": "did:aps:example:cb-carrier",
+                "nonce": "00000000000000000000000000000007"
+              },
+              "sign_as": "did:aps:example:cb-carrier"
+            }
+          ],
+          "retentions": []
+        },
+        "expected": {
+          "outcome": "authorized",
+          "continuity": "established",
+          "reason_code": "IDENTIFIER_CONTINUITY_ESTABLISHED",
+          "controller_at_instant": "did:aps:example:cb-subscriber-a"
+        }
+      },
+      {
+        "id": "IC-13",
+        "note": "The only binding covering the instant carries a signature that does not verify, so it is not an accepted record and nothing covers the instant. A record is not evidence because it is present.",
+        "input": {
+          "identifierKind": "mail-domain",
+          "identifier": "acme-legal.example",
+          "grantedScopes": [
+            "account:recover",
+            "extid:mail-domain:acme-legal.example",
+            "extid:mail-domain:acme-legal.example:controller:did:aps:example:cb-org"
+          ],
+          "grantIssuedAt": "2026-09-19T09:00:00.000Z",
+          "at": "2026-09-23T12:00:00.000Z",
+          "bindings": [
+            {
+              "record": {
+                "record_type": "aps-conformance:identifier-binding:v0",
+                "identifier_kind": "mail-domain",
+                "identifier": "acme-legal.example",
+                "controller": "did:aps:example:cb-org",
+                "bound_from": "2026-01-01T00:00:00.000Z",
+                "bound_until": null,
+                "custodian": "did:aps:example:cb-registrar",
+                "nonce": "00000000000000000000000000000001"
+              },
+              "sign_as": null,
+              "invalid_signature": true
+            }
+          ],
+          "retentions": []
+        },
+        "expected": {
+          "outcome": "not_established",
+          "continuity": "not_established",
+          "reason_code": "IDENTIFIER_BINDING_LAPSED",
+          "missing": [
+            "coverage"
+          ],
+          "controller_at_instant": null
+        }
+      },
+      {
+        "id": "IC-14",
+        "note": "The binding is authentic and signed by a real party who is not the custodian this caller resolves for mail domains. Standing is resolved per kind, from outside the record.",
+        "input": {
+          "identifierKind": "mail-domain",
+          "identifier": "acme-legal.example",
+          "grantedScopes": [
+            "account:recover",
+            "extid:mail-domain:acme-legal.example",
+            "extid:mail-domain:acme-legal.example:controller:did:aps:example:cb-org"
+          ],
+          "grantIssuedAt": "2026-09-19T09:00:00.000Z",
+          "at": "2026-09-23T12:00:00.000Z",
+          "bindings": [
+            {
+              "record": {
+                "record_type": "aps-conformance:identifier-binding:v0",
+                "identifier_kind": "mail-domain",
+                "identifier": "acme-legal.example",
+                "controller": "did:aps:example:cb-org",
+                "bound_from": "2026-01-01T00:00:00.000Z",
+                "bound_until": null,
+                "custodian": "did:aps:example:cb-outsider",
+                "nonce": "00000000000000000000000000000001"
+              },
+              "sign_as": "did:aps:example:cb-outsider"
+            }
+          ],
+          "retentions": []
+        },
+        "expected": {
+          "outcome": "not_established",
+          "continuity": "not_established",
+          "reason_code": "IDENTIFIER_BINDING_LAPSED",
+          "missing": [
+            "coverage"
+          ],
+          "controller_at_instant": null
+        }
+      },
+      {
+        "id": "IC-15",
+        "note": "A binding for a different identifier of the same kind does not cover this one.",
+        "input": {
+          "identifierKind": "mail-domain",
+          "identifier": "acme-legal.example",
+          "grantedScopes": [
+            "account:recover",
+            "extid:mail-domain:acme-legal.example",
+            "extid:mail-domain:acme-legal.example:controller:did:aps:example:cb-org"
+          ],
+          "grantIssuedAt": "2026-09-19T09:00:00.000Z",
+          "at": "2026-09-23T12:00:00.000Z",
+          "bindings": [
+            {
+              "record": {
+                "record_type": "aps-conformance:identifier-binding:v0",
+                "identifier_kind": "mail-domain",
+                "identifier": "other.example",
+                "controller": "did:aps:example:cb-org",
+                "bound_from": "2026-01-01T00:00:00.000Z",
+                "bound_until": null,
+                "custodian": "did:aps:example:cb-registrar",
+                "nonce": "00000000000000000000000000000001"
+              },
+              "sign_as": "did:aps:example:cb-registrar"
+            }
+          ],
+          "retentions": []
+        },
+        "expected": {
+          "outcome": "not_established",
+          "continuity": "not_established",
+          "reason_code": "IDENTIFIER_BINDING_LAPSED",
+          "missing": [
+            "coverage"
+          ],
+          "controller_at_instant": null
+        }
+      }
+    ]
+  }
+}

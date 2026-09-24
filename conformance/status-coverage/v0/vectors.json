@@ -1,0 +1,2896 @@
+{
+  "profile": "aps-status-coverage-v0",
+  "status": "proposed",
+  "status_note": "PROPOSED, EXPERIMENTAL and OPT-IN. Not required by draft-pidlisnyi-aps-03, whose section 3.3 rules one revocation result per chain member and closes chain verification at valid, invalid, indeterminate and unsupported. Draft-03 says nothing about two sources answering about the same member, nothing about a per-source freshness bound, nothing about coverage over a declared source set and nothing about an offline admission on a snapshot. Concept source: the aeoess/agent-authority-lifecycle concept document, invariant L7 and invariant candidate BROAD-L7. Nothing downstream should bind to these names as specified text.",
+  "description": "Cross-language parity vectors for the multi-source status decision: per-source freshness bounds, conflict between accepted sources, coverage over a declared required set, and an offline admission on a snapshot inside a declared bound. The TypeScript and Python SDKs must produce identical results for every case. Expectations are hand specified here and are never computed by the code under test.",
+  "coverage_limb_is_not_completeness": "The coverage block reports whether every member of a DECLARED required-source set produced a usable determinate answer. It is not a completeness claim. Invariant L12 is open and nothing in these vectors answers it. complete true must not be read as a statement that the declared set was every source that mattered.",
+  "unresolved_questions_the_vectors_pin_rather_than_settle": [
+    "What a conflict returns. SC-04 and SC-05 are the same inputs under the two readings, and only the boundary outcome moves.",
+    "Whether an answer past its own bound still counts. SC-06 and SC-07 are the same inputs under the two readings, and the verdicts are opposite.",
+    "What a silent required source means. SC-09 and SC-10 are the same inputs under the two readings, and one admits where the other does not."
+  ],
+  "vocabulary": {
+    "status_answers": [
+      "active",
+      "revoked",
+      "unavailable"
+    ],
+    "determinate_status_answers": [
+      "active",
+      "revoked"
+    ],
+    "verifier_modes": [
+      "online",
+      "offline"
+    ],
+    "silence_policies": [
+      "coverage_gap",
+      "unavailable_answer"
+    ],
+    "conflict_policies": [
+      "deny_with_conflict",
+      "not_established"
+    ],
+    "coverage_denominators": [
+      "declared_required_set",
+      "sources_that_answered"
+    ],
+    "status_use_bases": [
+      "within_freshness_bound",
+      "revocation_observed_outside_bound_still_used",
+      "stale_active_admitted_by_policy",
+      "stale_beyond_bound",
+      "source_gave_no_answer",
+      "answer_dated_after_boundary",
+      "source_not_accepted"
+    ],
+    "reason_codes": [
+      "STATUS_ACTIVE_ALL_SOURCES_AGREE",
+      "ADMITTED_ON_SNAPSHOT_WITHIN_DECLARED_BOUND",
+      "STATUS_REVOKED",
+      "STATUS_SOURCES_CONFLICT",
+      "STATUS_STALE_BEYOND_BOUND",
+      "STATUS_COVERAGE_INCOMPLETE",
+      "STATUS_NO_USABLE_OBSERVATION"
+    ]
+  },
+  "decision_cases": [
+    {
+      "id": "SC-01-single-fresh-active-admits",
+      "tests": "The admit path before any disagreement. One required source, one answer inside the bound declared for it, active.",
+      "input": {
+        "authority_ref": "delegation:alpha",
+        "trust_policy": {
+          "mode": "online",
+          "sources": {
+            "required": [
+              {
+                "source_id": "registry-a",
+                "freshness_bound_s": 300
+              }
+            ],
+            "silence_is": "coverage_gap"
+          }
+        },
+        "answers": [
+          {
+            "source_id": "registry-a",
+            "answer": "active",
+            "as_of": "2026-09-20T11:59:00Z"
+          }
+        ],
+        "conflict_policy": "deny_with_conflict",
+        "stale_policy": {
+          "stale_revoked_still_counts": true,
+          "stale_active_still_counts": false
+        },
+        "now": "2026-09-20T12:00:00Z"
+      },
+      "expected": {
+        "outcome": "authorized",
+        "reason_code": "STATUS_ACTIVE_ALL_SOURCES_AGREE",
+        "lifecycle": {
+          "verdict": "valid",
+          "reason_code": "STATUS_ACTIVE_ALL_SOURCES_AGREE"
+        },
+        "basis": {
+          "authority_ref": "delegation:alpha",
+          "evaluated_at": "2026-09-20T12:00:00Z",
+          "verifier_mode": "online",
+          "required_sources": [
+            "registry-a"
+          ],
+          "sources_consulted": [
+            {
+              "source_id": "registry-a",
+              "answer": "active",
+              "as_of": "2026-09-20T11:59:00Z",
+              "age_s": 60,
+              "freshness_bound_s": 300,
+              "within_bound": true,
+              "used": true,
+              "use_basis": "within_freshness_bound"
+            }
+          ],
+          "sources_silent": [],
+          "coverage": {
+            "required": 1,
+            "answered": 1,
+            "usable_determinate": 1,
+            "silent": [],
+            "measured_over": "declared_required_set",
+            "complete": true
+          },
+          "conflict": null,
+          "snapshot": null,
+          "conflict_policy": "deny_with_conflict",
+          "stale_policy": {
+            "stale_revoked_still_counts": true,
+            "stale_active_still_counts": false
+          },
+          "silence_is": "coverage_gap"
+        }
+      }
+    },
+    {
+      "id": "SC-02-two-sources-agree-active-admits",
+      "tests": "Both required sources answer active inside their own bounds. Coverage is complete over the declared set and the used states agree, which is the only shape that admits online.",
+      "input": {
+        "authority_ref": "delegation:alpha",
+        "trust_policy": {
+          "mode": "online",
+          "sources": {
+            "required": [
+              {
+                "source_id": "registry-a",
+                "freshness_bound_s": 300
+              },
+              {
+                "source_id": "registry-b",
+                "freshness_bound_s": 600
+              }
+            ],
+            "silence_is": "coverage_gap"
+          }
+        },
+        "answers": [
+          {
+            "source_id": "registry-a",
+            "answer": "active",
+            "as_of": "2026-09-20T11:59:00Z"
+          },
+          {
+            "source_id": "registry-b",
+            "answer": "active",
+            "as_of": "2026-09-20T11:58:00Z"
+          }
+        ],
+        "conflict_policy": "deny_with_conflict",
+        "stale_policy": {
+          "stale_revoked_still_counts": true,
+          "stale_active_still_counts": false
+        },
+        "now": "2026-09-20T12:00:00Z"
+      },
+      "expected": {
+        "outcome": "authorized",
+        "reason_code": "STATUS_ACTIVE_ALL_SOURCES_AGREE",
+        "lifecycle": {
+          "verdict": "valid",
+          "reason_code": "STATUS_ACTIVE_ALL_SOURCES_AGREE"
+        },
+        "basis": {
+          "authority_ref": "delegation:alpha",
+          "evaluated_at": "2026-09-20T12:00:00Z",
+          "verifier_mode": "online",
+          "required_sources": [
+            "registry-a",
+            "registry-b"
+          ],
+          "sources_consulted": [
+            {
+              "source_id": "registry-a",
+              "answer": "active",
+              "as_of": "2026-09-20T11:59:00Z",
+              "age_s": 60,
+              "freshness_bound_s": 300,
+              "within_bound": true,
+              "used": true,
+              "use_basis": "within_freshness_bound"
+            },
+            {
+              "source_id": "registry-b",
+              "answer": "active",
+              "as_of": "2026-09-20T11:58:00Z",
+              "age_s": 120,
+              "freshness_bound_s": 600,
+              "within_bound": true,
+              "used": true,
+              "use_basis": "within_freshness_bound"
+            }
+          ],
+          "sources_silent": [],
+          "coverage": {
+            "required": 2,
+            "answered": 2,
+            "usable_determinate": 2,
+            "silent": [],
+            "measured_over": "declared_required_set",
+            "complete": true
+          },
+          "conflict": null,
+          "snapshot": null,
+          "conflict_policy": "deny_with_conflict",
+          "stale_policy": {
+            "stale_revoked_still_counts": true,
+            "stale_active_still_counts": false
+          },
+          "silence_is": "coverage_gap"
+        }
+      }
+    },
+    {
+      "id": "SC-03-two-sources-agree-revoked-denies",
+      "tests": "Agreement on revoked is not a conflict. The artifact verdict is invalid and the reason says revoked rather than conflict.",
+      "input": {
+        "authority_ref": "delegation:alpha",
+        "trust_policy": {
+          "mode": "online",
+          "sources": {
+            "required": [
+              {
+                "source_id": "registry-a",
+                "freshness_bound_s": 300
+              },
+              {
+                "source_id": "registry-b",
+                "freshness_bound_s": 600
+              }
+            ],
+            "silence_is": "coverage_gap"
+          }
+        },
+        "answers": [
+          {
+            "source_id": "registry-a",
+            "answer": "revoked",
+            "as_of": "2026-09-20T11:59:00Z"
+          },
+          {
+            "source_id": "registry-b",
+            "answer": "revoked",
+            "as_of": "2026-09-20T11:58:30Z"
+          }
+        ],
+        "conflict_policy": "deny_with_conflict",
+        "stale_policy": {
+          "stale_revoked_still_counts": true,
+          "stale_active_still_counts": false
+        },
+        "now": "2026-09-20T12:00:00Z"
+      },
+      "expected": {
+        "outcome": "denied",
+        "reason_code": "STATUS_REVOKED",
+        "lifecycle": {
+          "verdict": "invalid",
+          "reason_code": "STATUS_REVOKED"
+        },
+        "basis": {
+          "authority_ref": "delegation:alpha",
+          "evaluated_at": "2026-09-20T12:00:00Z",
+          "verifier_mode": "online",
+          "required_sources": [
+            "registry-a",
+            "registry-b"
+          ],
+          "sources_consulted": [
+            {
+              "source_id": "registry-a",
+              "answer": "revoked",
+              "as_of": "2026-09-20T11:59:00Z",
+              "age_s": 60,
+              "freshness_bound_s": 300,
+              "within_bound": true,
+              "used": true,
+              "use_basis": "within_freshness_bound"
+            },
+            {
+              "source_id": "registry-b",
+              "answer": "revoked",
+              "as_of": "2026-09-20T11:58:30Z",
+              "age_s": 90,
+              "freshness_bound_s": 600,
+              "within_bound": true,
+              "used": true,
+              "use_basis": "within_freshness_bound"
+            }
+          ],
+          "sources_silent": [],
+          "coverage": {
+            "required": 2,
+            "answered": 2,
+            "usable_determinate": 2,
+            "silent": [],
+            "measured_over": "declared_required_set",
+            "complete": true
+          },
+          "conflict": null,
+          "snapshot": null,
+          "conflict_policy": "deny_with_conflict",
+          "stale_policy": {
+            "stale_revoked_still_counts": true,
+            "stale_active_still_counts": false
+          },
+          "silence_is": "coverage_gap"
+        }
+      }
+    },
+    {
+      "id": "SC-04-fresh-conflict-deny-policy",
+      "tests": "Two accepted sources, both inside their own bounds, disagree. Under deny_with_conflict the boundary denies. The ARTIFACT verdict is not_established with the source limb, never invalid: a conflict is the verifier reaching no conclusion, not a finding that the authority ended.",
+      "input": {
+        "authority_ref": "delegation:alpha",
+        "trust_policy": {
+          "mode": "online",
+          "sources": {
+            "required": [
+              {
+                "source_id": "registry-a",
+                "freshness_bound_s": 300
+              },
+              {
+                "source_id": "registry-b",
+                "freshness_bound_s": 600
+              }
+            ],
+            "silence_is": "coverage_gap"
+          }
+        },
+        "answers": [
+          {
+            "source_id": "registry-a",
+            "answer": "active",
+            "as_of": "2026-09-20T11:59:00Z"
+          },
+          {
+            "source_id": "registry-b",
+            "answer": "revoked",
+            "as_of": "2026-09-20T11:58:00Z"
+          }
+        ],
+        "conflict_policy": "deny_with_conflict",
+        "stale_policy": {
+          "stale_revoked_still_counts": true,
+          "stale_active_still_counts": false
+        },
+        "now": "2026-09-20T12:00:00Z"
+      },
+      "expected": {
+        "outcome": "denied",
+        "reason_code": "STATUS_SOURCES_CONFLICT",
+        "lifecycle": {
+          "verdict": "not_established",
+          "reason_code": "STATUS_SOURCES_CONFLICT",
+          "missing": [
+            "source"
+          ]
+        },
+        "basis": {
+          "authority_ref": "delegation:alpha",
+          "evaluated_at": "2026-09-20T12:00:00Z",
+          "verifier_mode": "online",
+          "required_sources": [
+            "registry-a",
+            "registry-b"
+          ],
+          "sources_consulted": [
+            {
+              "source_id": "registry-a",
+              "answer": "active",
+              "as_of": "2026-09-20T11:59:00Z",
+              "age_s": 60,
+              "freshness_bound_s": 300,
+              "within_bound": true,
+              "used": true,
+              "use_basis": "within_freshness_bound"
+            },
+            {
+              "source_id": "registry-b",
+              "answer": "revoked",
+              "as_of": "2026-09-20T11:58:00Z",
+              "age_s": 120,
+              "freshness_bound_s": 600,
+              "within_bound": true,
+              "used": true,
+              "use_basis": "within_freshness_bound"
+            }
+          ],
+          "sources_silent": [],
+          "coverage": {
+            "required": 2,
+            "answered": 2,
+            "usable_determinate": 2,
+            "silent": [],
+            "measured_over": "declared_required_set",
+            "complete": true
+          },
+          "conflict": {
+            "states": [
+              "active",
+              "revoked"
+            ],
+            "sources": [
+              "registry-a",
+              "registry-b"
+            ]
+          },
+          "snapshot": null,
+          "conflict_policy": "deny_with_conflict",
+          "stale_policy": {
+            "stale_revoked_still_counts": true,
+            "stale_active_still_counts": false
+          },
+          "silence_is": "coverage_gap"
+        }
+      }
+    },
+    {
+      "id": "SC-05-fresh-conflict-not-established-policy",
+      "tests": "The same conflict under the other reading the proposed text permits. Only the BOUNDARY outcome moves, to not_established. The artifact verdict, the reason code and the conflict block are identical, which is why the policy is a required parameter rather than a default.",
+      "input": {
+        "authority_ref": "delegation:alpha",
+        "trust_policy": {
+          "mode": "online",
+          "sources": {
+            "required": [
+              {
+                "source_id": "registry-a",
+                "freshness_bound_s": 300
+              },
+              {
+                "source_id": "registry-b",
+                "freshness_bound_s": 600
+              }
+            ],
+            "silence_is": "coverage_gap"
+          }
+        },
+        "answers": [
+          {
+            "source_id": "registry-a",
+            "answer": "active",
+            "as_of": "2026-09-20T11:59:00Z"
+          },
+          {
+            "source_id": "registry-b",
+            "answer": "revoked",
+            "as_of": "2026-09-20T11:58:00Z"
+          }
+        ],
+        "conflict_policy": "not_established",
+        "stale_policy": {
+          "stale_revoked_still_counts": true,
+          "stale_active_still_counts": false
+        },
+        "now": "2026-09-20T12:00:00Z"
+      },
+      "expected": {
+        "outcome": "not_established",
+        "reason_code": "STATUS_SOURCES_CONFLICT",
+        "lifecycle": {
+          "verdict": "not_established",
+          "reason_code": "STATUS_SOURCES_CONFLICT",
+          "missing": [
+            "source"
+          ]
+        },
+        "basis": {
+          "authority_ref": "delegation:alpha",
+          "evaluated_at": "2026-09-20T12:00:00Z",
+          "verifier_mode": "online",
+          "required_sources": [
+            "registry-a",
+            "registry-b"
+          ],
+          "sources_consulted": [
+            {
+              "source_id": "registry-a",
+              "answer": "active",
+              "as_of": "2026-09-20T11:59:00Z",
+              "age_s": 60,
+              "freshness_bound_s": 300,
+              "within_bound": true,
+              "used": true,
+              "use_basis": "within_freshness_bound"
+            },
+            {
+              "source_id": "registry-b",
+              "answer": "revoked",
+              "as_of": "2026-09-20T11:58:00Z",
+              "age_s": 120,
+              "freshness_bound_s": 600,
+              "within_bound": true,
+              "used": true,
+              "use_basis": "within_freshness_bound"
+            }
+          ],
+          "sources_silent": [],
+          "coverage": {
+            "required": 2,
+            "answered": 2,
+            "usable_determinate": 2,
+            "silent": [],
+            "measured_over": "declared_required_set",
+            "complete": true
+          },
+          "conflict": {
+            "states": [
+              "active",
+              "revoked"
+            ],
+            "sources": [
+              "registry-a",
+              "registry-b"
+            ]
+          },
+          "snapshot": null,
+          "conflict_policy": "not_established",
+          "stale_policy": {
+            "stale_revoked_still_counts": true,
+            "stale_active_still_counts": false
+          },
+          "silence_is": "coverage_gap"
+        }
+      }
+    },
+    {
+      "id": "SC-06-stale-revoked-still-counts-conflicts",
+      "tests": "The deployment-relevant case, first reading. A revoked answer past its own bound against a fresh active one. With stale_revoked_still_counts set, the revoked answer is still used and the states conflict, so the boundary denies.",
+      "input": {
+        "authority_ref": "delegation:alpha",
+        "trust_policy": {
+          "mode": "online",
+          "sources": {
+            "required": [
+              {
+                "source_id": "registry-a",
+                "freshness_bound_s": 300
+              },
+              {
+                "source_id": "registry-b",
+                "freshness_bound_s": 600
+              }
+            ],
+            "silence_is": "coverage_gap"
+          }
+        },
+        "answers": [
+          {
+            "source_id": "registry-a",
+            "answer": "active",
+            "as_of": "2026-09-20T11:59:00Z"
+          },
+          {
+            "source_id": "registry-b",
+            "answer": "revoked",
+            "as_of": "2026-09-20T11:45:00Z"
+          }
+        ],
+        "conflict_policy": "deny_with_conflict",
+        "stale_policy": {
+          "stale_revoked_still_counts": true,
+          "stale_active_still_counts": false
+        },
+        "now": "2026-09-20T12:00:00Z"
+      },
+      "expected": {
+        "outcome": "denied",
+        "reason_code": "STATUS_SOURCES_CONFLICT",
+        "lifecycle": {
+          "verdict": "not_established",
+          "reason_code": "STATUS_SOURCES_CONFLICT",
+          "missing": [
+            "source"
+          ]
+        },
+        "basis": {
+          "authority_ref": "delegation:alpha",
+          "evaluated_at": "2026-09-20T12:00:00Z",
+          "verifier_mode": "online",
+          "required_sources": [
+            "registry-a",
+            "registry-b"
+          ],
+          "sources_consulted": [
+            {
+              "source_id": "registry-a",
+              "answer": "active",
+              "as_of": "2026-09-20T11:59:00Z",
+              "age_s": 60,
+              "freshness_bound_s": 300,
+              "within_bound": true,
+              "used": true,
+              "use_basis": "within_freshness_bound"
+            },
+            {
+              "source_id": "registry-b",
+              "answer": "revoked",
+              "as_of": "2026-09-20T11:45:00Z",
+              "age_s": 900,
+              "freshness_bound_s": 600,
+              "within_bound": false,
+              "used": true,
+              "use_basis": "revocation_observed_outside_bound_still_used"
+            }
+          ],
+          "sources_silent": [],
+          "coverage": {
+            "required": 2,
+            "answered": 2,
+            "usable_determinate": 2,
+            "silent": [],
+            "measured_over": "declared_required_set",
+            "complete": true
+          },
+          "conflict": {
+            "states": [
+              "active",
+              "revoked"
+            ],
+            "sources": [
+              "registry-a",
+              "registry-b"
+            ]
+          },
+          "snapshot": null,
+          "conflict_policy": "deny_with_conflict",
+          "stale_policy": {
+            "stale_revoked_still_counts": true,
+            "stale_active_still_counts": false
+          },
+          "silence_is": "coverage_gap"
+        }
+      }
+    },
+    {
+      "id": "SC-07-stale-revoked-dropped-not-established",
+      "tests": "The same inputs under the other reading. With stale_revoked_still_counts clear, the revoked answer is dropped past its bound, one fresh active answer remains and coverage over the declared set is short. The verdicts are opposite, which is the whole reason the module refuses a default.",
+      "input": {
+        "authority_ref": "delegation:alpha",
+        "trust_policy": {
+          "mode": "online",
+          "sources": {
+            "required": [
+              {
+                "source_id": "registry-a",
+                "freshness_bound_s": 300
+              },
+              {
+                "source_id": "registry-b",
+                "freshness_bound_s": 600
+              }
+            ],
+            "silence_is": "coverage_gap"
+          }
+        },
+        "answers": [
+          {
+            "source_id": "registry-a",
+            "answer": "active",
+            "as_of": "2026-09-20T11:59:00Z"
+          },
+          {
+            "source_id": "registry-b",
+            "answer": "revoked",
+            "as_of": "2026-09-20T11:45:00Z"
+          }
+        ],
+        "conflict_policy": "deny_with_conflict",
+        "stale_policy": {
+          "stale_revoked_still_counts": false,
+          "stale_active_still_counts": false
+        },
+        "now": "2026-09-20T12:00:00Z"
+      },
+      "expected": {
+        "outcome": "not_established",
+        "reason_code": "STATUS_STALE_BEYOND_BOUND",
+        "lifecycle": {
+          "verdict": "not_established",
+          "reason_code": "STATUS_STALE_BEYOND_BOUND",
+          "missing": [
+            "freshness",
+            "coverage"
+          ]
+        },
+        "basis": {
+          "authority_ref": "delegation:alpha",
+          "evaluated_at": "2026-09-20T12:00:00Z",
+          "verifier_mode": "online",
+          "required_sources": [
+            "registry-a",
+            "registry-b"
+          ],
+          "sources_consulted": [
+            {
+              "source_id": "registry-a",
+              "answer": "active",
+              "as_of": "2026-09-20T11:59:00Z",
+              "age_s": 60,
+              "freshness_bound_s": 300,
+              "within_bound": true,
+              "used": true,
+              "use_basis": "within_freshness_bound"
+            },
+            {
+              "source_id": "registry-b",
+              "answer": "revoked",
+              "as_of": "2026-09-20T11:45:00Z",
+              "age_s": 900,
+              "freshness_bound_s": 600,
+              "within_bound": false,
+              "used": false,
+              "use_basis": "stale_beyond_bound"
+            }
+          ],
+          "sources_silent": [],
+          "coverage": {
+            "required": 2,
+            "answered": 2,
+            "usable_determinate": 1,
+            "silent": [],
+            "measured_over": "declared_required_set",
+            "complete": false
+          },
+          "conflict": null,
+          "snapshot": null,
+          "conflict_policy": "deny_with_conflict",
+          "stale_policy": {
+            "stale_revoked_still_counts": false,
+            "stale_active_still_counts": false
+          },
+          "silence_is": "coverage_gap"
+        }
+      }
+    },
+    {
+      "id": "SC-08-one-source-stale-active-not-established",
+      "tests": "Both sources answer active and one answer is older than the bound declared for it. The stale answer is not false and it is not a revocation. It establishes nothing, so the boundary is not_established rather than admit or deny.",
+      "input": {
+        "authority_ref": "delegation:alpha",
+        "trust_policy": {
+          "mode": "online",
+          "sources": {
+            "required": [
+              {
+                "source_id": "registry-a",
+                "freshness_bound_s": 300
+              },
+              {
+                "source_id": "registry-b",
+                "freshness_bound_s": 600
+              }
+            ],
+            "silence_is": "coverage_gap"
+          }
+        },
+        "answers": [
+          {
+            "source_id": "registry-a",
+            "answer": "active",
+            "as_of": "2026-09-20T11:59:00Z"
+          },
+          {
+            "source_id": "registry-b",
+            "answer": "active",
+            "as_of": "2026-09-20T11:45:00Z"
+          }
+        ],
+        "conflict_policy": "deny_with_conflict",
+        "stale_policy": {
+          "stale_revoked_still_counts": true,
+          "stale_active_still_counts": false
+        },
+        "now": "2026-09-20T12:00:00Z"
+      },
+      "expected": {
+        "outcome": "not_established",
+        "reason_code": "STATUS_STALE_BEYOND_BOUND",
+        "lifecycle": {
+          "verdict": "not_established",
+          "reason_code": "STATUS_STALE_BEYOND_BOUND",
+          "missing": [
+            "freshness",
+            "coverage"
+          ]
+        },
+        "basis": {
+          "authority_ref": "delegation:alpha",
+          "evaluated_at": "2026-09-20T12:00:00Z",
+          "verifier_mode": "online",
+          "required_sources": [
+            "registry-a",
+            "registry-b"
+          ],
+          "sources_consulted": [
+            {
+              "source_id": "registry-a",
+              "answer": "active",
+              "as_of": "2026-09-20T11:59:00Z",
+              "age_s": 60,
+              "freshness_bound_s": 300,
+              "within_bound": true,
+              "used": true,
+              "use_basis": "within_freshness_bound"
+            },
+            {
+              "source_id": "registry-b",
+              "answer": "active",
+              "as_of": "2026-09-20T11:45:00Z",
+              "age_s": 900,
+              "freshness_bound_s": 600,
+              "within_bound": false,
+              "used": false,
+              "use_basis": "stale_beyond_bound"
+            }
+          ],
+          "sources_silent": [],
+          "coverage": {
+            "required": 2,
+            "answered": 2,
+            "usable_determinate": 1,
+            "silent": [],
+            "measured_over": "declared_required_set",
+            "complete": false
+          },
+          "conflict": null,
+          "snapshot": null,
+          "conflict_policy": "deny_with_conflict",
+          "stale_policy": {
+            "stale_revoked_still_counts": true,
+            "stale_active_still_counts": false
+          },
+          "silence_is": "coverage_gap"
+        }
+      }
+    },
+    {
+      "id": "SC-09-silent-required-source-coverage-gap",
+      "tests": "A required source produced no observation at all. Under silence_is coverage_gap, coverage is measured over the declared set, so the answers that did arrive cannot cover it. The reason says coverage, which is a different finding from a stale answer.",
+      "input": {
+        "authority_ref": "delegation:alpha",
+        "trust_policy": {
+          "mode": "online",
+          "sources": {
+            "required": [
+              {
+                "source_id": "registry-a",
+                "freshness_bound_s": 300
+              },
+              {
+                "source_id": "registry-b",
+                "freshness_bound_s": 600
+              }
+            ],
+            "silence_is": "coverage_gap"
+          }
+        },
+        "answers": [
+          {
+            "source_id": "registry-a",
+            "answer": "active",
+            "as_of": "2026-09-20T11:59:00Z"
+          }
+        ],
+        "conflict_policy": "deny_with_conflict",
+        "stale_policy": {
+          "stale_revoked_still_counts": true,
+          "stale_active_still_counts": false
+        },
+        "now": "2026-09-20T12:00:00Z"
+      },
+      "expected": {
+        "outcome": "not_established",
+        "reason_code": "STATUS_COVERAGE_INCOMPLETE",
+        "lifecycle": {
+          "verdict": "not_established",
+          "reason_code": "STATUS_COVERAGE_INCOMPLETE",
+          "missing": [
+            "coverage"
+          ]
+        },
+        "basis": {
+          "authority_ref": "delegation:alpha",
+          "evaluated_at": "2026-09-20T12:00:00Z",
+          "verifier_mode": "online",
+          "required_sources": [
+            "registry-a",
+            "registry-b"
+          ],
+          "sources_consulted": [
+            {
+              "source_id": "registry-a",
+              "answer": "active",
+              "as_of": "2026-09-20T11:59:00Z",
+              "age_s": 60,
+              "freshness_bound_s": 300,
+              "within_bound": true,
+              "used": true,
+              "use_basis": "within_freshness_bound"
+            }
+          ],
+          "sources_silent": [
+            "registry-b"
+          ],
+          "coverage": {
+            "required": 2,
+            "answered": 1,
+            "usable_determinate": 1,
+            "silent": [
+              "registry-b"
+            ],
+            "measured_over": "declared_required_set",
+            "complete": false
+          },
+          "conflict": null,
+          "snapshot": null,
+          "conflict_policy": "deny_with_conflict",
+          "stale_policy": {
+            "stale_revoked_still_counts": true,
+            "stale_active_still_counts": false
+          },
+          "silence_is": "coverage_gap"
+        }
+      }
+    },
+    {
+      "id": "SC-10-silent-required-source-unavailable-answer",
+      "tests": "The same silence under the other reading. Coverage is measured over the sources that answered, so the boundary admits. The silent source is still named in the record, so the two readings can be told apart afterwards.",
+      "input": {
+        "authority_ref": "delegation:alpha",
+        "trust_policy": {
+          "mode": "online",
+          "sources": {
+            "required": [
+              {
+                "source_id": "registry-a",
+                "freshness_bound_s": 300
+              },
+              {
+                "source_id": "registry-b",
+                "freshness_bound_s": 600
+              }
+            ],
+            "silence_is": "unavailable_answer"
+          }
+        },
+        "answers": [
+          {
+            "source_id": "registry-a",
+            "answer": "active",
+            "as_of": "2026-09-20T11:59:00Z"
+          }
+        ],
+        "conflict_policy": "deny_with_conflict",
+        "stale_policy": {
+          "stale_revoked_still_counts": true,
+          "stale_active_still_counts": false
+        },
+        "now": "2026-09-20T12:00:00Z"
+      },
+      "expected": {
+        "outcome": "authorized",
+        "reason_code": "STATUS_ACTIVE_ALL_SOURCES_AGREE",
+        "lifecycle": {
+          "verdict": "valid",
+          "reason_code": "STATUS_ACTIVE_ALL_SOURCES_AGREE"
+        },
+        "basis": {
+          "authority_ref": "delegation:alpha",
+          "evaluated_at": "2026-09-20T12:00:00Z",
+          "verifier_mode": "online",
+          "required_sources": [
+            "registry-a",
+            "registry-b"
+          ],
+          "sources_consulted": [
+            {
+              "source_id": "registry-a",
+              "answer": "active",
+              "as_of": "2026-09-20T11:59:00Z",
+              "age_s": 60,
+              "freshness_bound_s": 300,
+              "within_bound": true,
+              "used": true,
+              "use_basis": "within_freshness_bound"
+            }
+          ],
+          "sources_silent": [
+            "registry-b"
+          ],
+          "coverage": {
+            "required": 2,
+            "answered": 1,
+            "usable_determinate": 1,
+            "silent": [
+              "registry-b"
+            ],
+            "measured_over": "sources_that_answered",
+            "complete": true
+          },
+          "conflict": null,
+          "snapshot": null,
+          "conflict_policy": "deny_with_conflict",
+          "stale_policy": {
+            "stale_revoked_still_counts": true,
+            "stale_active_still_counts": false
+          },
+          "silence_is": "unavailable_answer"
+        }
+      }
+    },
+    {
+      "id": "SC-11-nothing-usable-not-established",
+      "tests": "One source answers past its bound and the other answers unavailable. Nothing usable and determinate remains, and the reason distinguishes that from a stale answer inside a covered set and from a silent source. All three limbs are missing at once and all three are reported.",
+      "input": {
+        "authority_ref": "delegation:alpha",
+        "trust_policy": {
+          "mode": "online",
+          "sources": {
+            "required": [
+              {
+                "source_id": "registry-a",
+                "freshness_bound_s": 300
+              },
+              {
+                "source_id": "registry-b",
+                "freshness_bound_s": 600
+              }
+            ],
+            "silence_is": "coverage_gap"
+          }
+        },
+        "answers": [
+          {
+            "source_id": "registry-a",
+            "answer": "active",
+            "as_of": "2026-09-20T11:45:00Z"
+          },
+          {
+            "source_id": "registry-b",
+            "answer": "unavailable"
+          }
+        ],
+        "conflict_policy": "deny_with_conflict",
+        "stale_policy": {
+          "stale_revoked_still_counts": true,
+          "stale_active_still_counts": false
+        },
+        "now": "2026-09-20T12:00:00Z"
+      },
+      "expected": {
+        "outcome": "not_established",
+        "reason_code": "STATUS_NO_USABLE_OBSERVATION",
+        "lifecycle": {
+          "verdict": "not_established",
+          "reason_code": "STATUS_NO_USABLE_OBSERVATION",
+          "missing": [
+            "source",
+            "freshness",
+            "coverage"
+          ]
+        },
+        "basis": {
+          "authority_ref": "delegation:alpha",
+          "evaluated_at": "2026-09-20T12:00:00Z",
+          "verifier_mode": "online",
+          "required_sources": [
+            "registry-a",
+            "registry-b"
+          ],
+          "sources_consulted": [
+            {
+              "source_id": "registry-a",
+              "answer": "active",
+              "as_of": "2026-09-20T11:45:00Z",
+              "age_s": 900,
+              "freshness_bound_s": 300,
+              "within_bound": false,
+              "used": false,
+              "use_basis": "stale_beyond_bound"
+            },
+            {
+              "source_id": "registry-b",
+              "answer": "unavailable",
+              "as_of": null,
+              "age_s": null,
+              "freshness_bound_s": 600,
+              "within_bound": false,
+              "used": false,
+              "use_basis": "source_gave_no_answer"
+            }
+          ],
+          "sources_silent": [],
+          "coverage": {
+            "required": 2,
+            "answered": 2,
+            "usable_determinate": 0,
+            "silent": [],
+            "measured_over": "declared_required_set",
+            "complete": false
+          },
+          "conflict": null,
+          "snapshot": null,
+          "conflict_policy": "deny_with_conflict",
+          "stale_policy": {
+            "stale_revoked_still_counts": true,
+            "stale_active_still_counts": false
+          },
+          "silence_is": "coverage_gap"
+        }
+      }
+    },
+    {
+      "id": "SC-12-offline-snapshot-within-declared-bound-admits",
+      "tests": "A verifier that declared itself offline in advance, with a snapshot inside the bound it declared, may admit. BROAD-L7 does not require liveness. The record names the snapshot it admitted on and the age that snapshot had at the boundary, so the admission can be recomputed from the record alone.",
+      "input": {
+        "authority_ref": "delegation:alpha",
+        "trust_policy": {
+          "mode": "offline",
+          "sources": {
+            "required": [
+              {
+                "source_id": "registry-a",
+                "freshness_bound_s": 300
+              }
+            ],
+            "silence_is": "coverage_gap"
+          },
+          "snapshot_source": {
+            "source_id": "snapshot-c",
+            "declared_bound_s": 3600
+          }
+        },
+        "answers": [
+          {
+            "source_id": "registry-a",
+            "answer": "unavailable"
+          },
+          {
+            "source_id": "snapshot-c",
+            "answer": "active",
+            "as_of": "2026-09-20T11:30:00Z"
+          }
+        ],
+        "conflict_policy": "deny_with_conflict",
+        "stale_policy": {
+          "stale_revoked_still_counts": true,
+          "stale_active_still_counts": false
+        },
+        "now": "2026-09-20T12:00:00Z"
+      },
+      "expected": {
+        "outcome": "authorized",
+        "reason_code": "ADMITTED_ON_SNAPSHOT_WITHIN_DECLARED_BOUND",
+        "lifecycle": {
+          "verdict": "valid",
+          "reason_code": "ADMITTED_ON_SNAPSHOT_WITHIN_DECLARED_BOUND"
+        },
+        "basis": {
+          "authority_ref": "delegation:alpha",
+          "evaluated_at": "2026-09-20T12:00:00Z",
+          "verifier_mode": "offline",
+          "required_sources": [
+            "registry-a"
+          ],
+          "sources_consulted": [
+            {
+              "source_id": "registry-a",
+              "answer": "unavailable",
+              "as_of": null,
+              "age_s": null,
+              "freshness_bound_s": 300,
+              "within_bound": false,
+              "used": false,
+              "use_basis": "source_gave_no_answer"
+            },
+            {
+              "source_id": "snapshot-c",
+              "answer": "active",
+              "as_of": "2026-09-20T11:30:00Z",
+              "age_s": 1800,
+              "freshness_bound_s": 3600,
+              "within_bound": true,
+              "used": true,
+              "use_basis": "within_freshness_bound"
+            }
+          ],
+          "sources_silent": [],
+          "coverage": {
+            "required": 1,
+            "answered": 1,
+            "usable_determinate": 0,
+            "silent": [],
+            "measured_over": "declared_required_set",
+            "complete": false
+          },
+          "conflict": null,
+          "snapshot": {
+            "source_id": "snapshot-c",
+            "as_of": "2026-09-20T11:30:00Z",
+            "age_s": 1800,
+            "declared_bound_s": 3600
+          },
+          "conflict_policy": "deny_with_conflict",
+          "stale_policy": {
+            "stale_revoked_still_counts": true,
+            "stale_active_still_counts": false
+          },
+          "silence_is": "coverage_gap"
+        }
+      }
+    },
+    {
+      "id": "SC-13-offline-snapshot-past-declared-bound-not-established",
+      "tests": "The same offline verifier with a snapshot older than the bound it declared. The declared bound is the entire basis for the offline admission, so past it the snapshot establishes nothing.",
+      "input": {
+        "authority_ref": "delegation:alpha",
+        "trust_policy": {
+          "mode": "offline",
+          "sources": {
+            "required": [
+              {
+                "source_id": "registry-a",
+                "freshness_bound_s": 300
+              }
+            ],
+            "silence_is": "coverage_gap"
+          },
+          "snapshot_source": {
+            "source_id": "snapshot-c",
+            "declared_bound_s": 3600
+          }
+        },
+        "answers": [
+          {
+            "source_id": "registry-a",
+            "answer": "unavailable"
+          },
+          {
+            "source_id": "snapshot-c",
+            "answer": "active",
+            "as_of": "2026-09-20T10:00:00Z"
+          }
+        ],
+        "conflict_policy": "deny_with_conflict",
+        "stale_policy": {
+          "stale_revoked_still_counts": true,
+          "stale_active_still_counts": false
+        },
+        "now": "2026-09-20T12:00:00Z"
+      },
+      "expected": {
+        "outcome": "not_established",
+        "reason_code": "STATUS_STALE_BEYOND_BOUND",
+        "lifecycle": {
+          "verdict": "not_established",
+          "reason_code": "STATUS_STALE_BEYOND_BOUND",
+          "missing": [
+            "source",
+            "freshness",
+            "coverage"
+          ]
+        },
+        "basis": {
+          "authority_ref": "delegation:alpha",
+          "evaluated_at": "2026-09-20T12:00:00Z",
+          "verifier_mode": "offline",
+          "required_sources": [
+            "registry-a"
+          ],
+          "sources_consulted": [
+            {
+              "source_id": "registry-a",
+              "answer": "unavailable",
+              "as_of": null,
+              "age_s": null,
+              "freshness_bound_s": 300,
+              "within_bound": false,
+              "used": false,
+              "use_basis": "source_gave_no_answer"
+            },
+            {
+              "source_id": "snapshot-c",
+              "answer": "active",
+              "as_of": "2026-09-20T10:00:00Z",
+              "age_s": 7200,
+              "freshness_bound_s": 3600,
+              "within_bound": false,
+              "used": false,
+              "use_basis": "stale_beyond_bound"
+            }
+          ],
+          "sources_silent": [],
+          "coverage": {
+            "required": 1,
+            "answered": 1,
+            "usable_determinate": 0,
+            "silent": [],
+            "measured_over": "declared_required_set",
+            "complete": false
+          },
+          "conflict": null,
+          "snapshot": null,
+          "conflict_policy": "deny_with_conflict",
+          "stale_policy": {
+            "stale_revoked_still_counts": true,
+            "stale_active_still_counts": false
+          },
+          "silence_is": "coverage_gap"
+        }
+      }
+    },
+    {
+      "id": "SC-14-offline-snapshot-revoked-denies",
+      "tests": "The offline verifier holds a snapshot inside its declared bound saying revoked. Being offline is a reason to admit less, never a reason to soften an observed revocation, so the revoked branch runs before the offline branch.",
+      "input": {
+        "authority_ref": "delegation:alpha",
+        "trust_policy": {
+          "mode": "offline",
+          "sources": {
+            "required": [
+              {
+                "source_id": "registry-a",
+                "freshness_bound_s": 300
+              }
+            ],
+            "silence_is": "coverage_gap"
+          },
+          "snapshot_source": {
+            "source_id": "snapshot-c",
+            "declared_bound_s": 3600
+          }
+        },
+        "answers": [
+          {
+            "source_id": "registry-a",
+            "answer": "unavailable"
+          },
+          {
+            "source_id": "snapshot-c",
+            "answer": "revoked",
+            "as_of": "2026-09-20T11:30:00Z"
+          }
+        ],
+        "conflict_policy": "deny_with_conflict",
+        "stale_policy": {
+          "stale_revoked_still_counts": true,
+          "stale_active_still_counts": false
+        },
+        "now": "2026-09-20T12:00:00Z"
+      },
+      "expected": {
+        "outcome": "denied",
+        "reason_code": "STATUS_REVOKED",
+        "lifecycle": {
+          "verdict": "invalid",
+          "reason_code": "STATUS_REVOKED"
+        },
+        "basis": {
+          "authority_ref": "delegation:alpha",
+          "evaluated_at": "2026-09-20T12:00:00Z",
+          "verifier_mode": "offline",
+          "required_sources": [
+            "registry-a"
+          ],
+          "sources_consulted": [
+            {
+              "source_id": "registry-a",
+              "answer": "unavailable",
+              "as_of": null,
+              "age_s": null,
+              "freshness_bound_s": 300,
+              "within_bound": false,
+              "used": false,
+              "use_basis": "source_gave_no_answer"
+            },
+            {
+              "source_id": "snapshot-c",
+              "answer": "revoked",
+              "as_of": "2026-09-20T11:30:00Z",
+              "age_s": 1800,
+              "freshness_bound_s": 3600,
+              "within_bound": true,
+              "used": true,
+              "use_basis": "within_freshness_bound"
+            }
+          ],
+          "sources_silent": [],
+          "coverage": {
+            "required": 1,
+            "answered": 1,
+            "usable_determinate": 0,
+            "silent": [],
+            "measured_over": "declared_required_set",
+            "complete": false
+          },
+          "conflict": null,
+          "snapshot": null,
+          "conflict_policy": "deny_with_conflict",
+          "stale_policy": {
+            "stale_revoked_still_counts": true,
+            "stale_active_still_counts": false
+          },
+          "silence_is": "coverage_gap"
+        }
+      }
+    },
+    {
+      "id": "SC-15-offline-with-no-snapshot-answer",
+      "tests": "Offline mode with no answer from the declared snapshot source at all. The source limb is missing, not the freshness limb: nothing was too old, there was nothing.",
+      "input": {
+        "authority_ref": "delegation:alpha",
+        "trust_policy": {
+          "mode": "offline",
+          "sources": {
+            "required": [
+              {
+                "source_id": "registry-a",
+                "freshness_bound_s": 300
+              }
+            ],
+            "silence_is": "coverage_gap"
+          },
+          "snapshot_source": {
+            "source_id": "snapshot-c",
+            "declared_bound_s": 3600
+          }
+        },
+        "answers": [
+          {
+            "source_id": "registry-a",
+            "answer": "unavailable"
+          }
+        ],
+        "conflict_policy": "deny_with_conflict",
+        "stale_policy": {
+          "stale_revoked_still_counts": true,
+          "stale_active_still_counts": false
+        },
+        "now": "2026-09-20T12:00:00Z"
+      },
+      "expected": {
+        "outcome": "not_established",
+        "reason_code": "STATUS_NO_USABLE_OBSERVATION",
+        "lifecycle": {
+          "verdict": "not_established",
+          "reason_code": "STATUS_NO_USABLE_OBSERVATION",
+          "missing": [
+            "source",
+            "coverage"
+          ]
+        },
+        "basis": {
+          "authority_ref": "delegation:alpha",
+          "evaluated_at": "2026-09-20T12:00:00Z",
+          "verifier_mode": "offline",
+          "required_sources": [
+            "registry-a"
+          ],
+          "sources_consulted": [
+            {
+              "source_id": "registry-a",
+              "answer": "unavailable",
+              "as_of": null,
+              "age_s": null,
+              "freshness_bound_s": 300,
+              "within_bound": false,
+              "used": false,
+              "use_basis": "source_gave_no_answer"
+            }
+          ],
+          "sources_silent": [],
+          "coverage": {
+            "required": 1,
+            "answered": 1,
+            "usable_determinate": 0,
+            "silent": [],
+            "measured_over": "declared_required_set",
+            "complete": false
+          },
+          "conflict": null,
+          "snapshot": null,
+          "conflict_policy": "deny_with_conflict",
+          "stale_policy": {
+            "stale_revoked_still_counts": true,
+            "stale_active_still_counts": false
+          },
+          "silence_is": "coverage_gap"
+        }
+      }
+    },
+    {
+      "id": "SC-16-age-exactly-at-the-bound-admits",
+      "tests": "The answer is exactly as old as the bound declared for its source. The comparison is inclusive, so this admits. Paired with SC-17 so which side of the boundary each verdict sits on is pinned rather than assumed.",
+      "input": {
+        "authority_ref": "delegation:alpha",
+        "trust_policy": {
+          "mode": "online",
+          "sources": {
+            "required": [
+              {
+                "source_id": "registry-a",
+                "freshness_bound_s": 300
+              }
+            ],
+            "silence_is": "coverage_gap"
+          }
+        },
+        "answers": [
+          {
+            "source_id": "registry-a",
+            "answer": "active",
+            "as_of": "2026-09-20T11:55:00Z"
+          }
+        ],
+        "conflict_policy": "deny_with_conflict",
+        "stale_policy": {
+          "stale_revoked_still_counts": true,
+          "stale_active_still_counts": false
+        },
+        "now": "2026-09-20T12:00:00Z"
+      },
+      "expected": {
+        "outcome": "authorized",
+        "reason_code": "STATUS_ACTIVE_ALL_SOURCES_AGREE",
+        "lifecycle": {
+          "verdict": "valid",
+          "reason_code": "STATUS_ACTIVE_ALL_SOURCES_AGREE"
+        },
+        "basis": {
+          "authority_ref": "delegation:alpha",
+          "evaluated_at": "2026-09-20T12:00:00Z",
+          "verifier_mode": "online",
+          "required_sources": [
+            "registry-a"
+          ],
+          "sources_consulted": [
+            {
+              "source_id": "registry-a",
+              "answer": "active",
+              "as_of": "2026-09-20T11:55:00Z",
+              "age_s": 300,
+              "freshness_bound_s": 300,
+              "within_bound": true,
+              "used": true,
+              "use_basis": "within_freshness_bound"
+            }
+          ],
+          "sources_silent": [],
+          "coverage": {
+            "required": 1,
+            "answered": 1,
+            "usable_determinate": 1,
+            "silent": [],
+            "measured_over": "declared_required_set",
+            "complete": true
+          },
+          "conflict": null,
+          "snapshot": null,
+          "conflict_policy": "deny_with_conflict",
+          "stale_policy": {
+            "stale_revoked_still_counts": true,
+            "stale_active_still_counts": false
+          },
+          "silence_is": "coverage_gap"
+        }
+      }
+    },
+    {
+      "id": "SC-17-age-one-second-past-the-bound",
+      "tests": "One second older than SC-16 and the only source in the trust policy. Nothing usable remains. The answer still says active and nothing here calls it false.",
+      "input": {
+        "authority_ref": "delegation:alpha",
+        "trust_policy": {
+          "mode": "online",
+          "sources": {
+            "required": [
+              {
+                "source_id": "registry-a",
+                "freshness_bound_s": 300
+              }
+            ],
+            "silence_is": "coverage_gap"
+          }
+        },
+        "answers": [
+          {
+            "source_id": "registry-a",
+            "answer": "active",
+            "as_of": "2026-09-20T11:54:59Z"
+          }
+        ],
+        "conflict_policy": "deny_with_conflict",
+        "stale_policy": {
+          "stale_revoked_still_counts": true,
+          "stale_active_still_counts": false
+        },
+        "now": "2026-09-20T12:00:00Z"
+      },
+      "expected": {
+        "outcome": "not_established",
+        "reason_code": "STATUS_NO_USABLE_OBSERVATION",
+        "lifecycle": {
+          "verdict": "not_established",
+          "reason_code": "STATUS_NO_USABLE_OBSERVATION",
+          "missing": [
+            "source",
+            "freshness",
+            "coverage"
+          ]
+        },
+        "basis": {
+          "authority_ref": "delegation:alpha",
+          "evaluated_at": "2026-09-20T12:00:00Z",
+          "verifier_mode": "online",
+          "required_sources": [
+            "registry-a"
+          ],
+          "sources_consulted": [
+            {
+              "source_id": "registry-a",
+              "answer": "active",
+              "as_of": "2026-09-20T11:54:59Z",
+              "age_s": 301,
+              "freshness_bound_s": 300,
+              "within_bound": false,
+              "used": false,
+              "use_basis": "stale_beyond_bound"
+            }
+          ],
+          "sources_silent": [],
+          "coverage": {
+            "required": 1,
+            "answered": 1,
+            "usable_determinate": 0,
+            "silent": [],
+            "measured_over": "declared_required_set",
+            "complete": false
+          },
+          "conflict": null,
+          "snapshot": null,
+          "conflict_policy": "deny_with_conflict",
+          "stale_policy": {
+            "stale_revoked_still_counts": true,
+            "stale_active_still_counts": false
+          },
+          "silence_is": "coverage_gap"
+        }
+      }
+    },
+    {
+      "id": "SC-18-later-boundary-conflicts",
+      "tests": "A second authorization boundary ten minutes after SC-02, where one source now reports revoked. It is a new decision at a new boundary. It says nothing about the earlier record and never rewrites it, which the test asserts separately by holding the earlier result and comparing it after this one is computed.",
+      "input": {
+        "authority_ref": "delegation:alpha",
+        "trust_policy": {
+          "mode": "online",
+          "sources": {
+            "required": [
+              {
+                "source_id": "registry-a",
+                "freshness_bound_s": 300
+              },
+              {
+                "source_id": "registry-b",
+                "freshness_bound_s": 600
+              }
+            ],
+            "silence_is": "coverage_gap"
+          }
+        },
+        "answers": [
+          {
+            "source_id": "registry-a",
+            "answer": "active",
+            "as_of": "2026-09-20T12:09:00Z"
+          },
+          {
+            "source_id": "registry-b",
+            "answer": "revoked",
+            "as_of": "2026-09-20T12:05:00Z"
+          }
+        ],
+        "conflict_policy": "deny_with_conflict",
+        "stale_policy": {
+          "stale_revoked_still_counts": true,
+          "stale_active_still_counts": false
+        },
+        "now": "2026-09-20T12:10:00Z"
+      },
+      "expected": {
+        "outcome": "denied",
+        "reason_code": "STATUS_SOURCES_CONFLICT",
+        "lifecycle": {
+          "verdict": "not_established",
+          "reason_code": "STATUS_SOURCES_CONFLICT",
+          "missing": [
+            "source"
+          ]
+        },
+        "basis": {
+          "authority_ref": "delegation:alpha",
+          "evaluated_at": "2026-09-20T12:10:00Z",
+          "verifier_mode": "online",
+          "required_sources": [
+            "registry-a",
+            "registry-b"
+          ],
+          "sources_consulted": [
+            {
+              "source_id": "registry-a",
+              "answer": "active",
+              "as_of": "2026-09-20T12:09:00Z",
+              "age_s": 60,
+              "freshness_bound_s": 300,
+              "within_bound": true,
+              "used": true,
+              "use_basis": "within_freshness_bound"
+            },
+            {
+              "source_id": "registry-b",
+              "answer": "revoked",
+              "as_of": "2026-09-20T12:05:00Z",
+              "age_s": 300,
+              "freshness_bound_s": 600,
+              "within_bound": true,
+              "used": true,
+              "use_basis": "within_freshness_bound"
+            }
+          ],
+          "sources_silent": [],
+          "coverage": {
+            "required": 2,
+            "answered": 2,
+            "usable_determinate": 2,
+            "silent": [],
+            "measured_over": "declared_required_set",
+            "complete": true
+          },
+          "conflict": {
+            "states": [
+              "active",
+              "revoked"
+            ],
+            "sources": [
+              "registry-a",
+              "registry-b"
+            ]
+          },
+          "snapshot": null,
+          "conflict_policy": "deny_with_conflict",
+          "stale_policy": {
+            "stale_revoked_still_counts": true,
+            "stale_active_still_counts": false
+          },
+          "silence_is": "coverage_gap"
+        }
+      }
+    },
+    {
+      "id": "SC-19-answer-from-an-unaccepted-source-is-recorded-and-ignored",
+      "tests": "BROAD-L7's source limb. An answer from a source the trust policy does not name is not an input to the verdict, whatever it says. It is still recorded, with a null bound and use_basis source_not_accepted, so a reader can see it arrived and was not used.",
+      "input": {
+        "authority_ref": "delegation:alpha",
+        "trust_policy": {
+          "mode": "online",
+          "sources": {
+            "required": [
+              {
+                "source_id": "registry-a",
+                "freshness_bound_s": 300
+              }
+            ],
+            "silence_is": "coverage_gap"
+          }
+        },
+        "answers": [
+          {
+            "source_id": "registry-a",
+            "answer": "active",
+            "as_of": "2026-09-20T11:59:00Z"
+          },
+          {
+            "source_id": "registry-z",
+            "answer": "revoked",
+            "as_of": "2026-09-20T11:59:00Z"
+          }
+        ],
+        "conflict_policy": "deny_with_conflict",
+        "stale_policy": {
+          "stale_revoked_still_counts": true,
+          "stale_active_still_counts": false
+        },
+        "now": "2026-09-20T12:00:00Z"
+      },
+      "expected": {
+        "outcome": "authorized",
+        "reason_code": "STATUS_ACTIVE_ALL_SOURCES_AGREE",
+        "lifecycle": {
+          "verdict": "valid",
+          "reason_code": "STATUS_ACTIVE_ALL_SOURCES_AGREE"
+        },
+        "basis": {
+          "authority_ref": "delegation:alpha",
+          "evaluated_at": "2026-09-20T12:00:00Z",
+          "verifier_mode": "online",
+          "required_sources": [
+            "registry-a"
+          ],
+          "sources_consulted": [
+            {
+              "source_id": "registry-a",
+              "answer": "active",
+              "as_of": "2026-09-20T11:59:00Z",
+              "age_s": 60,
+              "freshness_bound_s": 300,
+              "within_bound": true,
+              "used": true,
+              "use_basis": "within_freshness_bound"
+            },
+            {
+              "source_id": "registry-z",
+              "answer": "revoked",
+              "as_of": "2026-09-20T11:59:00Z",
+              "age_s": null,
+              "freshness_bound_s": null,
+              "within_bound": false,
+              "used": false,
+              "use_basis": "source_not_accepted"
+            }
+          ],
+          "sources_silent": [],
+          "coverage": {
+            "required": 1,
+            "answered": 1,
+            "usable_determinate": 1,
+            "silent": [],
+            "measured_over": "declared_required_set",
+            "complete": true
+          },
+          "conflict": null,
+          "snapshot": null,
+          "conflict_policy": "deny_with_conflict",
+          "stale_policy": {
+            "stale_revoked_still_counts": true,
+            "stale_active_still_counts": false
+          },
+          "silence_is": "coverage_gap"
+        }
+      }
+    },
+    {
+      "id": "SC-20-answer-dated-after-the-boundary",
+      "tests": "An answer whose as_of is later than the boundary instant. No age against the declared bound is measurable, so the answer is refused rather than read as fresh. The basis records it as skew rather than as staleness, because the proposed text does not rule clock skew at all and the two are different findings.",
+      "input": {
+        "authority_ref": "delegation:alpha",
+        "trust_policy": {
+          "mode": "online",
+          "sources": {
+            "required": [
+              {
+                "source_id": "registry-a",
+                "freshness_bound_s": 300
+              }
+            ],
+            "silence_is": "coverage_gap"
+          }
+        },
+        "answers": [
+          {
+            "source_id": "registry-a",
+            "answer": "active",
+            "as_of": "2026-09-20T12:01:00Z"
+          }
+        ],
+        "conflict_policy": "deny_with_conflict",
+        "stale_policy": {
+          "stale_revoked_still_counts": true,
+          "stale_active_still_counts": false
+        },
+        "now": "2026-09-20T12:00:00Z"
+      },
+      "expected": {
+        "outcome": "not_established",
+        "reason_code": "STATUS_NO_USABLE_OBSERVATION",
+        "lifecycle": {
+          "verdict": "not_established",
+          "reason_code": "STATUS_NO_USABLE_OBSERVATION",
+          "missing": [
+            "source",
+            "freshness",
+            "coverage"
+          ]
+        },
+        "basis": {
+          "authority_ref": "delegation:alpha",
+          "evaluated_at": "2026-09-20T12:00:00Z",
+          "verifier_mode": "online",
+          "required_sources": [
+            "registry-a"
+          ],
+          "sources_consulted": [
+            {
+              "source_id": "registry-a",
+              "answer": "active",
+              "as_of": "2026-09-20T12:01:00Z",
+              "age_s": -60,
+              "freshness_bound_s": 300,
+              "within_bound": false,
+              "used": false,
+              "use_basis": "answer_dated_after_boundary"
+            }
+          ],
+          "sources_silent": [],
+          "coverage": {
+            "required": 1,
+            "answered": 1,
+            "usable_determinate": 0,
+            "silent": [],
+            "measured_over": "declared_required_set",
+            "complete": false
+          },
+          "conflict": null,
+          "snapshot": null,
+          "conflict_policy": "deny_with_conflict",
+          "stale_policy": {
+            "stale_revoked_still_counts": true,
+            "stale_active_still_counts": false
+          },
+          "silence_is": "coverage_gap"
+        }
+      }
+    },
+    {
+      "id": "SC-21-stale-active-admitted-by-policy",
+      "tests": "The weakest posture the module can be put in, pinned so it is visible in a record. With stale_active_still_counts set, an active answer past its own bound is used and the boundary admits. within_bound stays false and the use basis names the policy that admitted it, so nobody can read this record as a fresh observation.",
+      "input": {
+        "authority_ref": "delegation:alpha",
+        "trust_policy": {
+          "mode": "online",
+          "sources": {
+            "required": [
+              {
+                "source_id": "registry-a",
+                "freshness_bound_s": 300
+              }
+            ],
+            "silence_is": "coverage_gap"
+          }
+        },
+        "answers": [
+          {
+            "source_id": "registry-a",
+            "answer": "active",
+            "as_of": "2026-09-20T11:45:00Z"
+          }
+        ],
+        "conflict_policy": "deny_with_conflict",
+        "stale_policy": {
+          "stale_revoked_still_counts": false,
+          "stale_active_still_counts": true
+        },
+        "now": "2026-09-20T12:00:00Z"
+      },
+      "expected": {
+        "outcome": "authorized",
+        "reason_code": "STATUS_ACTIVE_ALL_SOURCES_AGREE",
+        "lifecycle": {
+          "verdict": "valid",
+          "reason_code": "STATUS_ACTIVE_ALL_SOURCES_AGREE"
+        },
+        "basis": {
+          "authority_ref": "delegation:alpha",
+          "evaluated_at": "2026-09-20T12:00:00Z",
+          "verifier_mode": "online",
+          "required_sources": [
+            "registry-a"
+          ],
+          "sources_consulted": [
+            {
+              "source_id": "registry-a",
+              "answer": "active",
+              "as_of": "2026-09-20T11:45:00Z",
+              "age_s": 900,
+              "freshness_bound_s": 300,
+              "within_bound": false,
+              "used": true,
+              "use_basis": "stale_active_admitted_by_policy"
+            }
+          ],
+          "sources_silent": [],
+          "coverage": {
+            "required": 1,
+            "answered": 1,
+            "usable_determinate": 1,
+            "silent": [],
+            "measured_over": "declared_required_set",
+            "complete": true
+          },
+          "conflict": null,
+          "snapshot": null,
+          "conflict_policy": "deny_with_conflict",
+          "stale_policy": {
+            "stale_revoked_still_counts": false,
+            "stale_active_still_counts": true
+          },
+          "silence_is": "coverage_gap"
+        }
+      }
+    },
+    {
+      "id": "SC-22-revoked-decides-before-coverage",
+      "tests": "One accepted source answers revoked inside its bound and the other required source is silent. An observed revocation from an accepted source does not need a complete source set to count, so the boundary denies rather than returning a coverage gap.",
+      "input": {
+        "authority_ref": "delegation:alpha",
+        "trust_policy": {
+          "mode": "online",
+          "sources": {
+            "required": [
+              {
+                "source_id": "registry-a",
+                "freshness_bound_s": 300
+              },
+              {
+                "source_id": "registry-b",
+                "freshness_bound_s": 600
+              }
+            ],
+            "silence_is": "coverage_gap"
+          }
+        },
+        "answers": [
+          {
+            "source_id": "registry-a",
+            "answer": "revoked",
+            "as_of": "2026-09-20T11:59:00Z"
+          }
+        ],
+        "conflict_policy": "deny_with_conflict",
+        "stale_policy": {
+          "stale_revoked_still_counts": true,
+          "stale_active_still_counts": false
+        },
+        "now": "2026-09-20T12:00:00Z"
+      },
+      "expected": {
+        "outcome": "denied",
+        "reason_code": "STATUS_REVOKED",
+        "lifecycle": {
+          "verdict": "invalid",
+          "reason_code": "STATUS_REVOKED"
+        },
+        "basis": {
+          "authority_ref": "delegation:alpha",
+          "evaluated_at": "2026-09-20T12:00:00Z",
+          "verifier_mode": "online",
+          "required_sources": [
+            "registry-a",
+            "registry-b"
+          ],
+          "sources_consulted": [
+            {
+              "source_id": "registry-a",
+              "answer": "revoked",
+              "as_of": "2026-09-20T11:59:00Z",
+              "age_s": 60,
+              "freshness_bound_s": 300,
+              "within_bound": true,
+              "used": true,
+              "use_basis": "within_freshness_bound"
+            }
+          ],
+          "sources_silent": [
+            "registry-b"
+          ],
+          "coverage": {
+            "required": 2,
+            "answered": 1,
+            "usable_determinate": 1,
+            "silent": [
+              "registry-b"
+            ],
+            "measured_over": "declared_required_set",
+            "complete": false
+          },
+          "conflict": null,
+          "snapshot": null,
+          "conflict_policy": "deny_with_conflict",
+          "stale_policy": {
+            "stale_revoked_still_counts": true,
+            "stale_active_still_counts": false
+          },
+          "silence_is": "coverage_gap"
+        }
+      }
+    },
+    {
+      "id": "SC-23-every-source-unavailable",
+      "tests": "Every required source was consulted and none produced a usable answer. The freshness limb is not missing, because nothing was measured against a bound. Unknown status is not active and it is not revoked.",
+      "input": {
+        "authority_ref": "delegation:alpha",
+        "trust_policy": {
+          "mode": "online",
+          "sources": {
+            "required": [
+              {
+                "source_id": "registry-a",
+                "freshness_bound_s": 300
+              },
+              {
+                "source_id": "registry-b",
+                "freshness_bound_s": 600
+              }
+            ],
+            "silence_is": "coverage_gap"
+          }
+        },
+        "answers": [
+          {
+            "source_id": "registry-a",
+            "answer": "unavailable"
+          },
+          {
+            "source_id": "registry-b",
+            "answer": "unavailable"
+          }
+        ],
+        "conflict_policy": "deny_with_conflict",
+        "stale_policy": {
+          "stale_revoked_still_counts": true,
+          "stale_active_still_counts": false
+        },
+        "now": "2026-09-20T12:00:00Z"
+      },
+      "expected": {
+        "outcome": "not_established",
+        "reason_code": "STATUS_NO_USABLE_OBSERVATION",
+        "lifecycle": {
+          "verdict": "not_established",
+          "reason_code": "STATUS_NO_USABLE_OBSERVATION",
+          "missing": [
+            "source",
+            "coverage"
+          ]
+        },
+        "basis": {
+          "authority_ref": "delegation:alpha",
+          "evaluated_at": "2026-09-20T12:00:00Z",
+          "verifier_mode": "online",
+          "required_sources": [
+            "registry-a",
+            "registry-b"
+          ],
+          "sources_consulted": [
+            {
+              "source_id": "registry-a",
+              "answer": "unavailable",
+              "as_of": null,
+              "age_s": null,
+              "freshness_bound_s": 300,
+              "within_bound": false,
+              "used": false,
+              "use_basis": "source_gave_no_answer"
+            },
+            {
+              "source_id": "registry-b",
+              "answer": "unavailable",
+              "as_of": null,
+              "age_s": null,
+              "freshness_bound_s": 600,
+              "within_bound": false,
+              "used": false,
+              "use_basis": "source_gave_no_answer"
+            }
+          ],
+          "sources_silent": [],
+          "coverage": {
+            "required": 2,
+            "answered": 2,
+            "usable_determinate": 0,
+            "silent": [],
+            "measured_over": "declared_required_set",
+            "complete": false
+          },
+          "conflict": null,
+          "snapshot": null,
+          "conflict_policy": "deny_with_conflict",
+          "stale_policy": {
+            "stale_revoked_still_counts": true,
+            "stale_active_still_counts": false
+          },
+          "silence_is": "coverage_gap"
+        }
+      }
+    },
+    {
+      "id": "SC-24-offline-does-not-bypass-conflict",
+      "tests": "An offline verifier whose snapshot says active while a required source it did reach says revoked, both inside their own bounds. The conflict branch runs before the offline branch, so there is no admission and no snapshot block.",
+      "input": {
+        "authority_ref": "delegation:alpha",
+        "trust_policy": {
+          "mode": "offline",
+          "sources": {
+            "required": [
+              {
+                "source_id": "registry-a",
+                "freshness_bound_s": 300
+              }
+            ],
+            "silence_is": "coverage_gap"
+          },
+          "snapshot_source": {
+            "source_id": "snapshot-c",
+            "declared_bound_s": 3600
+          }
+        },
+        "answers": [
+          {
+            "source_id": "registry-a",
+            "answer": "revoked",
+            "as_of": "2026-09-20T11:59:00Z"
+          },
+          {
+            "source_id": "snapshot-c",
+            "answer": "active",
+            "as_of": "2026-09-20T11:30:00Z"
+          }
+        ],
+        "conflict_policy": "deny_with_conflict",
+        "stale_policy": {
+          "stale_revoked_still_counts": true,
+          "stale_active_still_counts": false
+        },
+        "now": "2026-09-20T12:00:00Z"
+      },
+      "expected": {
+        "outcome": "denied",
+        "reason_code": "STATUS_SOURCES_CONFLICT",
+        "lifecycle": {
+          "verdict": "not_established",
+          "reason_code": "STATUS_SOURCES_CONFLICT",
+          "missing": [
+            "source"
+          ]
+        },
+        "basis": {
+          "authority_ref": "delegation:alpha",
+          "evaluated_at": "2026-09-20T12:00:00Z",
+          "verifier_mode": "offline",
+          "required_sources": [
+            "registry-a"
+          ],
+          "sources_consulted": [
+            {
+              "source_id": "registry-a",
+              "answer": "revoked",
+              "as_of": "2026-09-20T11:59:00Z",
+              "age_s": 60,
+              "freshness_bound_s": 300,
+              "within_bound": true,
+              "used": true,
+              "use_basis": "within_freshness_bound"
+            },
+            {
+              "source_id": "snapshot-c",
+              "answer": "active",
+              "as_of": "2026-09-20T11:30:00Z",
+              "age_s": 1800,
+              "freshness_bound_s": 3600,
+              "within_bound": true,
+              "used": true,
+              "use_basis": "within_freshness_bound"
+            }
+          ],
+          "sources_silent": [],
+          "coverage": {
+            "required": 1,
+            "answered": 1,
+            "usable_determinate": 1,
+            "silent": [],
+            "measured_over": "declared_required_set",
+            "complete": true
+          },
+          "conflict": {
+            "states": [
+              "active",
+              "revoked"
+            ],
+            "sources": [
+              "registry-a",
+              "snapshot-c"
+            ]
+          },
+          "snapshot": null,
+          "conflict_policy": "deny_with_conflict",
+          "stale_policy": {
+            "stale_revoked_still_counts": true,
+            "stale_active_still_counts": false
+          },
+          "silence_is": "coverage_gap"
+        }
+      }
+    }
+  ],
+  "error_cases": [
+    {
+      "id": "SC-E-01-silence-policy-required",
+      "tests": "silence_is has no default. The two readings decide whether a silent required source blocks an admission and the text as written supports both.",
+      "input": {
+        "authority_ref": "delegation:alpha",
+        "trust_policy": {
+          "mode": "online",
+          "sources": {
+            "required": [
+              {
+                "source_id": "registry-a",
+                "freshness_bound_s": 300
+              }
+            ]
+          }
+        },
+        "answers": [
+          {
+            "source_id": "registry-a",
+            "answer": "active",
+            "as_of": "2026-09-20T11:59:00Z"
+          }
+        ],
+        "conflict_policy": "deny_with_conflict",
+        "stale_policy": {
+          "stale_revoked_still_counts": true,
+          "stale_active_still_counts": false
+        },
+        "now": "2026-09-20T12:00:00Z"
+      },
+      "expected": {
+        "error_code": "SILENCE_POLICY_REQUIRED"
+      }
+    },
+    {
+      "id": "SC-E-02-required-set-empty",
+      "tests": "A verifier that accepts no source for a claim cannot establish it, so an empty declared set is refused rather than read as vacuously covered.",
+      "input": {
+        "authority_ref": "delegation:alpha",
+        "trust_policy": {
+          "mode": "online",
+          "sources": {
+            "required": [],
+            "silence_is": "coverage_gap"
+          }
+        },
+        "answers": [
+          {
+            "source_id": "registry-a",
+            "answer": "active",
+            "as_of": "2026-09-20T11:59:00Z"
+          }
+        ],
+        "conflict_policy": "deny_with_conflict",
+        "stale_policy": {
+          "stale_revoked_still_counts": true,
+          "stale_active_still_counts": false
+        },
+        "now": "2026-09-20T12:00:00Z"
+      },
+      "expected": {
+        "error_code": "REQUIRED_SET_EMPTY"
+      }
+    },
+    {
+      "id": "SC-E-03-conflict-policy-required",
+      "tests": "conflict_policy has no default. A default would be the module ruling a question the proposed text leaves open.",
+      "input": {
+        "authority_ref": "delegation:alpha",
+        "trust_policy": {
+          "mode": "online",
+          "sources": {
+            "required": [
+              {
+                "source_id": "registry-a",
+                "freshness_bound_s": 300
+              }
+            ],
+            "silence_is": "coverage_gap"
+          }
+        },
+        "answers": [
+          {
+            "source_id": "registry-a",
+            "answer": "active",
+            "as_of": "2026-09-20T11:59:00Z"
+          }
+        ],
+        "conflict_policy": "deny",
+        "stale_policy": {
+          "stale_revoked_still_counts": true,
+          "stale_active_still_counts": false
+        },
+        "now": "2026-09-20T12:00:00Z"
+      },
+      "expected": {
+        "error_code": "CONFLICT_POLICY_REQUIRED"
+      }
+    },
+    {
+      "id": "SC-E-04-stale-policy-required",
+      "tests": "stale_policy has no default and both members are required.",
+      "input": {
+        "authority_ref": "delegation:alpha",
+        "trust_policy": {
+          "mode": "online",
+          "sources": {
+            "required": [
+              {
+                "source_id": "registry-a",
+                "freshness_bound_s": 300
+              }
+            ],
+            "silence_is": "coverage_gap"
+          }
+        },
+        "answers": [
+          {
+            "source_id": "registry-a",
+            "answer": "active",
+            "as_of": "2026-09-20T11:59:00Z"
+          }
+        ],
+        "conflict_policy": "deny_with_conflict",
+        "stale_policy": {
+          "stale_revoked_still_counts": true
+        },
+        "now": "2026-09-20T12:00:00Z"
+      },
+      "expected": {
+        "error_code": "STALE_POLICY_REQUIRED"
+      }
+    },
+    {
+      "id": "SC-E-05-mode-unknown",
+      "tests": "There are two verifier modes and a third is not read as one of them.",
+      "input": {
+        "authority_ref": "delegation:alpha",
+        "trust_policy": {
+          "mode": "degraded",
+          "sources": {
+            "required": [
+              {
+                "source_id": "registry-a",
+                "freshness_bound_s": 300
+              }
+            ],
+            "silence_is": "coverage_gap"
+          }
+        },
+        "answers": [
+          {
+            "source_id": "registry-a",
+            "answer": "active",
+            "as_of": "2026-09-20T11:59:00Z"
+          }
+        ],
+        "conflict_policy": "deny_with_conflict",
+        "stale_policy": {
+          "stale_revoked_still_counts": true,
+          "stale_active_still_counts": false
+        },
+        "now": "2026-09-20T12:00:00Z"
+      },
+      "expected": {
+        "error_code": "MODE_UNKNOWN"
+      }
+    },
+    {
+      "id": "SC-E-06-offline-requires-a-snapshot-source",
+      "tests": "Offline mode with no declared snapshot source. BROAD-L7 forbids admitting on a snapshot with no declared bound, and this makes that state unreachable rather than merely discouraged.",
+      "input": {
+        "authority_ref": "delegation:alpha",
+        "trust_policy": {
+          "mode": "offline",
+          "sources": {
+            "required": [
+              {
+                "source_id": "registry-a",
+                "freshness_bound_s": 300
+              }
+            ],
+            "silence_is": "coverage_gap"
+          }
+        },
+        "answers": [
+          {
+            "source_id": "registry-a",
+            "answer": "unavailable"
+          }
+        ],
+        "conflict_policy": "deny_with_conflict",
+        "stale_policy": {
+          "stale_revoked_still_counts": true,
+          "stale_active_still_counts": false
+        },
+        "now": "2026-09-20T12:00:00Z"
+      },
+      "expected": {
+        "error_code": "SNAPSHOT_SOURCE_REQUIRED"
+      }
+    },
+    {
+      "id": "SC-E-07-snapshot-source-not-allowed-online",
+      "tests": "A snapshot source in online mode is meaningless and is refused rather than silently ignored.",
+      "input": {
+        "authority_ref": "delegation:alpha",
+        "trust_policy": {
+          "mode": "online",
+          "sources": {
+            "required": [
+              {
+                "source_id": "registry-a",
+                "freshness_bound_s": 300
+              }
+            ],
+            "silence_is": "coverage_gap"
+          },
+          "snapshot_source": {
+            "source_id": "snapshot-c",
+            "declared_bound_s": 3600
+          }
+        },
+        "answers": [
+          {
+            "source_id": "registry-a",
+            "answer": "active",
+            "as_of": "2026-09-20T11:59:00Z"
+          }
+        ],
+        "conflict_policy": "deny_with_conflict",
+        "stale_policy": {
+          "stale_revoked_still_counts": true,
+          "stale_active_still_counts": false
+        },
+        "now": "2026-09-20T12:00:00Z"
+      },
+      "expected": {
+        "error_code": "SNAPSHOT_SOURCE_NOT_ALLOWED"
+      }
+    },
+    {
+      "id": "SC-E-08-snapshot-source-also-required",
+      "tests": "One source id carrying two different declared bounds has no answer to which bound applies.",
+      "input": {
+        "authority_ref": "delegation:alpha",
+        "trust_policy": {
+          "mode": "offline",
+          "sources": {
+            "required": [
+              {
+                "source_id": "snapshot-c",
+                "freshness_bound_s": 300
+              }
+            ],
+            "silence_is": "coverage_gap"
+          },
+          "snapshot_source": {
+            "source_id": "snapshot-c",
+            "declared_bound_s": 3600
+          }
+        },
+        "answers": [
+          {
+            "source_id": "snapshot-c",
+            "answer": "active",
+            "as_of": "2026-09-20T11:30:00Z"
+          }
+        ],
+        "conflict_policy": "deny_with_conflict",
+        "stale_policy": {
+          "stale_revoked_still_counts": true,
+          "stale_active_still_counts": false
+        },
+        "now": "2026-09-20T12:00:00Z"
+      },
+      "expected": {
+        "error_code": "SNAPSHOT_SOURCE_ALSO_REQUIRED"
+      }
+    },
+    {
+      "id": "SC-E-09-source-declared-twice",
+      "tests": "The same source declared twice with different bounds is ambiguous.",
+      "input": {
+        "authority_ref": "delegation:alpha",
+        "trust_policy": {
+          "mode": "online",
+          "sources": {
+            "required": [
+              {
+                "source_id": "registry-a",
+                "freshness_bound_s": 300
+              },
+              {
+                "source_id": "registry-a",
+                "freshness_bound_s": 60
+              }
+            ],
+            "silence_is": "coverage_gap"
+          }
+        },
+        "answers": [
+          {
+            "source_id": "registry-a",
+            "answer": "active",
+            "as_of": "2026-09-20T11:59:00Z"
+          }
+        ],
+        "conflict_policy": "deny_with_conflict",
+        "stale_policy": {
+          "stale_revoked_still_counts": true,
+          "stale_active_still_counts": false
+        },
+        "now": "2026-09-20T12:00:00Z"
+      },
+      "expected": {
+        "error_code": "SOURCE_DECLARED_TWICE"
+      }
+    },
+    {
+      "id": "SC-E-10-source-answered-twice",
+      "tests": "Two answers from one source is a disagreement inside a source rather than between two, which is not the question this module decides.",
+      "input": {
+        "authority_ref": "delegation:alpha",
+        "trust_policy": {
+          "mode": "online",
+          "sources": {
+            "required": [
+              {
+                "source_id": "registry-a",
+                "freshness_bound_s": 300
+              }
+            ],
+            "silence_is": "coverage_gap"
+          }
+        },
+        "answers": [
+          {
+            "source_id": "registry-a",
+            "answer": "active",
+            "as_of": "2026-09-20T11:59:00Z"
+          },
+          {
+            "source_id": "registry-a",
+            "answer": "revoked",
+            "as_of": "2026-09-20T11:59:00Z"
+          }
+        ],
+        "conflict_policy": "deny_with_conflict",
+        "stale_policy": {
+          "stale_revoked_still_counts": true,
+          "stale_active_still_counts": false
+        },
+        "now": "2026-09-20T12:00:00Z"
+      },
+      "expected": {
+        "error_code": "SOURCE_ANSWERED_TWICE"
+      }
+    },
+    {
+      "id": "SC-E-11-answer-unknown",
+      "tests": "The answer set is closed at active, revoked and unavailable. An unrecognised answer is refused rather than mapped onto one of them.",
+      "input": {
+        "authority_ref": "delegation:alpha",
+        "trust_policy": {
+          "mode": "online",
+          "sources": {
+            "required": [
+              {
+                "source_id": "registry-a",
+                "freshness_bound_s": 300
+              }
+            ],
+            "silence_is": "coverage_gap"
+          }
+        },
+        "answers": [
+          {
+            "source_id": "registry-a",
+            "answer": "suspended",
+            "as_of": "2026-09-20T11:59:00Z"
+          }
+        ],
+        "conflict_policy": "deny_with_conflict",
+        "stale_policy": {
+          "stale_revoked_still_counts": true,
+          "stale_active_still_counts": false
+        },
+        "now": "2026-09-20T12:00:00Z"
+      },
+      "expected": {
+        "error_code": "ANSWER_UNKNOWN"
+      }
+    },
+    {
+      "id": "SC-E-12-unavailable-carries-as-of",
+      "tests": "An unavailable answer dates nothing, so an as_of on one is a defect in the call rather than a fact about the authority.",
+      "input": {
+        "authority_ref": "delegation:alpha",
+        "trust_policy": {
+          "mode": "online",
+          "sources": {
+            "required": [
+              {
+                "source_id": "registry-a",
+                "freshness_bound_s": 300
+              }
+            ],
+            "silence_is": "coverage_gap"
+          }
+        },
+        "answers": [
+          {
+            "source_id": "registry-a",
+            "answer": "unavailable",
+            "as_of": "2026-09-20T11:59:00Z"
+          }
+        ],
+        "conflict_policy": "deny_with_conflict",
+        "stale_policy": {
+          "stale_revoked_still_counts": true,
+          "stale_active_still_counts": false
+        },
+        "now": "2026-09-20T12:00:00Z"
+      },
+      "expected": {
+        "error_code": "UNAVAILABLE_CARRIES_AS_OF"
+      }
+    },
+    {
+      "id": "SC-E-13-now-not-an-instant",
+      "tests": "An unparseable boundary instant is a programming error, not a verdict. Returning not_established here would report ignorance about the authority when the defect is in the call.",
+      "input": {
+        "authority_ref": "delegation:alpha",
+        "trust_policy": {
+          "mode": "online",
+          "sources": {
+            "required": [
+              {
+                "source_id": "registry-a",
+                "freshness_bound_s": 300
+              }
+            ],
+            "silence_is": "coverage_gap"
+          }
+        },
+        "answers": [
+          {
+            "source_id": "registry-a",
+            "answer": "active",
+            "as_of": "2026-09-20T11:59:00Z"
+          }
+        ],
+        "conflict_policy": "deny_with_conflict",
+        "stale_policy": {
+          "stale_revoked_still_counts": true,
+          "stale_active_still_counts": false
+        },
+        "now": "2026-09-20 12:00:00"
+      },
+      "expected": {
+        "error_code": "INSTANT_INVALID"
+      }
+    },
+    {
+      "id": "SC-E-14-bound-not-a-whole-second-count",
+      "tests": "A negative freshness bound is not a bound.",
+      "input": {
+        "authority_ref": "delegation:alpha",
+        "trust_policy": {
+          "mode": "online",
+          "sources": {
+            "required": [
+              {
+                "source_id": "registry-a",
+                "freshness_bound_s": -1
+              }
+            ],
+            "silence_is": "coverage_gap"
+          }
+        },
+        "answers": [
+          {
+            "source_id": "registry-a",
+            "answer": "active",
+            "as_of": "2026-09-20T11:59:00Z"
+          }
+        ],
+        "conflict_policy": "deny_with_conflict",
+        "stale_policy": {
+          "stale_revoked_still_counts": true,
+          "stale_active_still_counts": false
+        },
+        "now": "2026-09-20T12:00:00Z"
+      },
+      "expected": {
+        "error_code": "BOUND_INVALID"
+      }
+    },
+    {
+      "id": "SC-E-15-authority-ref-empty",
+      "tests": "The decision is about one named authority and an unnamed one cannot be recorded.",
+      "input": {
+        "authority_ref": "",
+        "trust_policy": {
+          "mode": "online",
+          "sources": {
+            "required": [
+              {
+                "source_id": "registry-a",
+                "freshness_bound_s": 300
+              }
+            ],
+            "silence_is": "coverage_gap"
+          }
+        },
+        "answers": [
+          {
+            "source_id": "registry-a",
+            "answer": "active",
+            "as_of": "2026-09-20T11:59:00Z"
+          }
+        ],
+        "conflict_policy": "deny_with_conflict",
+        "stale_policy": {
+          "stale_revoked_still_counts": true,
+          "stale_active_still_counts": false
+        },
+        "now": "2026-09-20T12:00:00Z"
+      },
+      "expected": {
+        "error_code": "FIELD_INVALID"
+      }
+    },
+    {
+      "id": "SC-E-16-determinate-answer-without-as-of",
+      "tests": "A determinate answer with no as_of cannot be aged against any bound, so it is refused rather than admitted as fresh.",
+      "input": {
+        "authority_ref": "delegation:alpha",
+        "trust_policy": {
+          "mode": "online",
+          "sources": {
+            "required": [
+              {
+                "source_id": "registry-a",
+                "freshness_bound_s": 300
+              }
+            ],
+            "silence_is": "coverage_gap"
+          }
+        },
+        "answers": [
+          {
+            "source_id": "registry-a",
+            "answer": "active"
+          }
+        ],
+        "conflict_policy": "deny_with_conflict",
+        "stale_policy": {
+          "stale_revoked_still_counts": true,
+          "stale_active_still_counts": false
+        },
+        "now": "2026-09-20T12:00:00Z"
+      },
+      "expected": {
+        "error_code": "INSTANT_INVALID"
+      }
+    }
+  ]
+}
