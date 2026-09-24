@@ -4,6 +4,59 @@
 
 ### Added
 
+- **`src/v2/authority-state/`, authority state markers, write fencing, and revocation
+  withdrawal. PROPOSED and OPT-IN.**
+  Three surfaces the authority-lifecycle work needs and draft-pidlisnyi-aps-03 does not
+  contain. The published text has no occurrence of `epoch`, `fencing`, `snapshot`, `replica`
+  or `restore`, and defines no record for withdrawing a revocation. What draft-03 does fix
+  stays fixed: section 3.5, "Revocation is irreversible", and section 3.3's four-value
+  result. `AuthorityValidationState`, `AuthorityValidationResult`, `AuthorityRevocationStore`,
+  `AuthorityChainVerificationOptions` and `createAuthorityRevocationResolver` are unchanged,
+  no store gains a removal method, and a caller that does not import the new module sees no
+  change at all.
+
+  The concept source is the aeoess/agent-authority-lifecycle concept document: the
+  `Authority epoch` concept, invariants L3, L7 and L11, the `Authority rollback` open
+  question, and invariant candidates CAND-08 (no silent restoration from rollback or stale
+  state) and CAND-02 (later evidence does not rewrite earlier evidence). The open question
+  is open, the candidates are proposed, and every exported symbol says so in its doc comment.
+
+  New public surface:
+
+  - `StateMarker` and `stateMarker`, an opaque comparable supplied by the caller: a
+    canonical unsigned decimal value as a string, and a scope of `global`, `per_delegation`,
+    `per_principal` or `per_store`. Nothing is signed and nothing is a wire field. The
+    proposed text says an authority epoch is "where a system uses generations" and stops, so
+    this SDK defines only the comparison.
+  - `compareStateMarker` and `advanceHighWaterMark`. Equal is `forward`, behind is
+    `regressed`, and a first read or a cross-scope comparison is `unplaceable`, which is
+    deliberately not a verdict. The mark only ever moves forward.
+  - `RetainedAuthorityState` and `resolveUnderRetainedState`. The retained record set and the
+    high-water mark are two inputs, not one "epoch", because a verifier that kept the
+    epoch-N revocation records and one that kept only the number give different answers about
+    the same restored view. A retained record set answers `revoked` or `unknown` and never
+    `active`.
+  - `createMonotonicRevocationResolver`, which composes a presented view, a mark and a
+    retained set into the one-argument resolver `verifyAuthorityDelegationChain` already
+    takes. `onUnplaceable` is required with no default, because choosing between reading a
+    first-contact view and refusing it is a question the concept source records as undecided.
+  - `FencedAuthorityStateLog`, the fencing gate on an authority-state write. A token that
+    went backwards is refused, an equal token is accepted and idempotent, and a refused write
+    changes neither the published payload nor the highest token.
+  - `RevocationWithdrawalV0`, `evaluateRevocationWithdrawal`, `correctedRevocationView` and
+    the injected `WithdrawalStandingResolver`. A withdrawal references a revocation and never
+    removes it: no path in the module deletes a revocation from a store, and the chain
+    verdict after an accepted withdrawal is byte for byte what it was. Standing is resolved
+    outside the record, and a standing question the resolver could not answer is reported as
+    not established rather than as a denial.
+  - `authorityStateReport` and `reportAuthorityState`, which carry a chain result, a
+    lifecycle verdict, the monotonicity finding and any correction records together without
+    any of them rewriting another.
+
+  `conformance/authority-state/v0/vectors.json` holds 49 hand-specified cases and is the
+  shared fixture. The Python SDK vendors a byte-identical copy and runs the same cases, and
+  both repositories pin the file's SHA-256 inside their own test.
+
 - **`src/v2/lifecycle-state/`, the lifecycle state vocabulary. PROPOSED and OPT-IN.**
   A second verdict vocabulary, reported alongside chain verification and never merged into
   it. Nothing here is required by draft-pidlisnyi-aps-03, whose section 3.3 says verbatim:
