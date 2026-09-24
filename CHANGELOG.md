@@ -61,6 +61,74 @@
   same cases through its own port, and both repositories pin the file's SHA-256 inside their
   own test, so a one-sided edit fails on the side that was edited. Tests live at
   `tests/v2/lifecycle-state.test.ts`.
+- **Chain selection (draft-03 section 3.3).** `src/v2/chain-selection/`, a surface that
+  takes the set of chains an agent holds and reports which ONE of them an action was
+  decided against. Section 3.3 states the rule: "Each action selects one root-to-leaf
+  authority chain.  A verifier MUST NOT union scopes or budgets from multiple chains.
+  Cross-principal composition requires a separate profile." Every other authority entry
+  point here takes exactly one chain, so the first sentence had no surface: an
+  implementation that evaluated an action against three chains and pooled the answers,
+  and one that selected a single chain, were indistinguishable through this SDK. They are
+  not any more.
+
+  New public surface, all reachable from the package root:
+  `selectChainForAction(input)`, `selectWithFallback(input)`, the types `HeldChain`,
+  `RequiredSpendV1`, `AuthorityBudgetReserver`, `ChainEvaluation`,
+  `ChainEvaluationOutcome`, `ChainSelectionEvaluationCode`, `ChainSelectionFailureCode`,
+  `ChainSelectionInput`, `ChainSelectionWithFallbackInput`, `FallbackAuthorizationV0` and
+  `SelectionOutcome`, and the constants `CHAIN_SELECTION_EVALUATION_CODES`,
+  `CHAIN_SELECTION_FAILURE_CODES` and `HELD_SET_CEILING`.
+
+  **Additive and opt-in. Nothing existing changed.** `AuthorityValidationState` is still
+  the same four values, `AuthorityVectorV1` is untouched, `verifyAuthorityDelegationChain`
+  returns exactly what it returned before for every draft-03 record, and a caller that
+  never imports this module sees today's behaviour. The new functions are pure and injectable in
+  the same way the chain verifier is: `now` and the three resolvers are the caller's, the
+  budget reserver is injected, and nothing here reads a clock, a random source or the
+  network. Neither entry point throws.
+
+  **No union, held by construction rather than by a check.** One private function judges
+  one chain, and it is the only place a chain is judged, so there is no code path on which
+  two chains' scope grants or spend ceilings meet in one comparison. A result names one
+  `chain_id`, never a set. A held entry that is two or more chains concatenated into one
+  array, which is the shape a caller reaches for to have two chains evaluated together, is
+  refused by name as `chain_set_presented_as_one` before verification, rather than being
+  reported as the broken parent link chain verification would otherwise call it.
+
+  **Selection rule, this implementation's own.** draft-03 states that an action selects one
+  chain and does not state how. Candidates are evaluated in held order. The first that
+  verifies `valid` and covers every needed scope grant is selected, the action's spend is
+  then reserved against that chain and no other, and a spend refusal is that chain's
+  refusal and ends the call. Continuing past a spend refusal to a chain with a larger
+  ceiling would be a fallback in everything but name, and `selectChainForAction` does not
+  do it.
+
+  **Not established is kept apart from refused.** A candidate whose revocation answer is
+  unknown, whose facet profile is unsupported, or whose spend could not be checked because
+  no ledger was supplied, is `undecided`, never `refuses`, and one undecided candidate
+  makes the whole outcome `selection_undecided` rather than "no chain covers the action".
+  Section 3.3 forbids collapsing indeterminate or unsupported into valid, and collapsing
+  them into a denial reason would be the opposite error.
+
+- **PROPOSED, not draft-03: the fallback surface.** `selectWithFallback`'s `fallback`
+  parameter and the `switched_from`, `fallback_ref` and `fallback_considered` members serve
+  invariant candidate L11, "No silent authority resurrection", in `AUTHORITY-LIFECYCLE.md`
+  of the aeoess/agent-authority-lifecycle concept document, whose own status there is
+  `proposed`. draft-03 says nothing about what an implementation does after the chain it
+  selected turns out to be unusable. `fallback: null` reads no held chain other than the
+  preferred one, so a refusal cannot hide a switch. An authorization object permits the
+  switch and the result then names the chain switched away from. That document does not
+  define what makes a fallback explicitly authorized, so `authorization_ref` is an opaque
+  reference this SDK records and never interprets, and its presence is not a claim that
+  anything authorized anything. Every symbol carrying this half says so in its doc comment.
+
+- **Parity vectors.** `fixtures/chain-selection/chain-selection-vectors-v0.json`, 19 cases
+  over three single-hop chains from three roots to one leaf, generated deterministically by
+  `fixtures/chain-selection/generate-fixtures.ts` from published seed labels. Every recorded
+  outcome is observed: the generator runs the implementation, compares what it returned
+  against a declaration written beside each case, and refuses to write the file if they
+  disagree. The Python SDK runs a byte-identical vendored copy of the same file, so a
+  behaviour difference between the two implementations fails one of them.
 
 ## 7.1.0 (2026-09-22)
 
