@@ -11,6 +11,16 @@ const PACKAGE_NAME = 'agent-passport-system';
 const PROVENANCE_PREDICATE = 'https://slsa.dev/provenance/v1';
 
 export class ProvenanceUnavailableError extends Error {}
+export class RegistryNotVisibleError extends Error {}
+
+// The registry needs a moment to make a freshly published version, and its
+// provenance metadata, readable. Only those not-yet-visible conditions are
+// retried, 12 attempts with a fixed 15 s wait, about three minutes in total.
+// The 7.1.0 release took about two minutes to become visible, so a shorter
+// window fails the step it is meant to fix. Any digest, integrity or identity
+// mismatch fails at once.
+const RETRY_ATTEMPTS = 12;
+const RETRY_DELAY_MS = 15_000;
 
 export function artifactDigests(bytes) {
   return {
@@ -38,7 +48,9 @@ export function classifyRegistryResponse({ status, document }, {
 }) {
   if (status === 404) {
     if (requirePresent) {
-      throw new Error(`registry returned HTTP 404 for ${PACKAGE_NAME}@${version} after publication`);
+      throw new RegistryNotVisibleError(
+        `registry returned HTTP 404 for ${PACKAGE_NAME}@${version} after publication`,
+      );
     }
     return { state: 'absent', provenance: 'absent', ...localDigests };
   }
@@ -142,6 +154,38 @@ async function writeOutputs(result) {
   await appendFile(process.env.GITHUB_OUTPUT, `${lines.join('\n')}\n`, { encoding: 'utf8' });
 }
 
+function isNotYetVisible(error) {
+  return error instanceof RegistryNotVisibleError || error instanceof ProvenanceUnavailableError;
+}
+
+export async function resolveRegistryState(request, options = {}) {
+  const {
+    attempts = RETRY_ATTEMPTS,
+    delayMs = RETRY_DELAY_MS,
+    fetchDocument = fetchRegistryDocument,
+    log = console.log,
+    sleep = (ms) => new Promise((resolveDelay) => setTimeout(resolveDelay, ms)),
+  } = options;
+
+  for (let attempt = 1; ; attempt += 1) {
+    const response = await fetchDocument(request.version);
+    try {
+      return classifyRegistryResponse(response, request);
+    } catch (error) {
+      if (!isNotYetVisible(error)) {
+        log(`attempt ${attempt}/${attempts}: ${error.message}; not a visibility delay, not retrying`);
+        throw error;
+      }
+      if (attempt >= attempts) {
+        log(`attempt ${attempt}/${attempts}: ${error.message}; still not visible after ${attempts} attempts`);
+        throw error;
+      }
+      log(`attempt ${attempt}/${attempts}: ${error.message}; retrying in ${Math.round(delayMs / 1000)}s`);
+      await sleep(delayMs);
+    }
+  }
+}
+
 async function main() {
   const version = process.env.PACKAGE_VERSION;
   validateVersion(version);
@@ -149,22 +193,12 @@ async function main() {
   const requirePresent = process.env.REQUIRE_PRESENT === 'true';
   const requireProvenance = process.env.REQUIRE_PROVENANCE === 'true';
 
-  let result;
-  for (let attempt = 1; attempt <= 6; attempt += 1) {
-    const response = await fetchRegistryDocument(version);
-    try {
-      result = classifyRegistryResponse(response, {
-        version,
-        localDigests,
-        requirePresent,
-        requireProvenance,
-      });
-      break;
-    } catch (error) {
-      if (!(error instanceof ProvenanceUnavailableError) || attempt === 6) throw error;
-      await new Promise((resolveDelay) => setTimeout(resolveDelay, 5_000));
-    }
-  }
+  const result = await resolveRegistryState({
+    version,
+    localDigests,
+    requirePresent,
+    requireProvenance,
+  });
 
   await writeOutputs(result);
   if (result.state === 'absent') {

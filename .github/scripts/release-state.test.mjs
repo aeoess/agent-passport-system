@@ -20,6 +20,8 @@ import {
   classifyRegistryResponse,
   loadArtifact,
   ProvenanceUnavailableError,
+  RegistryNotVisibleError,
+  resolveRegistryState,
 } from './release-registry.mjs';
 import { classifyGitHubReleaseResponse } from './github-release-state.mjs';
 import { loadManifest, validatePublishManifest } from './release-manifest.mjs';
@@ -135,6 +137,119 @@ test('required npm provenance is distinct from matching registry bytes', () => {
     ),
     ProvenanceUnavailableError,
   );
+});
+
+function recordingRetry(responses) {
+  const queue = [...responses];
+  const fetched = [];
+  const slept = [];
+  const logged = [];
+  return {
+    fetched,
+    slept,
+    logged,
+    options: {
+      fetchDocument: async (requestedVersion) => {
+        fetched.push(requestedVersion);
+        if (queue.length === 0) throw new Error('fetched more often than the test allows');
+        return queue.shift();
+      },
+      sleep: async (ms) => { slept.push(ms); },
+      log: (line) => { logged.push(line); },
+    },
+  };
+}
+
+const withoutProvenanceDocument = {
+  ...registryDocument,
+  dist: {
+    shasum: registryDocument.dist.shasum,
+    integrity: registryDocument.dist.integrity,
+  },
+};
+
+test('a version that is not visible yet is retried until it appears', async () => {
+  const retry = recordingRetry([
+    { status: 404 },
+    { status: 404 },
+    { status: 200, document: registryDocument },
+  ]);
+
+  assert.deepEqual(
+    await resolveRegistryState(
+      { version, localDigests, requirePresent: true, requireProvenance: true },
+      retry.options,
+    ),
+    { state: 'identical', provenance: 'present', ...localDigests },
+  );
+  assert.equal(retry.fetched.length, 3);
+  assert.deepEqual(retry.slept, [15_000, 15_000]);
+  assert.match(retry.logged[0], /attempt 1\/12: registry returned HTTP 404 .* retrying in 15s/);
+});
+
+test('provenance that is not published yet is retried until it appears', async () => {
+  const retry = recordingRetry([
+    { status: 200, document: withoutProvenanceDocument },
+    { status: 200, document: registryDocument },
+  ]);
+
+  assert.equal(
+    (await resolveRegistryState(
+      { version, localDigests, requirePresent: true, requireProvenance: true },
+      retry.options,
+    )).provenance,
+    'present',
+  );
+  assert.deepEqual(retry.slept, [15_000]);
+});
+
+test('published bytes that differ fail on the first attempt', async () => {
+  const retry = recordingRetry([
+    {
+      status: 200,
+      document: {
+        ...registryDocument,
+        dist: { ...registryDocument.dist, shasum: '0'.repeat(40) },
+      },
+    },
+  ]);
+
+  await assert.rejects(
+    () => resolveRegistryState(
+      { version, localDigests, requirePresent: true, requireProvenance: true },
+      retry.options,
+    ),
+    /published bytes differ/,
+  );
+  assert.equal(retry.fetched.length, 1);
+  assert.deepEqual(retry.slept, []);
+  assert.match(retry.logged[0], /not a visibility delay, not retrying/);
+});
+
+test('a version that never appears fails after the bounded attempts', async () => {
+  const retry = recordingRetry(Array.from({ length: 12 }, () => ({ status: 404 })));
+
+  await assert.rejects(
+    () => resolveRegistryState(
+      { version, localDigests, requirePresent: true },
+      retry.options,
+    ),
+    RegistryNotVisibleError,
+  );
+  assert.equal(retry.fetched.length, 12);
+  assert.deepEqual(retry.slept, Array(11).fill(15_000));
+  assert.match(retry.logged.at(-1), /still not visible after 12 attempts/);
+});
+
+test('absence stays a first-attempt answer when presence is not required', async () => {
+  const retry = recordingRetry([{ status: 404 }]);
+
+  assert.equal(
+    (await resolveRegistryState({ version, localDigests }, retry.options)).state,
+    'absent',
+  );
+  assert.equal(retry.fetched.length, 1);
+  assert.deepEqual(retry.slept, []);
 });
 
 const publishManifest = {
