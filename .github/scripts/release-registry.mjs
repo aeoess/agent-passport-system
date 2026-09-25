@@ -15,10 +15,12 @@ export class RegistryNotVisibleError extends Error {}
 
 // The registry needs a moment to make a freshly published version, and its
 // provenance metadata, readable. Only those not-yet-visible conditions are
-// retried, with the attempt count and fixed backoff the npm provenance retry
-// has always used. Any digest, integrity or identity mismatch fails at once.
-const RETRY_ATTEMPTS = 6;
-const RETRY_DELAY_MS = 5_000;
+// retried, 12 attempts with a fixed 15 s wait, about three minutes in total.
+// The 7.1.0 release took about two minutes to become visible, so a shorter
+// window fails the step it is meant to fix. Any digest, integrity or identity
+// mismatch fails at once.
+const RETRY_ATTEMPTS = 12;
+const RETRY_DELAY_MS = 15_000;
 
 export function artifactDigests(bytes) {
   return {

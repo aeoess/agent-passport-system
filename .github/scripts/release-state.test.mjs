@@ -183,8 +183,8 @@ test('a version that is not visible yet is retried until it appears', async () =
     { state: 'identical', provenance: 'present', ...localDigests },
   );
   assert.equal(retry.fetched.length, 3);
-  assert.deepEqual(retry.slept, [5_000, 5_000]);
-  assert.match(retry.logged[0], /attempt 1\/6: registry returned HTTP 404 .* retrying in 5s/);
+  assert.deepEqual(retry.slept, [15_000, 15_000]);
+  assert.match(retry.logged[0], /attempt 1\/12: registry returned HTTP 404 .* retrying in 15s/);
 });
 
 test('provenance that is not published yet is retried until it appears', async () => {
@@ -200,7 +200,7 @@ test('provenance that is not published yet is retried until it appears', async (
     )).provenance,
     'present',
   );
-  assert.deepEqual(retry.slept, [5_000]);
+  assert.deepEqual(retry.slept, [15_000]);
 });
 
 test('published bytes that differ fail on the first attempt', async () => {
@@ -227,7 +227,7 @@ test('published bytes that differ fail on the first attempt', async () => {
 });
 
 test('a version that never appears fails after the bounded attempts', async () => {
-  const retry = recordingRetry(Array.from({ length: 6 }, () => ({ status: 404 })));
+  const retry = recordingRetry(Array.from({ length: 12 }, () => ({ status: 404 })));
 
   await assert.rejects(
     () => resolveRegistryState(
@@ -236,9 +236,9 @@ test('a version that never appears fails after the bounded attempts', async () =
     ),
     RegistryNotVisibleError,
   );
-  assert.equal(retry.fetched.length, 6);
-  assert.deepEqual(retry.slept, [5_000, 5_000, 5_000, 5_000, 5_000]);
-  assert.match(retry.logged.at(-1), /still not visible after 6 attempts/);
+  assert.equal(retry.fetched.length, 12);
+  assert.deepEqual(retry.slept, Array(11).fill(15_000));
+  assert.match(retry.logged.at(-1), /still not visible after 12 attempts/);
 });
 
 test('absence stays a first-attempt answer when presence is not required', async () => {
