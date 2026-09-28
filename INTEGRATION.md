@@ -35,7 +35,7 @@ const agent = joinSocialContract({ name: 'my-agent', ... })
 // APS delegation chain travels inside your signed envelope
 ```
 
-### External Anchoring (ArkForge, Rekor)
+### External Anchoring (ArkForge, Rekor, Mycelium)
 You handle tamper-evidence. APS produces the receipts you anchor.
 ```typescript
 import { createExecutionAttestation } from 'agent-passport-system'
@@ -44,6 +44,8 @@ const attestation = createExecutionAttestation({ ... })
 // Your anchoring layer submits the attestation hash to Rekor/your log
 // The attestation schema is standardized: any anchor backend works
 ```
+
+Mycelium Trails anchored a permit, revocation and re-issue chain of APS payment receipts on Arbitrum One and Base, keyed by `action_ref`. Its companion fixture is in this repo at [`permit-receipt-cross-rail.mycelium-companion.json`](src/v2/payment-rails/stripe-issuing/fixtures/permit-receipt-cross-rail.mycelium-companion.json) (#24). The on-chain results are Mycelium's report in stripe/ai#356 and were not rechecked by APS. Anchoring shows that a receipt existed at a point in time. It does not show which transaction executed.
 
 ### Spend Enforcement (AgentPay)
 You handle payment rails. APS handles delegation-scoped spend limits.
