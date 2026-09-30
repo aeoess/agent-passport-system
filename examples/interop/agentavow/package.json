@@ -1,0 +1,10 @@
+{
+  "name": "aps-agentavow-consumer-example",
+  "private": true,
+  "type": "module",
+  "description": "APS-side consumer for AgentAvow tool-manifest-digest-v0 vectors",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "agent-passport-system": "7.2.0"
+  }
+}
