@@ -128,3 +128,7 @@ cases return the results in the table, and the delegation chain verifies. It als
 negatives. An unresolved key and a wrong key fail at `receipt_invalid`, evidence from another
 case fails at `decision_ref_mismatch`, and a duplicated member in the bytes fails at
 `parse_error`.
+
+## Clarification, 2026-09-30
+
+This README did not say which object is the action payload. In every case it is the `requested_call` object. It appears as `requested_call` in `case.json` and as `policy_input.requested_call` in `decision-evidence.json`, and the two are the same JSON value. `action_reference_input.payload_ref` in `case.json` is the lowercase hexadecimal SHA-256 of `"APS-ACTION-PAYLOAD-V1" || 0x00 || JCS(requested_call)`, the construction in Section 4.1 of draft-pidlisnyi-aps-03 (Section 5.1 of -04). This documentation gap was identified by @astrogilda's implementation at probityai/agent-evidence-vectors `00f5acab`, which had to identify the payload object by trial. No fixture file changes, and `MANIFEST.sha256` does not cover this README.
