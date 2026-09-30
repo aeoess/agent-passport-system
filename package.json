@@ -51,7 +51,7 @@
     "@types/node": "^20.19.43",
     "canonicalize": "5.1.0",
     "fast-check": "^4.9.0",
-    "mcp-use": "2.5.1",
+    "mcp-use": "2.7.0",
     "tsx": "^4.23.12",
     "typescript": "^7.0.2",
     "zod": "4.6.5",
