@@ -19,10 +19,15 @@ After the transfer:
 - `github.com/agent-passport-system/agent-passport-system`
 - signer workflow `agent-passport-system/agent-passport-system/.github/workflows/release.yml`
 
-The repository id stays **1161268529** across the move. GitHub keeps it, so
-anything keyed on the id rather than the owner path is unaffected. Owner name
-and owner id do change, and those are what the release guards and the OIDC
-claims compare.
+The repository id stays **1161268529** across the move. That is identity
+continuity and nothing more. It does not establish that permissions, app
+installations, org policy or any integration behave the same after the move,
+because none of those are derived from the id alone. Whether a given service
+keeps working is a separate question that has to be checked against that
+service.
+
+Owner name and owner id do change, and those are what the release guards and
+the OIDC claims compare.
 
 ## Verifying a version released before the move
 
@@ -51,11 +56,19 @@ correct. Substituting the new owner for a pre-transfer version is expected to
 fail, because the identity in the bundle is the old one.
 
 Do not read 7.2.0 as a rule covering everything before it. Attestation coverage
-is per version. Of the 17 GitHub releases published up to 7.2.0, three carry no
-attestation bundle asset at all: v5.0.0, v4.5.0 and v4.1.0. Check the release a
-version actually has before writing a verification command for it. A change of
-source identity policy does not create an attestation for a version that never
-had one.
+is per version, so each version has to be checked on its own.
+
+Three of the 17 GitHub releases published up to 7.2.0 carry no attestation
+bundle asset. Those are v5.0.0, v4.5.0 and v4.1.0. That was read off the release
+assets, and it says only what those releases have attached to them. GitHub keeps
+attestations in its own attestations API, separate from release assets, and that
+API was not queried for those three versions. Whether an attestation for them
+exists anywhere is **not known** here.
+
+Changing the source identity does not create an attestation for any version.
+Verifying a version means locating the attestation that actually matches that
+version's artifact, from the release assets or from the attestations API, and
+verifying against the identity that attestation names.
 
 ## Verifying a version released after the move
 

@@ -28,7 +28,9 @@ import { loadManifest, validatePublishManifest } from './release-manifest.mjs';
 import { readOpenedRegularFile } from './opened-regular-file.mjs';
 import {
   authorizeReleaseActor,
+  validateReleaseRunAttempt,
   AUTHORIZED_RELEASE_ACTOR_ID,
+  SDK_REPOSITORY_ID,
 } from './release-actor-state.mjs';
 import { validateImmutableVersionTagRuleset } from './tag-ruleset-state.mjs';
 
@@ -632,6 +634,7 @@ const RELEASE_CONTEXT = {
   GH_TOKEN: 'test-token',
   GITHUB_ACTOR_ID: '171286556',
   GITHUB_REPOSITORY: 'agent-passport-system/agent-passport-system',
+  GITHUB_REPOSITORY_ID: '1161268529',
   GITHUB_RUN_ID: '36022044285',
   GITHUB_RUN_ATTEMPT: '1',
 };
@@ -675,6 +678,7 @@ test('the release guard accepts the authorized release actor on an original run 
     }),
     {
       repository: 'agent-passport-system/agent-passport-system',
+      repositoryId: SDK_REPOSITORY_ID,
       runId: 36022044285,
       runAttempt: 1,
       triggeringActorId: AUTHORIZED_RELEASE_ACTOR_ID,
@@ -698,6 +702,7 @@ test('the release guard accepts the authorized release actor on an original run 
     }),
     {
       repository: 'agent-passport-system/agent-passport-system',
+      repositoryId: SDK_REPOSITORY_ID,
       runId: 36022044285,
       runAttempt: 3,
       triggeringActorId: AUTHORIZED_RELEASE_ACTOR_ID,
@@ -745,8 +750,23 @@ test('the release guard fails closed on a run attempt document it cannot trust',
     [{ triggering_actor: null }, /has no triggering actor id/],
     [{ triggering_actor: {} }, /has no triggering actor id/],
     [{ triggering_actor: { id: '171286556' } }, /has no triggering actor id/],
-    [{ repository: { full_name: 'aeoess/agent-passport-system' } }, /does not name this repository/],
+    [{ repository: { full_name: 'aeoess/agent-passport-system', id: 1161268529 } },
+      /does not name this repository/],
     [{ repository: undefined }, /does not name this repository/],
+    // A matching full name is not identity. After a transfer the old owner path
+    // can be recreated and given the same name, so the id has to agree too.
+    [{ repository: { full_name: 'agent-passport-system/agent-passport-system', id: 1237835301 } },
+      /does not name this repository id/],
+    [{ repository: { full_name: 'agent-passport-system/agent-passport-system', id: 0 } },
+      /does not name this repository id/],
+    [{ repository: { full_name: 'agent-passport-system/agent-passport-system' } },
+      /has no repository id/],
+    [{ repository: { full_name: 'agent-passport-system/agent-passport-system', id: null } },
+      /has no repository id/],
+    [{ repository: { full_name: 'agent-passport-system/agent-passport-system', id: '1161268529' } },
+      /has no repository id/],
+    [{ repository: { full_name: 'agent-passport-system/agent-passport-system', id: 1161268529.5 } },
+      /has no repository id/],
     [{ id: 36022044286 }, /does not name this run/],
     [{ id: '36022044285' }, /does not name this run/],
     [{ run_attempt: 2 }, /does not name this attempt/],
@@ -820,6 +840,13 @@ test('the release guard refuses an incomplete workflow context', async () => {
   const broken = [
     [{ GITHUB_REPOSITORY: 'agent-passport-system' }, /invalid GITHUB_REPOSITORY/],
     [{ GITHUB_REPOSITORY: undefined }, /invalid GITHUB_REPOSITORY/],
+    [{ GITHUB_REPOSITORY_ID: undefined }, /invalid GITHUB_REPOSITORY_ID/],
+    [{ GITHUB_REPOSITORY_ID: '' }, /invalid GITHUB_REPOSITORY_ID/],
+    [{ GITHUB_REPOSITORY_ID: '0' }, /invalid GITHUB_REPOSITORY_ID/],
+    [{ GITHUB_REPOSITORY_ID: 1161268529 }, /invalid GITHUB_REPOSITORY_ID/],
+    [{ GITHUB_REPOSITORY_ID: '1161268529 ' }, /invalid GITHUB_REPOSITORY_ID/],
+    [{ GITHUB_REPOSITORY_ID: '1237835301' },
+      /GITHUB_REPOSITORY_ID is not the pinned release repository id/],
     [{ GITHUB_RUN_ID: '0' }, /invalid GITHUB_RUN_ID/],
     [{ GITHUB_RUN_ID: 'latest' }, /invalid GITHUB_RUN_ID/],
     [{ GITHUB_RUN_ID: undefined }, /invalid GITHUB_RUN_ID/],
@@ -842,17 +869,18 @@ test('the release guard refuses an incomplete workflow context', async () => {
   }
 });
 
-// Wiring, not behavior: the four tests above prove what the guard decides, and
-// this one proves the workflow actually calls it in every job that holds a
-// privileged permission, from the tagged release controls rather than from a
-// downloaded artifact. Placement can only be read out of the workflow text.
-test('every privileged release job runs the shared actor guard from the tagged controls', () => {
+// The jobs section is plain text, so the wiring and ordering tests below parse
+// it once here rather than twice apiece. Job names are the only keys at two
+// spaces inside it.
+const PRIVILEGED_RELEASE_JOBS = ['authorize', 'attest', 'release', 'publish'];
+
+function readReleaseWorkflowJobs() {
   const file = readFileSync(
     new URL('../workflows/release.yml', import.meta.url),
     'utf8',
   );
   const jobsIndex = file.indexOf('\njobs:\n');
-  assert.ok(jobsIndex > 0);
+  assert.ok(jobsIndex > 0, 'release.yml has no jobs section');
   const workflow = file.slice(jobsIndex);
   const jobNames = [...workflow.matchAll(/^  ([a-z][a-z-]*):$/gm)].map((match) => ({
     name: match[1],
@@ -864,9 +892,19 @@ test('every privileged release job runs the shared actor guard from the tagged c
   );
   const jobBody = (name) => {
     const position = jobNames.findIndex((job) => job.name === name);
+    assert.ok(position >= 0, `release.yml has no ${name} job`);
     const next = jobNames[position + 1];
     return workflow.slice(jobNames[position].index, next ? next.index : workflow.length);
   };
+  return { workflow, jobBody };
+}
+
+// Wiring, not behavior: the four tests above prove what the guard decides, and
+// this one proves the workflow actually calls it in every job that holds a
+// privileged permission, from the tagged release controls rather than from a
+// downloaded artifact. Placement can only be read out of the workflow text.
+test('every privileged release job runs the shared actor guard from the tagged controls', () => {
+  const { workflow, jobBody } = readReleaseWorkflowJobs();
 
   const guardCommands = {
     authorize: 'node .github/scripts/release-actor-state.mjs',
@@ -898,4 +936,146 @@ test('every privileged release job runs the shared actor guard from the tagged c
   // artifact or from any downloaded bundle.
   assert.equal((workflow.match(/release-actor-state\.mjs/g) ?? []).length, 4);
   assert.doesNotMatch(workflow, /release-bundle\/\.github|public-release\/\.github/);
+});
+
+// The run attempt document is the guard's only external input, and
+// authorizeReleaseActor refuses a GITHUB_REPOSITORY_ID that is not the pinned
+// id before it makes the request. The pin inside the document check is reached
+// only by calling the validator directly, so it gets its own case: a run whose
+// environment and document agree on some other repository id is still refused.
+test('the release guard pins the repository id the document must carry', () => {
+  const document = runAttemptDocument({
+    repository: { full_name: 'agent-passport-system/agent-passport-system', id: 1237835301 },
+  });
+  assert.throws(
+    () => validateReleaseRunAttempt(
+      {
+        repository: 'agent-passport-system/agent-passport-system',
+        repositoryId: 1237835301,
+        runId: 36022044285,
+        runAttempt: 1,
+      },
+      { status: 200, document },
+    ),
+    /does not name the pinned release repository id/,
+  );
+
+  assert.equal(SDK_REPOSITORY_ID, 1161268529);
+  assert.deepEqual(
+    validateReleaseRunAttempt(
+      {
+        repository: 'agent-passport-system/agent-passport-system',
+        repositoryId: SDK_REPOSITORY_ID,
+        runId: 36022044285,
+        runAttempt: 1,
+      },
+      { status: 200, document: runAttemptDocument() },
+    ),
+    {
+      repository: 'agent-passport-system/agent-passport-system',
+      repositoryId: SDK_REPOSITORY_ID,
+      runId: 36022044285,
+      runAttempt: 1,
+      triggeringActorId: AUTHORIZED_RELEASE_ACTOR_ID,
+    },
+  );
+});
+
+// Calling the guard somewhere in a job is not the property that matters. A
+// guard that runs after npm publish guards nothing, so the order has to be
+// asserted, not just the presence.
+//
+// Two rules, both read out of the workflow text:
+//
+//   1. In every privileged job the guard comes before every protected step.
+//      Protected means a step that publishes to npm, attests the build, or
+//      creates, uploads or edits a GitHub Release. It also means any step at
+//      all in a job holding a write permission (id-token, attestations,
+//      contents or packages), because that permission is handed to the whole
+//      job and any step in it can spend it.
+//   2. In every privileged job the guard is the first step that is not plain
+//      runtime setup. Checking out the tagged controls and installing Node are
+//      setup; everything else waits behind the guard. This covers authorize,
+//      which holds no write permission and so has no protected step under the
+//      first rule.
+const SETUP_STEP_ACTIONS = ['actions/checkout@', 'actions/setup-node@'];
+const JOB_WRITE_PERMISSIONS = [
+  'id-token: write',
+  'attestations: write',
+  'contents: write',
+  'packages: write',
+];
+const PROTECTED_STEP_PATTERNS = [
+  /\bnpm publish\b/,
+  /uses:[^\n]*attest-build-provenance/,
+  /\bgh release (?:create|upload|edit|delete)\b/,
+  /\bgh api\b[^\n]*\/releases\b/,
+];
+
+function parseJobSteps(body, name) {
+  const starts = [...body.matchAll(/^ {6}- (?:name|uses):/gm)].map((match) => match.index);
+  assert.ok(starts.length > 0, `${name} has no parsed steps`);
+  return starts.map((start, position) => {
+    const text = body.slice(start, starts[position + 1] ?? body.length);
+    const label = /^ {6}- (?:name|uses): (.*)$/m.exec(text)[1].trim();
+    return { label, text };
+  });
+}
+
+test('every privileged release job runs the actor guard before every protected step', () => {
+  const { jobBody } = readReleaseWorkflowJobs();
+  const seen = { attestation: 0, releaseMutation: 0, npmPublish: 0 };
+
+  for (const name of PRIVILEGED_RELEASE_JOBS) {
+    const body = jobBody(name);
+    const steps = parseJobSteps(body, name);
+    const jobHoldsWritePermission = JOB_WRITE_PERMISSIONS.some(
+      (permission) => body.includes(`\n      ${permission}\n`),
+    );
+
+    const guardIndexes = steps
+      .map((step, index) => (step.text.includes('release-actor-state.mjs') ? index : -1))
+      .filter((index) => index >= 0);
+    assert.equal(guardIndexes.length, 1, `${name} must run the actor guard exactly once`);
+    const [guardIndex] = guardIndexes;
+
+    for (const [index, step] of steps.entries()) {
+      if (index === guardIndex) continue;
+      const isSetupStep = SETUP_STEP_ACTIONS.some(
+        (action) => step.text.includes(`uses: ${action}`),
+      );
+      const matchesProtectedPattern = PROTECTED_STEP_PATTERNS.some(
+        (pattern) => pattern.test(step.text),
+      );
+      const isProtected = matchesProtectedPattern
+        || (jobHoldsWritePermission && !isSetupStep);
+
+      if (isProtected) {
+        assert.ok(
+          guardIndex < index,
+          `${name} runs the protected step "${step.label}" (step ${index}) before `
+          + `the actor guard (step ${guardIndex})`,
+        );
+      }
+      if (!isSetupStep) {
+        assert.ok(
+          guardIndex < index,
+          `${name} runs "${step.label}" (step ${index}) before the actor guard `
+          + `(step ${guardIndex}); the guard must be the first step that is not setup`,
+        );
+      }
+    }
+
+    if (steps.some((step) => /uses:[^\n]*attest-build-provenance/.test(step.text))) {
+      seen.attestation += 1;
+    }
+    if (steps.some((step) => /\bgh release (?:create|upload|edit|delete)\b/.test(step.text))) {
+      seen.releaseMutation += 1;
+    }
+    if (steps.some((step) => /\bnpm publish\b/.test(step.text))) seen.npmPublish += 1;
+  }
+
+  // If the parse ever stops finding the privileged effects, the loop above
+  // passes while asserting nothing. Require each one to have been found.
+  assert.deepEqual(seen, { attestation: 1, releaseMutation: 1, npmPublish: 1 });
 });

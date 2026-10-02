@@ -12,6 +12,14 @@ import { pathToFileURL } from 'node:url';
 // release actor. Fail closed on anything unexpected.
 export const AUTHORIZED_RELEASE_ACTOR_ID = 171286556;
 
+// The repository id survives a transfer between owners, so it is the one piece
+// of repository identity that a rename or a move cannot change. Pinning it
+// means a run against some other repository that happens to carry the expected
+// full name cannot satisfy this guard. GITHUB_REPOSITORY_ID is a documented
+// default workflow variable, and the document's repository.id must agree with
+// it and with this pin.
+export const SDK_REPOSITORY_ID = 1161268529;
+
 const REPOSITORY_PATTERN = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
 const BOUNDED_ERROR_LENGTH = 120;
 
@@ -45,8 +53,9 @@ export function validateOriginalReleaseActor(actorId, {
 
 export function validateReleaseRunAttempt(context, response, {
   expectedActorId = AUTHORIZED_RELEASE_ACTOR_ID,
+  expectedRepositoryId = SDK_REPOSITORY_ID,
 } = {}) {
-  const { repository, runId, runAttempt } = context;
+  const { repository, repositoryId, runId, runAttempt } = context;
   const { status, document } = response;
 
   if (status !== 200) {
@@ -59,6 +68,17 @@ export function validateReleaseRunAttempt(context, response, {
   }
   if (document.repository?.full_name !== repository) {
     throw new Error('release run attempt document does not name this repository');
+  }
+
+  const documentRepositoryId = document.repository?.id;
+  if (!Number.isInteger(documentRepositoryId)) {
+    throw new Error('release run attempt document has no repository id');
+  }
+  if (documentRepositoryId !== repositoryId) {
+    throw new Error('release run attempt document does not name this repository id');
+  }
+  if (documentRepositoryId !== expectedRepositoryId) {
+    throw new Error('release run attempt document does not name the pinned release repository id');
   }
   if (document.id !== runId) {
     throw new Error('release run attempt document does not name this run');
@@ -75,19 +95,24 @@ export function validateReleaseRunAttempt(context, response, {
     throw new Error('this release attempt must be requested by the authorized release actor');
   }
 
-  return { repository, runId, runAttempt, triggeringActorId };
+  return { repository, repositoryId, runId, runAttempt, triggeringActorId };
 }
 
 export async function authorizeReleaseActor({
   env = process.env,
   fetchImpl = fetch,
   expectedActorId = AUTHORIZED_RELEASE_ACTOR_ID,
+  expectedRepositoryId = SDK_REPOSITORY_ID,
 } = {}) {
   validateOriginalReleaseActor(env.GITHUB_ACTOR_ID, { expectedActorId });
 
   const repository = env.GITHUB_REPOSITORY;
   if (!REPOSITORY_PATTERN.test(repository ?? '')) {
     throw new Error('invalid GITHUB_REPOSITORY');
+  }
+  const repositoryId = readRunNumber(env.GITHUB_REPOSITORY_ID, 'GITHUB_REPOSITORY_ID');
+  if (repositoryId !== expectedRepositoryId) {
+    throw new Error('GITHUB_REPOSITORY_ID is not the pinned release repository id');
   }
   const runId = readRunNumber(env.GITHUB_RUN_ID, 'GITHUB_RUN_ID');
   const runAttempt = readRunNumber(env.GITHUB_RUN_ATTEMPT, 'GITHUB_RUN_ATTEMPT');
@@ -130,9 +155,9 @@ export async function authorizeReleaseActor({
   }
 
   return validateReleaseRunAttempt(
-    { repository, runId, runAttempt },
+    { repository, repositoryId, runId, runAttempt },
     { status: response?.status, document },
-    { expectedActorId },
+    { expectedActorId, expectedRepositoryId },
   );
 }
 
@@ -140,8 +165,8 @@ async function main() {
   const summary = await authorizeReleaseActor();
   console.log(
     `release principal: the run actor and the actor requesting attempt ${summary.runAttempt} of run `
-    + `${summary.runId} in ${summary.repository} are both the authorized release actor `
-    + `${summary.triggeringActorId}`,
+    + `${summary.runId} in ${summary.repository} (repository id ${summary.repositoryId}) are both `
+    + `the authorized release actor ${summary.triggeringActorId}`,
   );
 }
 
