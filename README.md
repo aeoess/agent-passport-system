@@ -10,7 +10,6 @@ APS lets a person or company give an AI agent limited authority to act on its be
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18749779.svg)](https://doi.org/10.5281/zenodo.18749779)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/13536/badge)](https://www.bestpractices.dev/projects/13536)
 [![OpenSSF Baseline](https://www.bestpractices.dev/projects/13536/baseline)](https://www.bestpractices.dev/projects/13536)
-[![REUSE status](https://api.reuse.software/badge/github.com/agent-passport-system/agent-passport-system)](https://api.reuse.software/info/github.com/agent-passport-system/agent-passport-system)
 [![coverage](https://img.shields.io/badge/coverage-97%25%20lines%20%7C%2089%25%20branches-brightgreen)](https://github.com/agent-passport-system/agent-passport-system/blob/main/CONTRIBUTING.md#running-tests)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/agent-passport-system/agent-passport-system/badge)](https://scorecard.dev/viewer/?uri=github.com/agent-passport-system/agent-passport-system)
 [![APS conformance](https://img.shields.io/endpoint?url=https%3A%2F%2Fgateway.aeoess.com%2Fapi%2Fv1%2Fpublic%2Fconformance%2Fbadge)](https://github.com/Agent-Authority-Conformance/aps-conformance-suite)
