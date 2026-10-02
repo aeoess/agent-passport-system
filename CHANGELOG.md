@@ -1,5 +1,14 @@
 # Changelog
 
+## 7.2.1 (2026-10-02)
+
+First release from the agent-passport-system organization. No library code changes from 7.2.0, and runtime dependencies are unchanged.
+
+- Package metadata (`repository`, `bugs`) points at the repository's new home, `agent-passport-system/agent-passport-system`.
+- The release workflow publishes from the organization repository through npm trusted publishing, checks the requesting release actor in every privileged job, and retries registry visibility and provenance checks after publish.
+- Development dependency updates, including `hono` 4.13.12 through `mcp-use` for GHSA-hxh3-vqpv-xpqv. `hono` is not a runtime dependency of the published package.
+- Security policy links point at the organization repository.
+
 ## 7.2.0 (2026-09-24)
 
 One conformance fix and seven opt-in experimental modules for the authority lifecycle.
