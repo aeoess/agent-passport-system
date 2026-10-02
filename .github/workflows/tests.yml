@@ -15,6 +15,33 @@ permissions:
   contents: read
 
 jobs:
+  release-actor-smoke:
+    name: Release actor lookup smoke check
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Check out the selected workflow revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up the release guard runtime
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '22'
+          package-manager-cache: false
+
+      - name: Check this run attempt with its workflow token
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node .github/scripts/release-actor-state.mjs
+
   test:
     # Node 20 keeps proving the SDK's own compatibility floor. Node 22 additionally
     # runs the two checks that need the mcp-use devDependency loaded, which declares
