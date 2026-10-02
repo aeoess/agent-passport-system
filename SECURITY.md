@@ -4,7 +4,7 @@
 
 If you discover a security vulnerability in the Agent Passport System, please report it responsibly.
 
-**Report privately:** https://github.com/aeoess/agent-passport-system/security/advisories
+**Report privately:** https://github.com/agent-passport-system/agent-passport-system/security/advisories
 **Email:** security@aeoess.com
 **Response time:** We aim to acknowledge within 48 hours and provide a fix timeline within 7 days.
 
@@ -63,7 +63,7 @@ The Agent Passport System operates under these assumptions:
 
 Every `agent-passport-system` version from 1.5.1 through 5.0.3 is unsupported;
 the 6.0.0 advisory, GHSA-r2fw-x6mg-f6h8, published at
-https://github.com/aeoess/agent-passport-system/security/advisories, describes
+https://github.com/agent-passport-system/agent-passport-system/security/advisories, describes
 the verification defects they carry.
 
 `agent-passport-system-mcp` 6.0.0 and later target this SDK line; MCP releases
