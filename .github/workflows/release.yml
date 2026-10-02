@@ -28,6 +28,9 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.verify.outputs.version }}
+    permissions:
+      contents: read
+      actions: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -38,6 +41,11 @@ jobs:
         with:
           node-version: '22'
           package-manager-cache: false
+
+      - name: Require the authorized release actor
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node .github/scripts/release-actor-state.mjs
 
       - name: Verify version-tag restrictions are active
         env:
@@ -52,8 +60,8 @@ jobs:
             echo "::error::release workflow requires a tag event"
             exit 1
           fi
-          if [ "$GITHUB_ACTOR" != "$GITHUB_REPOSITORY_OWNER" ]; then
-            echo "::error::release tags must be pushed by the repository owner"
+          if [ "$GITHUB_ACTOR_ID" != "171286556" ]; then
+            echo "::error::release tags must be pushed by the authorized release actor"
             exit 1
           fi
 
@@ -67,7 +75,7 @@ jobs:
             import pkg from './package.json' with { type: 'json' };
             if (pkg.name !== 'agent-passport-system') throw new Error('unexpected package name');
             if (!/^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?$/.test(pkg.version)) throw new Error('invalid package version');
-            if (pkg.repository?.url !== 'git+https://github.com/aeoess/agent-passport-system.git') throw new Error('repository URL does not match the trusted publisher');
+            if (pkg.repository?.url !== 'git+https://github.com/agent-passport-system/agent-passport-system.git') throw new Error('repository URL does not match the trusted publisher');
             if (Object.hasOwn(pkg, 'publishConfig')) throw new Error('publishConfig is forbidden');
             process.stdout.write(pkg.version);
           ")
@@ -349,6 +357,7 @@ jobs:
     outputs:
       github_release_state: ${{ steps.github-release.outputs.state }}
     permissions:
+      actions: read
       contents: read
       id-token: write
       attestations: write
@@ -359,6 +368,11 @@ jobs:
           fetch-depth: 1
           path: release-source
           persist-credentials: false
+
+      - name: Require the authorized release actor
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node release-source/.github/scripts/release-actor-state.mjs
 
       - name: Download the exact package handoff
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -475,6 +489,7 @@ jobs:
       - attest
     runs-on: ubuntu-latest
     permissions:
+      actions: read
       contents: write
     steps:
       - name: Check out clean tagged release controls
@@ -483,6 +498,11 @@ jobs:
           fetch-depth: 1
           path: release-source
           persist-credentials: false
+
+      - name: Require the authorized release actor
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node release-source/.github/scripts/release-actor-state.mjs
 
       - name: Download the attested public release assets
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -565,6 +585,7 @@ jobs:
       - release
     runs-on: ubuntu-latest
     permissions:
+      actions: read
       contents: read
       id-token: write
     steps:
@@ -574,6 +595,11 @@ jobs:
           fetch-depth: 1
           path: release-source
           persist-credentials: false
+
+      - name: Require the authorized release actor
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node release-source/.github/scripts/release-actor-state.mjs
 
       - name: Download the exact package handoff
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1

@@ -4,8 +4,18 @@ import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const EXPECTED_NAME = 'immutable-version-tags';
-const EXPECTED_REPOSITORY = 'aeoess/agent-passport-system';
-const EXPECTED_OWNER_ID = 171286556;
+const EXPECTED_REPOSITORY = 'agent-passport-system/agent-passport-system';
+
+// In an organization repository only roles, teams and GitHub Apps can be
+// ruleset bypass actors; individual users cannot, and GitHub drops any
+// individual user from a ruleset's bypass list when the repository is
+// transferred into an organization. The release bypass is therefore the
+// organization admin role rather than a named person. GitHub does report an
+// actor_id alongside this actor_type, but its value is not pinned here because
+// it has not been read from the live ruleset yet; confirm it after the transfer
+// and only then decide whether pinning it adds anything.
+const EXPECTED_RELEASE_BYPASS_ACTOR_TYPE = 'OrganizationAdmin';
+const EXPECTED_RELEASE_BYPASS_MODE = 'always';
 const EXPECTED_REF_INCLUDE = 'refs/tags/v*';
 const REQUIRED_RULES = new Set([
   'creation',
@@ -21,7 +31,7 @@ function sameMembers(actual, expected) {
 
 export function validateImmutableVersionTagRuleset(document, {
   expectedRepository = EXPECTED_REPOSITORY,
-  expectedOwnerId = EXPECTED_OWNER_ID,
+  expectedReleaseBypassActorType = EXPECTED_RELEASE_BYPASS_ACTOR_TYPE,
 } = {}) {
   if (!document || typeof document !== 'object' || Array.isArray(document)) {
     throw new Error('immutable version-tag ruleset is not an object');
@@ -61,10 +71,9 @@ export function validateImmutableVersionTagRuleset(document, {
       throw new Error('immutable version-tag ruleset must have exactly one visible bypass actor');
     }
     const [actor] = bypassActors;
-    if (actor?.actor_type !== 'User'
-      || actor?.actor_id !== expectedOwnerId
-      || actor?.bypass_mode !== 'always') {
-      throw new Error('immutable version-tag ruleset bypass must be the repository owner only');
+    if (actor?.actor_type !== expectedReleaseBypassActorType
+      || actor?.bypass_mode !== EXPECTED_RELEASE_BYPASS_MODE) {
+      throw new Error('immutable version-tag ruleset bypass must be the release bypass role only');
     }
   }
 
@@ -121,10 +130,10 @@ async function main() {
   const result = validateImmutableVersionTagRuleset(document, { expectedRepository: repository });
   if (result.bypassVisibility === 'not-visible') {
     console.log(
-      `::notice::${EXPECTED_NAME}: structural restrictions are active; GitHub hides bypass actors from the workflow token, so the principal gate must verify the owner-only bypass`,
+      `::notice::${EXPECTED_NAME}: structural restrictions are active; GitHub hides bypass actors from the workflow token, so the principal gate must verify the release-bypass-role-only bypass`,
     );
   } else {
-    console.log(`${EXPECTED_NAME}: active with the repository owner as the sole bypass actor`);
+    console.log(`${EXPECTED_NAME}: active with the release bypass role as the sole bypass actor`);
   }
 }
 
