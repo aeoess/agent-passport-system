@@ -26,6 +26,10 @@ import {
 import { classifyGitHubReleaseResponse } from './github-release-state.mjs';
 import { loadManifest, validatePublishManifest } from './release-manifest.mjs';
 import { readOpenedRegularFile } from './opened-regular-file.mjs';
+import {
+  authorizeReleaseActor,
+  AUTHORIZED_RELEASE_ACTOR_ID,
+} from './release-actor-state.mjs';
 import { validateImmutableVersionTagRuleset } from './tag-ruleset-state.mjs';
 
 const execFileAsync = promisify(execFile);
@@ -548,28 +552,44 @@ test('version-tag ruleset accepts only the authorized release actor as the bypas
     }),
     { state: 'active', bypassVisibility: 'visible' },
   );
-  // Transferring the repository into the organization must not hand the release
-  // bypass to the organization itself, nor to any other user account.
+
+  // Every rejected case uses an actor_type the rulesets API actually returns,
+  // so this tracks real policy changes rather than a string the API never
+  // emits. Moving the repository into the organization must not hand the
+  // release bypass to organization admins, a team, an app or a repository role,
+  // and the one allowed principal must still bypass always rather than only
+  // through a pull request.
+  const rejectedBypasses = [
+    [{ actor_id: 1, actor_type: 'OrganizationAdmin', bypass_mode: 'always' }],
+    [{ actor_id: 9876543, actor_type: 'Team', bypass_mode: 'always' }],
+    [{ actor_id: 281797194, actor_type: 'User', bypass_mode: 'always' }],
+    [{ actor_id: 5, actor_type: 'RepositoryRole', bypass_mode: 'always' }],
+    [{ actor_id: 15368, actor_type: 'Integration', bypass_mode: 'always' }],
+    [{ actor_id: 171286556, actor_type: 'User', bypass_mode: 'pull_request' }],
+  ];
+  for (const bypassActors of rejectedBypasses) {
+    const [actor] = bypassActors;
+    assert.throws(
+      () => validateImmutableVersionTagRuleset({
+        ...immutableTagRuleset,
+        bypass_actors: bypassActors,
+      }),
+      /bypass must be the authorized release actor only/,
+      `accepted ${actor.actor_type}:${actor.actor_id}:${actor.bypass_mode}`,
+    );
+  }
+
+  // A second bypass actor alongside the correct one is refused by the
+  // single-actor requirement, which reports a different failure.
   assert.throws(
     () => validateImmutableVersionTagRuleset({
       ...immutableTagRuleset,
-      bypass_actors: [{ actor_id: 281797194, actor_type: 'Organization', bypass_mode: 'always' }],
+      bypass_actors: [
+        { actor_id: 171286556, actor_type: 'User', bypass_mode: 'always' },
+        { actor_id: 1, actor_type: 'OrganizationAdmin', bypass_mode: 'always' },
+      ],
     }),
-    /bypass must be the authorized release actor only/,
-  );
-  assert.throws(
-    () => validateImmutableVersionTagRuleset({
-      ...immutableTagRuleset,
-      bypass_actors: [{ actor_id: 171286556, actor_type: 'Organization', bypass_mode: 'always' }],
-    }),
-    /bypass must be the authorized release actor only/,
-  );
-  assert.throws(
-    () => validateImmutableVersionTagRuleset({
-      ...immutableTagRuleset,
-      bypass_actors: [{ actor_id: 281797194, actor_type: 'User', bypass_mode: 'always' }],
-    }),
-    /bypass must be the authorized release actor only/,
+    /exactly one visible bypass actor/,
   );
 });
 
@@ -606,4 +626,276 @@ test('the official immutable GitHub Release gates npm publication', () => {
   assert.match(publishJob, /Require the official immutable GitHub Release before npm publication/);
   assert.equal((workflow.match(/npm publish /g) ?? []).length, 1);
   assert.equal((workflow.slice(0, publishIndex).match(/npm publish /g) ?? []).length, 0);
+});
+
+const RELEASE_CONTEXT = {
+  GH_TOKEN: 'test-token',
+  GITHUB_ACTOR_ID: '171286556',
+  GITHUB_REPOSITORY: 'agent-passport-system/agent-passport-system',
+  GITHUB_RUN_ID: '36022044285',
+  GITHUB_RUN_ATTEMPT: '1',
+};
+
+function runAttemptDocument(overrides = {}) {
+  return {
+    id: 36022044285,
+    run_attempt: 1,
+    repository: { full_name: 'agent-passport-system/agent-passport-system', id: 1161268529 },
+    actor: { id: 171286556, login: 'aeoess' },
+    triggering_actor: { id: 171286556, login: 'aeoess' },
+    ...overrides,
+  };
+}
+
+// The guard's only external input is one GitHub REST response, so the tests
+// drive it through an injected fetch and never reach the network.
+function stubAttemptApi(reply, calls = []) {
+  return async (url, options) => {
+    calls.push({ url, options });
+    if (typeof reply === 'function') return reply(url, options);
+    return reply;
+  };
+}
+
+function jsonReply(document, status = 200) {
+  return {
+    status,
+    async text() {
+      return JSON.stringify(document);
+    },
+  };
+}
+
+test('the release guard accepts the authorized release actor on an original run and on a rerun', async () => {
+  const calls = [];
+  assert.deepEqual(
+    await authorizeReleaseActor({
+      env: RELEASE_CONTEXT,
+      fetchImpl: stubAttemptApi(jsonReply(runAttemptDocument()), calls),
+    }),
+    {
+      repository: 'agent-passport-system/agent-passport-system',
+      runId: 36022044285,
+      runAttempt: 1,
+      triggeringActorId: AUTHORIZED_RELEASE_ACTOR_ID,
+    },
+  );
+  assert.equal(calls.length, 1);
+  assert.equal(
+    calls[0].url,
+    'https://api.github.com/repos/agent-passport-system/agent-passport-system'
+    + '/actions/runs/36022044285/attempts/1',
+  );
+  assert.equal(calls[0].options.redirect, 'error');
+
+  // A rerun keeps GITHUB_ACTOR_ID on the original actor and raises the attempt
+  // number. Tima rerunning his own release still passes.
+  const rerun = [];
+  assert.deepEqual(
+    await authorizeReleaseActor({
+      env: { ...RELEASE_CONTEXT, GITHUB_RUN_ATTEMPT: '3' },
+      fetchImpl: stubAttemptApi(jsonReply(runAttemptDocument({ run_attempt: 3 })), rerun),
+    }),
+    {
+      repository: 'agent-passport-system/agent-passport-system',
+      runId: 36022044285,
+      runAttempt: 3,
+      triggeringActorId: AUTHORIZED_RELEASE_ACTOR_ID,
+    },
+  );
+  assert.match(rerun[0].url, /\/actions\/runs\/36022044285\/attempts\/3$/);
+});
+
+test('the release guard rejects another original actor before it looks anything up', async () => {
+  for (const actorId of ['281797194', '1', '', undefined, '0171286556', '171286556 ']) {
+    const calls = [];
+    await assert.rejects(
+      authorizeReleaseActor({
+        env: { ...RELEASE_CONTEXT, GITHUB_ACTOR_ID: actorId },
+        fetchImpl: stubAttemptApi(jsonReply(runAttemptDocument()), calls),
+      }),
+      /release tags must be pushed by the authorized release actor/,
+      `accepted GITHUB_ACTOR_ID ${JSON.stringify(actorId)}`,
+    );
+    assert.equal(calls.length, 0, 'an unauthorized original actor must not reach the API');
+  }
+});
+
+test('the release guard rejects an attempt requested by a different actor', async () => {
+  // Rerunning a failed publish job can reuse an earlier attempt's successful
+  // authorize job, so the actor who asked for this attempt is checked too.
+  for (const triggeringActor of [
+    { id: 281797194, login: 'agent-passport-system' },
+    { id: 1, login: 'someone-else' },
+  ]) {
+    await assert.rejects(
+      authorizeReleaseActor({
+        env: RELEASE_CONTEXT,
+        fetchImpl: stubAttemptApi(jsonReply(runAttemptDocument({ triggering_actor: triggeringActor }))),
+      }),
+      /this release attempt must be requested by the authorized release actor/,
+      `accepted triggering actor ${triggeringActor.id}`,
+    );
+  }
+});
+
+test('the release guard fails closed on a run attempt document it cannot trust', async () => {
+  const cases = [
+    [{ triggering_actor: undefined }, /has no triggering actor id/],
+    [{ triggering_actor: null }, /has no triggering actor id/],
+    [{ triggering_actor: {} }, /has no triggering actor id/],
+    [{ triggering_actor: { id: '171286556' } }, /has no triggering actor id/],
+    [{ repository: { full_name: 'aeoess/agent-passport-system' } }, /does not name this repository/],
+    [{ repository: undefined }, /does not name this repository/],
+    [{ id: 36022044286 }, /does not name this run/],
+    [{ id: '36022044285' }, /does not name this run/],
+    [{ run_attempt: 2 }, /does not name this attempt/],
+    [{ run_attempt: undefined }, /does not name this attempt/],
+  ];
+  for (const [overrides, expected] of cases) {
+    await assert.rejects(
+      authorizeReleaseActor({
+        env: RELEASE_CONTEXT,
+        fetchImpl: stubAttemptApi(jsonReply(runAttemptDocument(overrides))),
+      }),
+      expected,
+      `accepted ${JSON.stringify(overrides)}`,
+    );
+  }
+
+  for (const body of [null, [runAttemptDocument()], 'a string', 7]) {
+    await assert.rejects(
+      authorizeReleaseActor({
+        env: RELEASE_CONTEXT,
+        fetchImpl: stubAttemptApi(jsonReply(body)),
+      }),
+      /returned a non-object document/,
+      `accepted body ${JSON.stringify(body)}`,
+    );
+  }
+
+  await assert.rejects(
+    authorizeReleaseActor({
+      env: RELEASE_CONTEXT,
+      fetchImpl: stubAttemptApi({ status: 200, async text() { return '{not json'; } }),
+    }),
+    /returned invalid JSON/,
+  );
+});
+
+test('the release guard fails closed when the run attempt lookup does not succeed', async () => {
+  for (const status of [401, 403, 404, 410, 500, 502]) {
+    await assert.rejects(
+      authorizeReleaseActor({
+        env: RELEASE_CONTEXT,
+        fetchImpl: stubAttemptApi(jsonReply(runAttemptDocument(), status)),
+      }),
+      new RegExp(`returned HTTP ${status}; the requesting release actor is not established`),
+      `accepted HTTP ${status}`,
+    );
+  }
+
+  await assert.rejects(
+    authorizeReleaseActor({
+      env: RELEASE_CONTEXT,
+      fetchImpl: async () => { throw new TypeError('fetch failed'); },
+    }),
+    /release run attempt lookup failed \(TypeError: fetch failed\)/,
+  );
+  await assert.rejects(
+    authorizeReleaseActor({
+      env: RELEASE_CONTEXT,
+      fetchImpl: async () => ({ status: 200, async text() { throw new Error('socket hang up'); } }),
+    }),
+    /release run attempt lookup failed \(Error: socket hang up\)/,
+  );
+  // No fallback to allowing the release when the response object itself is unusable.
+  await assert.rejects(
+    authorizeReleaseActor({ env: RELEASE_CONTEXT, fetchImpl: async () => undefined }),
+    /returned HTTP undefined/,
+  );
+});
+
+test('the release guard refuses an incomplete workflow context', async () => {
+  const broken = [
+    [{ GITHUB_REPOSITORY: 'agent-passport-system' }, /invalid GITHUB_REPOSITORY/],
+    [{ GITHUB_REPOSITORY: undefined }, /invalid GITHUB_REPOSITORY/],
+    [{ GITHUB_RUN_ID: '0' }, /invalid GITHUB_RUN_ID/],
+    [{ GITHUB_RUN_ID: 'latest' }, /invalid GITHUB_RUN_ID/],
+    [{ GITHUB_RUN_ID: undefined }, /invalid GITHUB_RUN_ID/],
+    [{ GITHUB_RUN_ATTEMPT: '' }, /invalid GITHUB_RUN_ATTEMPT/],
+    [{ GITHUB_RUN_ATTEMPT: '-1' }, /invalid GITHUB_RUN_ATTEMPT/],
+    [{ GH_TOKEN: '' }, /GH_TOKEN is required/],
+    [{ GH_TOKEN: undefined }, /GH_TOKEN is required/],
+  ];
+  for (const [overrides, expected] of broken) {
+    const calls = [];
+    await assert.rejects(
+      authorizeReleaseActor({
+        env: { ...RELEASE_CONTEXT, ...overrides },
+        fetchImpl: stubAttemptApi(jsonReply(runAttemptDocument()), calls),
+      }),
+      expected,
+      `accepted ${JSON.stringify(overrides)}`,
+    );
+    assert.equal(calls.length, 0, 'an incomplete context must not reach the API');
+  }
+});
+
+// Wiring, not behavior: the four tests above prove what the guard decides, and
+// this one proves the workflow actually calls it in every job that holds a
+// privileged permission, from the tagged release controls rather than from a
+// downloaded artifact. Placement can only be read out of the workflow text.
+test('every privileged release job runs the shared actor guard from the tagged controls', () => {
+  const file = readFileSync(
+    new URL('../workflows/release.yml', import.meta.url),
+    'utf8',
+  );
+  const jobsIndex = file.indexOf('\njobs:\n');
+  assert.ok(jobsIndex > 0);
+  const workflow = file.slice(jobsIndex);
+  const jobNames = [...workflow.matchAll(/^  ([a-z][a-z-]*):$/gm)].map((match) => ({
+    name: match[1],
+    index: match.index,
+  }));
+  assert.deepEqual(
+    jobNames.map((job) => job.name),
+    ['authorize', 'test', 'build', 'package', 'probe', 'attest', 'release', 'publish'],
+  );
+  const jobBody = (name) => {
+    const position = jobNames.findIndex((job) => job.name === name);
+    const next = jobNames[position + 1];
+    return workflow.slice(jobNames[position].index, next ? next.index : workflow.length);
+  };
+
+  const guardCommands = {
+    authorize: 'node .github/scripts/release-actor-state.mjs',
+    attest: 'node release-source/.github/scripts/release-actor-state.mjs',
+    release: 'node release-source/.github/scripts/release-actor-state.mjs',
+    publish: 'node release-source/.github/scripts/release-actor-state.mjs',
+  };
+  for (const [name, command] of Object.entries(guardCommands)) {
+    const body = jobBody(name);
+    assert.match(
+      body,
+      new RegExp(`      - name: Require the authorized release actor\\n`
+        + `        env:\\n`
+        + `          GH_TOKEN: \\$\\{\\{ secrets.GITHUB_TOKEN \\}\\}\\n`
+        + `        run: ${command.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\n`),
+      `${name} does not run the shared actor guard`,
+    );
+    assert.match(body, /^    permissions:\n(?:      [a-z-]+: [a-z]+\n)*      actions: read\n/m,
+      `${name} does not grant the actions read permission the lookup needs`);
+  }
+
+  // Unprivileged jobs stay unchanged: no guard, no extra token permission.
+  for (const name of ['test', 'build', 'package', 'probe']) {
+    assert.doesNotMatch(jobBody(name), /release-actor-state\.mjs/);
+    assert.doesNotMatch(jobBody(name), /actions: read/);
+  }
+
+  // The guard is release-controls code. It must never be read from the packed
+  // artifact or from any downloaded bundle.
+  assert.equal((workflow.match(/release-actor-state\.mjs/g) ?? []).length, 4);
+  assert.doesNotMatch(workflow, /release-bundle\/\.github|public-release\/\.github/);
 });
