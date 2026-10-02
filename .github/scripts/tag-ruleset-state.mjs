@@ -4,8 +4,8 @@ import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const EXPECTED_NAME = 'immutable-version-tags';
-const EXPECTED_REPOSITORY = 'aeoess/agent-passport-system';
-const EXPECTED_OWNER_ID = 171286556;
+const EXPECTED_REPOSITORY = 'agent-passport-system/agent-passport-system';
+const EXPECTED_RELEASE_ACTOR_ID = 171286556;
 const EXPECTED_REF_INCLUDE = 'refs/tags/v*';
 const REQUIRED_RULES = new Set([
   'creation',
@@ -21,7 +21,7 @@ function sameMembers(actual, expected) {
 
 export function validateImmutableVersionTagRuleset(document, {
   expectedRepository = EXPECTED_REPOSITORY,
-  expectedOwnerId = EXPECTED_OWNER_ID,
+  expectedReleaseActorId = EXPECTED_RELEASE_ACTOR_ID,
 } = {}) {
   if (!document || typeof document !== 'object' || Array.isArray(document)) {
     throw new Error('immutable version-tag ruleset is not an object');
@@ -62,9 +62,9 @@ export function validateImmutableVersionTagRuleset(document, {
     }
     const [actor] = bypassActors;
     if (actor?.actor_type !== 'User'
-      || actor?.actor_id !== expectedOwnerId
+      || actor?.actor_id !== expectedReleaseActorId
       || actor?.bypass_mode !== 'always') {
-      throw new Error('immutable version-tag ruleset bypass must be the repository owner only');
+      throw new Error('immutable version-tag ruleset bypass must be the authorized release actor only');
     }
   }
 
@@ -121,10 +121,10 @@ async function main() {
   const result = validateImmutableVersionTagRuleset(document, { expectedRepository: repository });
   if (result.bypassVisibility === 'not-visible') {
     console.log(
-      `::notice::${EXPECTED_NAME}: structural restrictions are active; GitHub hides bypass actors from the workflow token, so the principal gate must verify the owner-only bypass`,
+      `::notice::${EXPECTED_NAME}: structural restrictions are active; GitHub hides bypass actors from the workflow token, so the principal gate must verify the authorized-release-actor-only bypass`,
     );
   } else {
-    console.log(`${EXPECTED_NAME}: active with the repository owner as the sole bypass actor`);
+    console.log(`${EXPECTED_NAME}: active with the authorized release actor as the sole bypass actor`);
   }
 }
 

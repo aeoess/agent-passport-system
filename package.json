@@ -81,11 +81,11 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/aeoess/agent-passport-system.git"
+    "url": "git+https://github.com/agent-passport-system/agent-passport-system.git"
   },
   "homepage": "https://agent-passport.org",
   "bugs": {
-    "url": "https://github.com/aeoess/agent-passport-system/issues"
+    "url": "https://github.com/agent-passport-system/agent-passport-system/issues"
   },
   "engines": {
     "node": ">=18.0.0"

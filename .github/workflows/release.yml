@@ -52,8 +52,8 @@ jobs:
             echo "::error::release workflow requires a tag event"
             exit 1
           fi
-          if [ "$GITHUB_ACTOR" != "$GITHUB_REPOSITORY_OWNER" ]; then
-            echo "::error::release tags must be pushed by the repository owner"
+          if [ "$GITHUB_ACTOR_ID" != "171286556" ]; then
+            echo "::error::release tags must be pushed by the authorized release actor"
             exit 1
           fi
 
@@ -67,7 +67,7 @@ jobs:
             import pkg from './package.json' with { type: 'json' };
             if (pkg.name !== 'agent-passport-system') throw new Error('unexpected package name');
             if (!/^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?$/.test(pkg.version)) throw new Error('invalid package version');
-            if (pkg.repository?.url !== 'git+https://github.com/aeoess/agent-passport-system.git') throw new Error('repository URL does not match the trusted publisher');
+            if (pkg.repository?.url !== 'git+https://github.com/agent-passport-system/agent-passport-system.git') throw new Error('repository URL does not match the trusted publisher');
             if (Object.hasOwn(pkg, 'publishConfig')) throw new Error('publishConfig is forbidden');
             process.stdout.write(pkg.version);
           ")

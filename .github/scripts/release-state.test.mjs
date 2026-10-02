@@ -256,7 +256,7 @@ const publishManifest = {
   name: 'agent-passport-system',
   version,
   repository: {
-    url: 'git+https://github.com/aeoess/agent-passport-system.git',
+    url: 'git+https://github.com/agent-passport-system/agent-passport-system.git',
   },
   scripts: {
     build: 'tsc',
@@ -478,7 +478,7 @@ test('GitHub release control flow distinguishes 404 from ambiguity', () => {
 const immutableTagRuleset = {
   name: 'immutable-version-tags',
   target: 'tag',
-  source: 'aeoess/agent-passport-system',
+  source: 'agent-passport-system/agent-passport-system',
   enforcement: 'active',
   bypass_actors: [{
     actor_id: 171286556,
@@ -499,7 +499,7 @@ const immutableTagRuleset = {
   ],
 };
 
-test('version-tag ruleset binds immutable releases to the owner bypass', () => {
+test('version-tag ruleset binds immutable releases to the authorized release actor bypass', () => {
   assert.deepEqual(validateImmutableVersionTagRuleset(immutableTagRuleset), {
     state: 'active',
     bypassVisibility: 'visible',
@@ -537,6 +537,57 @@ test('version-tag ruleset fails closed on missing restrictions or extra bypasses
       ],
     }),
     /exactly one visible bypass actor/,
+  );
+});
+
+test('version-tag ruleset accepts only the authorized release actor as the bypass principal', () => {
+  assert.deepEqual(
+    validateImmutableVersionTagRuleset({
+      ...immutableTagRuleset,
+      bypass_actors: [{ actor_id: 171286556, actor_type: 'User', bypass_mode: 'always' }],
+    }),
+    { state: 'active', bypassVisibility: 'visible' },
+  );
+  // Transferring the repository into the organization must not hand the release
+  // bypass to the organization itself, nor to any other user account.
+  assert.throws(
+    () => validateImmutableVersionTagRuleset({
+      ...immutableTagRuleset,
+      bypass_actors: [{ actor_id: 281797194, actor_type: 'Organization', bypass_mode: 'always' }],
+    }),
+    /bypass must be the authorized release actor only/,
+  );
+  assert.throws(
+    () => validateImmutableVersionTagRuleset({
+      ...immutableTagRuleset,
+      bypass_actors: [{ actor_id: 171286556, actor_type: 'Organization', bypass_mode: 'always' }],
+    }),
+    /bypass must be the authorized release actor only/,
+  );
+  assert.throws(
+    () => validateImmutableVersionTagRuleset({
+      ...immutableTagRuleset,
+      bypass_actors: [{ actor_id: 281797194, actor_type: 'User', bypass_mode: 'always' }],
+    }),
+    /bypass must be the authorized release actor only/,
+  );
+});
+
+test('the release principal gate binds the authorized release actor id, not repository ownership', () => {
+  const workflow = readFileSync(
+    new URL('../workflows/release.yml', import.meta.url),
+    'utf8',
+  );
+  assert.match(
+    workflow,
+    /if \[ "\$GITHUB_ACTOR_ID" != "171286556" \]; then\n +echo "::error::release tags must be pushed by the authorized release actor"\n +exit 1\n +fi\n/,
+  );
+  // Owning the repository is no longer the release credential, so no comparison
+  // against the owner login may remain.
+  assert.doesNotMatch(workflow, /GITHUB_REPOSITORY_OWNER/);
+  assert.match(
+    workflow,
+    /pkg\.repository\?\.url !== 'git\+https:\/\/github\.com\/agent-passport-system\/agent-passport-system\.git'/,
   );
 });
 

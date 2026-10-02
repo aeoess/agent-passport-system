@@ -6,7 +6,7 @@ import { pathToFileURL } from 'node:url';
 import { readOpenedRegularFile } from './opened-regular-file.mjs';
 
 const PACKAGE_NAME = 'agent-passport-system';
-const REPOSITORY_URL = 'git+https://github.com/aeoess/agent-passport-system.git';
+const REPOSITORY_URL = 'git+https://github.com/agent-passport-system/agent-passport-system.git';
 export function validatePublishManifest(manifest, expectedVersion) {
   if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest)) {
     throw new Error('publish manifest is not an object');
