@@ -481,14 +481,22 @@ test('GitHub release control flow distinguishes 404 from ambiguity', () => {
   );
 });
 
+// GitHub removes individual users from a ruleset's bypass list when a
+// repository is transferred into an organization, and an organization
+// repository can only name roles, teams and GitHub Apps as bypass actors. The
+// fixture is therefore the configuration the organization repository can
+// actually hold: the organization admin role, bypassing always. GitHub reports
+// an actor_id for that actor_type; the value below is a placeholder and the
+// validator deliberately does not assert it, because it has not been read from
+// the live ruleset yet.
 const immutableTagRuleset = {
   name: 'immutable-version-tags',
   target: 'tag',
   source: 'agent-passport-system/agent-passport-system',
   enforcement: 'active',
   bypass_actors: [{
-    actor_id: 171286556,
-    actor_type: 'User',
+    actor_id: 1,
+    actor_type: 'OrganizationAdmin',
     bypass_mode: 'always',
   }],
   conditions: {
@@ -505,11 +513,14 @@ const immutableTagRuleset = {
   ],
 };
 
-test('version-tag ruleset binds immutable releases to the authorized release actor bypass', () => {
+test('version-tag ruleset binds immutable releases to the release bypass role', () => {
   assert.deepEqual(validateImmutableVersionTagRuleset(immutableTagRuleset), {
     state: 'active',
     bypassVisibility: 'visible',
   });
+  // A workflow token that cannot read bypass actors sees no bypass_actors key
+  // at all. That stays a pass and reports not-visible, because the principal
+  // gate is what establishes who ran the release in that case.
   assert.deepEqual(
     validateImmutableVersionTagRuleset({
       ...immutableTagRuleset,
@@ -517,9 +528,18 @@ test('version-tag ruleset binds immutable releases to the authorized release act
     }),
     { state: 'active', bypassVisibility: 'not-visible' },
   );
+  // A different actor_id under the same role still passes. The id is not part
+  // of the expectation until it has been confirmed against the live ruleset.
+  assert.deepEqual(
+    validateImmutableVersionTagRuleset({
+      ...immutableTagRuleset,
+      bypass_actors: [{ actor_id: 5, actor_type: 'OrganizationAdmin', bypass_mode: 'always' }],
+    }),
+    { state: 'active', bypassVisibility: 'visible' },
+  );
 });
 
-test('version-tag ruleset fails closed on missing restrictions or extra bypasses', () => {
+test('version-tag ruleset fails closed on missing restrictions, the wrong scope or a weak enforcement', () => {
   assert.throws(
     () => validateImmutableVersionTagRuleset({
       ...immutableTagRuleset,
@@ -535,39 +555,36 @@ test('version-tag ruleset fails closed on missing restrictions or extra bypasses
     /must include only refs\/tags\/v\*/,
   );
   assert.throws(
-    () => validateImmutableVersionTagRuleset({
-      ...immutableTagRuleset,
-      bypass_actors: [
-        ...immutableTagRuleset.bypass_actors,
-        { actor_id: 1, actor_type: 'User', bypass_mode: 'always' },
-      ],
-    }),
-    /exactly one visible bypass actor/,
+    () => validateImmutableVersionTagRuleset({ ...immutableTagRuleset, target: 'branch' }),
+    /must target tags with active enforcement/,
+  );
+  assert.throws(
+    () => validateImmutableVersionTagRuleset({ ...immutableTagRuleset, enforcement: 'evaluate' }),
+    /must target tags with active enforcement/,
+  );
+  assert.throws(
+    () => validateImmutableVersionTagRuleset({ ...immutableTagRuleset, enforcement: 'disabled' }),
+    /must target tags with active enforcement/,
   );
 });
 
-test('version-tag ruleset accepts only the authorized release actor as the bypass principal', () => {
-  assert.deepEqual(
-    validateImmutableVersionTagRuleset({
-      ...immutableTagRuleset,
-      bypass_actors: [{ actor_id: 171286556, actor_type: 'User', bypass_mode: 'always' }],
-    }),
-    { state: 'active', bypassVisibility: 'visible' },
-  );
-
+test('version-tag ruleset accepts only the release bypass role as the bypass principal', () => {
   // Every rejected case uses an actor_type the rulesets API actually returns,
   // so this tracks real policy changes rather than a string the API never
-  // emits. Moving the repository into the organization must not hand the
-  // release bypass to organization admins, a team, an app or a repository role,
-  // and the one allowed principal must still bypass always rather than only
-  // through a pull request.
+  // emits. In the organization repository the release bypass is the
+  // organization admin role. A named user is no longer merely wrong, it is
+  // impossible for an organization repository, so seeing one means the ruleset
+  // is still carrying a stale pre-transfer configuration and must be refused
+  // rather than trusted. A team, an app and a repository role widen the bypass
+  // to principals that are not organization owners, and the one allowed
+  // principal must bypass always rather than only through a pull request.
   const rejectedBypasses = [
-    [{ actor_id: 1, actor_type: 'OrganizationAdmin', bypass_mode: 'always' }],
-    [{ actor_id: 9876543, actor_type: 'Team', bypass_mode: 'always' }],
+    [{ actor_id: 171286556, actor_type: 'User', bypass_mode: 'always' }],
     [{ actor_id: 281797194, actor_type: 'User', bypass_mode: 'always' }],
-    [{ actor_id: 5, actor_type: 'RepositoryRole', bypass_mode: 'always' }],
+    [{ actor_id: 9876543, actor_type: 'Team', bypass_mode: 'always' }],
     [{ actor_id: 15368, actor_type: 'Integration', bypass_mode: 'always' }],
-    [{ actor_id: 171286556, actor_type: 'User', bypass_mode: 'pull_request' }],
+    [{ actor_id: 5, actor_type: 'RepositoryRole', bypass_mode: 'always' }],
+    [{ actor_id: 1, actor_type: 'OrganizationAdmin', bypass_mode: 'pull_request' }],
   ];
   for (const bypassActors of rejectedBypasses) {
     const [actor] = bypassActors;
@@ -576,21 +593,36 @@ test('version-tag ruleset accepts only the authorized release actor as the bypas
         ...immutableTagRuleset,
         bypass_actors: bypassActors,
       }),
-      /bypass must be the authorized release actor only/,
+      /bypass must be the release bypass role only/,
       `accepted ${actor.actor_type}:${actor.actor_id}:${actor.bypass_mode}`,
     );
   }
 
-  // A second bypass actor alongside the correct one is refused by the
-  // single-actor requirement, which reports a different failure.
+  // A second bypass actor alongside the correct one, and a bypass list the
+  // token can read but that is empty, are both refused by the single-actor
+  // requirement, which reports a different failure.
   assert.throws(
     () => validateImmutableVersionTagRuleset({
       ...immutableTagRuleset,
       bypass_actors: [
+        ...immutableTagRuleset.bypass_actors,
         { actor_id: 171286556, actor_type: 'User', bypass_mode: 'always' },
-        { actor_id: 1, actor_type: 'OrganizationAdmin', bypass_mode: 'always' },
       ],
     }),
+    /exactly one visible bypass actor/,
+  );
+  assert.throws(
+    () => validateImmutableVersionTagRuleset({
+      ...immutableTagRuleset,
+      bypass_actors: [
+        ...immutableTagRuleset.bypass_actors,
+        { actor_id: 9876543, actor_type: 'Team', bypass_mode: 'always' },
+      ],
+    }),
+    /exactly one visible bypass actor/,
+  );
+  assert.throws(
+    () => validateImmutableVersionTagRuleset({ ...immutableTagRuleset, bypass_actors: [] }),
     /exactly one visible bypass actor/,
   );
 });

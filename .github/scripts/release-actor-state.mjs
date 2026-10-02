@@ -10,6 +10,14 @@ import { pathToFileURL } from 'node:url';
 // this attempt. Checking only the first would let a rerun of a failed publish
 // job reuse an earlier attempt's authorization, so both must be the authorized
 // release actor. Fail closed on anything unexpected.
+//
+// This guard carries more weight in the organization than it did under a
+// personal account. An organization repository cannot name an individual user
+// as a ruleset bypass actor, so the immutable-version-tags bypass is the
+// organization admin role, and every organization owner can push a release tag
+// past the ruleset. The ruleset no longer narrows the push to one person. This
+// actor check is what limits who can run a release, so it must not be loosened
+// to an owner, a role or a set of ids.
 export const AUTHORIZED_RELEASE_ACTOR_ID = 171286556;
 
 // The repository id survives a transfer between owners, so it is the one piece
