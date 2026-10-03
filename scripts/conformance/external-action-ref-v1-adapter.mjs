@@ -8,16 +8,18 @@
 //
 // Reads one preimage JSON object on stdin and prints the hex digest. Invalid
 // input throws, so the process exits non-zero and the runner records a reject.
-import { computeExternalActionRefV1 } from '../../dist/src/index.js'
+//
+// The bytes go through parseExternalActionRefV1Preimage, not JSON.parse: a
+// duplicate preimage key is OUT_OF_PROFILE_DOMAIN per the profile's Domain
+// paragraph, and JSON.parse would silently keep the last occurrence and
+// destroy the evidence before the helper could see it.
+import {
+  computeExternalActionRefV1,
+  parseExternalActionRefV1Preimage,
+} from '../../dist/src/index.js'
 
 let raw = ''
 process.stdin.setEncoding('utf8')
 for await (const chunk of process.stdin) raw += chunk
-const p = JSON.parse(raw)
-const digest = computeExternalActionRefV1({
-  actionType: p.action_type,
-  agentId: p.agent_id,
-  scope: p.scope,
-  timestamp: p.timestamp,
-})
+const digest = computeExternalActionRefV1(parseExternalActionRefV1Preimage(raw))
 process.stdout.write(digest + '\n')

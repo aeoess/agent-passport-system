@@ -30,6 +30,7 @@ test('the draft-03 release surface is exported from the package root', () => {
 
     // Section 4.2
     'computeExternalActionRefV1',
+    'parseExternalActionRefV1Preimage',
 
     // Section 5
     'validateReceiptStageV1',

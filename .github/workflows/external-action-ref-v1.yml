@@ -45,7 +45,7 @@ jobs:
           cache: "npm"
 
       - name: Install
-        run: npm ci
+        run: npm ci --include=dev
 
       - name: Build
         run: npm run build
