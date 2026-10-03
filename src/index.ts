@@ -41,6 +41,7 @@ export { computeActionRef, actionRefsMatch } from './core/action-ref.js'
 // External cross-ecosystem correlation key (action-ref-v1-jcs-sha256).
 // Distinct primitive from the APS-native action_ref above.
 export { computeExternalActionRefV1 } from './core/external-action-ref.js'
+export { parseExternalActionRefV1Preimage } from './core/external-action-ref.js'
 export type { ExternalActionRefV1Input } from './core/external-action-ref.js'
 // The draft-native section 4.1 action reference (aps-action-ref-v2), the whole surface
 // rather than the digest alone. computeActionRefV2FromJson and parseActionReferenceInputV2

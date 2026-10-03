@@ -1,5 +1,54 @@
 # Changelog
 
+## Unreleased
+
+**BREAKING: `computeExternalActionRefV1` accepts fewer inputs.** The external
+cross-ecosystem `action_ref` v1 helper (`action-ref-v1-jcs-sha256`) adds checks from the
+Domain paragraph of giskard09/argentum-core `docs/spec/action-ref.md` at commit
+[6ceecf5442fb9a573fdc87a0559755437a7f379f](https://github.com/giskard09/argentum-core/commit/6ceecf5442fb9a573fdc87a0559755437a7f379f)
+and its reference validator `_validate_domain`. Inputs that were accepted and hashed
+before are rejected now, before any digest is computed:
+
+- A non-ASCII `agentId`, `actionType` or `scope`. Every code point must be `<= 0x7F`.
+- An empty `scope`. The `""` "not applicable" exception was removed from the upstream
+  specification on 2026-08-15.
+
+Removing accepted inputs from a published export is a breaking change. Per the release
+rules in AGENTS.md and CONTRIBUTING.md it ships in the next major version, with the
+migration note in [MIGRATION.md](MIGRATION.md). Merging this entry does not release it.
+
+**One error marker for domain failures.** Every rejection by this helper and its parser
+now carries the literal `OUT_OF_PROFILE_DOMAIN` in its message, with the original wording
+kept after the marker: a non-string field, a non-ASCII `agentId`, `actionType` or
+`scope`, an empty `scope`, a duplicate preimage key, a non-object top level, malformed
+JSON, and every timestamp grammar or calendar failure. Timestamp acceptance itself is
+unchanged, only the message text gained the marker.
+
+**New: `parseExternalActionRefV1Preimage(json)`.** The serialized entry point for the
+same helper, exported from the package root. It parses one snake_case preimage object
+into the camelCase input and rejects a top level that is not a JSON object and a duplicate
+preimage key. Member names are compared after JSON string decoding, so `"a"` and an
+escaped `"\u0061"` are the same key. `JSON.parse` keeps the last occurrence, so it cannot
+make this check.
+
+**No digest changed for inputs that are still accepted.** This is a narrowing of
+acceptance, not a change of derivation. `canonical-jcs.ts`, `canonicalHashJCS`,
+`computeActionRef` and general canonicalization are untouched, and the APS-native
+`action_ref` (`draft-pidlisnyi-aps` section 4.1) is unaffected.
+
+Conformance vectors `av-003` (non-ASCII values) and `av-007` (empty `scope`) are now
+rejection vectors, and four rejection vectors were added for a non-ASCII `agent_id`, a
+non-ASCII `action_type`, a duplicate key and an escape-aliased duplicate key. The suite
+is 17 vectors, 6 accept and 11 reject.
+
+**Timestamp differences from the pinned reference validator.** The helper and that
+revision's `compute_action_ref` were compared on timestamp boundary inputs. In the cases
+tested, every input accepted by both produced the same digest. Acceptance differs for year
+0000 and second 60 at month end (accepted here, rejected there) and for Arabic-Indic
+digits in the timestamp (rejected here, accepted there). Details under "Differences from
+the reference validator" in [docs/specs/action-ref-v1.md](docs/specs/action-ref-v1.md).
+No timestamp behavior changed.
+
 ## 7.2.1 (2026-10-02)
 
 First release from the agent-passport-system organization. No library code changes from 7.2.0, and runtime dependencies are unchanged.

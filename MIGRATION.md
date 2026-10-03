@@ -1,3 +1,35 @@
+# Migration to the next major version: external action-ref v1 input checks
+
+This applies only to callers of `computeExternalActionRefV1`, the external
+cross-ecosystem `action_ref` v1 helper. The APS-native `computeActionRef` and
+every other export are unchanged.
+
+## What changed
+
+`computeExternalActionRefV1` now rejects, with an error containing
+`OUT_OF_PROFILE_DOMAIN`, two kinds of input it used to hash:
+
+- a non-ASCII `agentId`, `actionType` or `scope`
+- an empty `scope`
+
+Every other rejection by the helper also gains the `OUT_OF_PROFILE_DOMAIN`
+marker at the start of its message. The text after the marker is unchanged.
+Digests for inputs that are still accepted are unchanged.
+
+New export: `parseExternalActionRefV1Preimage(json)` parses serialized preimage
+bytes and rejects duplicate keys and a non-object top level.
+
+## What to do
+
+- If you pass user text or display names as `actionType` or `scope`, map them
+  to an ASCII label before calling the helper, or handle the error.
+- If you used `""` for "no scope", pass a non-empty label instead. Any
+  `action_ref` you computed over an empty or non-ASCII value cannot be
+  reproduced by a verifier that follows the pinned profile.
+- If you parse preimages from the wire, use `parseExternalActionRefV1Preimage`
+  instead of `JSON.parse`, so duplicate keys are refused.
+- If you match on error wording, match on `OUT_OF_PROFILE_DOMAIN`.
+
 # Migration from v1.x to v2.0
 
 v2.0 separates the Agent Passport protocol (public SDK) from the reference

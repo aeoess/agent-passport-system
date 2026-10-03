@@ -1,0 +1,66 @@
+name: external action-ref v1 (Composable Evidence Criteria lab)
+
+# Runs the Composable Evidence Criteria lab's pinned action-ref-conformance
+# Action against computeExternalActionRefV1, built from this checkout. Covers
+# the external action-ref v1 helper only, not the APS-native action reference
+# and not overall APS conformance.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "package.json"
+      - "package-lock.json"
+      - "scripts/conformance/**"
+      - ".github/workflows/external-action-ref-v1.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "package.json"
+      - "package-lock.json"
+      - "scripts/conformance/**"
+      - ".github/workflows/external-action-ref-v1.yml"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  verify-impl:
+    name: action-ref-v1-jcs-sha256 (lab Action, pinned)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install
+        run: npm ci --include=dev
+
+      - name: Build
+        run: npm run build
+
+      - name: Run the lab's conformance Action
+        id: arc
+        uses: Composable-Evidence-Criteria/action-ref-conformance@56e25a8353ba02b76edb072c5bd405b56238bb12  # v1
+        with:
+          mode: verify-impl
+          command: node scripts/conformance/external-action-ref-v1-adapter.mjs
+
+      - name: Keep the JSON report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: external-action-ref-v1-report
+          path: ${{ steps.arc.outputs.report }}
+          if-no-files-found: error
