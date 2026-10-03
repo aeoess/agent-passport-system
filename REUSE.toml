@@ -5,3 +5,71 @@ path = ["**/*.md", "**/*.json", "**/*.yml", "**/*.yaml", "**/*.toml", "**/*.txt"
 precedence = "closest"
 SPDX-FileCopyrightText = "2026 Tymofii Pidlisnyi"
 SPDX-License-Identifier = "Apache-2.0"
+
+# First-party TypeScript tests. The repository convention is an in-file SPDX
+# header; precedence "closest" keeps every existing header authoritative and
+# makes this entry the backstop for files that were added without one.
+[[annotations]]
+path = ["tests/**/*.ts"]
+precedence = "closest"
+SPDX-FileCopyrightText = "2026 Tymofii Pidlisnyi"
+SPDX-License-Identifier = "Apache-2.0"
+
+# ---------------------------------------------------------------------------
+# Third-party material. Entries below are matched last and use precedence
+# "override" so no earlier glob, and no copyright-looking sentence scraped out
+# of the file body, can attribute this material to the project.
+# ---------------------------------------------------------------------------
+
+# IETF Internet-Drafts reproduced verbatim for the OAuth composition analysis.
+# Each document states this copyright and these terms in its own Copyright
+# Notice section. Not Apache-2.0 and not a work of this project.
+[[annotations]]
+path = ["interop/oauth-liu-composition/drafts/*.txt"]
+precedence = "override"
+SPDX-FileCopyrightText = "2026 IETF Trust and the persons identified as the document authors"
+SPDX-License-Identifier = "LicenseRef-IETF-Trust-TLP"
+
+# EFF Long Wordlist, words column only. Byte-identical to the words column of
+# https://www.eff.org/files/2016/07/18/eff_large_wordlist.txt
+# (sha256 of the stripped column: 6d557f0693958fb5e650b68b5bee585eb82cf4da32965505c789e924743bc522).
+# Published by the EFF under CC-BY-3.0; the attribution requirement is carried
+# in docs/word-handles-spec.md, lexicon-source/generate_lexicon.py and the
+# generated lexicon.ts header.
+[[annotations]]
+path = ["src/v2/word_handles/lexicon-source/eff_large_wordlist_words.txt"]
+precedence = "override"
+SPDX-FileCopyrightText = "Electronic Frontier Foundation"
+SPDX-License-Identifier = "CC-BY-3.0"
+
+# BIP-39 English wordlist. Byte-identical to bitcoin/bips bip-0039/english.txt
+# (sha256 2f5eed53a4727b4bf8880d8f3f199efc90e58503646d9ff8eff3a2ed3b24dbda, the
+# digest this repository already pins). BIP-39 declares "License: MIT" in its
+# preamble and "This BIP falls under the MIT License" in its Copyright section.
+# Used here only as a disjointness-check input; no BIP-39 word reaches the
+# generated lexicon.
+[[annotations]]
+path = ["src/v2/word_handles/lexicon-source/bip39_english.txt"]
+precedence = "override"
+SPDX-FileCopyrightText = "2013 Marek Palatinus, Pavol Rusnak, Aaron Voisine, Sean Bowe"
+SPDX-License-Identifier = "MIT"
+
+# AgentNexus interop fixtures, contributed by an outside author in
+# agent-passport-system#17 (commit 095d3825, author kevinkaylie). Apache-2.0
+# under the project's inbound=outbound DCO terms (CONTRIBUTING.md), but the
+# copyright is the contributor's, not the project's.
+[[annotations]]
+path = ["interop/fixtures/agentnexus/*.json"]
+precedence = "override"
+SPDX-FileCopyrightText = "2026 kevinkaylie, AgentNexus interop contributor"
+SPDX-License-Identifier = "Apache-2.0"
+
+# First-party documents that discuss third-party licensing in prose. Without an
+# override, REUSE scrapes those sentences and reports them as the file's
+# copyright holder ("Copyright Electronic Frontier Foundation,", "Copyright
+# header on all files"). These documents are this project's own work.
+[[annotations]]
+path = ["docs/word-handles-spec.md", "specs/BUILD-IBAC-ADAPTER.md"]
+precedence = "override"
+SPDX-FileCopyrightText = "2026 Tymofii Pidlisnyi"
+SPDX-License-Identifier = "Apache-2.0"
